@@ -1,0 +1,157 @@
+import { sqliteTable, integer, text, real } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+
+// Currencies table
+export const currencies = sqliteTable('currencies', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  code: text('code').notNull().unique(),
+  name: text('name').notNull(),
+  symbol: text('symbol').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Exchange rates table
+export const exchangeRates = sqliteTable('exchange_rates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  currencyId: integer('currency_id').notNull().references(() => currencies.id, { onDelete: 'cascade' }),
+  rateToBase: real('rate_to_base').notNull(),
+  effectiveDate: integer('effective_date', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  source: text('source').notNull().default('manual'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Settings table
+export const settings = sqliteTable('settings', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  settingKey: text('setting_key').notNull().unique(),
+  settingValue: text('setting_value').notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Materials table
+export const materials = sqliteTable('materials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  sku: text('sku'),
+  description: text('description'),
+  category: text('category').notNull(),
+  unit: text('unit').notNull(),
+  bulkQuantity: real('bulk_quantity').notNull(),
+  bulkPrice: real('bulk_price').notNull(),
+  purchaseCurrencyId: integer('purchase_currency_id').notNull().references(() => currencies.id),
+  priceInPurchaseCurrency: real('price_in_purchase_currency').notNull(),
+  priceInBaseCurrency: real('price_in_base_currency').notNull(),
+  unitPrice: real('unit_price').notNull(),
+  supplier: text('supplier').notNull(),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Products table
+export const products = sqliteTable('products', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  sku: text('sku'),
+  description: text('description'),
+  category: text('category'),
+  overheadPercentage: real('overhead_percentage').notNull(),
+  profitMargin: real('profit_margin').notNull(),
+  otherDirectCosts: real('other_direct_costs').notNull().default(0),
+  productionMode: text('production_mode').default('single'),
+  batchYield: integer('batch_yield').default(1),
+  currentSellingPrice: real('current_selling_price').default(0),
+  approvalStatus: text('approval_status').notNull().default('pending'),
+  approvedPrice: real('approved_price'),
+  approvedBy: text('approved_by'),
+  approvedAt: integer('approved_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export const priceLevels = sqliteTable('price_levels', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  multiplier: real('multiplier').notNull().default(1),
+  adjustmentType: text('adjustment_type').notNull().default('discount'),
+  adjustmentPercentage: real('adjustment_percentage').notNull().default(0),
+  description: text('description'),
+  isActive: integer('is_active', { mode: 'boolean' }).default(true),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const customers = sqliteTable('customers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  allowSpecialPricing: integer('allow_special_pricing', { mode: 'boolean' }).notNull().default(false),
+  priceLevelId: integer('price_level_id').notNull().references(() => priceLevels.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export const specialPricing = sqliteTable('special_pricing', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  customerId: integer('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  customPrice: real('custom_price').notNull(),
+  productionCost: real('production_cost'),
+  marginImpactPercentage: real('margin_impact_percentage'),
+  oldMarginPercentage: real('old_margin_percentage'),
+  overrideType: text('override_type').notNull().default('custom'),
+  discountPercentage: real('discount_percentage'),
+  markupPercentage: real('markup_percentage'),
+  status: text('status').notNull().default('pending'),
+  approvedBy: text('approved_by'),
+  approvedAt: integer('approved_at', { mode: 'timestamp' }),
+  justification: text('justification'),
+  createdBy: text('created_by'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Bill of Materials table
+export const billOfMaterials = sqliteTable('bill_of_materials', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  productId: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  materialId: integer('material_id').notNull().references(() => materials.id, { onDelete: 'cascade' }),
+  quantity: real('quantity').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Material price history table
+export const materialPriceHistory = sqliteTable('material_price_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  materialId: integer('material_id').notNull().references(() => materials.id, { onDelete: 'cascade' }),
+  purchaseCurrencyId: integer('purchase_currency_id').notNull().references(() => currencies.id),
+  priceInPurchaseCurrency: real('price_in_purchase_currency').notNull(),
+  priceInBaseCurrency: real('price_in_base_currency').notNull(),
+  changedAt: integer('changed_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Price lists table
+export const priceLists = sqliteTable('price_lists', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  customerId: integer('customer_id').references(() => customers.id),
+  priceLevelId: integer('price_level_id').notNull().references(() => priceLevels.id),
+  validFrom: integer('valid_from', { mode: 'timestamp' }).notNull(),
+  validUntil: integer('valid_until', { mode: 'timestamp' }),
+  status: text('status').notNull().default('draft'),
+  createdBy: text('created_by'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+// Price list items table
+export const priceListItems = sqliteTable('price_list_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  priceListId: integer('price_list_id').notNull().references(() => priceLists.id, { onDelete: 'cascade' }),
+  productId: integer('product_id').notNull().references(() => products.id),
+  basePrice: real('base_price').notNull(),
+  discountPercentage: real('discount_percentage').notNull().default(0),
+  finalPrice: real('final_price').notNull(),
+  priceSource: text('price_source').notNull().default('base'),
+  notes: text('notes'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});

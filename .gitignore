@@ -1,0 +1,7 @@
+server/.env
+client/.env
+server/migration/*.json
+server/backups/
+node_modules/
+client/node_modules/
+server/node_modules/

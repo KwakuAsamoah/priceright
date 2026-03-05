@@ -1,0 +1,1365 @@
+import { useState, useEffect, useMemo } from 'react';
+import { Calculator, CheckCircle2, Clock3, Coins, HardDrive, Package, Plus, Trash2 } from 'lucide-react';
+import { currenciesApi, exchangeRatesApi, settingsApi, priceLevelRulesApi, backupApi, productsApi, materialsApi } from '../api';
+
+interface Currency {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string;
+  isActive: boolean;
+}
+
+interface ExchangeRate {
+  id: number;
+  currencyId: number;
+  rateToBase: number;
+}
+
+interface ProductSummary {
+  category?: string | null;
+}
+
+interface MaterialSummary {
+  category?: string | null;
+  unit?: string | null;
+}
+
+interface ExchangeRateRecalculationSummary {
+  materialsUpdated: number;
+  productsReviewed: number;
+  productsNowNeedsReview: number;
+}
+
+interface ExchangeRateUpdateResponse {
+  success?: boolean;
+  rate?: ExchangeRate;
+  recalculation?: ExchangeRateRecalculationSummary;
+  recalculationFailed?: boolean;
+}
+
+interface RateSaveBanner {
+  tone: 'success' | 'warning' | 'error';
+  message: string;
+  reminder?: string;
+}
+
+function parseConfiguredList(rawValue: unknown): string[] {
+  if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+    return [];
+  }
+
+  const text = rawValue.trim();
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => String(entry || '').trim())
+        .filter((entry) => entry.length > 0);
+    }
+  } catch {
+    // Ignore and fallback to delimited parsing
+  }
+
+  return text
+    .split(/[\n,;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeMasterListInput(input: string): string[] {
+  const seen = new Set<string>();
+  const values: string[] = [];
+
+  for (const value of parseConfiguredList(input)) {
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    values.push(value);
+  }
+
+  return values;
+}
+
+function countByNormalized(values: string[]): Record<string, number> {
+  return values.reduce<Record<string, number>>((accumulator, value) => {
+    const key = value.trim().toLowerCase();
+    if (!key) return accumulator;
+    accumulator[key] = (accumulator[key] || 0) + 1;
+    return accumulator;
+  }, {});
+}
+
+export default function Settings() {
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
+  const [baseCurrency, setBaseCurrency] = useState<string>('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingRate, setEditingRate] = useState<number | null>(null);
+  const [rateValue, setRateValue] = useState('');
+  const [defaultOverhead, setDefaultOverhead] = useState('30');
+  const [companyName, setCompanyName] = useState('');
+  const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  const [brandingMessage, setBrandingMessage] = useState('');
+  // Price Level Rules State
+  const [priceRules, setPriceRules] = useState<any[]>([]);
+  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
+  const [editingRule, setEditingRule] = useState<any>(null);
+  const [ruleFormData, setRuleFormData] = useState({
+    name: '',
+    adjustmentType: 'discount' as 'discount' | 'markup',
+    adjustmentPercentage: '',
+    description: '',
+  });
+
+  // Overhead Calculator State
+  const [overheadInputs, setOverheadInputs] = useState({
+    totalOverhead: '',
+    materialCosts: '',
+  });
+
+  const [formData, setFormData] = useState({
+    code: '',
+    name: '',
+    symbol: '',
+  });
+
+  // Backup State
+  const [backupStatus, setBackupStatus] = useState<{ lastBackupTime: string | null; backupCount: number } | null>(null);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [backupMessage, setBackupMessage] = useState('');
+  const [isSavingRate, setIsSavingRate] = useState(false);
+  const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
+  const [rateSaveBanner, setRateSaveBanner] = useState<RateSaveBanner | null>(null);
+  const [productCategoriesInput, setProductCategoriesInput] = useState('');
+  const [materialCategoriesInput, setMaterialCategoriesInput] = useState('');
+  const [materialUnitsInput, setMaterialUnitsInput] = useState('');
+  const [isSavingMasterData, setIsSavingMasterData] = useState(false);
+  const [masterDataMessage, setMasterDataMessage] = useState('');
+  const [productCategoryCounts, setProductCategoryCounts] = useState<Record<string, number>>({});
+  const [materialCategoryCounts, setMaterialCategoryCounts] = useState<Record<string, number>>({});
+  const [materialUnitCounts, setMaterialUnitCounts] = useState<Record<string, number>>({});
+
+  const configuredProductCategories = useMemo(
+    () => normalizeMasterListInput(productCategoriesInput),
+    [productCategoriesInput]
+  );
+  const configuredMaterialCategories = useMemo(
+    () => normalizeMasterListInput(materialCategoriesInput),
+    [materialCategoriesInput]
+  );
+  const configuredMaterialUnits = useMemo(
+    () => normalizeMasterListInput(materialUnitsInput),
+    [materialUnitsInput]
+  );
+
+  function formatPercentMaxTwo(value: number) {
+    return Number(value || 0).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (!rateSaveBanner) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setRateSaveBanner(null);
+    }, 6000);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [rateSaveBanner]);
+
+
+async function loadData() {
+    try {
+      const [currenciesData, ratesData, settingsData, rulesData, backupData, productsData, materialsData] = await Promise.all([
+        currenciesApi.getAll(),
+        exchangeRatesApi.getAll(),
+        settingsApi.getAll(),
+        priceLevelRulesApi.getAll(),
+        backupApi.getStatus(),
+        productsApi.getAll(),
+        materialsApi.getAll(),
+      ]);
+      setCurrencies(currenciesData);
+      setExchangeRates(ratesData);
+      setPriceRules(rulesData);
+      setBackupStatus(backupData);
+      
+      const baseSetting = settingsData.find((s: any) => s.settingKey === 'baseCurrency');
+      if (baseSetting) {
+        setBaseCurrency(baseSetting.settingValue);
+      }
+
+      const overheadSetting = settingsData.find((s: any) => s.settingKey === 'defaultOverhead');
+      if (overheadSetting) {
+        setDefaultOverhead(overheadSetting.settingValue);
+      }
+
+      const companyNameSetting = settingsData.find((s: any) => s.settingKey === 'companyName');
+      if (companyNameSetting) {
+        setCompanyName(companyNameSetting.settingValue);
+      }
+
+      const companyLogoSetting = settingsData.find((s: any) => s.settingKey === 'companyLogoDataUrl');
+      if (companyLogoSetting) {
+        setCompanyLogoDataUrl(companyLogoSetting.settingValue);
+      }
+
+      const productCategoriesSetting = settingsData.find((s: any) => s.settingKey === 'productCategories');
+      setProductCategoriesInput(parseConfiguredList(productCategoriesSetting?.settingValue || '').join('\n'));
+
+      const materialCategoriesSetting = settingsData.find((s: any) => s.settingKey === 'materialCategories');
+      setMaterialCategoriesInput(parseConfiguredList(materialCategoriesSetting?.settingValue || '').join('\n'));
+
+      const materialUnitsSetting = settingsData.find((s: any) => s.settingKey === 'materialUnits');
+      setMaterialUnitsInput(parseConfiguredList(materialUnitsSetting?.settingValue || '').join('\n'));
+
+      const safeProducts = Array.isArray(productsData) ? productsData as ProductSummary[] : [];
+      const safeMaterials = Array.isArray(materialsData) ? materialsData as MaterialSummary[] : [];
+
+      setProductCategoryCounts(
+        countByNormalized(
+          safeProducts
+            .map((product) => (product.category || '').trim())
+            .filter((category) => category.length > 0)
+        )
+      );
+
+      setMaterialCategoryCounts(
+        countByNormalized(
+          safeMaterials
+            .map((material) => (material.category || '').trim())
+            .filter((category) => category.length > 0)
+        )
+      );
+
+      setMaterialUnitCounts(
+        countByNormalized(
+          safeMaterials
+            .map((material) => (material.unit || '').trim())
+            .filter((unit) => unit.length > 0)
+        )
+      );
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  }
+
+  async function handleSaveMasterData() {
+    setIsSavingMasterData(true);
+    setMasterDataMessage('');
+    try {
+      const productCategories = normalizeMasterListInput(productCategoriesInput);
+      const materialCategories = normalizeMasterListInput(materialCategoriesInput);
+      const materialUnits = normalizeMasterListInput(materialUnitsInput);
+
+      await Promise.all([
+        settingsApi.save({ settingKey: 'productCategories', settingValue: JSON.stringify(productCategories) }),
+        settingsApi.save({ settingKey: 'materialCategories', settingValue: JSON.stringify(materialCategories) }),
+        settingsApi.save({ settingKey: 'materialUnits', settingValue: JSON.stringify(materialUnits) }),
+      ]);
+
+      setProductCategoriesInput(productCategories.join('\n'));
+      setMaterialCategoriesInput(materialCategories.join('\n'));
+      setMaterialUnitsInput(materialUnits.join('\n'));
+      setMasterDataMessage('Master data saved. New values are available across forms.');
+      window.setTimeout(() => setMasterDataMessage(''), 3000);
+    } catch (error) {
+      console.error('Error saving master data:', error);
+      setMasterDataMessage('Failed to save master data.');
+    } finally {
+      setIsSavingMasterData(false);
+    }
+  }
+
+  async function handleCreateBackup() {
+    setIsCreatingBackup(true);
+    setBackupMessage('');
+    try {
+      await backupApi.createBackup();
+      setBackupMessage('Backup created successfully.');
+      // Reload backup status
+      const status = await backupApi.getStatus();
+      setBackupStatus(status);
+      setTimeout(() => setBackupMessage(''), 3000);
+    } catch (error) {
+      console.error('Error creating backup:', error);
+      setBackupMessage('❌ Failed to create backup');
+      setTimeout(() => setBackupMessage(''), 3000);
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  }
+
+  async function handleAddCurrency(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await currenciesApi.create(formData);
+      setShowAddModal(false);
+      setFormData({ code: '', name: '', symbol: '' });
+      loadData();
+    } catch (error) {
+      console.error('Error adding currency:', error);
+    }
+  }
+
+  async function handleSetBaseCurrency(code: string) {
+    try {
+      await settingsApi.save({ settingKey: 'baseCurrency', settingValue: code });
+      setBaseCurrency(code);
+    } catch (error) {
+      console.error('Error setting base currency:', error);
+    }
+  }
+
+  async function handleSaveDefaultOverhead() {
+    try {
+      await settingsApi.save({ settingKey: 'defaultOverhead', settingValue: defaultOverhead });
+      alert('Default overhead rate saved successfully!');
+    } catch (error) {
+      console.error('Error saving default overhead:', error);
+      alert('Failed to save default overhead rate');
+    }
+  }
+
+  async function handleSaveBranding() {
+    setIsSavingBranding(true);
+    setBrandingMessage('');
+    try {
+      await settingsApi.save({ settingKey: 'companyName', settingValue: companyName.trim() });
+      await settingsApi.save({ settingKey: 'companyLogoDataUrl', settingValue: companyLogoDataUrl || '' });
+      setBrandingMessage('Company branding saved.');
+      window.setTimeout(() => setBrandingMessage(''), 3000);
+    } catch (error) {
+      console.error('Error saving company branding:', error);
+      setBrandingMessage('Failed to save company branding.');
+    } finally {
+      setIsSavingBranding(false);
+    }
+  }
+
+  function handleLogoFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setBrandingMessage('Please choose an image file for logo.');
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      setBrandingMessage('Logo must be 1MB or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setCompanyLogoDataUrl(result);
+      setBrandingMessage('Logo selected. Click Save Branding to apply.');
+    };
+    reader.onerror = () => {
+      setBrandingMessage('Could not read selected logo file.');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleUpdateRate(currencyId: number) {
+    setIsSavingRate(true);
+    setSavingRateCurrencyId(currencyId);
+    setRateSaveBanner(null);
+
+    try {
+      const response = await exchangeRatesApi.update(currencyId, { rateToBase: parseFloat(rateValue) }) as ExchangeRateUpdateResponse;
+
+      const summary = response.recalculation;
+      const reminder = 'Materials and Products pages will show updated values on next load.';
+
+      if (response.recalculationFailed) {
+        setRateSaveBanner({
+          tone: 'warning',
+          message: 'WARNING: Rate saved, but recalculation failed. Please go to Materials and manually trigger recalculation.',
+          reminder,
+        });
+      } else if ((summary?.materialsUpdated ?? 0) === 0) {
+        setRateSaveBanner({
+          tone: 'success',
+          message: 'SUCCESS: Exchange rate saved. No materials use this currency.',
+          reminder,
+        });
+      } else {
+        setRateSaveBanner({
+          tone: 'success',
+          message: `SUCCESS: Exchange rate saved. ${summary?.materialsUpdated ?? 0} materials and ${summary?.productsReviewed ?? 0} products recalculated. ${summary?.productsNowNeedsReview ?? 0} products moved to Needs Review.`,
+          reminder,
+        });
+      }
+      
+      setEditingRate(null);
+      setRateValue('');
+      // Note: Materials and Products pages will reflect recalculated values
+      // on their next load. Users should refresh those pages after a rate change.
+      loadData();
+    } catch (error) {
+      console.error('Error updating rate:', error);
+      setRateSaveBanner({
+        tone: 'error',
+        message: 'WARNING: Rate save failed. Please try again.',
+      });
+    } finally {
+      setIsSavingRate(false);
+      setSavingRateCurrencyId(null);
+    }
+  }
+
+  function getExchangeRate(currencyId: number) {
+    const rate = exchangeRates.find((r) => r.currencyId === currencyId);
+    return rate ? rate.rateToBase : 1;
+  }
+
+  function calculateOverheadPercentage() {
+    const totalOverhead = parseFloat(overheadInputs.totalOverhead || '0');
+    const materialCosts = parseFloat(overheadInputs.materialCosts || '0');
+    
+    if (materialCosts === 0) return 0;
+    return Math.round((totalOverhead / materialCosts) * 100);
+  }
+
+  function handleUseCalculatedRate() {
+    const calculatedRate = calculateOverheadPercentage();
+    setDefaultOverhead(calculatedRate.toString());
+  }
+
+// Price Level Rules Functions
+  async function handleSavePriceRule(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      const data = {
+        name: ruleFormData.name,
+        adjustmentType: ruleFormData.adjustmentType,
+        adjustmentPercentage: parseFloat(ruleFormData.adjustmentPercentage),
+        description: ruleFormData.description,
+      };
+
+      if (Number.isNaN(data.adjustmentPercentage) || data.adjustmentPercentage < 0) {
+        alert('Adjustment percentage must be a non-negative number');
+        return;
+      }
+
+      if (data.adjustmentType === 'discount' && data.adjustmentPercentage > 100) {
+        alert('Discount percentage must be between 0 and 100');
+        return;
+      }
+
+      if (data.adjustmentType === 'markup' && data.adjustmentPercentage > 1000) {
+        alert('Markup percentage must be between 0 and 1000');
+        return;
+      }
+
+      if (editingRule) {
+        await priceLevelRulesApi.update(editingRule.id, data);
+      } else {
+        await priceLevelRulesApi.create(data);
+      }
+
+      setShowAddRuleModal(false);
+      setEditingRule(null);
+      setRuleFormData({ name: '', adjustmentType: 'discount', adjustmentPercentage: '', description: '' });
+      loadData();
+    } catch (error) {
+      console.error('Error saving price rule:', error);
+      alert('Failed to save price rule');
+    }
+  }
+
+  async function handleDeletePriceRule(id: number) {
+    if (window.confirm('Delete this pricing rule? This cannot be undone.')) {
+      try {
+        await priceLevelRulesApi.delete(id);
+        loadData();
+      } catch (error) {
+        console.error('Error deleting price rule:', error);
+        alert('Failed to delete price rule');
+      }
+    }
+  }
+
+  function handleEditPriceRule(rule: any) {
+    setEditingRule(rule);
+    setRuleFormData({
+      name: rule.name,
+      adjustmentType: rule.adjustmentType || 'discount',
+      adjustmentPercentage: String(rule.adjustmentPercentage ?? 0),
+      description: rule.description || '',
+    });
+    setShowAddRuleModal(true);
+  }
+
+  return (
+    <div className="app-page">
+      {/* Header */}
+      <div className="app-page-header">
+        <h1 className="app-page-title">Settings</h1>
+        <p className="app-page-subtitle">Manage currencies, exchange rates, and default values</p>
+      </div>
+
+      <div className="app-page-content" style={{ paddingTop: '24px' }}>
+        {rateSaveBanner && (
+          <div
+            style={{
+              marginBottom: '16px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f8fafc',
+              borderRadius: '8px',
+              padding: '12px 14px',
+              color: '#0f172a',
+              display: 'flex',
+              alignItems: 'flex-start',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
+              {rateSaveBanner.reminder && (
+                <div style={{ marginTop: '6px', fontSize: '12px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRateSaveBanner(null)}
+              aria-label="Dismiss message"
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#334155',
+                cursor: 'pointer',
+                fontSize: '16px',
+                lineHeight: 1,
+                padding: 0,
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        {/* Two Column Layout */}
+        <div className="app-settings-grid">
+          {/* Left Column */}
+          <div>
+            <div className="app-card app-settings-card">
+              <h2>Company Branding</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Set your company name and logo for the Dashboard header.
+              </p>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div>
+                  <label className="app-settings-label">Company Name</label>
+                  <input
+                    className="app-control"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Enter company name"
+                  />
+                </div>
+
+                <div>
+                  <label className="app-settings-label">Logo</label>
+                  <input
+                    className="app-control"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoFileChange}
+                  />
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '12px' }}>
+                    PNG/JPG up to 1MB.
+                  </div>
+                </div>
+
+                {companyLogoDataUrl && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img
+                      src={companyLogoDataUrl}
+                      alt="Company logo preview"
+                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #dbe2ea' }}
+                    />
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setCompanyLogoDataUrl('')}
+                      type="button"
+                      style={{ padding: '6px 10px', fontSize: '12px' }}
+                    >
+                      Remove Logo
+                    </button>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSaveBranding}
+                    disabled={isSavingBranding}
+                    type="button"
+                  >
+                    {isSavingBranding ? 'Saving...' : 'Save Branding'}
+                  </button>
+                  {brandingMessage && <span style={{ fontSize: '12px', color: '#475569' }}>{brandingMessage}</span>}
+                </div>
+              </div>
+            </div>
+
+            {/* Base Currency Section */}
+            <div className="app-card app-settings-card">
+              <h2>Base Currency</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                All prices will be converted to this currency for calculations.
+              </p>
+              <select
+                className="app-control"
+                value={baseCurrency}
+                onChange={(e) => handleSetBaseCurrency(e.target.value)}
+                style={{ minWidth: '200px' }}
+              >
+                <option value="">Select base currency</option>
+                {currencies.map((currency) => (
+                  <option key={currency.id} value={currency.code}>
+                    {currency.code} - {currency.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Default Overhead Section */}
+            <div className="app-card app-settings-card">
+              <h2>Default Overhead Rate</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                This percentage will be pre-filled when creating new products. Use the calculator to the right to determine it.
+              </p>
+              <div className="app-settings-row-end">
+                <div style={{ flex: 1 }}>
+                  <label className="app-settings-label">
+                    Default Overhead %
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      step="0.1"
+                      value={defaultOverhead}
+                      onChange={(e) => setDefaultOverhead(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        paddingRight: '35px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '14px',
+                      }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveDefaultOverhead}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+
+            <div className="app-card app-settings-card">
+              <h2>Master Data</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Manage reusable options. Enter one value per line (or comma-separated).
+              </p>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div>
+                  <label className="app-settings-label">Product Categories</label>
+                  <textarea
+                    className="app-control"
+                    value={productCategoriesInput}
+                    onChange={(e) => setProductCategoriesInput(e.target.value)}
+                    placeholder="e.g. Beverages"
+                    style={{ minHeight: '90px', width: '100%' }}
+                  />
+                  {configuredProductCategories.length > 0 && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      {configuredProductCategories.map((value) => {
+                        const count = productCategoryCounts[value.toLowerCase()] || 0;
+                        return (
+                          <div key={value} style={{ marginBottom: '2px' }}>
+                            {value}: Used in {count} product{count === 1 ? '' : 's'}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="app-settings-label">Raw Material Categories</label>
+                  <textarea
+                    className="app-control"
+                    value={materialCategoriesInput}
+                    onChange={(e) => setMaterialCategoriesInput(e.target.value)}
+                    placeholder="e.g. Packaging"
+                    style={{ minHeight: '90px', width: '100%' }}
+                  />
+                  {configuredMaterialCategories.length > 0 && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      {configuredMaterialCategories.map((value) => {
+                        const count = materialCategoryCounts[value.toLowerCase()] || 0;
+                        return (
+                          <div key={value} style={{ marginBottom: '2px' }}>
+                            {value}: Used in {count} material{count === 1 ? '' : 's'}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="app-settings-label">Units of Measure</label>
+                  <textarea
+                    className="app-control"
+                    value={materialUnitsInput}
+                    onChange={(e) => setMaterialUnitsInput(e.target.value)}
+                    placeholder="e.g. kg"
+                    style={{ minHeight: '90px', width: '100%' }}
+                  />
+                  {configuredMaterialUnits.length > 0 && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      {configuredMaterialUnits.map((value) => {
+                        const count = materialUnitCounts[value.toLowerCase()] || 0;
+                        return (
+                          <div key={value} style={{ marginBottom: '2px' }}>
+                            {value}: Used in {count} material{count === 1 ? '' : 's'}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSaveMasterData}
+                    disabled={isSavingMasterData}
+                    type="button"
+                  >
+                    {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
+                  </button>
+                  {masterDataMessage && <span style={{ fontSize: '12px', color: '#475569' }}>{masterDataMessage}</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div>
+            {/* Overhead Calculator Section - Compact */}
+            <div className="app-card app-settings-card">
+              <h2 style={{ marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Calculator size={18} strokeWidth={2} />
+                Overhead Calculator
+              </h2>
+              <p className="app-page-subtitle" style={{ fontSize: '12px', marginBottom: '16px' }}>
+                (Overhead ÷ Material Costs) × 100 = Rate %
+              </p>
+
+              {/* Quick Guidance */}
+              <div className="app-settings-note">
+                <strong style={{ color: '#1f2937' }}>Include:</strong> Rent, utilities, salaries, maintenance, transport, admin<br/>
+                <strong style={{ color: '#1f2937' }}>Exclude:</strong> Materials, capital equipment, profit, debt
+              </div>
+
+              {/* Input Fields - Compact */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '600' }}>
+                    Monthly Overhead (₵)
+                  </label>
+                  <input
+                    className="app-control"
+                    type="number"
+                    value={overheadInputs.totalOverhead}
+                    onChange={(e) => setOverheadInputs({ ...overheadInputs, totalOverhead: e.target.value })}
+                    placeholder="e.g., 5000"
+                    style={{ fontSize: '13px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '600', color: '#10b981' }}>
+                    Material Costs (₵)
+                  </label>
+                  <input
+                    className="app-control"
+                    type="number"
+                    value={overheadInputs.materialCosts}
+                    onChange={(e) => setOverheadInputs({ ...overheadInputs, materialCosts: e.target.value })}
+                    placeholder="e.g., 10000"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      borderRadius: '6px',
+                      border: '2px solid #10b981',
+                      fontSize: '13px',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Results - Compact */}
+              <div style={{ 
+                backgroundColor: '#f0fdf4', 
+                border: '2px solid #10b981', 
+                borderRadius: '6px', 
+                padding: '12px',
+                marginBottom: '12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Recommended Rate:</div>
+                <div style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', marginBottom: '4px' }}>
+                  {calculateOverheadPercentage()}%
+                </div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  ₵{(parseFloat(overheadInputs.materialCosts || '0') * calculateOverheadPercentage() / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per ₵{parseFloat(overheadInputs.materialCosts || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+
+              <button
+                className="btn btn-success"
+                onClick={handleUseCalculatedRate}
+                disabled={calculateOverheadPercentage() === 0}
+                style={{
+                  width: '100%',
+                  backgroundColor: calculateOverheadPercentage() === 0 ? '#e2e8f0' : '#10b981',
+                  color: calculateOverheadPercentage() === 0 ? '#94a3b8' : 'white',
+                  cursor: calculateOverheadPercentage() === 0 ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Use as Default
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Backup Section */}
+        <div className="app-card app-settings-card">
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Database Backups</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+            Automatic backups are created hourly. You can also create a manual backup at any time.
+          </p>
+
+          <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#166534' }}>
+            {backupStatus ? (
+              <div>
+                <div style={{ marginBottom: '8px' }}>
+                  <strong style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Package size={14} strokeWidth={2} /> Backup Status:</strong>
+                </div>
+                <div style={{ marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={14} strokeWidth={2} />
+                  Total backups stored: <strong>{backupStatus.backupCount}</strong>
+                </div>
+                {backupStatus.lastBackupTime && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock3 size={14} strokeWidth={2} />
+                    Last backup: <strong>{new Date(backupStatus.lastBackupTime).toLocaleString()}</strong>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>Loading backup status...</div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleCreateBackup}
+              disabled={isCreatingBackup}
+              style={{
+                backgroundColor: isCreatingBackup ? '#cbd5e1' : '#3b82f6',
+                cursor: isCreatingBackup ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isCreatingBackup ? 'Creating Backup...' : 'Create Manual Backup'}
+            </button>
+            {backupMessage && (
+              <span style={{ fontSize: '13px' }}>
+                {backupMessage}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Price Level Rules Section */}
+        <div className="app-card app-settings-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Coins size={18} strokeWidth={2} /> Price Level Rules</h2>
+              <p style={{ color: '#64748b', fontSize: '14px' }}>
+                Define discount or markup percentages for each price level across all approved products.
+              </p>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                setEditingRule(null);
+                setRuleFormData({ name: '', adjustmentType: 'discount', adjustmentPercentage: '', description: '' });
+                setShowAddRuleModal(true);
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={14} strokeWidth={2} />
+              Add Price Level
+            </button>
+          </div>
+
+          <div className="app-table-wrap">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Price Level</th>
+                <th style={{ textAlign: 'left' }}>Adjustment</th>
+                <th style={{ textAlign: 'left' }}>Preview (GHS 100)</th>
+                <th style={{ textAlign: 'left' }}>Description</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {priceRules.map((rule) => (
+                <tr key={rule.id}>
+                  <td style={{ fontWeight: '600' }}>{rule.name}</td>
+                  <td>
+                    {(() => {
+                      const adjustmentType = rule.adjustmentType || 'discount';
+                      const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
+                      const isDiscount = adjustmentType === 'discount';
+                      return (
+                    <span style={{
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                      backgroundColor: isDiscount ? '#fee2e2' : '#d1fae5',
+                      color: isDiscount ? '#991b1b' : '#065f46',
+                      fontWeight: '600',
+                    }}>
+                      {isDiscount ? 'Discount' : 'Markup'} {formatPercentMaxTwo(adjustmentPercentage)}%
+                    </span>
+                      )
+                    })()}
+                  </td>
+                  <td style={{ color: '#64748b' }}>
+                    {(() => {
+                      const adjustmentType = rule.adjustmentType || 'discount';
+                      const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
+                      const finalPrice = adjustmentType === 'markup'
+                        ? 100 * (1 + adjustmentPercentage / 100)
+                        : 100 * (1 - adjustmentPercentage / 100);
+                      return `GHS 100 → GHS ${finalPrice.toFixed(2)}`;
+                    })()}
+                  </td>
+                  <td style={{ color: '#64748b' }}>
+                    {rule.description || '-'}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => handleEditPriceRule(rule)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          backgroundColor: '#eff6ff',
+                          color: '#3b82f6',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeletePriceRule(rule.id)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          backgroundColor: '#fee2e2',
+                          color: '#991b1b',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+
+          {priceRules.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+              <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Coins size={42} strokeWidth={1.8} /></div>
+              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>No price level rules yet</div>
+              <div style={{ fontSize: '14px' }}>Add rules to define different price levels from approved base prices</div>
+            </div>
+          )}
+        </div>
+
+        {/* Currencies Section */}
+        {/* Currencies Section */}
+        <div className="app-card app-settings-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2>Currencies</h2>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowAddModal(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={14} strokeWidth={2} />
+              Add Currency
+            </button>
+          </div>
+
+          <div className="app-table-wrap">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left' }}>Code</th>
+                <th style={{ textAlign: 'left' }}>Name</th>
+                <th style={{ textAlign: 'left' }}>Symbol</th>
+                <th style={{ textAlign: 'left' }}>Exchange Rate</th>
+                <th style={{ textAlign: 'left' }}>Status</th>
+                <th style={{ textAlign: 'left' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currencies.map((currency) => (
+                <tr key={currency.id}>
+                  <td style={{ fontWeight: '600' }}>{currency.code}</td>
+                  <td>{currency.name}</td>
+                  <td>{currency.symbol}</td>
+                  <td>
+                    {editingRate === currency.id ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="number"
+                          step="0.000001"
+                          value={rateValue}
+                          onChange={(e) => setRateValue(e.target.value)}
+                          style={{
+                            padding: '6px',
+                            borderRadius: '4px',
+                            border: '1px solid #e2e8f0',
+                            width: '120px',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleUpdateRate(currency.id)}
+                          disabled={isSavingRate && savingRateCurrencyId === currency.id}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: (isSavingRate && savingRateCurrencyId === currency.id) ? '#cbd5e1' : '#3b82f6',
+                            color: 'white',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: (isSavingRate && savingRateCurrencyId === currency.id) ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {(isSavingRate && savingRateCurrencyId === currency.id) ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingRate(null);
+                            setRateValue('');
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#e2e8f0',
+                            color: '#1a202c',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <span>{getExchangeRate(currency.id).toFixed(6)}</span>
+                        <button
+                          onClick={() => {
+                            setEditingRate(currency.id);
+                            setRateValue(getExchangeRate(currency.id).toString());
+                          }}
+                          style={{
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#eff6ff',
+                            color: '#3b82f6',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Edit Rate
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        padding: '4px 12px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        backgroundColor: currency.isActive ? '#d1fae5' : '#fee2e2',
+                        color: currency.isActive ? '#065f46' : '#991b1b',
+                      }}
+                    >
+                      {currency.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    {currency.code === baseCurrency ? (
+                      <span
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          color: '#64748b',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        Base Currency (Protected)
+                      </span>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          if (window.confirm(`Delete ${currency.code}? This cannot be undone.`)) {
+                            try {
+                              await currenciesApi.delete(currency.id);
+                              loadData();
+                            } catch (error) {
+                              alert('Failed to delete currency');
+                            }
+                          }
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          backgroundColor: '#fee2e2',
+                          color: '#991b1b',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <Trash2 size={13} strokeWidth={2} />
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Currency Modal */}
+      {showAddModal && (
+        <div
+          className="app-modal-overlay"
+        >
+          <div
+            className="app-modal"
+            style={{ maxWidth: '500px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="app-modal-title">Add New Currency</h2>
+            <form onSubmit={handleAddCurrency}>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Currency Code *
+                </label>
+                <input
+                  className="app-control"
+                  type="text"
+                  required
+                  maxLength={3}
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  placeholder="e.g., USD"
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Currency Name *
+                </label>
+                <input
+                  className="app-control"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., US Dollar"
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Symbol *
+                </label>
+                <input
+                  className="app-control"
+                  type="text"
+                  required
+                  value={formData.symbol}
+                  onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+                  placeholder="e.g., $"
+                />
+              </div>
+              <div className="app-modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                >
+                  Add Currency
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+{/* Add/Edit Price Level Rule Modal */}
+      {showAddRuleModal && (
+        <div
+          className="app-modal-overlay"
+        >
+          <div
+            className="app-modal"
+            style={{ maxWidth: '500px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="app-modal-title">
+              {editingRule ? 'Edit Price Level Rule' : 'Add Price Level Rule'}
+            </h2>
+            <form onSubmit={handleSavePriceRule}>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Price Level Name *
+                </label>
+                <input
+                  className="app-control"
+                  type="text"
+                  required
+                  value={ruleFormData.name}
+                  onChange={(e) => setRuleFormData({ ...ruleFormData, name: e.target.value })}
+                  placeholder="e.g., Wholesale, Retail, VIP"
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Adjustment *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <select
+                    className="app-control"
+                    value={ruleFormData.adjustmentType}
+                    onChange={(e) => setRuleFormData({ ...ruleFormData, adjustmentType: e.target.value as 'discount' | 'markup' })}
+                  >
+                    <option value="discount">Discount</option>
+                    <option value="markup">Markup</option>
+                  </select>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      step="0.01"
+                      required
+                      value={ruleFormData.adjustmentPercentage}
+                      onChange={(e) => setRuleFormData({ ...ruleFormData, adjustmentPercentage: e.target.value })}
+                      placeholder="15"
+                      style={{ paddingRight: '28px' }}
+                    />
+                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
+                  {`${ruleFormData.name || 'Price Level'}: ${ruleFormData.adjustmentType === 'markup' ? 'Markup' : 'Discount'} ${ruleFormData.adjustmentPercentage || 0}% (GHS 100 → GHS ${(ruleFormData.adjustmentType === 'markup' ? 100 * (1 + Number(ruleFormData.adjustmentPercentage || 0) / 100) : 100 * (1 - Number(ruleFormData.adjustmentPercentage || 0) / 100)).toFixed(2)})`}
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label className="app-settings-label">
+                  Description
+                </label>
+                <textarea
+                  className="app-control"
+                  value={ruleFormData.description}
+                  onChange={(e) => setRuleFormData({ ...ruleFormData, description: e.target.value })}
+                  placeholder="e.g., 10% discount for bulk buyers"
+                  style={{ minHeight: '60px' }}
+                />
+              </div>
+              <div className="app-modal-actions">
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => {
+                    setShowAddRuleModal(false);
+                    setEditingRule(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                >
+                  {editingRule ? 'Update Rule' : 'Add Rule'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
