@@ -1288,7 +1288,6 @@ export default function Products() {
           </div>
         </div>
       </div>
-                Export Excel
       <div className="app-page-content" style={{ paddingTop: 0 }}>
         {/* Bulk Action Bar */}
         {selectedProducts.size > 0 && (
