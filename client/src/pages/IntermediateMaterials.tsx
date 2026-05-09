@@ -1,0 +1,1568 @@
+import * as XLSX from 'xlsx';
+import { useEffect, useMemo, useState } from 'react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, Pencil, Plus, Trash2, X } from 'lucide-react';
+import OverflowMenu from '../components/OverflowMenu';
+import ExportDropdown from '../components/ExportDropdown';
+import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import ActionDropdown from '../components/ActionDropdown';
+import AppBadge from '../components/AppBadge';
+import AppButton from '../components/AppButton';
+import AppToast from '../components/AppToast';
+import { materialsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import useAppToast from '../hooks/useAppToast';
+import usePersistedColumns from '../hooks/usePersistedColumns';
+
+interface MaterialFormState {
+  name: string;
+  sku: string;
+  description: string;
+  category: string;
+  unit: string;
+  bulkQuantity: string;
+  overheadPercentage: string;
+  marginPercentage: string;
+  yieldPercentage: string;
+  supplier: string;
+}
+
+const emptyForm: MaterialFormState = {
+  name: '',
+  sku: '',
+  description: '',
+  category: '',
+  unit: 'kg',
+  bulkQuantity: '1',
+  overheadPercentage: '0',
+  marginPercentage: '0',
+  yieldPercentage: '100',
+  supplier: '',
+};
+
+const formSectionStyle = {
+  marginBottom: '16px',
+  border: '1px solid #e2e8f0',
+  borderRadius: '10px',
+  padding: '16px',
+} as const;
+
+const fieldLabelStyle = {
+  display: 'block',
+  marginBottom: '6px',
+  fontSize: '13px',
+  fontWeight: '600',
+} as const;
+
+const fieldInputStyle = {
+  width: '100%',
+  padding: '10px',
+  borderRadius: '8px',
+  border: '1px solid #e2e8f0',
+} as const;
+
+const compactControlStyle = {
+  minHeight: '32px',
+  padding: '6px 10px',
+  fontSize: '12px',
+} as const;
+
+type SortField = 'name' | 'category' | 'unitPrice' | 'supplier';
+type SortOrder = 'asc' | 'desc';
+
+type IntermediateColumnKey = 'material' | 'unit' | 'yield' | 'overhead' | 'unitCost' | 'status' | 'actions';
+
+const INTERMEDIATE_COLUMN_OPTIONS: Array<{ key: IntermediateColumnKey; label: string }> = [
+  { key: 'material', label: 'Material' },
+  { key: 'unit', label: 'Unit' },
+  { key: 'yield', label: 'Yield %' },
+  { key: 'overhead', label: 'Overhead' },
+  { key: 'unitCost', label: 'Unit Cost' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: 'Actions' },
+];
+
+const DEFAULT_INTERMEDIATE_COLUMNS: IntermediateColumnKey[] = INTERMEDIATE_COLUMN_OPTIONS.map((option) => option.key);
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvText(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const parts = parseCsvLine(line);
+    const row: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      row[header] = parts[index] ?? '';
+    });
+    return row;
+  });
+}
+
+function escapeCsvCell(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function downloadCsv(filename: string, headers: string[], rows: Array<Array<unknown>>) {
+  const csvText = [
+    headers.map((header) => escapeCsvCell(header)).join(','),
+    ...rows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(',')),
+  ].join('\n');
+
+  const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function evaluateMathExpression(rawValue: string): string | null {
+  const trimmed = String(rawValue || '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const looksLikeExpression = trimmed.startsWith('=') || /[+*/()×÷]/.test(trimmed) || trimmed.slice(1).includes('-');
+  if (!looksLikeExpression) {
+    return null;
+  }
+
+  const normalized = trimmed
+    .replace(/^=/, '')
+    .replace(/[×xX]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/,/g, '')
+    .trim();
+
+  if (!normalized || !/^[0-9+\-*/().\s]+$/.test(normalized)) {
+    return null;
+  }
+
+  try {
+    const result = Function(`"use strict"; return (${normalized});`)();
+    if (typeof result !== 'number' || !Number.isFinite(result)) {
+      return null;
+    }
+
+    const rounded = Math.round((result + Number.EPSILON) * 1_000_000) / 1_000_000;
+    return String(rounded);
+  } catch {
+    return null;
+  }
+}
+
+function commitMathExpression(rawValue: string, onResolved: (value: string) => void) {
+  const resolved = evaluateMathExpression(rawValue);
+  if (resolved !== null && resolved !== rawValue) {
+    onResolved(resolved);
+    return resolved;
+  }
+  return rawValue;
+}
+
+function toSafePositiveNumber(rawValue: string, fallback: number) {
+  const resolved = evaluateMathExpression(rawValue) ?? rawValue;
+  const numericValue = Number(resolved);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) {
+    return fallback;
+  }
+  return numericValue;
+}
+
+export default function IntermediateMaterials() {
+  const [materials, setMaterials] = useState<MaterialRecord[]>([]);
+  const [components, setComponents] = useState<MaterialRecord[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
+  const [form, setForm] = useState<MaterialFormState>(emptyForm);
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sortField] = useState<SortField>('name');
+  const [sortOrder] = useState<SortOrder>('asc');
+  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns<IntermediateColumnKey>(
+    'priceright_columns_intermediate_materials',
+    DEFAULT_INTERMEDIATE_COLUMNS,
+  );
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<number>>(new Set());
+  const [componentSearch, setComponentSearch] = useState('');
+  const [componentMaterialId, setComponentMaterialId] = useState<number>(0);
+  const [componentQuantity, setComponentQuantity] = useState<string>('1');
+  const [editingBomId, setEditingBomId] = useState<number | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState('');
+  const [statusText, setStatusText] = useState<string>('');
+  const [saving, setSaving] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importing, setImporting] = useState(false);
+  const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
+  const [importSuccessCount, setImportSuccessCount] = useState(0);
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+
+  const selectedMaterial = useMemo(
+    () => materials.find((m) => m.id === selectedId) ?? null,
+    [materials, selectedId],
+  );
+
+  const filteredMaterials = useMemo(() => {
+    const query = materialSearch.trim().toLowerCase();
+    const filtered = materials.filter((material) => {
+      const haystack = [
+        material.name,
+        material.sku,
+        material.category,
+        material.supplier,
+      ]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+
+      const matchesSearch = !query || haystack.includes(query);
+      const matchesStatus = selectedStatus === 'all'
+        || (selectedStatus === 'active' ? material.isActive : !material.isActive);
+
+      return matchesSearch && matchesStatus;
+    });
+
+    return filtered.sort((left, right) => {
+      let leftValue = '';
+      let rightValue = '';
+
+      if (sortField === 'unitPrice') {
+        const delta = Number(left.unitPrice || 0) - Number(right.unitPrice || 0);
+        return sortOrder === 'asc' ? delta : -delta;
+      }
+
+      if (sortField === 'supplier') {
+        leftValue = String(left.supplier || '');
+        rightValue = String(right.supplier || '');
+      } else if (sortField === 'category') {
+        leftValue = String(left.category || '');
+        rightValue = String(right.category || '');
+      } else {
+        leftValue = String(left.name || '');
+        rightValue = String(right.name || '');
+      }
+
+      const comparison = leftValue.localeCompare(rightValue, undefined, { sensitivity: 'base' });
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
+
+  function isIntermediateColumnVisible(key: IntermediateColumnKey) {
+    return visibleColumns.includes(key);
+  }
+
+  function toggleIntermediateColumn(key: IntermediateColumnKey) {
+    const currentlyVisible = visibleColumns.includes(key);
+    if (currentlyVisible && visibleColumns.length <= 2) {
+      return;
+    }
+
+    const nextColumns = currentlyVisible
+      ? visibleColumns.filter((columnKey) => columnKey !== key)
+      : [...visibleColumns, key];
+
+    setVisibleColumns(nextColumns);
+  }
+
+  function resetIntermediateColumns() {
+    setVisibleColumns(DEFAULT_INTERMEDIATE_COLUMNS);
+    try {
+      window.localStorage.removeItem('priceright_columns_intermediate_materials');
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedId) {
+      setBomItems([]);
+      setEditingBomId(null);
+      setEditingQuantity('');
+      return;
+    }
+    void loadBom(selectedId);
+  }, [selectedId]);
+
+  async function loadData() {
+    const [intermediateData, componentData] = await Promise.all([
+      materialsApi.getAll('all', 'intermediate'),
+      materialsApi.getAll('active', 'all'),
+    ]);
+
+    const safeIntermediate = Array.isArray(intermediateData) ? intermediateData : [];
+    const safeComponents = Array.isArray(componentData) ? componentData : [];
+
+    setMaterials(safeIntermediate);
+    setComponents(safeComponents);
+  }
+
+  async function loadBom(materialId: number) {
+    const rows = await materialsApi.getIntermediateBom(materialId);
+    setBomItems(Array.isArray(rows) ? rows : []);
+  }
+
+  function selectMaterial(material: MaterialRecord) {
+    setSelectedId(material.id);
+    setForm({
+      name: String(material.name || ''),
+      sku: String(material.sku || ''),
+      description: String(material.description || ''),
+      category: String(material.category || ''),
+      unit: String(material.unit || 'kg'),
+      bulkQuantity: String(material.bulkQuantity || '1'),
+      overheadPercentage: String(material.overheadPercentage || '0'),
+      marginPercentage: String(material.marginPercentage || '0'),
+      yieldPercentage: String(material.yieldPercentage || '100'),
+      supplier: String(material.supplier || ''),
+    });
+    setStatusText('');
+  }
+
+  function openNewMaterialForm() {
+    setSelectedId(null);
+    setForm(emptyForm);
+    setBomItems([]);
+    setComponentMaterialId(0);
+    setComponentQuantity('1');
+    setComponentSearch('');
+    setStatusText('');
+    setIsFormOpen(true);
+  }
+
+  function openEditMaterialForm(material: MaterialRecord) {
+    selectMaterial(material);
+    setComponentMaterialId(0);
+    setComponentQuantity('1');
+    setComponentSearch('');
+    setIsFormOpen(true);
+  }
+
+  function closeMaterialForm() {
+    setIsFormOpen(false);
+    setComponentSearch('');
+    setComponentMaterialId(0);
+    setComponentQuantity('1');
+    setStatusText('');
+  }
+
+  function buildMaterialUpdatePayload(material: MaterialRecord, overrides?: Partial<MaterialRecord>) {
+    return {
+      name: String(overrides?.name ?? material.name ?? ''),
+      sku: String(overrides?.sku ?? material.sku ?? ''),
+      description: String(overrides?.description ?? material.description ?? ''),
+      category: String(overrides?.category ?? material.category ?? ''),
+      unit: String(overrides?.unit ?? material.unit ?? 'kg'),
+      bulkQuantity: Number(overrides?.bulkQuantity ?? material.bulkQuantity ?? 1),
+      bulkPrice: Number(overrides?.bulkPrice ?? material.bulkPrice ?? 0),
+      purchaseCurrencyId: Number(overrides?.purchaseCurrencyId ?? material.purchaseCurrencyId ?? 1),
+      overheadPercentage: Number(overrides?.overheadPercentage ?? material.overheadPercentage ?? 0),
+      marginPercentage: Number(overrides?.marginPercentage ?? material.marginPercentage ?? 0),
+      yieldPercentage: Number(overrides?.yieldPercentage ?? material.yieldPercentage ?? 100),
+      calculatedCostPerUnit: Number(overrides?.calculatedCostPerUnit ?? material.unitPrice ?? material.calculatedCostPerUnit ?? 0),
+      supplier: String(overrides?.supplier ?? material.supplier ?? ''),
+      isActive: Boolean(overrides?.isActive ?? material.isActive),
+      materialType: 'intermediate' as const,
+    };
+  }
+
+  async function saveMaterial() {
+    setSaving(true);
+    try {
+      let createdId: number | null = null;
+      const costSnapshot = calculateIntermediateLiveCost();
+      const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
+      if (String(resolvedBulkQuantity) !== form.bulkQuantity) {
+        setForm((prev) => ({ ...prev, bulkQuantity: String(resolvedBulkQuantity) }));
+      }
+
+      const payload = {
+        ...form,
+        materialType: 'intermediate' as const,
+        bulkQuantity: resolvedBulkQuantity,
+        bulkPrice: Number(selectedMaterial?.bulkPrice || 0),
+        purchaseCurrencyId: Number(selectedMaterial?.purchaseCurrencyId || 1),
+        overheadPercentage: Number(form.overheadPercentage || 0),
+        marginPercentage: Number(form.marginPercentage || 0),
+        yieldPercentage: Number(form.yieldPercentage || 100),
+        calculatedCostPerUnit: costSnapshot.costPerUnit,
+      };
+
+      if (selectedMaterial) {
+        await materialsApi.update(selectedMaterial.id, payload);
+        await materialsApi.recalculateIntermediateCost(selectedMaterial.id);
+      } else {
+        const created = await materialsApi.create(payload);
+        if (created?.id) {
+          createdId = created.id;
+          setSelectedId(created.id);
+        }
+      }
+
+      await loadData();
+      const nextSelectedId = selectedMaterial?.id ?? createdId ?? null;
+      if (nextSelectedId) {
+        setSelectedId(nextSelectedId);
+      }
+      if (nextSelectedId) {
+        await loadBom(nextSelectedId);
+      }
+      setStatusText('Saved intermediate material.');
+      showToastMessage(selectedMaterial ? 'Intermediate material updated' : 'Intermediate material created', 'success');
+    } catch (error: any) {
+      const message = error?.message || 'Failed to save intermediate material';
+      setStatusText(message);
+      showToastMessage(message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addBomItem() {
+    if (!selectedId || componentMaterialId <= 0) return;
+
+    const resolvedQuantityText = commitMathExpression(componentQuantity, setComponentQuantity);
+    const quantity = Number(resolvedQuantityText || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      showToastMessage('Please enter a valid quantity', 'error');
+      return;
+    }
+
+    await materialsApi.addIntermediateBomItem(selectedId, {
+      componentMaterialId,
+      quantity,
+    });
+    await materialsApi.recalculateIntermediateCost(selectedId);
+    await loadData();
+    await loadBom(selectedId);
+    setStatusText('Added BOM component and recalculated cost.');
+  }
+
+  async function updateBomQuantity(item: IntermediateBomItemRecord, quantity: number) {
+    if (!selectedId) return;
+    await materialsApi.updateIntermediateBomItem(selectedId, item.id, { quantity });
+    await loadBom(selectedId);
+    await materialsApi.recalculateIntermediateCost(selectedId);
+    await loadData();
+    setStatusText('Updated BOM quantity and recalculated cost.');
+  }
+
+  function startBomEdit(item: IntermediateBomItemRecord) {
+    setEditingBomId(item.id);
+    setEditingQuantity(String(item.quantity || ''));
+  }
+
+  async function saveBomEdit(item: IntermediateBomItemRecord) {
+    const resolvedQuantityText = commitMathExpression(editingQuantity, setEditingQuantity);
+    const quantity = Number(resolvedQuantityText || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      showToastMessage('Please enter a valid quantity', 'error');
+      return;
+    }
+    await updateBomQuantity(item, quantity);
+    setEditingBomId(null);
+    setEditingQuantity('');
+  }
+
+  function cancelBomEdit() {
+    setEditingBomId(null);
+    setEditingQuantity('');
+  }
+
+  async function deleteBomItem(item: IntermediateBomItemRecord) {
+    if (!selectedId) return;
+    await materialsApi.deleteIntermediateBomItem(selectedId, item.id);
+    await materialsApi.recalculateIntermediateCost(selectedId);
+    await loadData();
+    await loadBom(selectedId);
+    if (editingBomId === item.id) {
+      setEditingBomId(null);
+      setEditingQuantity('');
+    }
+    setStatusText('Removed BOM component and recalculated cost.');
+  }
+
+  async function recalculateSelected() {
+    if (!selectedId) return;
+    await materialsApi.recalculateIntermediateCost(selectedId);
+    await loadData();
+    await loadBom(selectedId);
+    setStatusText('Cost recalculated from latest component prices.');
+  }
+
+  function handleDuplicateMaterial(material: MaterialRecord) {
+    setSelectedId(null);
+    setForm({
+      name: `${String(material.name || '').trim()} Copy`.trim(),
+      sku: String(material.sku || '').trim() ? `${String(material.sku).trim()}-COPY` : '',
+      description: String(material.description || ''),
+      category: String(material.category || ''),
+      unit: String(material.unit || 'kg'),
+      bulkQuantity: String(material.bulkQuantity || '1'),
+      overheadPercentage: String(material.overheadPercentage || '0'),
+      marginPercentage: String(material.marginPercentage || '0'),
+      yieldPercentage: String(material.yieldPercentage || '100'),
+      supplier: String(material.supplier || ''),
+    });
+    setBomItems([]);
+    setComponentMaterialId(0);
+    setComponentQuantity('1');
+    setComponentSearch('');
+    setStatusText('Loaded selected material into a new draft.');
+    setIsFormOpen(true);
+    showToastMessage('Created a new draft from the selected material', 'success');
+  }
+
+  async function handleDeleteMaterial(material: MaterialRecord) {
+    const confirmed = window.confirm(`Delete intermediate material "${material.name}"? This cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await materialsApi.delete(material.id);
+      if (selectedId === material.id) {
+        setSelectedId(null);
+        setForm(emptyForm);
+        setBomItems([]);
+        setIsFormOpen(false);
+      }
+      await loadData();
+      setStatusText(`Deleted ${material.name}.`);
+      showToastMessage(`Deleted ${material.name}`, 'success');
+    } catch (error: any) {
+      const message = error?.message || 'Failed to delete intermediate material';
+      setStatusText(message);
+      showToastMessage(message, 'error');
+    } finally {
+    }
+  }
+
+  async function handleToggleMaterialActive(material: MaterialRecord) {
+    try {
+      await materialsApi.update(material.id, buildMaterialUpdatePayload(material, { isActive: !material.isActive }));
+      await loadData();
+      showToastMessage(`${material.name} marked as ${material.isActive ? 'inactive' : 'active'}`, 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update material status', 'error');
+    }
+  }
+
+  function buildExportRows(source: MaterialRecord[]) {
+    return source.map((material) => [
+      material.name,
+      material.sku || '',
+      material.category,
+      material.unit,
+      Number(material.bulkQuantity || 0),
+      Number(material.yieldPercentage || 0),
+      Number(material.overheadPercentage || 0),
+      Number(material.marginPercentage || 0),
+      Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2),
+      Number(material.unitPrice || 0).toFixed(2),
+      (Number(material.unitPrice || material.calculatedCostPerUnit || 0) * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
+      material.supplier || '',
+      material.isActive ? 'Active' : 'Inactive',
+    ]);
+  }
+
+  function handleExportFilteredMaterialsCsv() {
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(
+      `intermediate-materials-${date}.csv`,
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      buildExportRows(filteredMaterials),
+    );
+    showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to CSV`, 'success');
+  }
+
+  function handleExportFilteredMaterialsExcel() {
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      ...buildExportRows(filteredMaterials),
+    ]);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Intermediate Materials');
+    const date = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `intermediate-materials-${date}.xlsx`);
+    showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to Excel`, 'success');
+  }
+
+  function handlePrintFilteredMaterials() {
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!printWindow) {
+      showToastMessage('Unable to open print preview', 'error');
+      return;
+    }
+
+    const rows = filteredMaterials.map((material) => `
+      <tr>
+        <td>${material.name}</td>
+        <td>${material.sku || ''}</td>
+        <td>${material.category}</td>
+        <td>${material.unit}</td>
+        <td>${Number(material.unitPrice || 0).toFixed(2)}</td>
+        <td>${material.supplier || ''}</td>
+        <td>${material.isActive ? 'Active' : 'Inactive'}</td>
+      </tr>
+    `).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Intermediate Materials</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #f8fafc; }
+          </style>
+        </head>
+        <body>
+          <h1>Intermediate Materials</h1>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>SKU</th>
+                <th>Category</th>
+                <th>Unit</th>
+                <th>Unit Cost</th>
+                <th>Supplier</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
+  async function handleBulkSetActiveState(nextIsActive: boolean) {
+    const targets = materials.filter((material) => selectedMaterials.has(material.id));
+    if (targets.length === 0) {
+      return;
+    }
+
+    try {
+      await Promise.all(targets.map((material) => materialsApi.update(material.id, buildMaterialUpdatePayload(material, { isActive: nextIsActive }))));
+      await loadData();
+      showToastMessage(`Updated ${targets.length} intermediate material${targets.length !== 1 ? 's' : ''}`, 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update selected materials', 'error');
+    }
+  }
+
+  async function handleBulkDelete() {
+    const targets = materials.filter((material) => selectedMaterials.has(material.id));
+    if (targets.length === 0) {
+      return;
+    }
+
+    const confirmed = window.confirm(`Delete ${targets.length} selected intermediate material${targets.length !== 1 ? 's' : ''}?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const results = await Promise.all(targets.map(async (material) => {
+      try {
+        await materialsApi.delete(material.id);
+        return { ok: true as const, material };
+      } catch (error: any) {
+        return { ok: false as const, material, error: error?.message || 'Delete failed' };
+      }
+    }));
+
+    const failed = results.filter((result) => !result.ok);
+    const succeeded = results.filter((result) => result.ok);
+
+    if (succeeded.length > 0) {
+      setSelectedMaterials(new Set());
+      await loadData();
+    }
+
+    if (failed.length > 0) {
+      showToastMessage(failed.slice(0, 3).map((result) => `${result.material.name}: ${result.error}`).join('\n'), 'error');
+    } else {
+      showToastMessage(`Deleted ${succeeded.length} intermediate material${succeeded.length !== 1 ? 's' : ''}`, 'success');
+    }
+  }
+
+  function handleBulkExport() {
+    const targets = filteredMaterials.filter((material) => selectedMaterials.has(material.id));
+    if (targets.length === 0) {
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      ...buildExportRows(targets),
+    ]);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Intermediate');
+    const date = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `intermediate-materials-selected-${date}.xlsx`);
+    showToastMessage(`Exported ${targets.length} selected intermediate materials`, 'success');
+  }
+
+  function resetImportState() {
+    setImportFile(null);
+    setImportPreview([]);
+    setImportFailures([]);
+    setImportSuccessCount(0);
+  }
+
+  async function handleMaterialSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await saveMaterial();
+  }
+
+  function handleDownloadTemplate() {
+    const rows = [
+      ['Palm Oil Premix', 'INT-001', 'Intermediate', 'kg', '1', '5', '8', '95', 'Mix Plant', 'Intermediate blend from palm oil base'],
+      ['Fragrance Concentrate', 'INT-002', 'Intermediate', 'kg', '1', '3', '12', '98', 'Fragrance Supplier', 'Fragrance concentrate premix'],
+    ];
+
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(
+      `intermediate-materials-import-template-${date}.csv`,
+      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Supplier', 'Description'],
+      rows
+    );
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportFile(file);
+    setImportFailures([]);
+    setImportSuccessCount(0);
+
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+
+    if (extension === 'csv') {
+      const textReader = new FileReader();
+      textReader.onload = (event) => {
+        try {
+          const text = String(event.target?.result || '');
+          const rows = parseCsvText(text);
+          setImportPreview(rows);
+        } catch (error) {
+          console.error('Error reading CSV file:', error);
+          setImportPreview([]);
+          setStatusText('Failed to parse CSV file.');
+        }
+      };
+      textReader.readAsText(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        setImportPreview(jsonData as any[]);
+      } catch (error) {
+        console.error('Error reading file:', error);
+        setImportPreview([]);
+        setStatusText('Failed to parse import file.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  }
+
+  async function handleImportIntermediateMaterials() {
+    if (importPreview.length === 0) {
+      setStatusText('No rows available for import.');
+      return;
+    }
+
+    setImporting(true);
+    const failures: Array<{ rowNumber: number; name: string; reason: string; originalRow: any }> = [];
+    let successCount = 0;
+
+    for (let i = 0; i < importPreview.length; i += 1) {
+      const row = importPreview[i];
+      const rowNumber = i + 1;
+      const name = String(row['Material Name'] || row['name'] || '').trim();
+      const sku = String(row['SKU'] || row['sku'] || '').trim();
+      const category = String(row['Category'] || row['category'] || '').trim() || 'Intermediate';
+      const unit = String(row['Unit'] || row['unit'] || '').trim() || 'kg';
+      const bulkQuantity = Number(row['Bulk Quantity'] || row['bulkQuantity'] || 1);
+      const overheadPercentage = Number(row['Overhead %'] || row['overheadPercentage'] || 0);
+      const marginPercentage = Number(row['Margin %'] || row['marginPercentage'] || 0);
+      const yieldPercentage = Number(row['Yield %'] || row['yieldPercentage'] || 100);
+      const supplier = String(row['Supplier'] || row['supplier'] || '').trim() || 'Unknown';
+      const description = String(row['Description'] || row['description'] || '').trim();
+
+      if (!name) {
+        failures.push({ rowNumber, name: '', reason: 'Material Name is required', originalRow: row });
+        continue;
+      }
+      if (!Number.isFinite(bulkQuantity) || bulkQuantity <= 0) {
+        failures.push({ rowNumber, name, reason: 'Bulk Quantity must be a positive number', originalRow: row });
+        continue;
+      }
+      if (!Number.isFinite(overheadPercentage) || !Number.isFinite(marginPercentage) || !Number.isFinite(yieldPercentage)) {
+        failures.push({ rowNumber, name, reason: 'Overhead, Margin and Yield must be numeric', originalRow: row });
+        continue;
+      }
+
+      try {
+        await materialsApi.create({
+          name,
+          sku,
+          description,
+          category,
+          unit,
+          bulkQuantity,
+          bulkPrice: 0,
+          purchaseCurrencyId: 0,
+          supplier,
+          materialType: 'intermediate',
+          overheadPercentage,
+          marginPercentage,
+          yieldPercentage,
+          calculatedCostPerUnit: 0,
+        });
+
+        successCount += 1;
+      } catch (error: any) {
+        failures.push({
+          rowNumber,
+          name,
+          reason: error?.message || 'Import failed for this row',
+          originalRow: row,
+        });
+      }
+    }
+
+    setImportFailures(failures);
+    setImportSuccessCount(successCount);
+    setImporting(false);
+
+    await loadData();
+    setStatusText(`Imported ${successCount} item${successCount !== 1 ? 's' : ''}${failures.length > 0 ? `, ${failures.length} failed` : ''}.`);
+  }
+
+  function downloadFailureReport() {
+    if (!importFailures || importFailures.length === 0) return;
+
+    const rows = importFailures.map((failure) => {
+      const source = failure.originalRow || {};
+      return [
+        failure.rowNumber,
+        source['Material Name'] || source['name'] || '',
+        source['SKU'] || source['sku'] || '',
+        source['Category'] || source['category'] || '',
+        source['Unit'] || source['unit'] || '',
+        source['Bulk Quantity'] || source['bulkQuantity'] || '',
+        source['Overhead %'] || source['overheadPercentage'] || '',
+        source['Margin %'] || source['marginPercentage'] || '',
+        source['Yield %'] || source['yieldPercentage'] || '',
+        source['Supplier'] || source['supplier'] || '',
+        source['Description'] || source['description'] || '',
+        failure.reason,
+      ];
+    });
+
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(
+      `intermediate-materials-import-failures-${date}.csv`,
+      ['Row Number', 'Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Supplier', 'Description', 'Failure Reason'],
+      rows
+    );
+  }
+
+  const availableComponents = components.filter((m) => m.id !== selectedId && m.isActive);
+
+  const filteredAvailableComponents = useMemo(() => {
+    const query = componentSearch.trim().toLowerCase();
+    if (!query) {
+      return availableComponents;
+    }
+
+    return availableComponents.filter((material) => {
+      const haystack = [material.name, material.sku, material.category]
+        .map((value) => String(value || '').toLowerCase())
+        .join(' ');
+      return haystack.includes(query);
+    });
+  }, [availableComponents, componentSearch]);
+
+  function calculateIntermediateLiveCost() {
+    const totalMaterialCost = bomItems.reduce((sum, item) => {
+      return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0);
+    }, 0);
+
+    const overheadPercentage = Number(form.overheadPercentage || 0) / 100;
+    const overheadCost = totalMaterialCost * overheadPercentage;
+    const batchTotalCost = totalMaterialCost + overheadCost;
+
+    const batchQuantity = Math.max(0.0001, Number(form.bulkQuantity || 1));
+    const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
+    const effectiveOutputQuantity = batchQuantity * (yieldPercent / 100);
+    const costPerUnit = batchTotalCost / effectiveOutputQuantity;
+
+    const marginPercentage = Number(form.marginPercentage || 0) / 100;
+    const profitAmount = costPerUnit * marginPercentage;
+    const optimalPrice = costPerUnit + profitAmount;
+
+    return {
+      batchMaterialCost: totalMaterialCost,
+      batchOverheadCost: overheadCost,
+      batchTotalCost,
+      batchQuantity,
+      effectiveOutputQuantity,
+      costPerUnit,
+      profitAmount,
+      optimalPrice,
+    };
+  }
+
+  const liveCost = calculateIntermediateLiveCost();
+  const currencySymbol = selectedMaterial?.baseCurrencySymbol || '';
+  const formatMoney = (amount: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
+
+  return (
+    <div className="app-page">
+      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+        <div className="app-card app-filter-card" style={{ padding: '8px 10px' }}>
+          <div style={{ minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              <div className="app-filter-search" style={{ minWidth: '280px' }}>
+                <input className="app-control" type="text" placeholder="Search intermediate materials..." value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} style={compactControlStyle} />
+              </div>
+              <select className="app-control app-filter-select" value={selectedStatus} onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')} style={{ ...compactControlStyle, width: '160px' }}>
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <TableSettingsDropdown
+                columns={INTERMEDIATE_COLUMN_OPTIONS.map((column) => ({
+                  key: column.key,
+                  label: column.label,
+                  visible: isIntermediateColumnVisible(column.key),
+                }))}
+                onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
+                onResetColumns={resetIntermediateColumns}
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              />
+              <ExportDropdown
+                onExportCSV={handleExportFilteredMaterialsCsv}
+                onExportExcel={handleExportFilteredMaterialsExcel}
+                onPrint={handlePrintFilteredMaterials}
+              />
+              <ActionDropdown
+                label="Actions"
+                buttonIcon={<Plus size={14} strokeWidth={2} />}
+                buttonClassName="btn btn-primary btn-sm"
+                items={[
+                  {
+                    key: 'add-intermediate',
+                    label: 'Add intermediate material',
+                    onSelect: openNewMaterialForm,
+                    icon: <Plus size={14} strokeWidth={2} />,
+                  },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
+        {selectedMaterials.size > 0 ? (
+          <div className="app-bulk-bar app-bulk-bar-sticky">
+            <div className="app-bulk-count-wrap">
+              <span className="app-bulk-count">{selectedMaterials.size} intermediate material{selectedMaterials.size !== 1 ? 's' : ''} selected</span>
+            </div>
+            <button onClick={handleBulkDelete} className="btn btn-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Trash2 size={14} strokeWidth={2} />
+              Delete
+            </button>
+            <button onClick={() => void handleBulkSetActiveState(true)} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#2e7d32' }}>
+              <Eye size={14} strokeWidth={2} />
+              Set Active
+            </button>
+            <button onClick={() => void handleBulkSetActiveState(false)} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <EyeOff size={14} strokeWidth={2} />
+              Set Inactive
+            </button>
+            <button onClick={handleBulkExport} className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <FileSpreadsheet size={14} strokeWidth={2} />
+              Export Excel
+            </button>
+            <button onClick={() => setSelectedMaterials(new Set())} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <X size={14} strokeWidth={2} />
+              Clear
+            </button>
+          </div>
+        ) : null}
+
+        <div className="app-card app-data-card" style={{ padding: 0 }}>
+          <h2 style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0' }}>Intermediate Materials ({filteredMaterials.length})</h2>
+          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
+            <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
+                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
+                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
+                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
+                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMaterials.map((material) => (
+                  <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa' }}>
+                    {isIntermediateColumnVisible('material') && <td style={{ padding: '6px 6px', minWidth: '220px' }}>
+                      <div style={{ fontWeight: '600', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
+                    </td>}
+                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '11px' }}>{material.unit}</td>}
+                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '11px' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
+                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '11px' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
+                    {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '6px 6px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                      {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
+                    </td>}
+                    {isIntermediateColumnVisible('status') && <td style={{ padding: '4px 4px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>}
+                    {isIntermediateColumnVisible('actions') && <td style={{ padding: '4px 3px' }}>
+                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                        <AppButton onClick={() => openEditMaterialForm(material)} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
+                          <Pencil size={11} strokeWidth={2} />
+                        </AppButton>
+                        <AppButton onClick={() => void handleToggleMaterialActive(material)} variant="ghost" size="sm" className="app-row-action-icon" title={material.isActive ? 'Set Inactive' : 'Set Active'} ariaLabel={`${material.isActive ? 'Set inactive' : 'Set active'} ${material.name}`} style={{ backgroundColor: 'transparent', display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
+                          {material.isActive ? <EyeOff size={11} strokeWidth={2} /> : <Eye size={11} strokeWidth={2} />}
+                        </AppButton>
+                        <OverflowMenu
+                          ariaLabel={`More actions for ${material.name}`}
+                          items={[
+                            { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicateMaterial(material) },
+                            { label: 'Delete', icon: Trash2, onClick: () => void handleDeleteMaterial(material), danger: true },
+                          ]}
+                        />
+                      </div>
+                    </td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredMaterials.length === 0 ? <div className="app-empty-state">No intermediate materials found.</div> : null}
+          </div>
+        </div>
+
+        {isFormOpen ? (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.6)',
+              zIndex: 1200,
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+            onClick={closeMaterialForm}
+          >
+            <div
+              style={{
+                backgroundColor: 'white',
+                width: 'min(720px, 100%)',
+                height: '100%',
+                overflowY: 'auto',
+                padding: '24px',
+                boxShadow: '-12px 0 24px rgba(15, 23, 42, 0.12)',
+                display: 'grid',
+                gap: 16,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                  <div style={{ color: '#64748b', fontSize: '13px', marginTop: 4 }}>Update material details and cost settings inline</div>
+                </div>
+                <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
+              </div>
+
+              <div className="app-card" style={{ display: 'grid', gap: 10 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Material Details</h3>
+            </div>
+            <form onSubmit={handleMaterialSubmit}>
+              <div style={formSectionStyle}>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Basic Info</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div>
+                    <label style={fieldLabelStyle}>Material Name *</label>
+                    <input
+                      className="app-input"
+                      type="text"
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                      style={fieldInputStyle}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>SKU</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        value={form.sku}
+                        onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Category *</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        required
+                        value={form.category}
+                        onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>Supplier</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        value={form.supplier}
+                        onChange={(e) => setForm((prev) => ({ ...prev, supplier: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Unit *</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        required
+                        value={form.unit}
+                        onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={fieldLabelStyle}>Description</label>
+                    <textarea
+                      className="app-input"
+                      value={form.description}
+                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                      style={{ ...fieldInputStyle, minHeight: '60px', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={formSectionStyle}>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Production Settings</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>Bulk Quantity *</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        inputMode="decimal"
+                        required
+                        value={form.bulkQuantity}
+                        onChange={(e) => setForm((prev) => ({ ...prev, bulkQuantity: e.target.value }))}
+                        onBlur={() => {
+                          commitMathExpression(form.bulkQuantity, (value) => {
+                            setForm((prev) => ({ ...prev, bulkQuantity: value }));
+                          });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const resolved = commitMathExpression(form.bulkQuantity, (value) => {
+                              setForm((prev) => ({ ...prev, bulkQuantity: value }));
+                            });
+                            if (resolved !== form.bulkQuantity) {
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                          }
+                        }}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Yield % *</label>
+                      <input
+                        className="app-input"
+                        type="number"
+                        step="0.1"
+                        required
+                        value={form.yieldPercentage}
+                        onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>Overhead % *</label>
+                      <input
+                        className="app-input"
+                        type="number"
+                        step="0.1"
+                        required
+                        value={form.overheadPercentage}
+                        onChange={(e) => setForm((prev) => ({ ...prev, overheadPercentage: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Profit Margin % *</label>
+                      <input
+                        className="app-input"
+                        type="number"
+                        step="0.1"
+                        required
+                        value={form.marginPercentage}
+                        onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
+                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '13px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
+                  Calculated unit cost updates from the intermediate BOM and current component prices.
+                </div>
+                <div style={{ display: 'grid', gap: '6px', fontSize: '13px', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Material Cost (batch)</span>
+                    <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>
+                    <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchOverheadCost)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Total Production Cost (batch)</span>
+                    <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Effective Output Qty</span>
+                    <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Cost Per Unit</span>
+                    <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
+                    <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <span style={{ fontWeight: '700' }}>Optimal Price</span>
+                    <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
+                  Current stored unit cost: {formatMoney(Number(selectedMaterial?.unitPrice || 0))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !form.category.trim() || !form.unit.trim()}>
+                    {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
+                  </button>
+                  {selectedMaterial ? <button className="btn btn-secondary btn-sm" type="button" onClick={() => handleDuplicateMaterial(selectedMaterial)}>Duplicate as New</button> : null}
+                  <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Cancel</button>
+                  {selectedMaterial ? <button className="btn btn-outline btn-sm" type="button" onClick={() => void recalculateSelected()}>Recalculate Cost</button> : null}
+                </div>
+              </div>
+            </form>
+            {statusText ? <div style={{ fontSize: 12, color: '#0f766e' }}>{statusText}</div> : null}
+          </div>
+
+          <div className="app-card" style={{ display: 'grid', gap: 10 }}>
+            <h3 style={{ margin: 0 }}>Bill of Materials</h3>
+            {!selectedMaterial ? <div style={{ color: '#64748b' }}>Select or create an intermediate material to edit its BOM.</div> : null}
+            {selectedMaterial ? (
+              <>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Select Material</label>
+                  <input
+                    className="app-input"
+                    type="search"
+                    placeholder="Search and select material..."
+                    value={componentSearch}
+                    onChange={(e) => setComponentSearch(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                  <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))}>
+                    <option value={0}>Select component material...</option>
+                    {filteredAvailableComponents.map((material) => (
+                      <option key={material.id} value={material.id}>{material.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="app-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={componentQuantity}
+                    onChange={(e) => setComponentQuantity(e.target.value)}
+                    onBlur={() => {
+                      commitMathExpression(componentQuantity, setComponentQuantity);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const resolved = commitMathExpression(componentQuantity, setComponentQuantity);
+                        if (resolved !== componentQuantity) {
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
+                      }
+                    }}
+                    placeholder="Qty or =2+2"
+                  />
+                  <button className="btn btn-secondary btn-sm" onClick={() => void addBomItem()}>Add</button>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '36%' }}>Material</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bomItems.map((item) => {
+                        const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+                        const isEditing = editingBomId === item.id;
+
+                        return (
+                          <tr key={item.id}>
+                            <td>{item.componentMaterialName}</td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="app-input"
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={editingQuantity}
+                                  onChange={(e) => setEditingQuantity(e.target.value)}
+                                  onBlur={() => {
+                                    commitMathExpression(editingQuantity, setEditingQuantity);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      void saveBomEdit(item);
+                                    }
+                                  }}
+                                  style={{ maxWidth: 120 }}
+                                />
+                              ) : (
+                                <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
+                              )}
+                            </td>
+                            <td>{formatMoney(Number(item.unitPrice || 0))}</td>
+                            <td>{formatMoney(rowTotal)}</td>
+                            <td>
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                {isEditing ? (
+                                  <>
+                                    <button className="btn btn-secondary btn-sm" onClick={() => void saveBomEdit(item)}>Save</button>
+                                    <button className="btn btn-outline btn-sm" onClick={cancelBomEdit}>Cancel</button>
+                                  </>
+                                ) : (
+                                  <button className="btn btn-secondary btn-sm" onClick={() => startBomEdit(item)}>Edit</button>
+                                )}
+                                <button className="btn btn-danger btn-sm" onClick={() => void deleteBomItem(item)}>Delete</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {bomItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : null}
+          </div>
+            </div>
+          </div>
+        ) : null}
+
+        {showImportModal ? (
+          <div className="app-modal-overlay" onClick={() => { setShowImportModal(false); resetImportState(); }}>
+            <div className="app-modal app-modal-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <h2 className="app-modal-title">Import Intermediate Materials</h2>
+
+              {!importFile ? (
+                <div>
+                  <label htmlFor="intermediate-file-upload" style={{ display: 'block', padding: '40px', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' }}>
+                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
+                    <div style={{ fontSize: '14px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
+                    <input id="intermediate-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} style={{ display: 'none' }} />
+                  </label>
+
+                  <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
+                    <div style={{ fontSize: '13px', color: '#475569' }}>Required fields: Material Name, Category, Unit, Bulk Quantity, Yield %, Overhead %, Margin %.</div>
+                  </div>
+                  <div style={{ marginTop: '20px', textAlign: 'center' }}>
+                    <button onClick={handleDownloadTemplate} className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <FileSpreadsheet size={15} strokeWidth={2} />
+                      Download Template
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><strong>File:</strong> {importFile.name} ({importPreview.length} rows)</div>
+                  {importPreview.length > 0 ? (
+                    <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
+                          <tr>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Yield %</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importPreview.slice(0, 10).map((row, idx) => (
+                            <tr key={`import-preview-${idx}`} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px' }}>{row['Material Name'] || row['name'] || '-'}</td>
+                              <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
+                              <td style={{ padding: '8px' }}>{row['Unit'] || row['unit'] || '-'}</td>
+                              <td style={{ padding: '8px' }}>{row['Yield %'] || row['yieldPercentage'] || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : null}
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+                    <button type="button" onClick={resetImportState} className="btn btn-secondary">Choose Different File</button>
+                    <button onClick={() => void handleImportIntermediateMaterials()} disabled={importing || importPreview.length === 0} className="btn btn-success">
+                      {importing ? 'Importing...' : `Import ${importPreview.length} Materials`}
+                    </button>
+                  </div>
+
+                  {importSuccessCount > 0 || importFailures.length > 0 ? (
+                    <div style={{ marginTop: '16px' }}>
+                      {importSuccessCount > 0 ? (
+                        <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
+                          {importSuccessCount} item{importSuccessCount !== 1 ? 's' : ''} imported successfully
+                        </div>
+                      ) : null}
+                      {importFailures.length > 0 ? (
+                        <div>
+                          <div style={{ backgroundColor: '#fff7ed', color: '#92400e', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
+                            {importFailures.length} item{importFailures.length !== 1 ? 's' : ''} failed to import
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                            <button type="button" onClick={downloadFailureReport} className="btn btn-secondary">Download Failure Report</button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <button type="button" onClick={() => { setShowImportModal(false); resetImportState(); }} className="btn btn-secondary">Close</button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+    </div>
+  );
+}

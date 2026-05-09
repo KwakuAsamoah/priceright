@@ -1,10 +1,20 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
-import { useLocation } from 'react-router-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronRight, Copy, FileSpreadsheet, Printer, Tags, Trash2, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertCircle, AlertTriangle, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import OverflowMenu from '../components/OverflowMenu';
+import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, productsApi, settingsApi } from '../api';
+import AppBadge from '../components/AppBadge';
+import AppButton from '../components/AppButton';
+import AppToast from '../components/AppToast';
+import useAppToast from '../hooks/useAppToast';
+import usePersistedColumns from '../hooks/usePersistedColumns';
+import useUndoAction from '../hooks/useUndoAction';
+import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
-import ProductTabs from '../components/ProductTabs';
+import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 
 interface Product {
   id: number;
@@ -22,6 +32,13 @@ interface Product {
   approvedPrice?: number | null;
   approvedBy?: string | null;
   approvedAt?: string | null;
+  approvedPriceExpiresAt?: string | null;
+  priceExpiryNotifiedAt?: string | null;
+  needsReviewReason?: string | null;
+  isPriceExpired?: boolean;
+  daysUntilExpiry?: number | null;
+  priceMismatch?: boolean;
+  isActive: boolean;
 }
 
 interface Material {
@@ -30,16 +47,6 @@ interface Material {
   unit: string;
   unitPrice: string;
   baseCurrencySymbol: string;
-}
-
-interface BOMMaterial {
-  id: number;
-  materialId: number;
-  materialName: string;
-  quantity: number;
-  unit: string;
-  unitPrice: string;
-  currencySymbol: string;
 }
 
 interface CostCalculation {
@@ -58,32 +65,41 @@ interface ProductPricing extends Product {
   optimalPrice: number;
 }
 
-const PRODUCTION_MODE_OPTIONS = ['All', 'Single', 'Batch'];
-const PRICING_STATUS_OPTIONS = ['All', 'Not Set', 'Underpriced', 'Overpriced', 'Optimal'];
+interface ReviewedCardState {
+  chosenPrice: number;
+  actionLabel: string;
+}
+
 const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Rejected', 'Needs Review'];
 
-function parseConfiguredList(rawValue: unknown): string[] {
-  if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
-    return [];
-  }
+type ProductColumnKey =
+  | 'name'
+  | 'category'
+  | 'mode'
+  | 'materialCost'
+  | 'optimalPrice'
+  | 'approvedDate'
+  | 'sellingPrice'
+  | 'profitMargin'
+  | 'status'
+  | 'pricingStatus'
+  | 'actions';
 
-  const text = rawValue.trim();
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed)) {
-      return parsed
-        .map((entry) => String(entry || '').trim())
-        .filter((entry) => entry.length > 0);
-    }
-  } catch {
-    // Ignore and fallback to delimited parsing
-  }
+const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = [
+  { key: 'name', label: 'Product Name' },
+  { key: 'category', label: 'Category' },
+  { key: 'mode', label: 'Production Mode' },
+  { key: 'materialCost', label: 'Total Production Cost' },
+  { key: 'optimalPrice', label: 'Optimal Price' },
+  { key: 'approvedDate', label: 'Approved Date' },
+  { key: 'sellingPrice', label: 'Approved base price' },
+  { key: 'profitMargin', label: 'Profit Margin' },
+  { key: 'status', label: 'Status' },
+  { key: 'pricingStatus', label: 'Pricing' },
+  { key: 'actions', label: 'Actions' },
+];
 
-  return text
-    .split(/[\n,;]+/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-}
+const DEFAULT_PRODUCT_COLUMNS: ProductColumnKey[] = PRODUCT_COLUMN_OPTIONS.map((option) => option.key);
 
 function toNumber(value: string | number | undefined) {
   if (value === undefined) return 0;
@@ -104,9 +120,9 @@ function toPerUnitCost(cost: CostCalculation, product: Product) {
 
 function calculatePricingAnalysis(product: ProductPricing) {
   const optimalPrice = product.optimalPrice;
-  const currentPrice = product.currentSellingPrice || 0;
+  const currentPrice = product.currentSellingPrice;
 
-  if (currentPrice === 0) {
+  if (currentPrice == null || currentPrice === 0) {
     return {
       variance: 0,
       variancePercent: 0,
@@ -120,84 +136,82 @@ function calculatePricingAnalysis(product: ProductPricing) {
   const variance = currentPrice - optimalPrice;
   const variancePercent = optimalPrice === 0 ? 0 : (variance / optimalPrice) * 100;
 
-  if (variancePercent < -5) {
+  if (currentPrice > optimalPrice + 0.01) {
     return {
       variance,
       variancePercent,
-      status: 'underpriced' as const,
-      label: 'Underpriced',
-      color: '#b91c1c',
-      background: '#fee2e2',
+      status: 'above-optimal' as const,
+      label: 'Above Optimal',
+      color: '#2e7d32',
+      background: '#e8f5e9',
     };
   }
 
-  if (variancePercent > 5) {
+  if (currentPrice < optimalPrice - 0.01) {
     return {
       variance,
       variancePercent,
-      status: 'overpriced' as const,
-      label: 'Overpriced',
-      color: '#b45309',
-      background: '#fef3c7',
+      status: 'below-optimal' as const,
+      label: 'Below Optimal',
+      color: '#c62828',
+      background: '#fdecea',
     };
   }
 
   return {
     variance,
     variancePercent,
-    status: 'optimal' as const,
-    label: 'Optimal',
-    color: '#166534',
-    background: '#dcfce7',
+    status: 'at-optimal' as const,
+    label: 'At Optimal',
+    color: '#888888',
+    background: '#f3f3f3',
   };
+}
+
+function calculateRealisedProfitMargin(product: ProductPricing) {
+  const sellingPrice = Number(product.currentSellingPrice || 0);
+  const productionCost = Number(product.totalCost || 0);
+
+  if (sellingPrice <= 0 || productionCost <= 0) {
+    return null;
+  }
+
+  return ((sellingPrice - productionCost) / sellingPrice) * 100;
 }
 
 function getApprovalBadge(status?: Product['approvalStatus']) {
   if (!status) {
     return {
       label: 'Pending',
-      className: 'status-badge status-pending',
+      variant: 'pending' as const,
     };
   }
 
   if (status === 'approved') {
     return {
       label: 'Approved',
-      className: 'status-badge status-approved',
+      variant: 'approved' as const,
     };
   }
 
   if (status === 'rejected') {
     return {
       label: 'Rejected',
-      className: 'status-badge status-rejected',
+      variant: 'rejected' as const,
     };
   }
 
   if (status === 'needs_review') {
     return {
       label: 'Needs Review',
-      className: 'status-badge status-pending',
+      variant: 'needs-review' as const,
     };
   }
 
   return {
     label: 'Pending',
-    className: 'status-badge status-pending',
+    variant: 'pending' as const,
   };
-}
-
-function getApprovalPanelColors(status?: Product['approvalStatus']) {
-  if (status === 'approved') {
-    return { background: '#f0fdf4', border: '#bbf7d0' };
-  }
-  if (status === 'rejected') {
-    return { background: '#fef2f2', border: '#fecaca' };
-  }
-  if (status === 'needs_review') {
-    return { background: '#fff7ed', border: '#fed7aa' };
-  }
-  return { background: '#f0f9ff', border: '#bae6fd' };
 }
 
 function buildDuplicateName(baseName: string, existingNames: Set<string>) {
@@ -211,27 +225,95 @@ function buildDuplicateName(baseName: string, existingNames: Set<string>) {
   return candidate;
 }
 
+function formatListMessage(title: string, lines: string[]) {
+  const cleanLines = lines.filter((line) => line && line.trim().length > 0);
+  if (cleanLines.length === 0) return title;
+  return [title, ...cleanLines.map((line) => `• ${line}`)].join('\n');
+}
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvText(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    return [];
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  return lines.slice(1).map((line) => {
+    const parts = parseCsvLine(line);
+    const row: Record<string, string> = {};
+    headers.forEach((header, index) => {
+      row[header] = parts[index] ?? '';
+    });
+    return row;
+  });
+}
+
 export default function Products() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<ProductPricing[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [configuredProductCategories, setConfiguredProductCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultOverhead, setDefaultOverhead] = useState('30');
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedProductionMode, setSelectedProductionMode] = useState('All');
+  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns<ProductColumnKey>(
+    'priceright_columns_products',
+    DEFAULT_PRODUCT_COLUMNS,
+  );
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
-  const [approvalInputs, setApprovalInputs] = useState<Record<number, { customPrice: string; reason: string }>>({});
+  const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
+  const [showPriceReviewPanel, setShowPriceReviewPanel] = useState(false);
+  const [priceReviewMode, setPriceReviewMode] = useState<'standard' | 'setup'>('standard');
+  const [priceReviewSearch, setPriceReviewSearch] = useState('');
+  const [reviewSnapshotIds, setReviewSnapshotIds] = useState<number[]>([]);
+  const [reviewedCardStates, setReviewedCardStates] = useState<Record<number, ReviewedCardState>>({});
+  const [customPriceInputs, setCustomPriceInputs] = useState<Record<number, string>>({});
+  const [setupPriceInputs, setSetupPriceInputs] = useState<Record<number, string>>({});
+  const [priceReviewBusyIds, setPriceReviewBusyIds] = useState<Set<number>>(new Set());
+  const [isSavingSetupPrices, setIsSavingSetupPrices] = useState(false);
+  const productsTableRef = useRef<HTMLDivElement | null>(null);
 
-  const [expandedProducts, setExpandedProducts] = useState<Set<number>>(new Set());
-  const [bomCache, setBomCache] = useState<Record<number, BOMMaterial[]>>({});
-  const [bomLoading, setBomLoading] = useState<Record<number, boolean>>({});
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
-  const [expandedProductTabs, setExpandedProductTabs] = useState<Record<number, 'bom' | 'history'>>({});
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -239,6 +321,7 @@ export default function Products() {
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
   const [importSuccessCount, setImportSuccessCount] = useState(0);
+  const [importRuntimeError, setImportRuntimeError] = useState('');
 
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -246,23 +329,42 @@ export default function Products() {
   
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
+  const [bulkApprovePriceMethod, setBulkApprovePriceMethod] = useState<'optimal' | 'selling' | 'markup'>('optimal');
+  const [bulkApproveMarkup, setBulkApproveMarkup] = useState('10');
+  const [bulkApproveExpiryDate, setBulkApproveExpiryDate] = useState('');
+  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
+  const productsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { registerUndo } = useUndoAction();
   const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'products' | 'analysis'>(() => {
+    try {
+      const saved = window.localStorage.getItem('priceright_products_active_tab');
+      if (saved === 'products' || saved === 'analysis') return saved;
+    } catch {
+      // Ignore storage errors and use default.
+    }
+    return 'products';
+  });
 
   const productCategories = useMemo(() => {
     const observed = products
       .map((product) => (product.category || '').trim())
       .filter((category) => category.length > 0);
-    return Array.from(new Set([...configuredProductCategories, ...observed]))
-      .sort((a, b) => a.localeCompare(b));
-  }, [configuredProductCategories, products]);
+    return Array.from(new Set(observed)).sort((a, b) => a.localeCompare(b));
+  }, [products]);
 
   const lowMarginOnly = useMemo(() => {
     const params = new URLSearchParams(location.search);
     return params.get('lowMargin') === '1';
+  }, [location.search]);
+
+  const expiringSoonOnly = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('expiringSoon') === '1';
   }, [location.search]);
 
   const approvalQueryFilter = useMemo(() => {
@@ -274,6 +376,14 @@ export default function Products() {
     return null;
   }, [location.search]);
 
+  const focusProductId = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get('productId');
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    return Number.isInteger(parsed) ? parsed : null;
+  }, [location.search]);
+
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedSearch(searchInput), 300);
     return () => window.clearTimeout(timeout);
@@ -281,17 +391,38 @@ export default function Products() {
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const state = location.state as { openUpdatePrices?: boolean } | null;
+    if (state?.openUpdatePrices) {
+      openStandardReviewPanel();
+      // Clear the state so navigating back and forward doesn't re-open the panel
+      navigate('/products', { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (focusProductId == null) return;
+    const target = products.find((product) => product.id === focusProductId);
+    if (!target) return;
+
+    setSearchInput(target.name);
+    setDebouncedSearch(target.name);
+  }, [focusProductId, products]);
+
+  useEffect(() => {
     loadDefaultOverhead();
   }, []);
 
-  // When filters change, update selection (deselect products not in filtered list)
   useEffect(() => {
-    const validIds = new Set(filteredProducts.map((p) => p.id));
-    const newSelected = new Set(
-      Array.from(selectedProducts).filter((id) => validIds.has(id))
-    );
-    setSelectedProducts(newSelected);
-  }, [debouncedSearch, selectedCategory, selectedProductionMode, selectedStatus, selectedApprovalStatus]);
+    try {
+      window.localStorage.setItem('priceright_products_active_tab', activeTab);
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [activeTab]);
 
   async function loadDefaultOverhead() {
     try {
@@ -308,10 +439,9 @@ export default function Products() {
   async function loadData() {
     try {
       setLoading(true);
-      const [productsData, materialsData, settingsData] = await Promise.all([
-        productsApi.getAll(),
+      const [productsData, materialsData] = await Promise.all([
+        productsApi.getAll('all'),
         materialsApi.getAll(),
-        settingsApi.getAll(),
       ]);
 
       const safeProducts = Array.isArray(productsData) ? productsData : [];
@@ -348,9 +478,6 @@ export default function Products() {
 
       setProducts(productsWithPricing);
       setMaterials(safeMaterials);
-
-      const productCategoriesSetting = (settingsData || []).find((entry: any) => entry.settingKey === 'productCategories');
-      setConfiguredProductCategories(parseConfiguredList(productCategoriesSetting?.settingValue));
     } catch (error) {
       console.error('Error loading products:', error);
       setProducts([]);
@@ -358,45 +485,6 @@ export default function Products() {
     } finally {
       setLoading(false);
     }
-  }
-
-  async function loadBOM(productId: number) {
-    setBomLoading((prev) => ({ ...prev, [productId]: true }));
-    try {
-      const bom = await productsApi.getBOM(productId);
-      setBomCache((prev) => ({ ...prev, [productId]: bom }));
-    } catch (error) {
-      console.error('Error loading BOM for product:', productId, error);
-    } finally {
-      setBomLoading((prev) => ({ ...prev, [productId]: false }));
-    }
-  }
-
-  function handleToggleExpand(productId: number) {
-    setExpandedProducts((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
-      } else {
-        next.add(productId);
-      }
-      return next;
-    });
-
-    if (!bomCache[productId]) {
-      loadBOM(productId);
-    }
-  }
-
-  function getDisplayBOM(bomItems: BOMMaterial[], product: ProductPricing) {
-    if (product.productionMode !== 'batch' || !product.batchYield || product.batchYield <= 1) {
-      return bomItems;
-    }
-
-    return bomItems.map((item) => ({
-      ...item,
-      quantity: item.quantity / product.batchYield!,
-    }));
   }
 
   function handleEdit(product: ProductPricing) {
@@ -439,8 +527,6 @@ export default function Products() {
         }
       }
 
-      setExpandedProducts(new Set());
-      setBomCache({});
       await loadData();
       showToastMessage(`Duplicated product: ${duplicatedName}`, 'success');
     } catch (error: any) {
@@ -454,12 +540,49 @@ export default function Products() {
     try {
       await productsApi.delete(deleteTarget.id);
       setDeleteTarget(null);
-      setExpandedProducts(new Set());
-      setBomCache({});
       await loadData();
     } catch (error: any) {
       console.error('Error deleting product:', error);
-      alert(error?.message || 'Failed to delete product');
+      showToastMessage(error?.message || 'Failed to delete product', 'error');
+    }
+  }
+
+  async function handleToggleProductActive(product: ProductPricing) {
+    const nextActiveState = !product.isActive;
+    if (!nextActiveState) {
+      const confirmed = window.confirm(
+        `Mark ${product.name} as inactive?\nIt will be hidden from Price Lists and Special Pricing unless specifically filtered.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      await productsApi.update(product.id, { isActive: nextActiveState });
+      showToastMessage(`Product marked as ${nextActiveState ? 'active' : 'inactive'}`, 'success');
+      await loadData();
+    } catch (error: any) {
+      console.error('Error updating product status:', error);
+      showToastMessage(error?.message || 'Failed to update product status', 'error');
+    }
+  }
+
+  async function handleBulkSetActiveState(isActive: boolean) {
+    if (selectedProducts.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedProducts).map((id) => productsApi.update(id, { isActive }))
+      );
+      showToastMessage(
+        `Set ${selectedProducts.size} product${selectedProducts.size !== 1 ? 's' : ''} ${isActive ? 'active' : 'inactive'}`,
+        'success'
+      );
+      await loadData();
+    } catch (error: any) {
+      console.error('Error bulk updating product status:', error);
+      showToastMessage(error?.message || 'Failed to update selected product statuses', 'error');
     }
   }
 
@@ -490,29 +613,40 @@ export default function Products() {
     const ids = Array.from(selectedProducts);
     if (ids.length === 0) return;
 
+    const productNameById = new Map(products.map((product) => [product.id, product.name]));
+
     const outcomes = await Promise.all(
       ids.map(async (id) => {
+        const name = productNameById.get(id) || `Product #${id}`;
         try {
           await productsApi.delete(id);
-          return { id, ok: true as const, error: '' };
+          return { id, name, ok: true as const, error: '' };
         } catch (error: any) {
-          return { id, ok: false as const, error: error?.message || 'Failed to delete product' };
+          return { id, name, ok: false as const, error: error?.message || 'Failed to delete product' };
         }
       })
     );
 
     const deletedIds = outcomes.filter((item) => item.ok).map((item) => item.id);
+    const deletedNames = outcomes.filter((item) => item.ok).map((item) => item.name);
     const failed = outcomes.filter((item) => !item.ok);
+    const failedDetails = failed.map((item) => `${item.name}: ${item.error}`);
 
     setSelectedProducts(new Set(failed.map((item) => item.id)));
-    setExpandedProducts(new Set());
-    setBomCache({});
     setShowBulkDeleteModal(false);
     await loadData();
 
+    const deletedPreview = deletedNames.slice(0, 5).join(', ');
+    const deletedSuffix = deletedNames.length > 5 ? ` +${deletedNames.length - 5} more` : '';
+    const failedPreview = failedDetails.slice(0, 3).join(' | ');
+    const failedSuffix = failedDetails.length > 3 ? ` +${failedDetails.length - 3} more` : '';
+
     if (deletedIds.length > 0 && failed.length === 0) {
       showToastMessage(
-        `Successfully deleted ${deletedIds.length} product${deletedIds.length !== 1 ? 's' : ''}`,
+        formatListMessage(
+          `Deleted ${deletedIds.length} product${deletedIds.length !== 1 ? 's' : ''}`,
+          [`Products: ${deletedPreview}${deletedSuffix}`]
+        ),
         'success'
       );
       return;
@@ -520,14 +654,24 @@ export default function Products() {
 
     if (deletedIds.length > 0 && failed.length > 0) {
       showToastMessage(
-        `Deleted ${deletedIds.length}. Could not delete ${failed.length} product${failed.length !== 1 ? 's' : ''}.`,
+        formatListMessage(
+          `Bulk delete completed with partial failures`,
+          [
+            `Deleted: ${deletedIds.length}`,
+            `Failed: ${failed.length}`,
+            `Deleted products: ${deletedPreview}${deletedSuffix}`,
+            `Failure reasons: ${failedPreview}${failedSuffix}`,
+          ]
+        ),
         'error'
       );
       return;
     }
 
-    const firstError = failed[0]?.error || 'Failed to delete selected products';
-    showToastMessage(firstError, 'error');
+    const fullFailureMessage = failedDetails.length > 0
+      ? formatListMessage('Could not delete selected products', [`Reasons: ${failedPreview}${failedSuffix}`])
+      : 'Failed to delete selected products';
+    showToastMessage(fullFailureMessage, 'error');
   }
 
   async function handleBulkCategoryChange() {
@@ -560,9 +704,18 @@ export default function Products() {
   }
 
   function handleBulkExport() {
-    if (selectedProducts.size === 0) return;
+    if (selectedProducts.size === 0) {
+      showToastMessage('No selected products to export', 'error');
+      return;
+    }
 
     const selectedProdList = filteredProducts.filter((p) => selectedProducts.has(p.id));
+    if (selectedProdList.length === 0) {
+      showToastMessage('Selected products are not visible in the current filter. Clear filters and retry export.', 'error');
+      return;
+    }
+
+    try {
     const exportData = selectedProdList.map((product) => ({
       'Product Name': product.name,
       'SKU': product.sku || '',
@@ -574,7 +727,7 @@ export default function Products() {
       'Total Cost': product.totalCost.toFixed(2),
       'Profit Margin %': product.profitMargin.toFixed(2),
       'Optimal Price': product.optimalPrice.toFixed(2),
-      'Current Price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
+      'Approved base price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
       'Status': calculatePricingAnalysis(product).label,
     }));
 
@@ -593,95 +746,185 @@ export default function Products() {
     const filename = `PriceRight_Products_Selected_${date}.xlsx`;
     XLSX.writeFile(workbook, filename);
 
-    showToastMessage(`Exported ${selectedProducts.size} product${selectedProducts.size !== 1 ? 's' : ''} to Excel`, 'success');
-  }
-
-  function showToastMessage(message: string, type: 'success' | 'error') {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    const exportedNames = selectedProdList.map((product) => product.name);
+    const exportedPreview = exportedNames.slice(0, 5).join(', ');
+    const exportedSuffix = exportedNames.length > 5 ? ` +${exportedNames.length - 5} more` : '';
+    showToastMessage(
+      formatListMessage(
+        `Exported ${selectedProdList.length} product${selectedProdList.length !== 1 ? 's' : ''}`,
+        [`Products: ${exportedPreview}${exportedSuffix}`]
+      ),
+      'success'
+    );
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to export selected products', 'error');
+    }
   }
 
   function formatApprovalDate(value?: string | number | null) {
     if (!value) return '-';
     const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  function getApprovalInput(productId: number) {
-    return approvalInputs[productId] || { customPrice: '', reason: '' };
+  function formatExpiryDate(value?: string | null) {
+    if (!value) return '-';
+    const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return '-';
+    return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  function updateApprovalInput(productId: number, key: 'customPrice' | 'reason', value: string) {
-    setApprovalInputs((prev) => ({
-      ...prev,
-      [productId]: {
-        ...getApprovalInput(productId),
-        [key]: value,
-      },
-    }));
+  function getTomorrowDateInputValue() {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    return date.toISOString().split('T')[0];
   }
 
-  async function handleApproveOptimal(product: ProductPricing) {
-    try {
-      await productsApi.approve(product.id, { approvedPrice: product.optimalPrice });
-      showToastMessage(`Price approved: GHS ${product.optimalPrice.toFixed(2)}`, 'success');
-      await loadData();
-    } catch (error: any) {
-      console.error('Approve failed:', error);
-      showToastMessage(error?.message || 'Failed to approve price', 'error');
-    }
+  function getApprovalAgeDays(value?: string | number | null) {
+    if (!value) return null;
+    const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const diffMs = Date.now() - date.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   }
 
-  async function handleApproveCustom(product: ProductPricing) {
-    const input = getApprovalInput(product.id);
-    const customPrice = parseFloat(input.customPrice);
-    if (Number.isNaN(customPrice) || customPrice <= 0) {
-      showToastMessage('Enter a valid custom price', 'error');
-      return;
-    }
-    const confirmText = `Approve custom price GHS ${customPrice.toFixed(2)}? This differs from optimal price GHS ${product.optimalPrice.toFixed(2)}.`;
-    if (!confirm(confirmText)) return;
-
-    try {
-      await productsApi.approve(product.id, { approvedPrice: customPrice, reason: input.reason || undefined });
-      showToastMessage(`Custom price approved: GHS ${customPrice.toFixed(2)}`, 'success');
-      setApprovalInputs((prev) => ({ ...prev, [product.id]: { customPrice: '', reason: '' } }));
-      await loadData();
-    } catch (error: any) {
-      console.error('Approve custom failed:', error);
-      showToastMessage(error?.message || 'Failed to approve custom price', 'error');
-    }
+  function getApprovalAgeColor(ageDays: number | null) {
+    if (ageDays === null) return '#94a3b8';
+    if (ageDays < 30) return '#2e7d32';
+    if (ageDays <= 90) return '#e65100';
+    return '#c62828';
   }
 
-  async function handleReject(product: ProductPricing) {
-    const confirmText = `Reject price for ${product.name}? Product will be excluded from price lists.`;
-    if (!confirm(confirmText)) return;
+  function buildProductUndoSnapshot(ids: number[]) {
+    const snapshots: UndoPreviousState[] = [];
 
-    try {
-      await productsApi.reject(product.id, { reason: getApprovalInput(product.id).reason || undefined });
-      showToastMessage('Price rejected. Product excluded from price lists.', 'success');
-      await loadData();
-    } catch (error: any) {
-      console.error('Reject failed:', error);
-      showToastMessage(error?.message || 'Failed to reject price', 'error');
-    }
+    ids.forEach((id) => {
+      const product = products.find((entry) => entry.id === id);
+      if (!product) return;
+      snapshots.push({
+        id: product.id,
+        approvalStatus: product.approvalStatus || 'pending',
+        approvedPrice: product.approvedPrice ?? null,
+        currentSellingPrice: product.currentSellingPrice ?? 0,
+      });
+    });
+
+    return snapshots;
   }
 
   async function handleBulkApprove() {
+    setBulkApproveExpiryDate('');
+    setShowBulkApproveModal(true);
+  }
+
+  function getBulkApproveExample() {
+    const sampleOptimal = 40;
+    const markupValue = Number(bulkApproveMarkup);
+    if (!Number.isFinite(markupValue)) {
+      return 'e.g. Optimal GHS 40.00 -> Approved GHS --';
+    }
+    const adjusted = sampleOptimal * (1 + markupValue / 100);
+    return `e.g. Optimal GHS 40.00 -> Approved GHS ${adjusted.toFixed(2)}`;
+  }
+
+  function getBulkApproveMethodLabel(method: 'optimal' | 'selling' | 'markup', markup?: number) {
+    if (method === 'selling') return 'current price';
+    if (method === 'markup') {
+      const value = Number(markup || 0);
+      const sign = value >= 0 ? '+' : '';
+      return `optimal price + ${sign}${value}% markup`;
+    }
+    return 'optimal price';
+  }
+
+  async function handleConfirmBulkApprove() {
     const ids = Array.from(selectedProducts);
     if (ids.length === 0) return;
+    const previousStates = buildProductUndoSnapshot(ids);
+
+    let options: { priceMethod: 'optimal' | 'selling' | 'markup'; markupPercentage?: number } = {
+      priceMethod: bulkApprovePriceMethod,
+    };
+
+    if (bulkApprovePriceMethod === 'markup') {
+      const markupValue = Number(bulkApproveMarkup);
+      if (!Number.isFinite(markupValue) || markupValue < -50 || markupValue > 200) {
+        showToastMessage('Markup % must be between -50 and 200', 'error');
+        return;
+      }
+      options = {
+        priceMethod: 'markup',
+        markupPercentage: markupValue,
+      };
+    }
 
     try {
-      await productsApi.bulkApprove(ids);
-      showToastMessage(`${ids.length} product${ids.length !== 1 ? 's' : ''} approved`, 'success');
+      const expiryDate = bulkApproveExpiryDate.trim();
+      const payloadOptions = {
+        ...options,
+        priceExpiryDate: expiryDate ? expiryDate : null,
+      };
+      const result = await productsApi.bulkApprove(ids, payloadOptions);
+      const approvedCount = Number(result?.approved || 0);
+      const methodUsed = (result?.priceMethod || payloadOptions.priceMethod) as 'optimal' | 'selling' | 'markup';
+      const markupUsed = Number(result?.markupPercentage ?? payloadOptions.markupPercentage ?? 0);
+      const summaryText = `Approved ${approvedCount} products at ${getBulkApproveMethodLabel(methodUsed, markupUsed)}.`;
+      showToastMessage(
+        summaryText,
+        'success'
+      );
+
+      registerUndo({
+        actionType: 'bulk_approve',
+        description: summaryText,
+        affectedIds: ids,
+        previousStates,
+        onDataRefresh: loadData,
+      });
+
+      setShowBulkApproveModal(false);
       setSelectedProducts(new Set());
       await loadData();
     } catch (error: any) {
       console.error('Bulk approve failed:', error);
       showToastMessage(error?.message || 'Failed to bulk approve products', 'error');
+    }
+  }
+
+  async function handleConfirmBulkReject() {
+    const ids = Array.from(selectedProducts);
+    if (ids.length === 0) return;
+    const approvedIds = ids.filter((id) => {
+      const product = products.find((entry) => entry.id === id);
+      return product?.approvalStatus === 'approved';
+    });
+    const previousStates = buildProductUndoSnapshot(approvedIds);
+
+    try {
+      const result = await productsApi.bulkReject(ids, bulkRejectReason.trim() || undefined);
+      const rejectedCount = Number(result?.rejected || 0);
+      const summaryText = `Rejected ${rejectedCount} products.`;
+      showToastMessage(
+        `Rejected ${rejectedCount} products. They have been removed from active price lists.`,
+        'success'
+      );
+      if (rejectedCount > 0) {
+        registerUndo({
+          actionType: 'bulk_reject',
+          description: summaryText,
+          affectedIds: approvedIds,
+          previousStates,
+          onDataRefresh: loadData,
+        });
+      }
+      setShowBulkRejectModal(false);
+      setBulkRejectReason('');
+      setSelectedProducts(new Set());
+      await loadData();
+    } catch (error: any) {
+      console.error('Bulk reject failed:', error);
+      showToastMessage(error?.message || 'Failed to bulk reject products', 'error');
     }
   }
 
@@ -715,40 +958,32 @@ export default function Products() {
     }
   }
 
-  async function handleApproveAllExceptSelected() {
-    const eligibleIds = filteredProducts
-      .filter((product) => {
-        const status = product.approvalStatus || 'pending';
-        const isEligible = (status === 'pending' || status === 'needs_review') && product.optimalPrice > 0;
-        return isEligible && !selectedProducts.has(product.id);
-      })
-      .map((product) => product.id);
-
-    if (eligibleIds.length === 0) {
-      showToastMessage('No eligible products to approve after exclusions', 'error');
-      return;
-    }
-
-    const confirmText = `Approve ${eligibleIds.length} eligible product${eligibleIds.length !== 1 ? 's' : ''} and skip ${selectedProducts.size} selected product${selectedProducts.size !== 1 ? 's' : ''}?`;
-    if (!confirm(confirmText)) return;
-
-    setIsApprovingAll(true);
-    try {
-      await productsApi.bulkApprove(eligibleIds);
-      showToastMessage(`${eligibleIds.length} products approved. ${selectedProducts.size} kept for custom pricing.`, 'success');
-      await loadData();
-    } catch (error: any) {
-      console.error('Approve all except selected failed:', error);
-      showToastMessage(error?.message || 'Failed to approve products', 'error');
-    } finally {
-      setIsApprovingAll(false);
-    }
-  }
-
   async function handleProductFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setImportFile(file);
+    setImportFailures([]);
+    setImportSuccessCount(0);
+    setImportRuntimeError('');
+
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+
+    if (extension === 'csv') {
+      const textReader = new FileReader();
+      textReader.onload = (event) => {
+        try {
+          const text = String(event.target?.result || '');
+          const rows = parseCsvText(text);
+          setImportPreview(rows);
+        } catch (error) {
+          console.error('Error reading CSV file:', error);
+          showToastMessage('Error reading CSV file. Please check the format.', 'error');
+          setImportPreview([]);
+        }
+      };
+      textReader.readAsText(file);
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -760,23 +995,9 @@ export default function Products() {
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         setImportPreview(jsonData as any[]);
       } catch (error) {
-        try {
-          const text = event.target?.result as string;
-          const lines = text.split(/\r?\n/).filter(Boolean);
-          const headers = lines[0].split(',').map((h) => h.trim());
-          const rows = lines.slice(1).map((line) => {
-            const parts = line.split(',');
-            const obj: any = {};
-            headers.forEach((h, i) => {
-              obj[h] = parts[i];
-            });
-            return obj;
-          });
-          setImportPreview(rows);
-        } catch (err) {
-          console.error('Error reading file:', error, err);
-          alert('Error reading file. Please check the format.');
-        }
+        console.error('Error reading file:', error);
+        showToastMessage('Error reading file. Please check the format.', 'error');
+        setImportPreview([]);
       }
     };
     reader.readAsBinaryString(file);
@@ -784,18 +1005,89 @@ export default function Products() {
 
   async function handleProductImport() {
     if (importPreview.length === 0) {
-      alert('No data to import');
+      showToastMessage('No data to import', 'error');
       return;
     }
+    setImportRuntimeError('');
     setImporting(true);
     try {
       const resp = await productsApi.import(importPreview);
-      setImportFailures(resp.failures || []);
-      setImportSuccessCount(resp.successCount || 0);
-      if ((resp.successCount || 0) > 0) await loadData();
+      const failures = resp.failures || [];
+      const successCount = resp.successCount || 0;
+      setImportFailures(failures);
+      setImportSuccessCount(successCount);
+
+      const failedRows = new Set<number>(failures.map((failure: any) => Number(failure.rowNumber)).filter((row: number) => !Number.isNaN(row)));
+      const successNames = importPreview
+        .map((row, index) => ({
+          rowNumber: index + 1,
+          name: (row['Product Name'] || row['name'] || '').toString().trim(),
+        }))
+        .filter((entry) => !failedRows.has(entry.rowNumber) && entry.name.length > 0)
+        .map((entry) => entry.name);
+
+      const failedDetails = failures
+        .map((failure: any) => {
+          const failedName = (failure?.name || '').toString().trim();
+          const rowLabel = failure?.rowNumber ? `Row ${failure.rowNumber}` : 'Row ?';
+          const reason = (failure?.reason || 'Unknown reason').toString();
+          return `${failedName || rowLabel}: ${reason}`;
+        });
+
+      if (successCount > 0) {
+        setSearchInput('');
+        setDebouncedSearch('');
+        setSelectedStatus('All');
+        setSelectedApprovalStatus('All');
+        await loadData();
+      }
+
+      const successPreview = successNames.slice(0, 5).join(', ');
+      const successSuffix = successNames.length > 5 ? ` +${successNames.length - 5} more` : '';
+      const failedPreview = failedDetails.slice(0, 3).join(' | ');
+      const failedSuffix = failedDetails.length > 3 ? ` +${failedDetails.length - 3} more` : '';
+
+      if (successCount > 0 && failures.length === 0) {
+        showToastMessage(
+          formatListMessage(
+            `Imported ${successCount} product${successCount !== 1 ? 's' : ''}`,
+            [`Products: ${successPreview}${successSuffix}`]
+          ),
+          'success'
+        );
+        return;
+      }
+
+      if (successCount > 0 && failures.length > 0) {
+        showToastMessage(
+          formatListMessage(
+            'Import completed with partial failures',
+            [
+              `Imported: ${successCount}`,
+              `Failed: ${failures.length}`,
+              `Imported products: ${successPreview}${successSuffix}`,
+              `Failure reasons: ${failedPreview}${failedSuffix}`,
+            ]
+          ),
+          'error'
+        );
+        return;
+      }
+
+      if (failures.length > 0) {
+        showToastMessage(
+          formatListMessage('Import failed for all rows', [`Reasons: ${failedPreview}${failedSuffix}`]),
+          'error'
+        );
+        return;
+      }
+
+      showToastMessage('No products were imported', 'error');
     } catch (err: any) {
       console.error('Import failed:', err);
-      alert('Import failed: ' + (err?.message || String(err)));
+      const errorMessage = err?.message || String(err) || 'Unknown error';
+      setImportRuntimeError(errorMessage);
+      showToastMessage('Import failed: ' + errorMessage, 'error');
     } finally {
       setImporting(false);
     }
@@ -803,110 +1095,114 @@ export default function Products() {
 
   function downloadProductFailureReport() {
     if (!importFailures || importFailures.length === 0) return;
-    const rows = importFailures.map((f) => ({ ...f.originalRow, 'Failure Reason': f.reason }));
-    const ws = (window as any).XLSX ? (window as any).XLSX.utils.json_to_sheet(rows) : null;
-    if (ws && (window as any).XLSX) {
-      const wb = (window as any).XLSX.utils.book_new();
-      (window as any).XLSX.utils.book_append_sheet(wb, ws, 'Failures');
-      const date = new Date().toISOString().split('T')[0];
-      (window as any).XLSX.writeFile(wb, `Products_Import_Failures_${date}.csv`);
-    } else {
-      alert('XLSX library is required to download failure report');
-    }
+    const headers = [
+      'Row Number',
+      'Product Name',
+      'SKU',
+      'Category',
+      'Production Mode',
+      'Batch Yield',
+      'Overhead %',
+      'Profit Margin %',
+      'Approved base price',
+      'Material Name',
+      'Quantity',
+      'Unit',
+      'Failure Reason',
+    ];
+
+    const rows = importFailures.map((failure) => {
+      const source = failure.originalRow || {};
+      return [
+        failure.rowNumber,
+        source['Product Name'] || source['name'] || '',
+        source['SKU'] || source['sku'] || '',
+        source['Category'] || source['category'] || '',
+        source['Production Mode'] || source['productionMode'] || '',
+        source['Batch Yield'] || source['batchYield'] || '',
+        source['Overhead %'] || source['Overhead'] || source['overhead'] || source['overheadPercentage'] || '',
+        source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
+        source['Approved base price'] || source['currentSellingPrice'] || '',
+        source['Material Name'] || source['materialName'] || '',
+        source['Quantity'] || source['quantity'] || '',
+        source['Unit'] || source['unit'] || '',
+        failure.reason,
+      ];
+    });
+
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(`products-import-failures-${date}.csv`, headers, rows);
   }
 
   function handleDownloadProductTemplate() {
+    const headers = [
+      'Product Name',
+      'SKU',
+      'Category',
+      'Production Mode',
+      'Batch Yield',
+      'Overhead %',
+      'Profit Margin %',
+      'Approved base price',
+      'Material Name',
+      'Quantity',
+      'Unit',
+      'Description',
+    ];
+
     const rows = [
-      {
-        'Product Name': 'BROWN SUGAR BOTTLE 1.8kg',
-        SKU: 'BSB-001',
-        Category: 'Sugar',
-        'Production Mode': 'Batch',
-        'Batch Yield': '6',
-        'Overhead %': '25',
-        'Profit Margin %': '20',
-        'Material Name': 'Sugar',
-        Quantity: '10.8',
-        Unit: 'Kg',
-      },
-      {
-        'Product Name': 'BROWN SUGAR BOTTLE 1.8kg',
-        SKU: 'BSB-001',
-        Category: 'Sugar',
-        'Production Mode': 'Batch',
-        'Batch Yield': '6',
-        'Overhead %': '25',
-        'Profit Margin %': '20',
-        'Material Name': 'Bottle & Cover Brown Sugar',
-        Quantity: '6',
-        Unit: 'Pcs',
-      },
-      {
-        'Product Name': 'PALM OIL 500ML',
-        SKU: 'PO-001',
-        Category: 'Oils',
-        'Production Mode': 'Single',
-        'Batch Yield': '1',
-        'Overhead %': '30',
-        'Profit Margin %': '35',
-        'Material Name': 'Raw Palm Oil',
-        Quantity: '0.52',
-        Unit: 'L',
-      },
-      {
-        'Product Name': 'PALM OIL 500ML',
-        SKU: 'PO-001',
-        Category: 'Oils',
-        'Production Mode': 'Single',
-        'Batch Yield': '1',
-        'Overhead %': '30',
-        'Profit Margin %': '35',
-        'Material Name': 'PET Bottles 500ml',
-        Quantity: '1',
-        Unit: 'piece',
-      },
+      ['BROWN SUGAR BOTTLE 1.8kg', 'BSB-001', 'Sugar', 'Batch', '6', '25', '20', '45.00', 'Sugar', '10.8', 'Kg', 'Brown sugar bottle 1.8kg'],
+      ['BROWN SUGAR BOTTLE 1.8kg', 'BSB-001', 'Sugar', 'Batch', '6', '25', '20', '45.00', 'Bottle & Cover Brown Sugar', '6', 'Pcs', 'Brown sugar bottle 1.8kg'],
+      ['PALM OIL 500ML', 'PO-001', 'Oils', 'Single', '1', '30', '35', '9.50', 'Raw Palm Oil', '0.52', 'L', 'Palm oil bottle 500ml'],
+      ['PALM OIL 500ML', 'PO-001', 'Oils', 'Single', '1', '30', '35', '9.50', 'PET Bottles 500ml', '1', 'piece', 'Palm oil bottle 500ml'],
     ];
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Products Template');
-
-    const instr = [
-      { A: 'Instructions:' },
-      { A: 'One row per material. Rows with same Product Name are grouped into one product.' },
-      { A: 'Production Mode must be Single or Batch (case-insensitive).' },
-      { A: 'Batch Yield required when Production Mode is Batch.' },
-      { A: 'Material Name must match an existing material in PriceRight.' },
-      { A: 'Category can be any value that fits your business.' },
-    ];
-    const wsInstr = XLSX.utils.json_to_sheet(instr, { header: ['A'] });
-    XLSX.utils.book_append_sheet(wb, wsInstr, 'Instructions');
 
     const date = new Date().toISOString().split('T')[0];
-    XLSX.writeFile(wb, `Products_Import_Template_${date}.xlsx`);
+    downloadCsv(`products-import-template-${date}.csv`, headers, rows);
   }
 
   function handleExportToExcel() {
-    const exportData = products.map((product) => {
+    const headers = [
+      'Product Name',
+      'SKU',
+      'Category',
+      'Production Mode',
+      'Material Cost',
+      'Optimal Price',
+      'Approved base price',
+      'Actual Profit Margin (%)',
+      'Variance (GHS)',
+      'Variance (%)',
+      'Pricing Status',
+    ];
+
+    const exportRows = products.map((product) => {
       const analysis = calculatePricingAnalysis(product);
-      const currentPrice = product.currentSellingPrice || 0;
+      const currentPrice = Number(product.currentSellingPrice || 0);
+      const realisedProfitMargin = calculateRealisedProfitMargin(product);
       return {
-        'Product Name': product.name,
-        SKU: product.sku || '-',
-        Category: product.category || '-',
-        'Production Mode': product.productionMode === 'batch' ? `Batch (${product.batchYield} units)` : 'Single Unit',
-        'Material Cost': `GHS ${product.materialCost.toFixed(2)}`,
-        'Overhead Cost': `GHS ${product.overheadCost.toFixed(2)}`,
-        'Total Cost': `GHS ${product.totalCost.toFixed(2)}`,
-        'Optimal Price': `GHS ${product.optimalPrice.toFixed(2)}`,
-        'Current Selling Price': currentPrice > 0 ? `GHS ${currentPrice.toFixed(2)}` : 'Not Set',
-        'Variance (GHS)': currentPrice > 0 ? `GHS ${analysis.variance.toFixed(2)}` : '-',
-        'Variance (%)': currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
-        Status: analysis.label,
+        values: [
+          product.name,
+          product.sku || '-',
+          product.category || '-',
+          product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single Unit',
+          Number(product.materialCost || 0),
+          Number(product.optimalPrice || 0),
+          currentPrice > 0 ? currentPrice : null,
+          realisedProfitMargin != null ? Number(realisedProfitMargin.toFixed(1)) : null,
+          currentPrice > 0 ? Number(analysis.variance || 0) : null,
+          currentPrice > 0 ? Number(analysis.variancePercent || 0) : null,
+          analysis.label,
+        ],
+        status: analysis.status,
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
+    const ws = XLSX.utils.aoa_to_sheet([
+      headers,
+      ...exportRows.map((entry) => entry.values),
+    ]);
+
     ws['!cols'] = [
       { wch: 30 },
       { wch: 15 },
@@ -914,13 +1210,40 @@ export default function Products() {
       { wch: 20 },
       { wch: 15 },
       { wch: 15 },
-      { wch: 15 },
-      { wch: 15 },
       { wch: 20 },
+      { wch: 18 },
       { wch: 15 },
-      { wch: 15 },
-      { wch: 15 },
+      { wch: 14 },
+      { wch: 14 },
     ];
+
+    for (let rowIndex = 0; rowIndex < exportRows.length; rowIndex += 1) {
+      const excelRow = rowIndex + 2;
+      const currentPriceCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 6 });
+      const realisedMarginCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
+      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
+      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
+
+      if (ws[currentPriceCell]) ws[currentPriceCell].z = '#,##0.00';
+      if (ws[realisedMarginCell]) ws[realisedMarginCell].z = '0.0';
+      if (ws[varianceAmountCell]) ws[varianceAmountCell].z = '#,##0.00';
+      if (ws[variancePercentCell]) ws[variancePercentCell].z = '0.0';
+
+      const status = exportRows[rowIndex].status;
+      const fillStyle =
+        status === 'below-optimal'
+          ? { fill: { patternType: 'solid', fgColor: { rgb: 'FDECEC' } }, font: { color: { rgb: 'B91C1C' }, bold: true } }
+          : status === 'above-optimal'
+            ? { fill: { patternType: 'solid', fgColor: { rgb: 'E8F5E9' } }, font: { color: { rgb: '166534' }, bold: true } }
+            : null;
+
+      if (fillStyle) {
+        if (ws[currentPriceCell]) ws[currentPriceCell].s = fillStyle as any;
+        if (ws[realisedMarginCell]) ws[realisedMarginCell].s = fillStyle as any;
+        if (ws[varianceAmountCell]) ws[varianceAmountCell].s = fillStyle as any;
+        if (ws[variancePercentCell]) ws[variancePercentCell].s = fillStyle as any;
+      }
+    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Products');
@@ -937,19 +1260,10 @@ export default function Products() {
         product.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         product.sku?.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-
-      const matchesProductionMode =
-        selectedProductionMode === 'All' ||
-        (selectedProductionMode === 'Batch' ? product.productionMode === 'batch' : product.productionMode !== 'batch');
-
       const status = calculatePricingAnalysis(product).status;
       const matchesStatus =
         selectedStatus === 'All' ||
-        (selectedStatus === 'Not Set' && status === 'not-set') ||
-        (selectedStatus === 'Underpriced' && status === 'underpriced') ||
-        (selectedStatus === 'Overpriced' && status === 'overpriced') ||
-        (selectedStatus === 'Optimal' && status === 'optimal');
+        (selectedStatus === 'Below Optimal' && status === 'below-optimal');
 
       const approvalStatus = product.approvalStatus || 'pending';
       const matchesApprovalStatus =
@@ -960,12 +1274,412 @@ export default function Products() {
         (selectedApprovalStatus === 'Needs Review' && approvalStatus === 'needs_review');
       const matchesApprovalQuery = !approvalQueryFilter || approvalStatus === approvalQueryFilter;
 
-      const productMargin = toNumber(product.profitMargin);
-      const matchesLowMargin = !lowMarginOnly || productMargin < 15;
+      const currentSellingPrice = Number(product.currentSellingPrice || 0);
+      const productionCost = Number(product.totalCost || 0);
+      const realisedMargin = currentSellingPrice > 0 && productionCost > 0
+        ? ((currentSellingPrice - productionCost) / currentSellingPrice) * 100
+        : null;
+      const matchesLowMargin = !lowMarginOnly || (realisedMargin !== null && realisedMargin < 15);
+      const productDaysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
+      const matchesExpiringSoon = !expiringSoonOnly || (
+        approvalStatus === 'approved'
+        && productDaysUntilExpiry !== null
+        && productDaysUntilExpiry > 0
+        && productDaysUntilExpiry <= 30
+      );
 
-      return matchesSearch && matchesCategory && matchesProductionMode && matchesStatus && matchesApprovalStatus && matchesApprovalQuery && matchesLowMargin;
+      return matchesSearch
+        && matchesStatus
+        && matchesApprovalStatus
+        && matchesApprovalQuery
+        && matchesLowMargin
+        && matchesExpiringSoon;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly]);
+
+  const productOrderForDetail = useMemo(
+    () => filteredProducts.map((product) => ({ id: product.id, name: product.name })),
+    [filteredProducts]
+  );
+
+  function openProductDetail(productId: number) {
+    navigate(`/products/${productId}`, {
+      state: {
+        from: `${location.pathname}${location.search}`,
+        productOrder: productOrderForDetail,
+      },
     });
-  }, [products, debouncedSearch, selectedCategory, selectedProductionMode, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly]);
+  }
+
+  // When filters change, update selection (deselect products not in filtered list)
+  useEffect(() => {
+    const validIds = new Set(filteredProducts.map((p) => p.id));
+    setSelectedProducts((prev) => {
+      const newSelected = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      // Return the same reference if nothing changed to avoid a re-render
+      if (newSelected.size === prev.size) return prev;
+      return newSelected;
+    });
+  }, [filteredProducts]);
+
+  const statusChipCounts = useMemo(() => {
+    let needsReview = 0;
+    let pending = 0;
+    let belowOptimal = 0;
+
+    products.forEach((product) => {
+      const approvalStatus = product.approvalStatus || 'pending';
+      const currentSellingPrice = Number(product.currentSellingPrice || 0);
+      const optimalPrice = Number(product.optimalPrice || 0);
+
+      if (approvalStatus === 'needs_review') needsReview += 1;
+      if (approvalStatus === 'pending') pending += 1;
+      if (currentSellingPrice > 0 && currentSellingPrice < optimalPrice) belowOptimal += 1;
+    });
+
+    return { needsReview, pending, belowOptimal };
+  }, [products]);
+
+  const hasNeedsReviewProducts = statusChipCounts.needsReview > 0;
+  const needsReviewCount = products.filter((p) => p.approvalStatus === 'needs_review').length;
+  const shouldShowNeedsReviewBanner = hasNeedsReviewProducts && !isNeedsReviewBannerDismissed;
+  const isFirstTimeSetup = useMemo(() => {
+    if (products.length === 0) return false;
+
+    const hasApproved = products.some((product) => (product.approvalStatus || 'pending') === 'approved');
+    if (hasApproved) return false;
+
+    return products.every((product) => Number(product.currentSellingPrice || 0) <= 0);
+  }, [products]);
+
+  const standardReviewProducts = useMemo(() => {
+    const byId = new Map(products.map((product) => [product.id, product]));
+    return reviewSnapshotIds
+      .map((id) => byId.get(id))
+      .filter((product): product is ProductPricing => !!product);
+  }, [products, reviewSnapshotIds]);
+
+  const filteredStandardReviewProducts = useMemo(() => {
+    const query = priceReviewSearch.trim().toLowerCase();
+    if (!query) return standardReviewProducts;
+
+    return standardReviewProducts.filter((product) => {
+      return product.name.toLowerCase().includes(query)
+        || String(product.sku || '').toLowerCase().includes(query);
+    });
+  }, [priceReviewSearch, standardReviewProducts]);
+
+  const panelReferenceProducts = useMemo(() => {
+    const query = priceReviewSearch.trim().toLowerCase();
+    return products
+      .filter((product) => {
+        const approvalStatus = product.approvalStatus || 'pending';
+        if (approvalStatus === 'needs_review') return false;
+        if (approvalStatus !== 'approved' && approvalStatus !== 'pending') return false;
+        if (!query) return true;
+        return product.name.toLowerCase().includes(query)
+          || String(product.sku || '').toLowerCase().includes(query);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [priceReviewSearch, products]);
+
+  const setupProducts = useMemo(() => {
+    return [...products].sort((a, b) => a.name.localeCompare(b.name));
+  }, [products]);
+
+  const reviewedCardsCount = Object.keys(reviewedCardStates).length;
+  const remainingCardsCount = Math.max(0, reviewSnapshotIds.length - reviewedCardsCount);
+
+  function applyApprovedProductLocally(
+    productId: number,
+    approvedPrice: number,
+    serverProduct?: Partial<ProductPricing> | null,
+  ) {
+    setProducts((prev) => prev.map((existing) => {
+      if (existing.id !== productId) return existing;
+
+      return {
+        ...existing,
+        ...(serverProduct || {}),
+        approvedPrice,
+        currentSellingPrice: approvedPrice,
+        approvalStatus: 'approved',
+        approvedAt: serverProduct?.approvedAt || new Date().toISOString(),
+        needsReviewReason: null,
+        priceMismatch: false,
+      };
+    }));
+  }
+
+  function openStandardReviewPanel() {
+    const snapshotIds = products
+      .filter((product) => (product.approvalStatus || 'pending') === 'needs_review')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((product) => product.id);
+
+    setPriceReviewMode('standard');
+    setReviewSnapshotIds(snapshotIds);
+    setReviewedCardStates({});
+    setPriceReviewSearch('');
+    setShowPriceReviewPanel(true);
+  }
+
+  function openSetupReviewPanel() {
+    const startingInputs: Record<number, string> = {};
+    products.forEach((product) => {
+      const suggested = Number(product.optimalPrice || 0);
+      startingInputs[product.id] = suggested > 0 ? suggested.toFixed(2) : '';
+    });
+
+    setPriceReviewMode('setup');
+    setPriceReviewSearch('');
+    setSetupPriceInputs(startingInputs);
+    setShowPriceReviewPanel(true);
+  }
+
+  function closePriceReviewPanel() {
+    setShowPriceReviewPanel(false);
+    setPriceReviewBusyIds(new Set());
+  }
+
+  function scheduleReviewCardRemoval(productId: number) {
+    window.setTimeout(() => {
+      setReviewSnapshotIds((prev) => prev.filter((id) => id !== productId));
+      setReviewedCardStates((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      setCustomPriceInputs((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+    }, 2000);
+  }
+
+  async function handleApproveFromReviewPanel(product: ProductPricing, approvedPrice: number, actionLabel: string) {
+    const normalizedPrice = Number(approvedPrice);
+    if (!Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
+      showToastMessage('Enter a valid approved base price above 0', 'error');
+      return;
+    }
+
+    if (priceReviewBusyIds.has(product.id)) {
+      return;
+    }
+
+    const previousProduct = products.find((item) => item.id === product.id);
+    setPriceReviewBusyIds((prev) => new Set(prev).add(product.id));
+    applyApprovedProductLocally(product.id, normalizedPrice);
+
+    try {
+      const result = await productsApi.approve(product.id, { approvedPrice: normalizedPrice });
+      if (!result?.success) {
+        throw new Error('Approve request did not return success');
+      }
+
+      if (result.product) {
+        applyApprovedProductLocally(product.id, normalizedPrice, result.product);
+      }
+
+      setReviewedCardStates((prev) => ({
+        ...prev,
+        [product.id]: {
+          chosenPrice: normalizedPrice,
+          actionLabel,
+        },
+      }));
+      scheduleReviewCardRemoval(product.id);
+    } catch (error) {
+      if (previousProduct) {
+        setProducts((prev) => prev.map((item) => (item.id === product.id ? previousProduct : item)));
+      }
+      showToastMessage('Failed to approve product from review panel', 'error');
+    } finally {
+      setPriceReviewBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(product.id);
+        return next;
+      });
+    }
+  }
+
+  async function handleApproveAllNeedsReviewInPanel() {
+    const eligibleProducts = standardReviewProducts.filter((product) => {
+      return (product.approvalStatus || 'pending') === 'needs_review' && Number(product.optimalPrice || 0) > 0;
+    });
+
+    if (eligibleProducts.length === 0) {
+      showToastMessage('No needs-review products are eligible for bulk approval', 'error');
+      return;
+    }
+
+    const busyIds = new Set<number>(eligibleProducts.map((product) => product.id));
+    setPriceReviewBusyIds((prev) => new Set([...Array.from(prev), ...Array.from(busyIds)]));
+
+    eligibleProducts.forEach((product) => {
+      applyApprovedProductLocally(product.id, Number(product.optimalPrice || 0));
+    });
+
+    try {
+      await productsApi.bulkApprove(
+        eligibleProducts.map((product) => product.id),
+        { priceMethod: 'optimal' },
+      );
+
+      setReviewedCardStates((prev) => {
+        const next = { ...prev };
+        eligibleProducts.forEach((product) => {
+          next[product.id] = {
+            chosenPrice: Number(product.optimalPrice || 0),
+            actionLabel: 'Accepted optimal',
+          };
+        });
+        return next;
+      });
+
+      eligibleProducts.forEach((product) => scheduleReviewCardRemoval(product.id));
+      setSelectedProducts((prev) => {
+        const next = new Set(prev);
+        eligibleProducts.forEach((product) => next.delete(product.id));
+        return next;
+      });
+      showToastMessage(`Approved ${eligibleProducts.length} needs-review product${eligibleProducts.length === 1 ? '' : 's'}`, 'success');
+    } catch (error) {
+      await loadData();
+      showToastMessage('Bulk approve from review panel failed; data refreshed', 'error');
+    } finally {
+      setPriceReviewBusyIds((prev) => {
+        const next = new Set(prev);
+        eligibleProducts.forEach((product) => next.delete(product.id));
+        return next;
+      });
+    }
+  }
+
+  async function handleSaveStartingPrices() {
+    const entries = setupProducts
+      .map((product) => {
+        const value = Number(setupPriceInputs[product.id]);
+        return {
+          product,
+          value,
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.value) && entry.value > 0);
+
+    if (entries.length === 0) {
+      showToastMessage('Enter at least one starting price before saving', 'error');
+      return;
+    }
+
+    setIsSavingSetupPrices(true);
+    const failedProducts: string[] = [];
+
+    for (const entry of entries) {
+      const previousProduct = products.find((item) => item.id === entry.product.id);
+      applyApprovedProductLocally(entry.product.id, entry.value);
+
+      try {
+        const result = await productsApi.approve(entry.product.id, { approvedPrice: entry.value });
+        if (!result?.success) {
+          throw new Error('Approve request did not return success');
+        }
+
+        if (result.product) {
+          applyApprovedProductLocally(entry.product.id, entry.value, result.product);
+        }
+      } catch {
+        failedProducts.push(entry.product.name);
+        if (previousProduct) {
+          setProducts((prev) => prev.map((item) => (item.id === entry.product.id ? previousProduct : item)));
+        }
+      }
+    }
+
+    setIsSavingSetupPrices(false);
+
+    if (failedProducts.length === 0) {
+      showToastMessage(`Saved ${entries.length} starting price${entries.length === 1 ? '' : 's'}`, 'success');
+      window.setTimeout(() => {
+        closePriceReviewPanel();
+      }, 2000);
+      return;
+    }
+
+    const successCount = entries.length - failedProducts.length;
+    if (successCount > 0) {
+      showToastMessage(`Saved ${successCount} price${successCount === 1 ? '' : 's'}, ${failedProducts.length} failed`, 'error');
+    } else {
+      showToastMessage('Failed to save starting prices', 'error');
+    }
+  }
+
+  function handleReviewNow() {
+    openStandardReviewPanel();
+  }
+
+  function handleUpdatePrices() {
+    setIsNeedsReviewBannerDismissed(false);
+    openStandardReviewPanel();
+  }
+
+  useEffect(() => {
+    if (!showPriceReviewPanel) {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowPriceReviewPanel(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showPriceReviewPanel]);
+
+  useEffect(() => {
+    if (!showPriceReviewPanel || priceReviewMode !== 'standard') {
+      return;
+    }
+
+    setReviewSnapshotIds((prev) => {
+      if (prev.length > 0) return prev;
+      return products
+        .filter((product) => (product.approvalStatus || 'pending') === 'needs_review')
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((product) => product.id);
+    });
+  }, [priceReviewMode, products, showPriceReviewPanel]);
+
+  useEffect(() => {
+    if (!showPriceReviewPanel || priceReviewMode !== 'setup') {
+      return;
+    }
+
+    setSetupPriceInputs((prev) => {
+      if (Object.keys(prev).length > 0) return prev;
+
+      const next: Record<number, string> = {};
+      products.forEach((product) => {
+        const suggested = Number(product.optimalPrice || 0);
+        next[product.id] = suggested > 0 ? suggested.toFixed(2) : '';
+      });
+      return next;
+    });
+  }, [priceReviewMode, products, showPriceReviewPanel]);
+
+  useEffect(() => {
+    if (!showPriceReviewPanel) {
+      return;
+    }
+
+    if (priceReviewMode === 'setup' && !isFirstTimeSetup) {
+      setShowPriceReviewPanel(false);
+    }
+  }, [isFirstTimeSetup, priceReviewMode, showPriceReviewPanel]);
 
   function escapeCsvCell(value: unknown) {
     const text = String(value ?? '');
@@ -998,6 +1712,8 @@ export default function Products() {
 
     const rows = filteredProducts.map((product) => {
       const analysis = calculatePricingAnalysis(product);
+      const currentPrice = Number(product.currentSellingPrice || 0);
+      const realisedProfitMargin = calculateRealisedProfitMargin(product);
       return [
         product.name,
         product.sku || '-',
@@ -1005,7 +1721,10 @@ export default function Products() {
         product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single',
         product.totalCost.toFixed(2),
         product.optimalPrice.toFixed(2),
-        (product.currentSellingPrice || 0).toFixed(2),
+        currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set',
+        realisedProfitMargin != null ? `${realisedProfitMargin.toFixed(1)}%` : '-',
+        currentPrice > 0 ? analysis.variance.toFixed(2) : '-',
+        currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
         analysis.label,
         getApprovalBadge(product.approvalStatus).label,
       ];
@@ -1013,7 +1732,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Category', 'Production Mode', 'Total Cost', 'Optimal Price', 'Current Selling Price', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Category', 'Production Mode', 'Total Cost', 'Optimal Price', 'Approved base price', 'Actual Profit Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1032,6 +1751,18 @@ export default function Products() {
     const rowsHtml = filteredProducts
       .map((product) => {
         const analysis = calculatePricingAnalysis(product);
+        const currentPrice = Number(product.currentSellingPrice || 0);
+        const realisedProfitMargin = calculateRealisedProfitMargin(product);
+        const statusColor = analysis.status === 'below-optimal'
+          ? '#b91c1c'
+          : analysis.status === 'above-optimal'
+            ? '#166534'
+            : '#475569';
+        const statusBg = analysis.status === 'below-optimal'
+          ? '#fef2f2'
+          : analysis.status === 'above-optimal'
+            ? '#f0fdf4'
+            : '#f8fafc';
         return `
           <tr>
             <td>${product.name}</td>
@@ -1040,7 +1771,10 @@ export default function Products() {
             <td>${product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single'}</td>
             <td style="text-align:right;">${product.totalCost.toFixed(2)}</td>
             <td style="text-align:right;">${product.optimalPrice.toFixed(2)}</td>
-            <td style="text-align:right;">${Number(product.currentSellingPrice || 0).toFixed(2)}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set'}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${realisedProfitMargin != null ? `${realisedProfitMargin.toFixed(1)}%` : '-'}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? analysis.variance.toFixed(2) : '-'}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-'}</td>
             <td>${analysis.label}</td>
           </tr>
         `;
@@ -1052,8 +1786,8 @@ export default function Products() {
         <head>
           <title>Products Report</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 22px; }
+            body { font-family: 'Open Sans', sans-serif; margin: 24px; color: #0f172a; }
+            h1 { margin: 0 0 6px; font-size: 24px; }
             .meta { margin-bottom: 12px; color: #475569; font-size: 12px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; text-align: left; }
@@ -1067,7 +1801,7 @@ export default function Products() {
           <table>
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Category</th><th>Mode</th><th>Total Cost</th><th>Optimal Price</th><th>Current Price</th><th>Status</th>
+                <th>Product</th><th>SKU</th><th>Category</th><th>Mode</th><th>Total Cost</th><th>Optimal Price</th><th>Approved base price</th><th>Actual Profit Margin (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -1087,13 +1821,56 @@ export default function Products() {
     }).length;
   }, [filteredProducts]);
 
-  const eligibleExcludingSelectedCount = useMemo(() => {
-    return filteredProducts.filter((product) => {
-      const status = product.approvalStatus || 'pending';
-      const isEligible = (status === 'pending' || status === 'needs_review') && product.optimalPrice > 0;
-      return isEligible && !selectedProducts.has(product.id);
-    }).length;
+  const selectedApprovedCount = useMemo(() => {
+    return filteredProducts.filter((product) => selectedProducts.has(product.id) && product.approvalStatus === 'approved').length;
   }, [filteredProducts, selectedProducts]);
+
+  const selectedNonApprovedCount = Math.max(0, selectedProducts.size - selectedApprovedCount);
+
+  const isBulkApproveMarkupValid = (() => {
+    if (bulkApprovePriceMethod !== 'markup') return true;
+    const value = Number(bulkApproveMarkup);
+    return Number.isFinite(value) && value >= -50 && value <= 200;
+  })();
+
+  const compactControlStyle = {
+    minHeight: '28px',
+    padding: '4px 6px',
+    fontSize: '11px',
+  } as const;
+
+  function openProductsTableSettings() {
+    const trigger = productsTableSettingsAnchorRef.current?.querySelector('button');
+    if (trigger instanceof HTMLButtonElement) {
+      trigger.click();
+    }
+  }
+
+  function isProductColumnVisible(key: ProductColumnKey) {
+    return visibleColumns.includes(key);
+  }
+
+  function toggleProductColumn(key: ProductColumnKey) {
+    const currentlyVisible = visibleColumns.includes(key);
+    if (currentlyVisible && visibleColumns.length <= 2) {
+      return;
+    }
+
+    const nextColumns = currentlyVisible
+      ? visibleColumns.filter((columnKey) => columnKey !== key)
+      : [...visibleColumns, key];
+
+    setVisibleColumns(nextColumns);
+  }
+
+  function resetProductColumns() {
+    setVisibleColumns(DEFAULT_PRODUCT_COLUMNS);
+    try {
+      window.localStorage.removeItem('priceright_columns_products');
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
 
   if (loading) {
     return (
@@ -1102,7 +1879,6 @@ export default function Products() {
           <div className="app-header-row">
             <div>
               <h1 className="app-page-title">Products</h1>
-              <p className="app-page-subtitle">View, edit, and price products with inline BOM details</p>
             </div>
           </div>
         </div>
@@ -1118,257 +1894,331 @@ export default function Products() {
 
   return (
     <div className="app-page">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: toastType === 'success' ? '#d1fae5' : '#fee2e2',
-            color: toastType === 'success' ? '#065f46' : '#991b1b',
-            padding: '16px 24px',
-            borderRadius: '8px',
-            fontWeight: '600',
-            zIndex: 2000,
-            animation: 'slideIn 0.3s ease-out',
-          }}
-        >
-          {toastMessage}
-        </div>
-      )}
-      <div className="app-page-header">
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+      <div className="app-page-header" style={{ paddingBottom: '10px' }}>
         <div className="app-header-row">
           <div>
             <h1 className="app-page-title">Products</h1>
-            <p className="app-page-subtitle">View, edit, and price products with inline BOM details</p>
-          </div>
-          <div className="app-header-actions">
-            <button
-              className="btn btn-primary"
-              onClick={handleAddProduct}
-            >
-              + Add Product
-            </button>
-            <button
-              className="btn btn-success"
-              onClick={() => setShowImportModal(true)}
-            >
-              Import CSV
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleExportFilteredProductsCsv}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileSpreadsheet size={14} strokeWidth={2} />
-              Export CSV
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handlePrintFilteredProducts}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Printer size={14} strokeWidth={2} />
-              Print
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleExportToExcel}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileSpreadsheet size={14} strokeWidth={2} />
-              Export Excel
-            </button>
           </div>
         </div>
       </div>
 
-      <div className="app-page-content" style={{ gap: '20px', paddingTop: '20px' }}>
-        <div className="app-card app-filter-card">
-          <div className="app-filter-row">
-            <div className="app-filter-search">
-              <input
-                className="app-control"
-                type="text"
-                placeholder="Search by product name or SKU"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
+      <div className="app-page-content app-page-content-tight" style={{ paddingBottom: '0' }}>
+      <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
+        <button
+          type="button"
+          onClick={() => setActiveTab('products')}
+          className={`app-section-tab ${activeTab === 'products' ? 'is-active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'products'}
+        >
+          Products
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('analysis')}
+          className={`app-section-tab ${activeTab === 'analysis' ? 'is-active' : ''}`}
+          role="tab"
+          aria-selected={activeTab === 'analysis'}
+        >
+          Analysis
+        </button>
+      </div>
+      </div>
+
+      {activeTab === 'products' && (
+      <>
+      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+        <div className="app-card app-filter-card" style={{ padding: '6px 8px' }}>
+          <div className="products-toolbar-row" style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
+            <div className="products-toolbar-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
+              <div className="app-filter-search" style={{ minWidth: '160px', flex: '1 1 210px' }}>
+                <input
+                  className="app-control"
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  style={compactControlStyle}
+                />
+              </div>
+              <select
+                className="app-control app-filter-select"
+                value={selectedApprovalStatus}
+                onChange={(e) => setSelectedApprovalStatus(e.target.value)}
+                style={{ ...compactControlStyle, width: '128px', flex: '0 1 128px' }}
+              >
+                {APPROVAL_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
-            <select
-              className="app-control app-filter-select"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option value="All">All</option>
-              {productCategories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            <select
-              className="app-control app-filter-select"
-              value={selectedProductionMode}
-              onChange={(e) => setSelectedProductionMode(e.target.value)}
-            >
-              {PRODUCTION_MODE_OPTIONS.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode}
-                </option>
-              ))}
-            </select>
-            <select
-              className="app-control app-filter-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              {PRICING_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <select
-              className="app-control app-filter-select"
-              value={selectedApprovalStatus}
-              onChange={(e) => setSelectedApprovalStatus(e.target.value)}
-            >
-              {APPROVAL_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <div className="app-filter-summary">
-              <span className="app-page-subtitle" style={{ margin: 0 }}>
-                Showing {filteredProducts.length} of {products.length} products
-              </span>
-              {lowMarginOnly && (
-                <span className="status-badge status-pending" title="Low margin filter from dashboard">
-                  Low Margin (&lt; 15%)
-                </span>
-              )}
-              {approvalQueryFilter && (
-                <span className="status-badge status-rejected" title="Approval filter from dashboard" style={{ textTransform: 'capitalize' }}>
-                  Approval: {approvalQueryFilter.replace('_', ' ')}
-                </span>
-              )}
-              <span
-                className="app-chip-info"
-                title="Eligible means pending or needs review with a valid optimal price"
-              >
-                {eligibleApproveCount} eligible
-              </span>
-              <span
-                style={{ fontSize: '12px', color: '#0369a1', cursor: 'help', fontWeight: 600 }}
-                title="Eligible means pending or needs review with a valid optimal price"
-              >
-                What is eligible?
-              </span>
+
+            <div className="products-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
               <button
-                onClick={handleApproveAllEligible}
-                disabled={eligibleApproveCount === 0 || isApprovingAll}
-                style={{
-                  backgroundColor: eligibleApproveCount > 0 && !isApprovingAll ? '#16a34a' : '#94a3b8',
-                  color: 'white',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  fontWeight: '700',
-                  fontSize: '12px',
-                  cursor: eligibleApproveCount > 0 && !isApprovingAll ? 'pointer' : 'not-allowed',
-                }}
-                title="Approve optimal price for all eligible products in the current filtered view"
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleAddProduct}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {isApprovingAll ? 'Approving...' : 'Approve All Eligible'}
+                <Plus size={14} strokeWidth={2} />
+                Add Product
               </button>
+
+              {products.length > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleUpdatePrices}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RefreshCw size={16} strokeWidth={2} />
+                  Update Prices
+                </button>
+              )}
+
+              <ActionDropdown
+                label="More"
+                buttonClassName="btn btn-ghost btn-sm"
+                items={[
+                  {
+                    key: 'export-excel',
+                    label: 'Export to Excel',
+                    onSelect: handleExportToExcel,
+                    icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'export-csv',
+                    label: 'Export to CSV',
+                    onSelect: handleExportFilteredProductsCsv,
+                    icon: <FileText size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'print',
+                    label: 'Print',
+                    onSelect: handlePrintFilteredProducts,
+                    icon: <Printer size={13} strokeWidth={2} />,
+                  },
+                  { key: 'divider-1', type: 'divider' },
+                  {
+                    key: 'table-settings',
+                    label: 'Table settings',
+                    onSelect: openProductsTableSettings,
+                    icon: <Settings2 size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'import-products',
+                    label: 'Import products',
+                    onSelect: () => setShowImportModal(true),
+                    icon: <Upload size={13} strokeWidth={2} />,
+                  },
+                ]}
+              />
+
+              <div
+                ref={productsTableSettingsAnchorRef}
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+                aria-hidden="true"
+              >
+                <TableSettingsDropdown
+                  columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
+                    key: column.key,
+                    label: column.label,
+                    visible: isProductColumnVisible(column.key),
+                  }))}
+                  onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
+                  onResetColumns={resetProductColumns}
+                  density={tableDensity}
+                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+                  onApproveAllEligible={handleApproveAllEligible}
+                  approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
+                  disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div className="app-page-content" style={{ paddingTop: 0 }}>
+      <div className="app-page-content" style={{ paddingTop: 0, gap: '8px' }}>
+        {shouldShowNeedsReviewBanner && (
+          <div
+            style={{
+              backgroundColor: '#fff3e0',
+              border: '1px solid #ffcc80',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#e65100', fontSize: '13px', fontWeight: 400 }}>
+              <AlertTriangle size={16} color="#e65100" />
+              <span>{statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.</span>
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <button className="btn btn-primary btn-sm" onClick={handleReviewNow}>Review now</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setIsNeedsReviewBannerDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        )}
+
+        {isFirstTimeSetup && (
+          <div
+            style={{
+              backgroundColor: '#e0f2fe',
+              border: '1px solid #7dd3fc',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#0c4a6e', fontSize: '13px', fontWeight: 500 }}>
+              <Info size={16} color="#0369a1" />
+              <span>This is your first pricing setup. Set starting approved base prices for your products.</span>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={openSetupReviewPanel} aria-label="Open starting prices setup panel">
+              Set starting prices
+            </button>
+          </div>
+        )}
+
         {/* Bulk Action Bar */}
         {selectedProducts.size > 0 && (
-          <div className="app-bulk-bar">
-            <div className="app-bulk-count-wrap">
-              <span className="app-bulk-count">
-                {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} selected
-              </span>
-              <div className="app-bulk-hint">
-                Selected rows are treated as custom-price exceptions.
-              </div>
-            </div>
+          <div
+            className="app-bulk-bar app-bulk-bar-sticky"
+            style={{
+              backgroundColor: '#1a1a1a',
+              color: 'white',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+            }}
+          >
+            <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+              {selectedProducts.size} selected
+            </span>
+
+            <ActionDropdown
+              label="Approve"
+              buttonClassName="btn btn-primary btn-sm"
+              buttonIcon={<Check size={13} strokeWidth={2} />}
+              items={[
+                {
+                  key: 'approve-optimal',
+                  label: 'Approve at optimal price',
+                  onSelect: () => {
+                    setBulkApprovePriceMethod('optimal');
+                    handleBulkApprove();
+                  },
+                },
+                {
+                  key: 'approve-current',
+                  label: 'Keep current price',
+                  onSelect: () => {
+                    setBulkApprovePriceMethod('selling');
+                    handleBulkApprove();
+                  },
+                },
+                {
+                  key: 'approve-markup',
+                  label: 'Approve at custom markup...',
+                  onSelect: () => {
+                    setBulkApprovePriceMethod('markup');
+                    handleBulkApprove();
+                  },
+                },
+              ]}
+            />
+
+            <ActionDropdown
+              label="Reject"
+              buttonClassName="btn btn-secondary btn-sm"
+              items={[
+                {
+                  key: 'reject-selected',
+                  label: 'Reject selected (add reason if needed)',
+                  onSelect: () => setShowBulkRejectModal(true),
+                },
+              ]}
+            />
+
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
+                {
+                  key: 'bulk-set-active',
+                  label: 'Set active',
+                  onSelect: () => handleBulkSetActiveState(true),
+                  icon: <Eye size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'bulk-set-inactive',
+                  label: 'Set inactive',
+                  onSelect: () => handleBulkSetActiveState(false),
+                  icon: <EyeOff size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'bulk-change-category',
+                  label: 'Change category',
+                  onSelect: () => setShowCategoryModal(true),
+                  icon: <Tags size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'bulk-export',
+                  label: 'Export selected',
+                  onSelect: handleBulkExport,
+                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                },
+                { key: 'divider-1', type: 'divider' },
+                {
+                  key: 'bulk-delete',
+                  label: 'Delete selected',
+                  onSelect: handleOpenBulkDeleteModal,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  destructive: true,
+                },
+              ]}
+            />
+
             <button
-              onClick={handleApproveAllExceptSelected}
-              disabled={eligibleExcludingSelectedCount === 0 || isApprovingAll}
-              className="btn btn-success"
-              style={{
-                backgroundColor: eligibleExcludingSelectedCount > 0 && !isApprovingAll ? '#16a34a' : '#94a3b8',
-                cursor: eligibleExcludingSelectedCount > 0 && !isApprovingAll ? 'pointer' : 'not-allowed',
-              }}
-              title="Approves all eligible products in this filtered view and skips selected rows for custom pricing"
-            >
-              <CheckCheck size={14} strokeWidth={2} />
-              Approve All Except Selected
-            </button>
-            <button
-              onClick={handleBulkApprove}
-              className="btn btn-success"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Check size={14} strokeWidth={2} />
-              Approve Selected
-            </button>
-            <button
-              onClick={handleOpenBulkDeleteModal}
-              className="btn btn-danger"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Trash2 size={14} strokeWidth={2} />
-              Delete
-            </button>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              style={{
-                backgroundColor: '#fef3c7',
-                color: '#92400e',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <Tags size={14} strokeWidth={2} />
-              Change Category
-            </button>
-            <button
-              onClick={handleBulkExport}
-              className="btn btn-success"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileSpreadsheet size={14} strokeWidth={2} />
-              Export
-            </button>
-            <button
+              type="button"
               onClick={() => setSelectedProducts(new Set())}
-              className="btn btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className="btn btn-ghost btn-sm"
+              style={{ marginLeft: 'auto', color: '#e2e8f0' }}
             >
               <X size={14} strokeWidth={2} />
-              Clear
+              Clear selection
             </button>
           </div>
         )}
         
-        <div className="app-card app-data-card">
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid #e2e8f0' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'stretch',
+            gap: '12px',
+            flexWrap: 'wrap',
+            minHeight: 'calc(100vh - 240px)',
+          }}
+        >
+        <div className="app-card app-data-card" style={{ padding: 0, flex: 1, minWidth: 0 }} ref={productsTableRef}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
             <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Products ({filteredProducts.length})</h2>
           </div>
           {filteredProducts.length === 0 ? (
@@ -1377,11 +2227,11 @@ export default function Products() {
               <div className="app-loading-subtitle">Adjust filters or add a new product to get started</div>
             </div>
           ) : (
-            <div className="app-table-wrap">
-              <table className="app-table">
+            <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
+              <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', width: '40px', textAlign: 'center' }}>
+                    <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
@@ -1392,34 +2242,88 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', width: '48px', textAlign: 'center' }}>#</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700' }}>Product Name</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700' }}>Category</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700' }}>Production Mode</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'right' }}>Material Cost (GHS)</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'right' }}>Optimal Price (GHS)</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}>Status</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'right' }}>Current Price (GHS)</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}>Pricing</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: '700', textAlign: 'center' }}>Actions</th>
+                    <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>#</th>
+                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
+                    {isProductColumnVisible('category') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '90px', whiteSpace: 'nowrap' }}>Category</th>}
+                    {isProductColumnVisible('mode') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '98px', whiteSpace: 'nowrap' }}>Mode</th>}
+                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }}>Production Cost</th>}
+                    {isProductColumnVisible('optimalPrice') && (
+                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
+                    )}
+                    {isProductColumnVisible('approvedDate') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'nowrap' }}>Date</th>}
+                    {isProductColumnVisible('sellingPrice') && (
+                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '104px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
+                    )}
+                    {isProductColumnVisible('profitMargin') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '120px', textAlign: 'left', whiteSpace: 'nowrap' }}>Profit Margin</th>}
+                    {isProductColumnVisible('status') && (
+                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          Status
+                          {needsReviewCount > 0 && (
+                            <span
+                              title={`${needsReviewCount} product${needsReviewCount === 1 ? '' : 's'} need review`}
+                              style={{
+                                width: '7px',
+                                height: '7px',
+                                borderRadius: '999px',
+                                backgroundColor: '#f97316',
+                                display: 'inline-block',
+                              }}
+                            />
+                          )}
+                        </span>
+                      </th>
+                    )}
+                    {isProductColumnVisible('pricingStatus') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '84px', textAlign: 'center', whiteSpace: 'nowrap' }}>Pricing</th>}
+                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredProducts.map((product, idx) => {
-                    const isExpanded = expandedProducts.has(product.id);
                     const analysis = calculatePricingAnalysis(product);
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
-                    const bomItems = bomCache[product.id] || [];
-                    const displayBom = getDisplayBOM(bomItems, product);
+                    const approvalAgeDays = getApprovalAgeDays(product.approvedAt as any);
+                    const approvalAgeColor = getApprovalAgeColor(approvalAgeDays);
+                    const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
+                    const daysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
+                    const shouldShowExpiryHint = product.approvalStatus === 'approved'
+                      && normalizedExpiryDate
+                      && daysUntilExpiry !== null
+                      && daysUntilExpiry > 0;
+
+                    let expiryHintColor = '#94a3b8';
+                    if (shouldShowExpiryHint && daysUntilExpiry <= 7) {
+                      expiryHintColor = '#b91c1c';
+                    } else if (shouldShowExpiryHint && daysUntilExpiry <= 30) {
+                      expiryHintColor = '#b45309';
+                    }
+
+                    const hasSellingPrice = product.currentSellingPrice != null && product.currentSellingPrice > 0;
+                    const realisedProfitMargin = calculateRealisedProfitMargin(product);
+                    const sellingMismatch = !!product.priceMismatch;
                     const batchLabel =
                       product.productionMode === 'batch'
-                        ? `Batch ${product.batchYield || 1} units`
+                        ? `Batch x${product.batchYield || 1}`
                         : 'Single';
+
+                    const isNeedsReview = product.approvalStatus === 'needs_review';
+                    const rowApprovedPrice = Number(product.approvedPrice ?? 0).toFixed(2);
+                    const rowOptimalPrice = Number(product.optimalPrice || 0).toFixed(2);
 
                     return (
                       <Fragment key={product.id}>
-                        <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
+                        <tr
+                          title={isNeedsReview
+                            ? `Cost changed. Approved price: GHS ${rowApprovedPrice}. New optimal: GHS ${rowOptimalPrice}. Click to review.`
+                            : undefined}
+                          style={{
+                            borderBottom: '1px solid #e2e8f0',
+                            borderLeft: isNeedsReview ? '3px solid #f97316' : '3px solid transparent',
+                            backgroundColor: isNeedsReview ? '#fffbf5' : 'transparent',
+                            color: product.isActive ? undefined : '#aaaaaa',
+                          }}
+                        >
+                          <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={selectedProducts.has(product.id)}
@@ -1427,305 +2331,188 @@ export default function Products() {
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
-                          <td style={{ padding: '12px', width: '48px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                          <td style={{ padding: '12px' }}>
-                            <div>
-                              <div style={{ fontWeight: '600', fontSize: '14px' }}>{product.name}</div>
-                              <div style={{ fontSize: '12px', color: '#64748b' }}>SKU: {product.sku || '-'}</div>
-                              {product.description && (
-                                <div style={{ fontSize: '12px', color: '#64748b' }}>{product.description}</div>
-                              )}
-                              <button
-                                onClick={() => handleToggleExpand(product.id)}
+                          <td style={{ padding: '6px 6px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
+                          {isProductColumnVisible('name') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+                              <span
+                                title={`SKU: ${product.sku || '-'}`}
                                 style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                  marginTop: '8px',
-                                  backgroundColor: isExpanded ? '#eff6ff' : '#f8fafc',
-                                  border: `1px solid ${isExpanded ? '#bfdbfe' : '#e2e8f0'}`,
-                                  borderRadius: '999px',
-                                  padding: '4px 10px',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
                                   fontWeight: 600,
-                                  color: '#1d4ed8',
-                                  lineHeight: 1,
+                                  fontSize: '12px',
+                                  color: product.isActive ? undefined : '#aaaaaa',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  minWidth: 0,
                                 }}
-                                aria-label={isExpanded ? `Collapse ${product.name} details` : `Expand ${product.name} details`}
-                                title={isExpanded ? 'Hide details' : 'Show details'}
                               >
-                                <span
-                                  style={{
-                                    display: 'inline-block',
-                                    transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                                    transition: 'transform 140ms ease',
-                                  }}
-                                >
-                                  <ChevronRight size={14} strokeWidth={2.2} />
-                                </span>
-                                <span>{isExpanded ? 'Hide' : 'Details'}</span>
-                              </button>
+                                {product.name}
+                              </span>
+                              {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
-                          </td>
-                          <td style={{ padding: '12px', fontSize: '13px' }}>{product.category || '-'}</td>
-                          <td style={{ padding: '12px', fontSize: '13px' }}>
-                            <span className="status-badge status-active">
-                              {batchLabel}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px', fontSize: '13px', fontWeight: '600', textAlign: 'right' }}>
-                            <span className="money-value">{product.materialCost.toFixed(2)}</span>
-                          </td>
-                          <td style={{ padding: '12px', fontSize: '13px', fontWeight: '700', color: '#16a34a', textAlign: 'right' }}>
+                          </td>}
+                          {isProductColumnVisible('category') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.category || '-'}</td>}
+                          {isProductColumnVisible('mode') && <td style={{ padding: '4px 4px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            <AppBadge variant="active" size="sm">{batchLabel}</AppBadge>
+                          </td>}
+                          {isProductColumnVisible('materialCost') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <span className="money-value">{product.totalCost.toFixed(2)}</span>
+                          </td>}
+                          {isProductColumnVisible('optimalPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.optimalPrice.toFixed(2)}</span>
-                          </td>
-                          <td style={{ padding: '12px', textAlign: 'center' }}>
-                            <span className={approvalBadge.className}>
-                              {approvalBadge.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px', fontSize: '13px', textAlign: 'right' }}>
-                            {product.currentSellingPrice && product.currentSellingPrice > 0 ? (
-                              <span className="money-value" style={{ fontWeight: '700' }}>{product.currentSellingPrice.toFixed(2)}</span>
+                          </td>}
+                          {isProductColumnVisible('approvedDate') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                            {approvalAgeDays === null ? (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            ) : (
+                              <div style={{ display: 'grid', gap: '2px' }}>
+                                <span title={`Last approved ${approvalAgeDays} day${approvalAgeDays === 1 ? '' : 's'} ago`} style={{ color: approvalAgeColor, fontWeight: 700 }}>
+                                  {formatApprovalDate(product.approvedAt as any)}
+                                </span>
+                                {shouldShowExpiryHint && (
+                                  <span style={{ color: expiryHintColor, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    {daysUntilExpiry <= 30 && (
+                                      <span
+                                        style={{
+                                          width: '6px',
+                                          height: '6px',
+                                          borderRadius: '999px',
+                                          backgroundColor: expiryHintColor,
+                                          display: 'inline-block',
+                                        }}
+                                      />
+                                    )}
+                                    Exp: {formatExpiryDate(normalizedExpiryDate)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {hasSellingPrice ? (
+                              <span
+                                className="money-value"
+                                style={{ fontWeight: 700, color: sellingMismatch ? '#c62828' : undefined }}
+                                title={sellingMismatch ? 'Approved base price differs from approved value' : undefined}
+                              >
+                                {Number(product.currentSellingPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
+                              </span>
                             ) : (
                               <span style={{ fontSize: '12px', color: '#94a3b8' }}>Not set</span>
                             )}
-                          </td>
-                          <td style={{ padding: '12px', textAlign: 'center' }}>
-                            <span
-                              style={{
-                                borderRadius: '999px',
-                                padding: '4px 8px',
-                                backgroundColor: analysis.background,
-                                color: analysis.color,
-                                fontWeight: '700',
-                                fontSize: '11px',
-                              }}
-                            >
-                              {analysis.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px' }}>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                              <button
-                                onClick={() => handleEdit(product)}
+                          </td>}
+                          {isProductColumnVisible('profitMargin') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {realisedProfitMargin == null ? (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            ) : (
+                              <span
                                 style={{
-                                  padding: '6px 10px',
-                                  borderRadius: '6px',
-                                  backgroundColor: '#eff6ff',
-                                  color: '#1e40af',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
+                                  color: realisedProfitMargin < 0 ? '#c62828' : '#16a34a',
+                                  fontWeight: 700,
                                 }}
                               >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDuplicateProduct(product)}
-                                style={{
-                                  padding: '6px 10px',
-                                  borderRadius: '6px',
-                                  backgroundColor: '#ecfeff',
-                                  color: '#0f766e',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '5px',
-                                }}
-                              >
-                                <Copy size={12} strokeWidth={2} />
-                                Duplicate
-                              </button>
-                              <button
-                                onClick={() => setDeleteTarget(product)}
-                                style={{
-                                  padding: '6px 10px',
-                                  borderRadius: '6px',
-                                  backgroundColor: '#fee2e2',
-                                  color: '#991b1b',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {isExpanded && (
-                          <tr>
-                            <td colSpan={11} style={{ padding: '0 12px 16px 36px', backgroundColor: '#f8fafc' }}>
-                              <div style={{ padding: '16px 0' }}>
-                                <ProductTabs
-                                  product={product}
-                                  displayBom={displayBom}
-                                  bomLoading={bomLoading[product.id] || false}
-                                  activeTab={expandedProductTabs[product.id] || 'bom'}
-                                  onTabChange={(tab) => {
-                                    setExpandedProductTabs((prev) => ({
-                                      ...prev,
-                                      [product.id]: tab,
-                                    }));
-                                  }}
-                                />
-                                <div
+                                {realisedProfitMargin.toFixed(1)}%
+                              </span>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('status') && <td style={{ padding: '4px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                              {isNeedsReview ? (
+                                <span
+                                  title="Material costs have changed since this product was last approved. Review the new optimal price and re-approve to update price lists."
                                   style={{
-                                    marginTop: '16px',
-                                    padding: '16px',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${getApprovalPanelColors(product.approvalStatus).border}`,
-                                    backgroundColor: getApprovalPanelColors(product.approvalStatus).background,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    background: '#fff3e0',
+                                    color: '#e65100',
+                                    border: '1px solid #ffcc80',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
                                   }}
                                 >
-                                  <div style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px' }}>
-                                    PRICE APPROVAL
-                                  </div>
-                                  <div style={{ fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
-                                    Tip: Approve a price here to include this product in official price lists.
-                                  </div>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                                    <span className={getApprovalBadge(product.approvalStatus).className}>
-                                      {getApprovalBadge(product.approvalStatus).label}
-                                    </span>
-                                    {product.approvalStatus === 'needs_review' && (
-                                      <span style={{ fontSize: '12px', color: '#9a3412', fontWeight: '600', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                        <AlertTriangle size={13} strokeWidth={2} />
-                                        Costs changed. Approved price may be outdated.
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div style={{ display: 'grid', gap: '6px', fontSize: '13px', marginBottom: '12px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: '#475569' }}>Optimal Price:</span>
-                                      <span className="money-value" style={{ fontWeight: '700' }}>GHS {product.optimalPrice.toFixed(2)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: '#475569' }}>Approved Price:</span>
-                                      <span className="money-value" style={{ fontWeight: '700' }}>
-                                        {product.approvedPrice != null ? `GHS ${product.approvedPrice.toFixed(2)}` : '-'}
-                                      </span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: '#475569' }}>Approved By:</span>
-                                      <span style={{ fontWeight: '600' }}>{product.approvedBy || '-'}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: '#475569' }}>Approved On:</span>
-                                      <span style={{ fontWeight: '600' }}>{formatApprovalDate(product.approvedAt as any)}</span>
-                                    </div>
-                                  </div>
-
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'flex-end' }}>
-                                    <button
-                                      onClick={() => handleApproveOptimal(product)}
-                                      style={{
-                                        padding: '8px 12px',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        backgroundColor: '#16a34a',
-                                        color: 'white',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        fontSize: '12px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                      }}
-                                    >
-                                      <Check size={14} strokeWidth={2.2} />
-                                      Approve Optimal Price
-                                    </button>
-
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                                      <div>
-                                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', marginBottom: '4px' }}>
-                                          Custom Price (GHS)
-                                        </label>
-                                        <input
-                                          type="number"
-                                          value={getApprovalInput(product.id).customPrice}
-                                          onChange={(e) => updateApprovalInput(product.id, 'customPrice', e.target.value)}
-                                          style={{
-                                            width: '140px',
-                                            padding: '8px 10px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e2e8f0',
-                                            fontSize: '12px',
-                                          }}
-                                        />
-                                      </div>
-                                      <div>
-                                        <label style={{ display: 'block', fontSize: '11px', color: '#475569', marginBottom: '4px' }}>
-                                          Reason (optional)
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={getApprovalInput(product.id).reason}
-                                          onChange={(e) => updateApprovalInput(product.id, 'reason', e.target.value)}
-                                          style={{
-                                            width: '220px',
-                                            padding: '8px 10px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e2e8f0',
-                                            fontSize: '12px',
-                                          }}
-                                        />
-                                      </div>
-                                      <button
-                                        onClick={() => handleApproveCustom(product)}
-                                        style={{
-                                          padding: '8px 12px',
-                                          borderRadius: '8px',
-                                          border: 'none',
-                                          backgroundColor: '#0ea5e9',
-                                          color: 'white',
-                                          fontWeight: '700',
-                                          cursor: 'pointer',
-                                          fontSize: '12px',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '6px',
-                                        }}
-                                      >
-                                        <Check size={14} strokeWidth={2.2} />
-                                        Approve Custom Price
-                                      </button>
-                                    </div>
-
-                                    <button
-                                      onClick={() => handleReject(product)}
-                                      style={{
-                                        padding: '8px 12px',
-                                        borderRadius: '8px',
-                                        border: 'none',
-                                        backgroundColor: '#ef4444',
-                                        color: 'white',
-                                        fontWeight: '700',
-                                        cursor: 'pointer',
-                                        fontSize: '12px',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                      }}
-                                    >
-                                      <X size={14} strokeWidth={2.2} />
-                                      Reject
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
+                                  <AlertCircle size={11} strokeWidth={2} />
+                                  Needs review
+                                </span>
+                              ) : (
+                                <AppBadge variant={approvalBadge.variant} size="sm">
+                                  {approvalBadge.label}
+                                </AppBadge>
+                              )}
+                              {!product.isActive && (
+                                <AppBadge variant="inactive" size="sm">Inactive</AppBadge>
+                              )}
+                            </div>
+                          </td>}
+                          {isProductColumnVisible('pricingStatus') && <td style={{ padding: '6px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {analysis.status === 'not-set' ? (
+                              <AppBadge variant="muted" size="sm">Not Set</AppBadge>
+                            ) : (
+                              <span
+                                style={{
+                                  borderRadius: '4px',
+                                  padding: '2px 6px',
+                                  backgroundColor: analysis.background,
+                                  color: analysis.color,
+                                  fontWeight: 700,
+                                  fontSize: '12px',
+                                }}
+                              >
+                                {analysis.label}
+                              </span>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('actions') && <td style={{ padding: '6px 4px' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                              {isNeedsReview ? (
+                                <AppButton
+                                  onClick={() => openProductDetail(product.id)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="app-row-action-icon"
+                                  title="Review price"
+                                  ariaLabel={`Review price for ${product.name}`}
+                                  style={{
+                                    padding: '2px',
+                                    minWidth: '20px',
+                                  }}
+                                >
+                                  <CheckCircle size={14} strokeWidth={2} color="#e65100" />
+                                </AppButton>
+                              ) : (
+                                <AppButton
+                                  onClick={() => handleEdit(product)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="app-row-action-icon"
+                                  title="Edit product"
+                                  ariaLabel={`Edit ${product.name}`}
+                                  style={{
+                                    padding: '2px',
+                                    minWidth: '20px',
+                                  }}
+                                >
+                                  <Pencil size={14} strokeWidth={2} />
+                                </AppButton>
+                              )}
+                              <OverflowMenu
+                                ariaLabel={`More actions for ${product.name}`}
+                                items={[
+                                  { label: 'View details', icon: ExternalLink, onClick: () => openProductDetail(product.id) },
+                                  { label: 'Edit product', icon: Pencil, onClick: () => handleEdit(product) },
+                                  { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicateProduct(product) },
+                                  { type: 'divider', key: `state-divider-${product.id}` },
+                                  product.isActive
+                                    ? { label: 'Set inactive', icon: EyeOff, onClick: () => handleToggleProductActive(product) }
+                                    : { label: 'Set active', icon: Eye, onClick: () => handleToggleProductActive(product) },
+                                  { type: 'divider', key: `delete-divider-${product.id}` },
+                                  { label: 'Delete', icon: Trash2, onClick: () => setDeleteTarget(product), danger: true },
+                                ]}
+                              />
+                            </div>
+                          </td>}
+                        </tr>
                       </Fragment>
                     );
                   })}
@@ -1734,7 +2521,245 @@ export default function Products() {
             </div>
           )}
         </div>
+        {showPriceReviewPanel && (
+          <aside
+            style={{
+              width: '480px',
+              minWidth: '320px',
+              maxWidth: '100%',
+              flex: '1 1 360px',
+              backgroundColor: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: 'calc(100vh - 230px)',
+              position: 'sticky',
+              top: '132px',
+            }}
+          >
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                  {priceReviewMode === 'setup' ? 'Set Starting Prices' : 'Update Prices Workflow'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  {priceReviewMode === 'setup'
+                    ? `${setupProducts.length} product${setupProducts.length === 1 ? '' : 's'} ready for first-time setup`
+                    : `${reviewedCardsCount} reviewed, ${remainingCardsCount} remaining`}
+                </div>
+              </div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={closePriceReviewPanel}
+                aria-label="Close update prices panel"
+              >
+                <X size={14} strokeWidth={2} />
+              </button>
+            </div>
+
+            <div style={{ padding: '10px 16px', borderBottom: '1px solid #e2e8f0' }}>
+              <input
+                className="app-control"
+                value={priceReviewSearch}
+                onChange={(e) => setPriceReviewSearch(e.target.value)}
+                placeholder="Search by product name or SKU"
+                aria-label="Search products in update prices panel"
+              />
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'grid', gap: '12px' }}>
+              {priceReviewMode === 'setup' ? (
+                <>
+                  {setupProducts.filter((product) => {
+                    const query = priceReviewSearch.trim().toLowerCase();
+                    if (!query) return true;
+                    return product.name.toLowerCase().includes(query) || String(product.sku || '').toLowerCase().includes(query);
+                  }).map((product) => (
+                    <div key={product.id} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px', display: 'grid', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'start' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '14px' }}>{product.name}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>SKU: {product.sku || '-'} | Suggested optimal: {Number(product.optimalPrice || 0).toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <input
+                        className="app-control"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={setupPriceInputs[product.id] ?? ''}
+                        onChange={(e) => setSetupPriceInputs((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                        aria-label={`Starting approved base price for ${product.name}`}
+                      />
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Needs Review</div>
+                    {filteredStandardReviewProducts.length === 0 ? (
+                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                        No needs-review products match this search.
+                      </div>
+                    ) : filteredStandardReviewProducts.map((product) => {
+                      const isBusy = priceReviewBusyIds.has(product.id);
+                      const reviewedState = reviewedCardStates[product.id];
+                      const customValue = customPriceInputs[product.id] ?? '';
+
+                      return (
+                        <div
+                          key={product.id}
+                          style={{
+                            border: reviewedState ? '1px solid #16a34a' : '1px solid #cbd5e1',
+                            borderRadius: '8px',
+                            padding: '10px',
+                            display: 'grid',
+                            gap: '8px',
+                            backgroundColor: reviewedState ? '#f0fdf4' : 'white',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '14px' }}>{product.name}</div>
+                            <div style={{ fontSize: '12px', color: '#64748b' }}>
+                              Current: {Number(product.currentSellingPrice || 0).toFixed(2)} | New optimal: {Number(product.optimalPrice || 0).toFixed(2)}
+                            </div>
+                            {reviewedState && (
+                              <div style={{ marginTop: '4px', fontSize: '12px', color: '#166534', fontWeight: 700 }}>
+                                <Check size={13} strokeWidth={3} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} />
+                                {reviewedState.actionLabel} at {reviewedState.chosenPrice.toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ display: 'grid', gap: '6px' }}>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={isBusy || !!reviewedState}
+                              onClick={() => handleApproveFromReviewPanel(product, Number(product.optimalPrice || 0), 'Accepted optimal')}
+                              aria-label={`Accept new optimal price for ${product.name}`}
+                            >
+                              Accept new price
+                            </button>
+                            {(() => {
+                              const keepPrice = Number(product.currentSellingPrice || 0);
+                              const cost = Number(product.totalCost || 0);
+                              const belowCost = keepPrice > 0 && cost > 0 && keepPrice < cost;
+                              const keepMargin = keepPrice > 0 && cost > 0 ? ((keepPrice - cost) / keepPrice) * 100 : null;
+                              const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#c62828' : keepMargin < 10 ? '#c62828' : keepMargin < 15 ? '#e65100' : '#16a34a';
+                              return (
+                                <div style={{ display: 'grid', gap: '2px' }}>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    disabled={isBusy || !!reviewedState || belowCost}
+                                    onClick={() => handleApproveFromReviewPanel(product, keepPrice, 'Kept current price')}
+                                    aria-label={`Keep current approved base price for ${product.name}`}
+                                    title={belowCost ? 'Cannot keep: price is now below production cost' : undefined}
+                                  >
+                                    Keep current price
+                                  </button>
+                                  {belowCost ? (
+                                    <div style={{ fontSize: '11px', color: '#c62828' }}>Cannot keep: price is below production cost</div>
+                                  ) : keepMargin !== null ? (
+                                    <div style={{ fontSize: '11px', color: marginColor }}>Margin at current price: {keepMargin.toFixed(1)}%</div>
+                                  ) : null}
+                                </div>
+                              );
+                            })()}
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <input
+                                className="app-control"
+                                style={{ flex: 1 }}
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={customValue}
+                                placeholder="Set custom price"
+                                onChange={(e) => setCustomPriceInputs((prev) => ({ ...prev, [product.id]: e.target.value }))}
+                                aria-label={`Set custom approved base price for ${product.name}`}
+                              />
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                disabled={isBusy || !!reviewedState}
+                                onClick={() => handleApproveFromReviewPanel(product, Number(customValue), 'Set custom price')}
+                                aria-label={`Approve custom price for ${product.name}`}
+                              >
+                                Set
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px', display: 'grid', gap: '8px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Approved / Pending Quick Actions</div>
+                    {panelReferenceProducts.length === 0 ? (
+                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                        No approved or pending products match this search.
+                      </div>
+                    ) : panelReferenceProducts.map((product) => (
+                      <div key={product.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700 }}>{product.name}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>Optimal {Number(product.optimalPrice || 0).toFixed(2)}</div>
+                        </div>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={priceReviewBusyIds.has(product.id) || Number(product.optimalPrice || 0) <= 0}
+                          onClick={() => handleApproveFromReviewPanel(product, Number(product.optimalPrice || 0), 'Re-approved at optimal')}
+                          aria-label={`Re-approve ${product.name} at optimal price`}
+                        >
+                          Approve at Optimal
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={{ padding: '12px 16px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+              {priceReviewMode === 'setup' ? (
+                <>
+                  <span style={{ color: '#64748b', fontSize: '12px' }}>Save only rows with a value above 0</span>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSaveStartingPrices}
+                    disabled={isSavingSetupPrices}
+                    aria-label="Save all starting prices"
+                  >
+                    {isSavingSetupPrices ? 'Saving...' : 'Save all prices'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: '#64748b', fontSize: '12px' }}>Bulk update remaining needs-review products</span>
+                  <button
+                    className="btn btn-success"
+                    onClick={handleApproveAllNeedsReviewInPanel}
+                    disabled={remainingCardsCount === 0}
+                    aria-label="Approve all needs-review products at optimal prices"
+                  >
+                    Approve all at optimal
+                  </button>
+                </>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
+      </div>
+      </>
+      )}
+
+      {activeTab === 'analysis' && (
+        <div className="app-page-content" style={{ paddingTop: 0, gap: '8px' }}>
+          <ProductsAnalysisTab products={products} />
+        </div>
+      )}
 
       <ProductFormDrawer
         isOpen={showDrawer}
@@ -1745,8 +2770,6 @@ export default function Products() {
         defaultOverhead={defaultOverhead}
         onSaved={async () => {
           setShowDrawer(false);
-          setExpandedProducts(new Set());
-          setBomCache({});
           await loadData();
         }}
       />
@@ -1869,6 +2892,160 @@ export default function Products() {
         </div>
       )}
 
+      {showBulkApproveModal && (
+        <div className="app-modal-overlay">
+          <div className="app-modal" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="app-modal-title">Bulk Approve Products</h2>
+            <p style={{ color: '#475569', marginBottom: '16px' }}>
+              You are about to approve {selectedProducts.size} selected products.
+            </p>
+
+            <div style={{ display: 'grid', gap: '12px', marginBottom: '18px' }}>
+              <label style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', display: 'grid', gap: '4px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="radio"
+                    name="bulk-approve-method"
+                    value="optimal"
+                    checked={bulkApprovePriceMethod === 'optimal'}
+                    onChange={() => setBulkApprovePriceMethod('optimal')}
+                  />
+                  <span style={{ fontWeight: 700 }}>Approve at Optimal Price</span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                  Each product is approved at its system-calculated optimal price based on current material costs, overhead, and target margin.
+                </div>
+              </label>
+
+              <label style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', display: 'grid', gap: '4px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="radio"
+                    name="bulk-approve-method"
+                    value="selling"
+                    checked={bulkApprovePriceMethod === 'selling'}
+                    onChange={() => setBulkApprovePriceMethod('selling')}
+                  />
+                  <span style={{ fontWeight: 700 }}>Keep current price</span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                  Each product is approved at its approved base price. Products with no approved base price set will be approved at their optimal price instead.
+                </div>
+              </label>
+
+              <label style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', display: 'grid', gap: '4px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="radio"
+                    name="bulk-approve-method"
+                    value="markup"
+                    checked={bulkApprovePriceMethod === 'markup'}
+                    onChange={() => setBulkApprovePriceMethod('markup')}
+                  />
+                  <span style={{ fontWeight: 700 }}>Approve at Optimal Price + Markup %</span>
+                </div>
+                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                  Each product is approved at its optimal price adjusted by the markup percentage you enter below.
+                </div>
+                {bulkApprovePriceMethod === 'markup' && (
+                  <div style={{ marginLeft: '24px', marginTop: '6px' }}>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Markup %</label>
+                    <input
+                      className="app-control"
+                      type="number"
+                      min={-50}
+                      max={200}
+                      step="0.1"
+                      placeholder="e.g. 10 for 10% above optimal"
+                      value={bulkApproveMarkup}
+                      onChange={(e) => setBulkApproveMarkup(e.target.value)}
+                      style={{ width: '260px' }}
+                    />
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>{getBulkApproveExample()}</div>
+                  </div>
+                )}
+              </label>
+
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', display: 'grid', gap: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700 }}>
+                  Set expiry date for all Approved base prices (optional)
+                </label>
+                <input
+                  className="app-control"
+                  type="date"
+                  min={getTomorrowDateInputValue()}
+                  placeholder="No expiry"
+                  value={bulkApproveExpiryDate}
+                  onChange={(e) => setBulkApproveExpiryDate(e.target.value)}
+                  style={{ width: '260px' }}
+                />
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  All selected products will be flagged for review on this date.
+                </div>
+              </div>
+            </div>
+
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowBulkApproveModal(false)}>Cancel</button>
+              <button
+                className="btn"
+                onClick={handleConfirmBulkApprove}
+                disabled={!isBulkApproveMarkupValid}
+                style={{
+                  backgroundColor: isBulkApproveMarkupValid ? '#111111' : '#9ca3af',
+                  color: 'white',
+                  cursor: isBulkApproveMarkupValid ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Approve {selectedProducts.size} Products {'->'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkRejectModal && (
+        <div className="app-modal-overlay">
+          <div className="app-modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
+            <h2 className="app-modal-title">Reject Selected Prices</h2>
+            <p style={{ color: '#475569', marginBottom: '10px' }}>
+              Reject Approved base prices for {selectedProducts.size} selected products? Products will be moved to Rejected status and removed from price lists until re-approved.
+            </p>
+            {selectedNonApprovedCount > 0 && (
+              <div style={{ marginBottom: '10px', fontSize: '13px', color: '#92400e', backgroundColor: '#fef3c7', borderRadius: '8px', padding: '8px 10px' }}>
+                {selectedNonApprovedCount} of your selected products are not currently approved and will be skipped.
+              </div>
+            )}
+            <div style={{ marginBottom: '16px' }}>
+              <label className="app-settings-label">Reason for rejection (optional)</label>
+              <input
+                className="app-control"
+                type="text"
+                value={bulkRejectReason}
+                onChange={(e) => setBulkRejectReason(e.target.value)}
+                placeholder="e.g. Cost update required, pricing review needed"
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowBulkRejectModal(false)}>Cancel</button>
+              <button
+                className="btn btn-danger"
+                onClick={handleConfirmBulkReject}
+                disabled={selectedApprovedCount === 0}
+                style={{
+                  backgroundColor: selectedApprovedCount > 0 ? '#c62828' : '#94a3b8',
+                  cursor: selectedApprovedCount > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Reject {selectedApprovedCount} Products
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk Category Change Modal */}
       {showCategoryModal && (
         <div
@@ -1933,13 +3110,30 @@ export default function Products() {
       {showImportModal && (
         <div
           className="app-modal-overlay"
+          onClick={() => setShowImportModal(false)}
         >
           <div
             className="app-modal app-modal-wide"
             style={{ maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ marginBottom: '12px', fontSize: '20px', fontWeight: '700' }}>Import Products from CSV/Excel</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Import Products (Standard CSV)</h2>
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportFile(null);
+                  setImportPreview([]);
+                  setImportFailures([]);
+                  setImportSuccessCount(0);
+                  setImportRuntimeError('');
+                }}
+                style={{ padding: '6px 10px' }}
+              >
+                Close
+              </button>
+            </div>
 
             {!importFile ? (
               <div>
@@ -1955,10 +3149,16 @@ export default function Products() {
                     backgroundColor: '#f8fafc',
                   }}
                 >
-                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Click to upload CSV or Excel file</div>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>Supports .csv, .xlsx, .xls files</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
                   <input id="product-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleProductFileUpload} style={{ display: 'none' }} />
                 </label>
+
+                <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
+                  <div style={{ fontSize: '13px', color: '#475569' }}>One row per BOM material. Keep product-level fields identical for repeated product rows.</div>
+                  <div style={{ fontSize: '13px', color: '#475569' }}>Include Approved base price when available; leave blank to default to 0.</div>
+                </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
                   <button
@@ -1974,6 +3174,18 @@ export default function Products() {
                 <div style={{ marginBottom: '12px' }}>
                   <strong>File:</strong> {importFile.name} ({importPreview.length} rows)
                 </div>
+
+                {importing && (
+                  <div style={{ marginBottom: '12px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
+                    Importing {importPreview.length} row{importPreview.length !== 1 ? 's' : ''}. Please wait...
+                  </div>
+                )}
+
+                {importRuntimeError && (
+                  <div style={{ marginBottom: '12px', backgroundColor: '#fef2f2', color: '#991b1b', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
+                    Import failed: {importRuntimeError}
+                  </div>
+                )}
                 {importPreview.length > 0 && (
                   <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
@@ -1983,6 +3195,7 @@ export default function Products() {
                           <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Overhead %</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Profit %</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Approved base price</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1990,8 +3203,9 @@ export default function Products() {
                           <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                             <td style={{ padding: '8px' }}>{row['Product Name'] || row['name'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2007,7 +3221,13 @@ export default function Products() {
                     Download Template
                   </button>
                   <button
-                    onClick={() => { setImportFile(null); setImportPreview([]); }}
+                    onClick={() => {
+                      setImportFile(null);
+                      setImportPreview([]);
+                      setImportFailures([]);
+                      setImportSuccessCount(0);
+                      setImportRuntimeError('');
+                    }}
                     style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontWeight: '600' }}
                   >
                     Choose Different File

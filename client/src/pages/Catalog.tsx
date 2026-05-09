@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, ClipboardList, FileSpreadsheet, Loader2, Package, RefreshCw, ShoppingBasket, Sigma } from 'lucide-react';
-import { productsApi, priceLevelRulesApi } from '../api';
+import { BarChart3, FileSpreadsheet, Loader2, Package, RefreshCw, ShoppingBasket, Sigma } from 'lucide-react';
+import { productsApi } from '../api';
+import AppToast from '../components/AppToast';
+import useAppToast from '../hooks/useAppToast';
 import * as XLSX from 'xlsx';
 
 interface Product {
@@ -43,9 +45,9 @@ export default function Catalog() {
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   
   // Bulk Calculator State
   const [showBulkModal, setShowBulkModal] = useState(false);
@@ -97,7 +99,6 @@ export default function Catalog() {
       );
       
       setProducts(catalogItems);
-      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error loading catalog:', error);
     } finally {
@@ -124,7 +125,7 @@ export default function Catalog() {
     try {
       const quantity = parseInt(bulkQuantity);
       if (quantity <= 0) {
-        alert('Please enter a valid quantity');
+        showToastMessage('Please enter a valid quantity', 'error');
         return;
       }
 
@@ -162,7 +163,7 @@ export default function Catalog() {
       });
     } catch (error) {
       console.error('Error calculating bulk production:', error);
-      alert('Failed to calculate bulk production');
+      showToastMessage('Failed to calculate bulk production', 'error');
     }
   }
 
@@ -226,7 +227,7 @@ export default function Catalog() {
         'Overhead Cost': `₵${product.overheadCost}`,
         'Total Cost': `₵${product.totalCost}`,
         'Optimal Price': `₵${product.recommendedPrice}`,
-        'Current Selling Price': currentPrice > 0 ? `₵${currentPrice.toFixed(2)}` : 'Not Set',
+        'Approved base price': currentPrice > 0 ? `₵${currentPrice.toFixed(2)}` : 'Not Set',
         'Variance (₵)': currentPrice > 0 ? `₵${analysis.variance.toFixed(2)}` : '-',
         'Variance (%)': currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
         'Status': analysis.status === 'underpriced' ? 'Underpriced' : 
@@ -248,7 +249,7 @@ export default function Catalog() {
       { wch: 15 }, // Overhead Cost
       { wch: 15 }, // Total Cost
       { wch: 15 }, // Optimal Price
-      { wch: 20 }, // Current Selling Price
+      { wch: 20 }, // Approved base price
       { wch: 15 }, // Variance (₵)
       { wch: 15 }, // Variance (%)
       { wch: 15 }, // Status
@@ -266,73 +267,6 @@ export default function Catalog() {
 
     // Download file
     XLSX.writeFile(wb, filename);
-  }
-
-  async function handleGeneratePriceList() {
-    try {
-      // Load pricing rules
-      const rules = await priceLevelRulesApi.getAll();
-      
-      if (rules.length === 0) {
-        alert('No price level rules defined. Please add price level rules in Settings first.');
-        return;
-      }
-
-      // Prepare data for price list
-      const priceListData = products.map(product => {
-        const basePrice = parseFloat(product.recommendedPrice);
-        
-        const row: any = {
-          'Product Name': product.name,
-          'SKU': product.sku || '-',
-          'Category': product.category || '-',
-          'Production Mode': product.productionMode === 'batch' ? `Batch (${product.batchYield} units)` : 'Single Unit',
-          'Unit Cost': `₵${product.totalCost}`,
-        };
-
-        // Add price for each customer type
-        rules.forEach((rule: any) => {
-          const customerPrice = basePrice * rule.multiplier;
-          row[`${rule.name} Price`] = `₵${customerPrice.toFixed(2)}`;
-        });
-
-        return row;
-      });
-
-      // Create worksheet
-      const ws = XLSX.utils.json_to_sheet(priceListData);
-      
-      // Set column widths
-      const colWidths = [
-        { wch: 30 }, // Product Name
-        { wch: 15 }, // SKU
-        { wch: 15 }, // Category
-        { wch: 20 }, // Production Mode
-        { wch: 15 }, // Unit Cost
-      ];
-      
-      // Add width for each customer type column
-      rules.forEach(() => {
-        colWidths.push({ wch: 15 });
-      });
-      
-      ws['!cols'] = colWidths;
-
-      // Create workbook and add worksheet
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Price List');
-
-      // Generate filename with current date
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-      const filename = `Customer_Price_List_${dateStr}.xlsx`;
-
-      // Download file
-      XLSX.writeFile(wb, filename);
-    } catch (error) {
-      console.error('Error generating price list:', error);
-      alert('Failed to generate price list');
-    }
   }
 
   function getProductsWithPricingIssues() {
@@ -363,22 +297,6 @@ export default function Catalog() {
     return matchesSearch && matchesCategory;
   });
 
-  function formatLastUpdated() {
-    if (!lastUpdated) return '';
-    const now = new Date();
-    const diffMs = now.getTime() - lastUpdated.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins === 1) return '1 minute ago';
-    if (diffMins < 60) return `${diffMins} minutes ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours === 1) return '1 hour ago';
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    
-    return lastUpdated.toLocaleString();
-  }
 
   const issues = getProductsWithPricingIssues();
   const totalGap = calculateTotalProfitGap();
@@ -389,9 +307,9 @@ export default function Catalog() {
         <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', padding: '12px 40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 style={{ fontSize: '26px', fontWeight: '700', marginBottom: '2px' }}>Product Catalog</h1>
+              <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '2px' }}>Pricing Analysis</h1>
               <p style={{ color: '#64748b', fontSize: '13px' }}>
-                Complete pricing catalog with optimal vs current price analysis
+                Approved base price performance, cost variance analysis and production planning
               </p>
             </div>
           </div>
@@ -407,19 +325,12 @@ export default function Catalog() {
 
   return (
     <div style={{ width: '100%', minHeight: '100vh', backgroundColor: '#f5f7fa' }}>
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       {/* Header */}
       <div style={{ backgroundColor: 'white', borderBottom: '1px solid #e2e8f0', padding: '12px 40px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 style={{ fontSize: '26px', fontWeight: '700', marginBottom: '2px' }}>Product Catalog</h1>
-            <p style={{ color: '#64748b', fontSize: '13px' }}>
-              Complete pricing catalog with optimal vs current price analysis
-              {lastUpdated && (
-                <span style={{ marginLeft: '8px', fontSize: '12px', color: '#94a3b8' }}>
-                  • Updated {formatLastUpdated()}
-                </span>
-              )}
-            </p>
+            <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '2px' }}>Pricing Analysis</h1>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}
             >
@@ -462,26 +373,6 @@ export default function Catalog() {
               <FileSpreadsheet size={16} strokeWidth={2} />
               Export
             </button>
-
-            <button
-              onClick={handleGeneratePriceList}
-              style={{
-                backgroundColor: '#10b981',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontWeight: '600',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '13px',
-              }}
-            >
-              <ClipboardList size={16} strokeWidth={2} />
-              Price List
-            </button>
           </div>
         </div>
       </div>
@@ -501,28 +392,28 @@ export default function Catalog() {
             <h2 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={16} strokeWidth={2} /> Pricing Analysis Summary</h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px' }}>
               <div style={{ padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#991b1b', fontWeight: '600', marginBottom: '2px' }}>UNDERPRICED</div>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#dc2626' }}>{issues.underpriced}</div>
-                <div style={{ fontSize: '10px', color: '#991b1b' }}>below optimal</div>
+                <div style={{ fontSize: '11px', color: '#991b1b', fontWeight: '600', marginBottom: '2px' }}>Underpriced</div>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#dc2626' }}>{issues.underpriced}</div>
+                <div style={{ fontSize: '12px', color: '#991b1b' }}>below optimal</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#fef3c7', borderRadius: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '600', marginBottom: '2px' }}>OVERPRICED</div>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#f59e0b' }}>{issues.overpriced}</div>
-                <div style={{ fontSize: '10px', color: '#92400e' }}>above optimal</div>
+                <div style={{ fontSize: '11px', color: '#92400e', fontWeight: '600', marginBottom: '2px' }}>Overpriced</div>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#f59e0b' }}>{issues.overpriced}</div>
+                <div style={{ fontSize: '12px', color: '#92400e' }}>above optimal</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
-                <div style={{ fontSize: '11px', color: '#475569', fontWeight: '600', marginBottom: '2px' }}>NOT SET</div>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#64748b' }}>{issues.notSet}</div>
-                <div style={{ fontSize: '10px', color: '#475569' }}>no price set</div>
+                <div style={{ fontSize: '11px', color: '#475569', fontWeight: '600', marginBottom: '2px' }}>Not set</div>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#64748b' }}>{issues.notSet}</div>
+                <div style={{ fontSize: '12px', color: '#475569' }}>no price set</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: totalGap < 0 ? '#fee2e2' : '#d1fae5', borderRadius: '8px' }}>
                 <div style={{ fontSize: '11px', color: totalGap < 0 ? '#991b1b' : '#065f46', fontWeight: '600', marginBottom: '2px' }}>
-                  PROFIT GAP
+                  Total variance
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: '700', color: totalGap < 0 ? '#dc2626' : '#10b981' }}>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: totalGap < 0 ? '#dc2626' : '#10b981' }}>
                   {totalGap < 0 ? '-' : '+'}<span className="money-value">₵{Math.abs(totalGap).toFixed(2)}</span>
                 </div>
-                <div style={{ fontSize: '10px', color: totalGap < 0 ? '#991b1b' : '#065f46' }}>
+                <div style={{ fontSize: '12px', color: totalGap < 0 ? '#991b1b' : '#065f46' }}>
                   {totalGap < 0 ? 'at risk' : 'premium'}
                 </div>
               </div>
@@ -585,15 +476,15 @@ export default function Catalog() {
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="app-table app-table-uniform-numbers" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                    <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '600', fontSize: '13px' }}>Product</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600', fontSize: '13px' }}>Total Cost</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600', fontSize: '13px' }}>Optimal Price</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '600', fontSize: '13px' }}>Current Price</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', fontSize: '13px' }}>Variance</th>
-                    <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '600', fontSize: '13px' }}>Actions</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: '700', fontSize: '13px' }}>Product</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', fontSize: '13px' }}>Total Cost</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', fontSize: '13px' }}>Optimal Price</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', fontSize: '13px' }}>Approved base price</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '700', fontSize: '13px' }}>Variance</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center', fontWeight: '700', fontSize: '13px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -613,7 +504,7 @@ export default function Catalog() {
                                   style={{
                                     padding: '1px 6px',
                                     borderRadius: '10px',
-                                    fontSize: '10px',
+                                    fontSize: '12px',
                                     backgroundColor: '#f1f5f9',
                                     color: '#475569',
                                   }}
@@ -628,13 +519,13 @@ export default function Catalog() {
                           <span className="money-value">₵{product.totalCost}</span>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>
-                          <div className="money-value" style={{ fontSize: '15px', fontWeight: '700', color: '#10b981' }}>
+                          <div className="money-value" style={{ fontSize: '14px', fontWeight: '700', color: '#10b981' }}>
                             ₵{product.recommendedPrice}
                           </div>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>
                           {product.currentSellingPrice && product.currentSellingPrice > 0 ? (
-                            <div className="money-value" style={{ fontSize: '15px', fontWeight: '700' }}>
+                            <div className="money-value" style={{ fontSize: '14px', fontWeight: '700' }}>
                               ₵{product.currentSellingPrice.toFixed(2)}
                             </div>
                           ) : (
@@ -644,10 +535,10 @@ export default function Catalog() {
                         <td style={{ padding: '12px', textAlign: 'center' }}>
                           {analysis.status !== 'not-set' && (
                             <div>
-                              <div style={{ fontSize: '14px', fontWeight: '700', color: analysis.statusColor }}>
+                              <div className="currency-value" style={{ color: analysis.statusColor }}>
                                 {analysis.variance >= 0 ? '+' : ''}₵{analysis.variance.toFixed(2)}
                               </div>
-                              <div style={{ fontSize: '11px', color: '#64748b' }}>
+                              <div className="percent-value" style={{ color: '#64748b' }}>
                                 ({analysis.variancePercent >= 0 ? '+' : ''}{analysis.variancePercent.toFixed(1)}%)
                               </div>
                             </div>

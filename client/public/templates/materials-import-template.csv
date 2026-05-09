@@ -1,0 +1,6 @@
+# Material Name, Category, Unit, Currency Code, Bulk Price, Bulk Quantity, Supplier Type
+# Currency Code must match a currency configured in PriceRight Settings
+# Leave Currency Code blank to use the base currency (GHS)
+Material Name,Category,Unit,Purchase Currency,Bulk Price,Bulk Quantity,Supplier Type
+Sugar,Food Raw Material,Kg,GHS,320.00,50,Local
+Vegetable Oil,Food Raw Material,L,USD,45.00,20,Foreign

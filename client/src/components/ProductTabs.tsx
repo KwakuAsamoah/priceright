@@ -1,4 +1,6 @@
 import { Fragment } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, Clock3, TrendingUp, XCircle } from 'lucide-react';
 
 interface Product {
   id: number;
@@ -26,8 +28,17 @@ interface ProductTabsProps {
   product: Product;
   displayBom: BOMMaterial[];
   bomLoading: boolean;
-  activeTab: 'bom' | 'history';
-  onTabChange: (tab: 'bom' | 'history') => void;
+  activeTab: 'bom' | 'history' | 'activity';
+  onTabChange: (tab: 'bom' | 'history' | 'activity') => void;
+  activityEntries: Array<{
+    id: number;
+    action: string;
+    createdAt: number;
+    performedBy?: string | null;
+    details?: Record<string, unknown> | null;
+  }>;
+  activityLoading: boolean;
+  activityViewAllHref: string;
 }
 
 function toNumber(value: string | number | undefined) {
@@ -37,9 +48,64 @@ function toNumber(value: string | number | undefined) {
 }
 
 const TAB_BUTTONS = [
-  { id: 'bom', label: 'BOM' },
-  { id: 'history', label: 'Price History' },
+  { id: 'bom', label: 'Bill of materials' },
+  { id: 'history', label: 'Price history' },
+  { id: 'activity', label: 'Activity' },
 ];
+
+function formatRelativeTime(unixSeconds: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const delta = now - unixSeconds;
+
+  if (delta < 60) return 'just now';
+  if (delta < 3600) {
+    const minutes = Math.floor(delta / 60);
+    return `${minutes}m ago`;
+  }
+  if (delta < 86400) {
+    const hours = Math.floor(delta / 3600);
+    return `${hours}h ago`;
+  }
+  const days = Math.floor(delta / 86400);
+  return `${days}d ago`;
+}
+
+function describeProductActivity(action: string, details?: Record<string, unknown> | null) {
+  const data = details || {};
+  if (action === 'product.approved') {
+    const newPrice = Number(data.newPrice);
+    return Number.isFinite(newPrice)
+      ? `Approved base price at GHS ${newPrice.toFixed(2)}`
+      : 'Approved product base price';
+  }
+  if (action === 'product.rejected') {
+    const reason = data.reason ? ` - ${String(data.reason)}` : '';
+    return `Rejected product price${reason}`;
+  }
+  if (action === 'product.needs_review') {
+    return 'Flagged for review after cost change';
+  }
+  if (action === 'material.cost_updated') {
+    return 'Material cost updated';
+  }
+  return action;
+}
+
+function getActivityVisual(action: string) {
+  if (action === 'product.approved') {
+    return { Icon: CheckCircle2, color: '#16a34a' };
+  }
+  if (action === 'product.rejected') {
+    return { Icon: XCircle, color: '#dc2626' };
+  }
+  if (action === 'product.needs_review') {
+    return { Icon: AlertTriangle, color: '#d97706' };
+  }
+  if (action === 'material.cost_updated') {
+    return { Icon: TrendingUp, color: '#2563eb' };
+  }
+  return { Icon: Clock3, color: '#64748b' };
+}
 
 export default function ProductTabs({
   product,
@@ -47,6 +113,9 @@ export default function ProductTabs({
   bomLoading,
   activeTab,
   onTabChange,
+  activityEntries,
+  activityLoading,
+  activityViewAllHref,
 }: ProductTabsProps) {
   return (
     <div>
@@ -134,7 +203,7 @@ export default function ProductTabs({
 
                 {/* Cost Breakdown */}
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Cost Breakdown (per unit)</div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Cost breakdown (per unit)</div>
                   <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Total Material Cost:</span>
@@ -150,7 +219,7 @@ export default function ProductTabs({
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Profit Margin ({product.profitMargin}%):</span>
-                      <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (product.profitMargin / 100)).toFixed(2)}</span>
+                      <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100) * (product.profitMargin / 100)).toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -161,8 +230,42 @@ export default function ProductTabs({
 
         {activeTab === 'history' && (
           <div style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Price History</div>
+            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Price history</div>
             <div style={{ fontSize: '13px' }}>Coming soon...</div>
+          </div>
+        )}
+
+        {activeTab === 'activity' && (
+          <div style={{ padding: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700 }}>Recent activity</div>
+              <Link to={activityViewAllHref} style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+                View all activity
+              </Link>
+            </div>
+
+            {activityLoading ? (
+              <div style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>Loading activity...</div>
+            ) : activityEntries.length === 0 ? (
+              <div style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>No recent activity yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: '8px' }}>
+                {activityEntries.map((entry) => {
+                  const visual = getActivityVisual(entry.action);
+                  return (
+                    <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
+                      <visual.Icon size={14} style={{ color: visual.color }} />
+                      <div style={{ fontSize: '12px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
+                        {describeProductActivity(entry.action, entry.details)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right' }}>
+                        {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

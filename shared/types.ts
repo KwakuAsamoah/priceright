@@ -56,6 +56,7 @@ export interface Product {
   productionMode?: 'single' | 'batch';
   batchYield?: number;
   currentSellingPrice?: number;
+  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

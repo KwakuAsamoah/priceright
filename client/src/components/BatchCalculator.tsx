@@ -478,7 +478,7 @@ export default function BatchCalculator({ product, bom, onClose }: BatchCalculat
                   marginTop: '8px',
                 }}>
                   <span style={{ color: '#166534', fontWeight: '700' }}>TOTAL PROFIT:</span>
-                  <span style={{ fontWeight: '800', color: '#16a34a', fontSize: '15px' }}>
+                  <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '14px' }}>
                     GHS {formatNumber(profit)}
                   </span>
                 </div>

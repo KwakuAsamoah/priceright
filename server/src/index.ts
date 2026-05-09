@@ -1,22 +1,77 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db } from './db';
-import { currencies, exchangeRates, settings, materials, products, billOfMaterials, materialPriceHistory, priceLevels, customers, specialPricing, priceLists, priceListItems } from './schema';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { getActiveDb, liveDb, DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db';
+import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter((origin) => origin.length > 0);
+const CSP_CONNECT_SRC = (process.env.CSP_CONNECT_SRC ?? "'self'")
+  .split(',')
+  .map((source) => source.trim())
+  .filter((source) => source.length > 0)
+  .join(' ');
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'none'",
+  "object-src 'none'",
+  `connect-src ${CSP_CONNECT_SRC}`,
+].join('; ');
 const AUTO_BACKUP_ENABLED = (process.env.AUTO_BACKUP_ENABLED ?? 'true').toLowerCase() === 'true';
 const AUTO_BACKUP_INTERVAL_MINUTES = Math.max(1, Number.parseInt(process.env.AUTO_BACKUP_INTERVAL_MINUTES ?? '60', 10) || 60);
 const AUTO_BACKUP_RUN_ON_START = (process.env.AUTO_BACKUP_RUN_ON_START ?? 'false').toLowerCase() === 'true';
 const AUTO_BACKUP_RETENTION_COUNT = Math.max(1, Number.parseInt(process.env.AUTO_BACKUP_RETENTION_COUNT ?? '30', 10) || 30);
 const AUTO_BACKUP_INTERVAL_MS = AUTO_BACKUP_INTERVAL_MINUTES * 60 * 1000;
+const db: typeof liveDb = new Proxy(liveDb as any, {
+  get: (_target, property) => (getActiveDb() as any)[property],
+}) as typeof liveDb;
+
+async function getCurrentUserName(): Promise<string> {
+  try {
+    const rows = await getActiveDb()
+      .select({ settingKey: settings.settingKey, settingValue: settings.settingValue })
+      .from(settings)
+      .where(inArray(settings.settingKey, ['companyName', 'userName']));
+
+    const companyName = rows.find((row) => row.settingKey === 'companyName')?.settingValue?.trim();
+    const userName = rows.find((row) => row.settingKey === 'userName')?.settingValue?.trim();
+    return companyName || userName || 'Admin';
+  } catch {
+    return 'Admin';
+  }
+}
+
+async function logActivity(params: {
+  entityType: string;
+  entityId?: number | null;
+  entityName?: string | null;
+  action: string;
+  details?: Record<string, unknown> | null;
+  performedBy?: string | null;
+}): Promise<void> {
+  try {
+    await getActiveDb().insert(activityLog).values({
+      entityType: params.entityType,
+      entityId: params.entityId ?? null,
+      entityName: params.entityName ?? null,
+      action: params.action,
+      details: params.details ? JSON.stringify(params.details) : null,
+      performedBy: params.performedBy ?? 'Admin',
+      createdAt: new Date(),
+    });
+  } catch (err) {
+    // Never let logging failure break the main operation
+    console.error('[activity_log] Failed to write log entry:', err);
+  }
+}
 
 let lastBackupTime: Date | null = null;
 let backupIntervalHandle: NodeJS.Timeout | null = null;
@@ -51,18 +106,18 @@ function cleanupOldBackups(targetDir: string, retentionCount: number) {
     try {
       fs.unlinkSync(file.fullPath);
     } catch (error) {
-      console.error(`⚠️ Failed to delete old backup ${file.fileName}:`, error);
+      console.error(`âš ï¸ Failed to delete old backup ${file.fileName}:`, error);
     }
   }
 }
 
 function createBackup(): boolean {
-  const databasePath = path.resolve(process.cwd(), 'priceright.db');
-  const backupsDir = path.resolve(process.cwd(), 'backups');
+  const databasePath = DATABASE_FILE_PATH;
+  const backupsDir = path.resolve(path.dirname(databasePath), 'backups');
   const googleDriveBackupDir = process.env.GOOGLE_DRIVE_BACKUP_DIR?.trim();
 
   if (!fs.existsSync(databasePath)) {
-    console.error(`❌ Database file not found at ${databasePath}`);
+    console.error(`âŒ Database file not found at ${databasePath}`);
     return false;
   }
 
@@ -81,9 +136,9 @@ function createBackup(): boolean {
     const googleDriveBackupPath = path.join(resolvedGoogleDriveBackupDir, backupFileName);
     fs.copyFileSync(localBackupPath, googleDriveBackupPath);
     cleanupOldBackups(resolvedGoogleDriveBackupDir, AUTO_BACKUP_RETENTION_COUNT);
-    console.log(`✅ Backup created locally and copied to Google Drive: ${backupFileName}`);
+    console.log(`âœ… Backup created locally and copied to Google Drive: ${backupFileName}`);
   } else {
-    console.log(`✅ Backup created locally: ${backupFileName}`);
+    console.log(`âœ… Backup created locally: ${backupFileName}`);
   }
 
   lastBackupTime = new Date();
@@ -92,7 +147,7 @@ function createBackup(): boolean {
 
 function startAutoBackupScheduler() {
   if (!AUTO_BACKUP_ENABLED) {
-    console.log('ℹ️ Automatic backups are disabled (AUTO_BACKUP_ENABLED=false)');
+    console.log('â„¹ï¸ Automatic backups are disabled (AUTO_BACKUP_ENABLED=false)');
     return;
   }
 
@@ -100,10 +155,10 @@ function startAutoBackupScheduler() {
     try {
       const created = createBackup();
       if (!created) {
-        console.error('❌ Initial startup backup failed');
+        console.error('âŒ Initial startup backup failed');
       }
     } catch (error) {
-      console.error('❌ Error creating startup backup:', error);
+      console.error('âŒ Error creating startup backup:', error);
     }
   }
 
@@ -111,113 +166,24 @@ function startAutoBackupScheduler() {
     try {
       const created = createBackup();
       if (!created) {
-        console.error('❌ Scheduled backup failed');
+        console.error('âŒ Scheduled backup failed');
       }
     } catch (error) {
-      console.error('❌ Error during scheduled backup:', error);
+      console.error('âŒ Error during scheduled backup:', error);
     }
   }, AUTO_BACKUP_INTERVAL_MS);
 
-  console.log(`⏱️ Automatic backups are enabled every ${AUTO_BACKUP_INTERVAL_MINUTES} minute(s)`);
-  console.log(`🧹 Backup retention is set to keep latest ${AUTO_BACKUP_RETENTION_COUNT} file(s)`);
-}
-
-async function upsertSpecialPricingPriceListItem(input: {
-  customerId: number;
-  customerName: string;
-  priceLevelId: number;
-  productId: number;
-  basePrice: number;
-  specialPrice: number;
-}) {
-  const { customerId, customerName, priceLevelId, productId, basePrice, specialPrice } = input;
-
-  const existingList = await db
-    .select()
-    .from(priceLists)
-    .where(and(eq(priceLists.customerId, customerId), eq(priceLists.createdBy, 'system-special-pricing')));
-
-  let specialListId: number;
-  if (existingList.length > 0) {
-    specialListId = existingList[0].id;
-    await db.update(priceLists)
-      .set({
-        name: `Special Pricing - ${customerName}`,
-        priceLevelId,
-        status: 'active',
-        updatedAt: new Date(),
-      })
-      .where(eq(priceLists.id, specialListId));
-  } else {
-    const created = await db.insert(priceLists).values({
-      name: `Special Pricing - ${customerName}`,
-      customerId,
-      priceLevelId,
-      validFrom: new Date(),
-      validUntil: null,
-      status: 'active',
-      createdBy: 'system-special-pricing',
-    }).returning();
-    specialListId = created[0].id;
-  }
-
-  const discountPercentage = basePrice > 0
-    ? Math.round(((basePrice - specialPrice) / basePrice) * 10000) / 100
-    : 0;
-
-  const existingItem = await db
-    .select()
-    .from(priceListItems)
-    .where(and(eq(priceListItems.priceListId, specialListId), eq(priceListItems.productId, productId)));
-
-  if (existingItem.length > 0) {
-    await db.update(priceListItems)
-      .set({
-        basePrice,
-        discountPercentage,
-        finalPrice: specialPrice,
-        notes: 'Special pricing override',
-      })
-      .where(eq(priceListItems.id, existingItem[0].id));
-  } else {
-    await db.insert(priceListItems).values({
-      priceListId: specialListId,
-      productId,
-      basePrice,
-      discountPercentage,
-      finalPrice: specialPrice,
-      notes: 'Special pricing override',
-    });
-  }
-}
-
-async function removeSpecialPricingPriceListItem(customerId: number, productId: number) {
-  const specialList = await db
-    .select()
-    .from(priceLists)
-    .where(and(eq(priceLists.customerId, customerId), eq(priceLists.createdBy, 'system-special-pricing')));
-
-  if (specialList.length === 0) {
-    return;
-  }
-
-  const specialListId = specialList[0].id;
-  await db
-    .delete(priceListItems)
-    .where(and(eq(priceListItems.priceListId, specialListId), eq(priceListItems.productId, productId)));
-
-  const remaining = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(priceListItems)
-    .where(eq(priceListItems.priceListId, specialListId));
-
-  const remainingCount = Number(remaining[0]?.count || 0);
-  if (remainingCount === 0) {
-    await db.delete(priceLists).where(eq(priceLists.id, specialListId));
-  }
+  console.log(`â±ï¸ Automatic backups are enabled every ${AUTO_BACKUP_INTERVAL_MINUTES} minute(s)`);
+  console.log(`ðŸ§¹ Backup retention is set to keep latest ${AUTO_BACKUP_RETENTION_COUNT} file(s)`);
 }
 
 const MIN_MARGIN_PERCENTAGE = 15;
+
+type PriceLevelItemOverrideType = 'rule_discount' | 'rule_markup' | 'custom_price';
+
+function roundToFour(value: number): number {
+  return Math.round((value + Number.EPSILON) * 10_000) / 10_000;
+}
 
 function roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -249,13 +215,6 @@ async function calculateProductionCostForProduct(selectedProduct: typeof product
   return totalCost;
 }
 
-function parseOverrideType(value: unknown): 'custom' | 'discount' | 'markup' {
-  if (value === 'discount' || value === 'markup' || value === 'custom') {
-    return value;
-  }
-  return 'custom';
-}
-
 function toOptionalNumber(value: unknown): number | null {
   if (value === undefined || value === null || value === '') {
     return null;
@@ -264,246 +223,105 @@ function toOptionalNumber(value: unknown): number | null {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
-async function upsertSpecialPricingEntry(params: {
-  customerId: number;
-  productId: number;
-  customPrice: number;
-  overrideType: 'custom' | 'discount' | 'markup';
-  discountPercentage: number | null;
-  markupPercentage: number | null;
-  justification: string | null;
-  createdBy: string;
-}): Promise<typeof specialPricing.$inferSelect> {
-  const {
-    customerId,
-    productId,
-    customPrice,
-    overrideType,
-    discountPercentage,
-    markupPercentage,
-    justification,
-    createdBy,
-  } = params;
-
-  const customerRows = await db.select().from(customers).where(eq(customers.id, customerId));
-  if (customerRows.length === 0) {
-    throw new Error('Customer not found');
+function parsePriceLevelItemOverrideType(value: unknown): PriceLevelItemOverrideType | null {
+  if (value === 'rule_discount' || value === 'rule_markup' || value === 'custom_price') {
+    return value;
   }
-  const customerRow = customerRows[0];
-  if (!customerRow.allowSpecialPricing) {
-    throw new Error('Customer is not allowed to use special pricing');
-  }
-
-  const productRows = await db.select().from(products).where(eq(products.id, productId));
-  if (productRows.length === 0) {
-    throw new Error('Product not found');
-  }
-  const productRow = productRows[0];
-
-  if (productRow.approvalStatus !== 'approved' || productRow.approvedPrice == null) {
-    throw new Error('Only approved products can have custom prices');
-  }
-
-  const productionCost = await calculateProductionCostForProduct(productRow, productId);
-  const oldMarginPercentage = Number(productRow.approvedPrice) > 0
-    ? ((Number(productRow.approvedPrice) - productionCost) / Number(productRow.approvedPrice)) * 100
-    : -100;
-  const marginImpactPercentage = customPrice > 0
-    ? ((customPrice - productionCost) / customPrice) * 100
-    : -100;
-
-  const existing = await db
-    .select()
-    .from(specialPricing)
-    .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-  const persistedPrice = roundToTwo(customPrice);
-  const persistedProductionCost = roundToTwo(productionCost);
-  const persistedMarginImpact = roundToTwo(marginImpactPercentage);
-  const persistedOldMargin = roundToTwo(oldMarginPercentage);
-
-  if (existing.length > 0) {
-    await db.update(specialPricing)
-      .set({
-        customPrice: persistedPrice,
-        productionCost: persistedProductionCost,
-        marginImpactPercentage: persistedMarginImpact,
-        oldMarginPercentage: persistedOldMargin,
-        overrideType,
-        discountPercentage,
-        markupPercentage,
-        status: 'pending',
-        approvedBy: null,
-        approvedAt: null,
-        justification,
-        createdBy,
-      })
-      .where(eq(specialPricing.id, existing[0].id));
-  } else {
-    await db.insert(specialPricing).values({
-      customerId,
-      productId,
-      customPrice: persistedPrice,
-      productionCost: persistedProductionCost,
-      marginImpactPercentage: persistedMarginImpact,
-      oldMarginPercentage: persistedOldMargin,
-      overrideType,
-      discountPercentage,
-      markupPercentage,
-      status: 'pending',
-      approvedBy: null,
-      approvedAt: null,
-      justification,
-      createdBy,
-    });
-  }
-
-  await upsertSpecialPricingPriceListItem({
-    customerId,
-    customerName: customerRow.name,
-    priceLevelId: customerRow.priceLevelId,
-    productId,
-    basePrice: Number(productRow.approvedPrice || 0),
-    specialPrice: persistedPrice,
-  });
-
-  const saved = await db
-    .select()
-    .from(specialPricing)
-    .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-  return saved[0];
+  return null;
 }
 
-async function handleSpecialPricingUpsert(input: {
-  customerId: number;
-  productId: number;
-  payload: Record<string, unknown>;
-}): Promise<{ status: number; payload: Record<string, unknown> }> {
-  const { customerId, productId, payload } = input;
+function computePriceLevelItemFinalPrice(input: {
+  overrideType: PriceLevelItemOverrideType;
+  adjustmentPercentage: number | null;
+  customPrice: number | null;
+  approvedPrice: number;
+}) {
+  const { overrideType, adjustmentPercentage, customPrice, approvedPrice } = input;
+  const normalizedApprovedPrice = Number.isFinite(approvedPrice) ? approvedPrice : 0;
 
-  const productRows = await db.select().from(products).where(eq(products.id, productId));
-  if (productRows.length === 0) {
-    return { status: 404, payload: { error: 'Product not found' } };
+  if (overrideType === 'custom_price') {
+    return roundToFour(Number(customPrice || 0));
   }
 
-  const selectedProduct = productRows[0];
-  if (selectedProduct.approvalStatus !== 'approved' || selectedProduct.approvedPrice == null) {
-    return { status: 400, payload: { error: 'Only approved products can have custom prices' } };
+  if (overrideType === 'rule_discount') {
+    return roundToFour(normalizedApprovedPrice * (1 - (Number(adjustmentPercentage || 0) / 100)));
   }
 
-  const overrideType = parseOverrideType(payload.overrideType);
-  const approvedPrice = Number(selectedProduct.approvedPrice || 0);
-  const inputCustomPrice = toOptionalNumber(payload.customPrice);
-  const discountPercentage = toOptionalNumber(payload.discountPercentage);
-  const markupPercentage = toOptionalNumber(payload.markupPercentage);
-  const justification = typeof payload.justification === 'string' && payload.justification.trim().length > 0
-    ? payload.justification.trim()
-    : null;
-  const createdBy = typeof payload.createdBy === 'string' && payload.createdBy.trim().length > 0
-    ? payload.createdBy.trim()
-    : 'user';
+  return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+}
 
-  let resolvedCustomPrice: number | null = null;
-  let resolvedDiscount: number | null = null;
-  let resolvedMarkup: number | null = null;
+async function toPriceLevelItemResponse(item: PriceLevelItem, productRow: typeof products.$inferSelect) {
+  const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
+  const approvedPrice = Number(productRow.approvedPrice || 0);
+  const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
+  const overrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
+  const adjustmentPercentage = toOptionalNumber(item.adjustmentPercentage);
+  const customPrice = toOptionalNumber(item.customPrice);
 
-  if (overrideType === 'discount') {
-    if (discountPercentage == null || Number.isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
-      return { status: 400, payload: { error: 'discountPercentage must be a number between 0 and 100' } };
-    }
-    resolvedDiscount = discountPercentage;
-    resolvedCustomPrice = approvedPrice * (1 - (discountPercentage / 100));
-  } else if (overrideType === 'markup') {
-    if (markupPercentage == null || Number.isNaN(markupPercentage) || markupPercentage < 0 || markupPercentage > 1000) {
-      return { status: 400, payload: { error: 'markupPercentage must be a number between 0 and 1000' } };
-    }
-    resolvedMarkup = markupPercentage;
-    resolvedCustomPrice = approvedPrice * (1 + (markupPercentage / 100));
-  } else {
-    if (inputCustomPrice == null || Number.isNaN(inputCustomPrice) || inputCustomPrice <= 0) {
-      return { status: 400, payload: { error: 'customPrice must be greater than 0 for custom override' } };
-    }
-    resolvedCustomPrice = inputCustomPrice;
-  }
-
-  resolvedCustomPrice = roundToTwo(Math.max(0, resolvedCustomPrice));
-  if (resolvedCustomPrice <= 0) {
-    return {
-      status: 400,
-      payload: {
-        error: 'Proposed special price must be greater than 0',
-        code: 'INVALID_SPECIAL_PRICE',
-      },
-    };
-  }
-
-  const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
-  const resultingMarginPercentage = resolvedCustomPrice > 0
-    ? ((resolvedCustomPrice - productionCost) / resolvedCustomPrice) * 100
-    : -100;
-  const minimumSafePrice = productionCost;
-  const minimumPriceForMarginThreshold = productionCost / (1 - (MIN_MARGIN_PERCENTAGE / 100));
-
-  if (resolvedCustomPrice < minimumSafePrice) {
-    return {
-      status: 400,
-      payload: {
-        error: 'Proposed special price is below production cost',
-        code: 'PRICE_BELOW_COST',
-        details: {
-          productionCost: roundToTwo(productionCost),
-          proposedPrice: roundToTwo(resolvedCustomPrice),
-          resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
-          minimumSafePrice: roundToTwo(minimumSafePrice),
-        },
-      },
-    };
-  }
-
-  if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
-    return {
-      status: 400,
-      payload: {
-        error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
-        code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
-        details: {
-          productionCost: roundToTwo(productionCost),
-          proposedPrice: roundToTwo(resolvedCustomPrice),
-          resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
-          minimumSafePrice: roundToTwo(minimumSafePrice),
-          minimumPriceForThresholdMargin: roundToTwo(minimumPriceForMarginThreshold),
-          thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
-        },
-      },
-    };
-  }
-
-  const saved = await upsertSpecialPricingEntry({
-    customerId,
-    productId,
-    customPrice: resolvedCustomPrice,
-    overrideType,
-    discountPercentage: resolvedDiscount,
-    markupPercentage: resolvedMarkup,
-    justification,
-    createdBy,
-  });
+  const productApprovedAt = productRow.approvedAt ?? null;
+  const isCustomPriceStale = (
+    overrideType === 'custom_price'
+    && item.status === 'approved'
+    && productApprovedAt != null
+    && item.updatedAt != null
+    && productApprovedAt > item.updatedAt
+  );
 
   return {
-    status: 201,
-    payload: {
-      ...saved,
-      productionCost: roundToTwo(Number(saved.productionCost ?? productionCost)),
-      marginImpactPercentage: roundToTwo(Number(saved.marginImpactPercentage ?? resultingMarginPercentage)),
-      oldMarginPercentage: roundToTwo(Number(saved.oldMarginPercentage ?? 0)),
-    },
+    id: item.id,
+    priceLevelId: item.priceLevelId,
+    productId: item.productId,
+    productName: productRow.name,
+    productCategory: productRow.category || '',
+    productApprovedPrice: roundToFour(approvedPrice),
+    productOptimalPrice: optimalPrice,
+    productProductionCost: roundToFour(productionCost),
+    overrideType,
+    adjustmentPercentage,
+    customPrice,
+    finalPrice: computePriceLevelItemFinalPrice({
+      overrideType,
+      adjustmentPercentage,
+      customPrice,
+      approvedPrice,
+    }),
+    status: item.status as 'pending' | 'approved' | 'rejected',
+    approvedBy: item.approvedBy ?? null,
+    approvedAt: item.approvedAt ?? null,
+    justification: item.justification ?? null,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    productApprovedAt,
+    isCustomPriceStale,
   };
+}
+
+function parseStatusFilter(value: unknown): 'all' | 'active' | 'inactive' {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'active' || normalized === 'inactive' || normalized === 'all') {
+    return normalized;
+  }
+  return 'all';
+}
+
+function parseMaterialTypeFilter(value: unknown): 'all' | 'primary' | 'intermediate' {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'primary' || normalized === 'intermediate' || normalized === 'all') {
+    return normalized;
+  }
+  return 'all';
+}
+
+function parseIncludeInactive(value: unknown): boolean {
+  return String(value || '').trim().toLowerCase() === 'true';
 }
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    const isLocalDevOrigin = typeof origin === 'string'
+      && /^https?:\/\/(localhost|127\.0\.0\.1):(\d+)$/.test(origin);
+
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || isLocalDevOrigin) {
       callback(null, true);
       return;
     }
@@ -511,6 +329,13 @@ app.use(cors({
     callback(new Error('Not allowed by CORS'));
   },
 }));
+app.use((req, res, next) => {
+  // API is JSON-only; keep policy strict and allow only configured network targets.
+  res.setHeader('Content-Security-Policy', CONTENT_SECURITY_POLICY);
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!error) {
@@ -528,9 +353,36 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   return next(error);
 });
 
+app.get('/', (req, res) => {
+  if ((process.env.NODE_ENV ?? 'development') !== 'production') {
+    return res.redirect('http://localhost:5173');
+  }
+
+  return res.json({
+    service: 'priceright-api',
+    status: 'ok',
+    health: '/api/health',
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy' });
+  res.json({ status: 'ok', version: '1.0.0' });
+});
+
+app.get('/api/demo-mode', (_req, res) => {
+  res.json({ demoMode: readDemoModeState() });
+});
+
+app.post('/api/demo-mode', (req, res) => {
+  const incoming = Boolean(req.body?.demoMode);
+  const demoMode = writeDemoModeState(incoming);
+  res.json({
+    demoMode,
+    message: demoMode
+      ? 'Demo mode enabled. Requests now use demo.db'
+      : 'Live mode enabled. Requests now use priceright.db',
+  });
 });
 
 // ============================================
@@ -583,7 +435,7 @@ app.get('/api/backup/status', (req, res) => {
 
 app.get('/api/settings', async (req, res) => {
   try {
-    const allSettings = await db.select().from(settings);
+    const allSettings = await getActiveDb().select().from(settings);
     res.json(allSettings);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -592,7 +444,7 @@ app.get('/api/settings', async (req, res) => {
 
 app.get('/api/settings/:key', async (req, res) => {
   try {
-    const setting = await db.select().from(settings).where(eq(settings.settingKey, req.params.key));
+    const setting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, req.params.key));
     if (setting.length === 0) {
       return res.status(404).json({ error: 'Setting not found' });
     }
@@ -606,17 +458,17 @@ app.post('/api/settings', async (req, res) => {
   try {
     const { settingKey, settingValue } = req.body;
     
-    const existing = await db.select().from(settings).where(eq(settings.settingKey, settingKey));
+    const existing = await getActiveDb().select().from(settings).where(eq(settings.settingKey, settingKey));
     
     if (existing.length > 0) {
-      await db.update(settings)
+      await getActiveDb().update(settings)
         .set({ settingValue, updatedAt: new Date() })
         .where(eq(settings.settingKey, settingKey));
     } else {
-      await db.insert(settings).values({ settingKey, settingValue });
+      await getActiveDb().insert(settings).values({ settingKey, settingValue });
     }
     
-    const updated = await db.select().from(settings).where(eq(settings.settingKey, settingKey));
+    const updated = await getActiveDb().select().from(settings).where(eq(settings.settingKey, settingKey));
     res.json(updated[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to save setting' });
@@ -629,7 +481,7 @@ app.post('/api/settings', async (req, res) => {
 
 app.get('/api/currencies', async (req, res) => {
   try {
-    const allCurrencies = await db.select().from(currencies);
+    const allCurrencies = await getActiveDb().select().from(currencies);
     res.json(allCurrencies);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch currencies' });
@@ -639,7 +491,7 @@ app.get('/api/currencies', async (req, res) => {
 app.post('/api/currencies', async (req, res) => {
   try {
     const { code, name, symbol } = req.body;
-    const result = await db.insert(currencies).values({ code, name, symbol }).returning();
+    const result = await getActiveDb().insert(currencies).values({ code, name, symbol }).returning();
     res.json(result[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to create currency' });
@@ -649,11 +501,11 @@ app.post('/api/currencies', async (req, res) => {
 app.put('/api/currencies/:id', async (req, res) => {
   try {
     const { code, name, symbol } = req.body;
-    await db.update(currencies)
+    await getActiveDb().update(currencies)
       .set({ code, name, symbol })
       .where(eq(currencies.id, parseInt(req.params.id)));
     
-    const updated = await db.select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
+    const updated = await getActiveDb().select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
     res.json(updated[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update currency' });
@@ -662,17 +514,17 @@ app.put('/api/currencies/:id', async (req, res) => {
 
 app.put('/api/currencies/:id/toggle', async (req, res) => {
   try {
-    const currency = await db.select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
+    const currency = await getActiveDb().select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
     
     if (currency.length === 0) {
       return res.status(404).json({ error: 'Currency not found' });
     }
     
-    await db.update(currencies)
+    await getActiveDb().update(currencies)
       .set({ isActive: !currency[0].isActive })
       .where(eq(currencies.id, parseInt(req.params.id)));
     
-    const updated = await db.select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
+    const updated = await getActiveDb().select().from(currencies).where(eq(currencies.id, parseInt(req.params.id)));
     res.json(updated[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to toggle currency' });
@@ -681,7 +533,7 @@ app.put('/api/currencies/:id/toggle', async (req, res) => {
 
 app.delete('/api/currencies/:id', async (req, res) => {
   try {
-    await db.delete(currencies).where(eq(currencies.id, parseInt(req.params.id)));
+    await getActiveDb().delete(currencies).where(eq(currencies.id, parseInt(req.params.id)));
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete currency' });
@@ -694,7 +546,7 @@ app.delete('/api/currencies/:id', async (req, res) => {
 
 app.get('/api/exchange-rates', async (req, res) => {
   try {
-    const rates = await db.select().from(exchangeRates);
+    const rates = await getActiveDb().select().from(exchangeRates);
     res.json(rates);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch exchange rates' });
@@ -704,7 +556,7 @@ app.get('/api/exchange-rates', async (req, res) => {
 app.post('/api/exchange-rates', async (req, res) => {
   try {
     const { currencyId, rateToBase, source } = req.body;
-    const result = await db.insert(exchangeRates).values({ 
+    const result = await getActiveDb().insert(exchangeRates).values({ 
       currencyId, 
       rateToBase, 
       source: source || 'manual' 
@@ -720,20 +572,38 @@ app.put('/api/exchange-rates/:currencyId', async (req, res) => {
     const { rateToBase } = req.body;
     const currencyId = parseInt(req.params.currencyId);
     
-    const existing = await db.select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
+    const existing = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
+    const oldRateValue = existing.length > 0 ? Number(existing[0].rateToBase || 0) : Number(rateToBase || 0);
     
     if (existing.length > 0) {
-      await db.update(exchangeRates)
+      await getActiveDb().update(exchangeRates)
         .set({ rateToBase, effectiveDate: new Date() })
         .where(eq(exchangeRates.currencyId, currencyId));
     } else {
-      await db.insert(exchangeRates).values({ currencyId, rateToBase, source: 'manual' });
+      await getActiveDb().insert(exchangeRates).values({ currencyId, rateToBase, source: 'manual' });
     }
     
-    const updated = await db.select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
+    const updated = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
+    const currencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, currencyId));
+    const currencyCode = currencyRows[0]?.code || String(currencyId);
+    const newRateValue = Number(updated[0]?.rateToBase || rateToBase || 0);
+    const performedBy = await getCurrentUserName();
 
     try {
       const recalculation = await recalculateMaterialsForCurrency(currencyId);
+      await logActivity({
+        entityType: 'exchange_rate',
+        entityId: currencyId,
+        entityName: currencyCode,
+        action: 'exchange_rate.updated',
+        details: {
+          currencyCode,
+          oldRate: oldRateValue,
+          newRate: newRateValue,
+          productsAffected: recalculation.productsNowNeedsReview ?? 0,
+        },
+        performedBy,
+      });
       res.json({
         success: true,
         rate: updated[0],
@@ -745,6 +615,19 @@ app.put('/api/exchange-rates/:currencyId', async (req, res) => {
       });
     } catch (recalculationError) {
       console.error('Error recalculating material prices:', recalculationError);
+      await logActivity({
+        entityType: 'exchange_rate',
+        entityId: currencyId,
+        entityName: currencyCode,
+        action: 'exchange_rate.updated',
+        details: {
+          currencyCode,
+          oldRate: oldRateValue,
+          newRate: newRateValue,
+          productsAffected: 0,
+        },
+        performedBy,
+      });
       res.json({
         success: true,
         rate: updated[0],
@@ -787,12 +670,14 @@ app.post('/api/exchange-rates/:id/recalculate-materials', async (req, res) => {
 
 app.get('/api/materials', async (req, res) => {
   try {
+    const status = parseStatusFilter(req.query.status);
+    const materialType = parseMaterialTypeFilter(req.query.type);
     // Get base currency
-    const baseCurrencySetting = await db.select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
     let baseCurrencySymbol = '';
     
     if (baseCurrencySetting.length > 0) {
-      const baseCurrency = await db.select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
+      const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
       if (baseCurrency.length > 0) {
         baseCurrencySymbol = baseCurrency[0].symbol;
       }
@@ -804,6 +689,7 @@ app.get('/api/materials', async (req, res) => {
         name: materials.name,
         sku: materials.sku,
         description: materials.description,
+        materialType: materials.materialType,
         category: materials.category,
         unit: materials.unit,
         bulkQuantity: materials.bulkQuantity,
@@ -814,13 +700,27 @@ app.get('/api/materials', async (req, res) => {
         priceInPurchaseCurrency: materials.priceInPurchaseCurrency,
         priceInBaseCurrency: materials.priceInBaseCurrency,
         unitPrice: materials.unitPrice,
+        overheadPercentage: materials.overheadPercentage,
+        marginPercentage: materials.marginPercentage,
+        yieldPercentage: materials.yieldPercentage,
+        calculatedCostPerUnit: materials.calculatedCostPerUnit,
         supplier: materials.supplier,
         isActive: materials.isActive,
         createdAt: materials.createdAt,
         updatedAt: materials.updatedAt,
       })
       .from(materials)
-      .leftJoin(currencies, eq(materials.purchaseCurrencyId, currencies.id));
+      .leftJoin(currencies, eq(materials.purchaseCurrencyId, currencies.id))
+      .where(
+        and(
+          status === 'all'
+            ? sql`1=1`
+            : eq(materials.isActive, status === 'active'),
+          materialType === 'all'
+            ? sql`1=1`
+            : eq(materials.materialType, materialType),
+        )
+      );
     
     // Add base currency symbol to each material
     const materialsWithBaseCurrency = allMaterials.map(m => ({
@@ -836,52 +736,96 @@ app.get('/api/materials', async (req, res) => {
 
 app.post('/api/materials', async (req, res) => {
   try {
-    const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier } = req.body;
+    const {
+      name,
+      sku,
+      description,
+      category,
+      unit,
+      bulkQuantity,
+      bulkPrice,
+      purchaseCurrencyId,
+      supplier,
+      materialType,
+      overheadPercentage,
+      marginPercentage,
+      yieldPercentage,
+      calculatedCostPerUnit,
+    } = req.body;
+    const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
     
     // Get base currency
-    const baseCurrencySetting = await db.select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
     if (baseCurrencySetting.length === 0) {
       return res.status(400).json({ error: 'Base currency not set' });
     }
     
-    const baseCurrency = await db.select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
+    const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
     
     // Get exchange rate
+    const resolvedPurchaseCurrencyId = resolvedMaterialType === 'intermediate' ? baseCurrency[0].id : purchaseCurrencyId;
     let exchangeRate = 1;
-    if (purchaseCurrencyId !== baseCurrency[0].id) {
-      const rate = await db.select().from(exchangeRates).where(eq(exchangeRates.currencyId, purchaseCurrencyId));
+    if (resolvedPurchaseCurrencyId !== baseCurrency[0].id) {
+      const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
       if (rate.length > 0) {
         exchangeRate = parseFloat(rate[0].rateToBase.toString());
       }
     }
     
     // Calculate prices
-    const priceInPurchaseCurrency = bulkPrice;
-    const priceInBaseCurrency = bulkPrice * exchangeRate;
-    const unitPrice = priceInBaseCurrency / bulkQuantity;
+    const normalizedBulkQuantity = Number(bulkQuantity) > 0 ? Number(bulkQuantity) : 1;
+    const normalizedBulkPrice = Number(bulkPrice) >= 0 ? Number(bulkPrice) : 0;
+    const intermediateCost = Number(calculatedCostPerUnit || 0);
+    const normalizedOverhead = Number(overheadPercentage || 0);
+    const normalizedMargin = Number(marginPercentage || 0);
+    const normalizedYield = Number(yieldPercentage || 100);
+
+    const priceInPurchaseCurrency = resolvedMaterialType === 'intermediate'
+      ? intermediateCost * normalizedBulkQuantity
+      : normalizedBulkPrice;
+    const priceInBaseCurrency = resolvedMaterialType === 'intermediate'
+      ? intermediateCost * normalizedBulkQuantity
+      : normalizedBulkPrice * exchangeRate;
+    const unitPrice = resolvedMaterialType === 'intermediate'
+      ? intermediateCost
+      : priceInBaseCurrency / normalizedBulkQuantity;
     
     // Insert material
-    const result = await db.insert(materials).values({
+    const result = await getActiveDb().insert(materials).values({
       name,
       sku: sku || null,
       description: description || null,
+      materialType: resolvedMaterialType,
       category,
       unit,
-      bulkQuantity,
-      bulkPrice,
-      purchaseCurrencyId,
+      bulkQuantity: normalizedBulkQuantity,
+      bulkPrice: priceInPurchaseCurrency,
+      purchaseCurrencyId: resolvedPurchaseCurrencyId,
       priceInPurchaseCurrency,
       priceInBaseCurrency,
       unitPrice,
+      overheadPercentage: normalizedOverhead,
+      marginPercentage: normalizedMargin,
+      yieldPercentage: normalizedYield,
+      calculatedCostPerUnit: unitPrice,
       supplier,
     }).returning();
     
     // Save price history
-    await db.insert(materialPriceHistory).values({
+    await getActiveDb().insert(materialPriceHistory).values({
       materialId: result[0].id,
-      purchaseCurrencyId,
+      purchaseCurrencyId: resolvedPurchaseCurrencyId,
       priceInPurchaseCurrency,
       priceInBaseCurrency,
+    });
+
+    await logActivity({
+      entityType: 'material',
+      entityId: result[0].id,
+      entityName: result[0].name,
+      action: 'material.created',
+      details: null,
+      performedBy: await getCurrentUserName(),
     });
     
     res.json(result[0]);
@@ -893,55 +837,129 @@ app.post('/api/materials', async (req, res) => {
 
 app.put('/api/materials/:id', async (req, res) => {
   try {
-    const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier } = req.body;
     const materialId = parseInt(req.params.id);
+    if (!Number.isInteger(materialId)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const existingRows = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    const existing = existingRows[0];
+    const name = req.body?.name ?? existing.name;
+    const sku = req.body?.sku ?? existing.sku;
+    const description = req.body?.description ?? existing.description;
+    const materialType = req.body?.materialType === 'intermediate' ? 'intermediate' : (existing.materialType === 'intermediate' ? 'intermediate' : 'primary');
+    const category = req.body?.category ?? existing.category;
+    const unit = req.body?.unit ?? existing.unit;
+    const bulkQuantity = Number(req.body?.bulkQuantity ?? existing.bulkQuantity);
+    const bulkPrice = Number(req.body?.bulkPrice ?? existing.bulkPrice);
+    const purchaseCurrencyId = Number(req.body?.purchaseCurrencyId ?? existing.purchaseCurrencyId);
+    const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage ?? 0);
+    const marginPercentage = Number(req.body?.marginPercentage ?? existing.marginPercentage ?? 0);
+    const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
+    const calculatedCostPerUnit = Number(req.body?.calculatedCostPerUnit ?? existing.calculatedCostPerUnit ?? existing.unitPrice ?? 0);
+    const supplier = req.body?.supplier ?? existing.supplier;
+    const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
+
+    const shouldRecalculatePrice =
+      req.body?.bulkQuantity !== undefined
+      || req.body?.bulkPrice !== undefined
+      || req.body?.purchaseCurrencyId !== undefined;
     
     // Get base currency
-    const baseCurrencySetting = await db.select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
-    const baseCurrency = await db.select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
     
     // Get exchange rate
+    const resolvedPurchaseCurrencyId = materialType === 'intermediate' ? baseCurrency[0].id : purchaseCurrencyId;
     let exchangeRate = 1;
-    if (purchaseCurrencyId !== baseCurrency[0].id) {
-      const rate = await db.select().from(exchangeRates).where(eq(exchangeRates.currencyId, purchaseCurrencyId));
+    if (resolvedPurchaseCurrencyId !== baseCurrency[0].id) {
+      const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
       if (rate.length > 0) {
         exchangeRate = parseFloat(rate[0].rateToBase.toString());
       }
     }
     
     // Calculate prices
-    const priceInPurchaseCurrency = bulkPrice;
-    const priceInBaseCurrency = bulkPrice * exchangeRate;
-    const unitPrice = priceInBaseCurrency / bulkQuantity;
+    const normalizedBulkQuantity = bulkQuantity > 0 ? bulkQuantity : 1;
+    const normalizedBulkPrice = bulkPrice >= 0 ? bulkPrice : 0;
+    const priceInPurchaseCurrency = materialType === 'intermediate'
+      ? calculatedCostPerUnit * normalizedBulkQuantity
+      : normalizedBulkPrice;
+    const priceInBaseCurrency = materialType === 'intermediate'
+      ? calculatedCostPerUnit * normalizedBulkQuantity
+      : normalizedBulkPrice * exchangeRate;
+    const unitPrice = materialType === 'intermediate'
+      ? calculatedCostPerUnit
+      : priceInBaseCurrency / normalizedBulkQuantity;
     
     // Update material
-    await db.update(materials).set({
+    await getActiveDb().update(materials).set({
       name,
       sku: sku || null,
       description: description || null,
+      materialType,
       category,
       unit,
-      bulkQuantity,
-      bulkPrice,
-      purchaseCurrencyId,
+      bulkQuantity: normalizedBulkQuantity,
+      bulkPrice: priceInPurchaseCurrency,
+      purchaseCurrencyId: resolvedPurchaseCurrencyId,
       priceInPurchaseCurrency,
       priceInBaseCurrency,
       unitPrice,
+      overheadPercentage,
+      marginPercentage,
+      yieldPercentage,
+      calculatedCostPerUnit: unitPrice,
       supplier,
+      isActive,
       updatedAt: new Date(),
     }).where(eq(materials.id, materialId));
-    
-    // Save price history
-    await db.insert(materialPriceHistory).values({
-      materialId,
-      purchaseCurrencyId,
-      priceInPurchaseCurrency,
-      priceInBaseCurrency,
-    });
 
-    await setNeedsReviewForMaterial(materialId);
+    if (shouldRecalculatePrice) {
+      await getActiveDb().insert(materialPriceHistory).values({
+        materialId,
+        purchaseCurrencyId: resolvedPurchaseCurrencyId,
+        priceInPurchaseCurrency,
+        priceInBaseCurrency,
+      });
+
+      if (materialType === 'intermediate') {
+        await recalculateIntermediateMaterialWithCascade(materialId);
+      } else {
+        await propagatePrimaryMaterialChange(materialId);
+      }
+
+      const purchaseCurrencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, resolvedPurchaseCurrencyId));
+      const purchaseCurrencyCode = purchaseCurrencyRows[0]?.code || '';
+      const updatedMaterial = {
+        ...existing,
+        name,
+        unitPrice,
+        priceInBaseCurrency,
+      };
+
+      await logActivity({
+        entityType: 'material',
+        entityId: materialId,
+        entityName: updatedMaterial.name,
+        action: 'material.cost_updated',
+        details: {
+          materialName: updatedMaterial.name,
+          oldUnitPrice: Number(existing.unitPrice || 0),
+          newUnitPrice: Number(updatedMaterial.unitPrice || 0),
+          currency: purchaseCurrencyCode,
+          oldGhsPrice: Number(existing.priceInBaseCurrency || 0),
+          newGhsPrice: Number(updatedMaterial.priceInBaseCurrency || 0),
+        },
+        performedBy: await getCurrentUserName(),
+      });
+    }
     
-    const updated = await db.select().from(materials).where(eq(materials.id, materialId));
+    const updated = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
     res.json(updated[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update material' });
@@ -989,7 +1007,24 @@ app.delete('/api/materials/:id', async (req, res) => {
       });
     }
 
-    await db.delete(materials).where(eq(materials.id, materialId));
+    const intermediateUsageRows = await db
+      .select({ id: intermediateMaterialBom.id })
+      .from(intermediateMaterialBom)
+      .where(
+        and(
+          eq(intermediateMaterialBom.componentMaterialId, materialId),
+          sql`${intermediateMaterialBom.intermediateMaterialId} <> ${materialId}`,
+        )
+      );
+
+    if (intermediateUsageRows.length > 0) {
+      return res.status(400).json({
+        error: 'Cannot delete material - used in intermediate material BOM',
+        code: 'MATERIAL_IN_USE',
+      });
+    }
+
+    await getActiveDb().delete(materials).where(eq(materials.id, materialId));
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting material:', error);
@@ -1049,18 +1084,35 @@ app.post('/api/materials/check-usage', async (req, res) => {
         .leftJoin(materials, eq(billOfMaterials.materialId, materials.id))
         .leftJoin(products, eq(billOfMaterials.productId, products.id))
         .where(eq(billOfMaterials.materialId, materialId));
+
+      const intermediateUsage = await db
+        .select({
+          intermediateId: intermediateMaterialBom.intermediateMaterialId,
+          intermediateName: materials.name,
+        })
+        .from(intermediateMaterialBom)
+        .leftJoin(materials, eq(intermediateMaterialBom.intermediateMaterialId, materials.id))
+        .where(eq(intermediateMaterialBom.componentMaterialId, materialId));
       
-      if (usageData.length === 0) {
+      if (usageData.length === 0 && intermediateUsage.length === 0) {
         canDelete.push(materialId);
       } else {
         const productSet = new Set<string>();
-        const productNames: any[] = [];
+        const productNames: string[] = [];
         
         for (const usage of usageData) {
           const key = `${usage.productId}-${usage.productName}`;
           if (!productSet.has(key)) {
             productSet.add(key);
-            productNames.push(usage.productName);
+            productNames.push(String(usage.productName || 'Unknown Product'));
+          }
+        }
+
+        for (const usage of intermediateUsage) {
+          const label = `Intermediate: ${usage.intermediateName || usage.intermediateId}`;
+          if (!productSet.has(label)) {
+            productSet.add(label);
+            productNames.push(label);
           }
         }
         
@@ -1212,6 +1264,253 @@ app.post('/api/materials-requirement', async (req, res) => {
   }
 });
 
+app.post('/api/materials/import', async (req, res) => {
+  try {
+    const payload = req.body as { materials?: Array<Record<string, unknown>> };
+    const rows = Array.isArray(payload?.materials) ? payload.materials : null;
+
+    if (!rows) {
+      return res.status(400).json({ error: 'Request body must include a materials array' });
+    }
+
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrencyCode = (baseCurrencySetting[0]?.settingValue || 'GHS').trim().toUpperCase();
+
+    const allCurrencies = await db
+      .select({
+        id: currencies.id,
+        code: currencies.code,
+      })
+      .from(currencies);
+
+    const currencyByCode = new Map(
+      allCurrencies.map((currency) => [String(currency.code || '').trim().toUpperCase(), currency]),
+    );
+
+    const baseCurrency = currencyByCode.get(baseCurrencyCode);
+
+    if (!baseCurrency) {
+      return res.status(400).json({ error: `Base currency ${baseCurrencyCode} not found` });
+    }
+
+    const latestExchangeRateRows = await db
+      .select({
+        currencyId: exchangeRates.currencyId,
+        rateToBase: exchangeRates.rateToBase,
+      })
+      .from(exchangeRates)
+      .orderBy(desc(exchangeRates.effectiveDate));
+
+    const latestRateByCurrencyId = new Map<number, number>();
+    for (const rateRow of latestExchangeRateRows) {
+      const currencyId = Number(rateRow.currencyId);
+      if (latestRateByCurrencyId.has(currencyId)) {
+        continue;
+      }
+      const numericRate = Number(rateRow.rateToBase);
+      latestRateByCurrencyId.set(currencyId, numericRate);
+    }
+
+    const existingPrimaryMaterials = await db
+      .select({
+        id: materials.id,
+        name: materials.name,
+        overheadPercentage: materials.overheadPercentage,
+        marginPercentage: materials.marginPercentage,
+        yieldPercentage: materials.yieldPercentage,
+      })
+      .from(materials)
+      .where(eq(materials.materialType, 'primary'));
+
+    const existingMaterialByName = new Map(
+      existingPrimaryMaterials.map((material) => [String(material.name || '').trim().toLowerCase(), material]),
+    );
+
+    const normalizeString = (value: unknown) => String(value ?? '').trim();
+    const normalizeSupplierType = (value: unknown): 'Local' | 'Foreign' | null => {
+      const raw = normalizeString(value);
+      if (!raw) return 'Local';
+      const lowered = raw.toLowerCase();
+      if (lowered === 'local') return 'Local';
+      if (lowered === 'foreign') return 'Foreign';
+      return null;
+    };
+
+    const errors: Array<{ row: number; name: string; error: string }> = [];
+    const historyRows: Array<{
+      materialId: number;
+      purchaseCurrencyId: number;
+      priceInPurchaseCurrency: number;
+      priceInBaseCurrency: number;
+    }> = [];
+    let imported = 0;
+    let updated = 0;
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index] || {};
+      const rowNumber = index + 1;
+
+      const name = normalizeString(row.name);
+      const category = normalizeString(row.category);
+      const unit = normalizeString(row.unit);
+      const currencyCodeInput = normalizeString(row.currencyCode).toUpperCase();
+      const bulkPrice = Number(row.bulkPrice);
+      const bulkQuantity = Number(row.bulkQuantity);
+      const supplierType = normalizeSupplierType(row.supplierType);
+
+      if (!name) {
+        errors.push({ row: rowNumber, name: '', error: 'Material name is required' });
+        continue;
+      }
+      if (!category) {
+        errors.push({ row: rowNumber, name, error: 'Category is required' });
+        continue;
+      }
+      if (!unit) {
+        errors.push({ row: rowNumber, name, error: 'Unit is required' });
+        continue;
+      }
+      if (!Number.isFinite(bulkPrice) || bulkPrice <= 0) {
+        errors.push({ row: rowNumber, name, error: 'Bulk price must be a positive number' });
+        continue;
+      }
+      if (!Number.isFinite(bulkQuantity) || bulkQuantity <= 0) {
+        errors.push({ row: rowNumber, name, error: 'Bulk quantity must be a positive number' });
+        continue;
+      }
+      if (!supplierType) {
+        errors.push({ row: rowNumber, name, error: 'Supplier type must be Local or Foreign' });
+        continue;
+      }
+
+      const resolvedCurrencyCode = currencyCodeInput || baseCurrency.code;
+      const selectedCurrency = currencyByCode.get(resolvedCurrencyCode);
+
+      if (!selectedCurrency) {
+        errors.push({ row: rowNumber, name, error: `Currency code \"${resolvedCurrencyCode}\" not found` });
+        continue;
+      }
+
+      let exchangeRate = 1;
+
+      if (selectedCurrency.id !== baseCurrency.id) {
+        const rate = latestRateByCurrencyId.get(Number(selectedCurrency.id));
+        if (rate === undefined) {
+          errors.push({ row: rowNumber, name, error: `No exchange rate found for currency ${selectedCurrency.code}` });
+          continue;
+        }
+
+        exchangeRate = Number(rate);
+        if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+          errors.push({ row: rowNumber, name, error: `Invalid exchange rate for currency ${selectedCurrency.code}` });
+          continue;
+        }
+      }
+
+      const unitPriceInCurrency = bulkPrice / bulkQuantity;
+      const unitPrice = unitPriceInCurrency * exchangeRate;
+      const priceInPurchaseCurrency = bulkPrice;
+      const priceInBaseCurrency = bulkPrice * exchangeRate;
+      const normalizedName = name.toLowerCase();
+
+      const existing = existingMaterialByName.get(normalizedName);
+
+      if (existing) {
+        await db
+          .update(materials)
+          .set({
+            name,
+            category,
+            unit,
+            materialType: 'primary',
+            bulkQuantity,
+            bulkPrice,
+            purchaseCurrencyId: selectedCurrency.id,
+            priceInPurchaseCurrency,
+            priceInBaseCurrency,
+            unitPrice,
+            calculatedCostPerUnit: unitPrice,
+            supplier: supplierType,
+            isActive: true,
+            updatedAt: new Date(),
+            overheadPercentage: Number(existing.overheadPercentage || 0),
+            marginPercentage: Number(existing.marginPercentage || 0),
+            yieldPercentage: Number(existing.yieldPercentage || 100),
+          })
+          .where(eq(materials.id, existing.id));
+
+        historyRows.push({
+          materialId: existing.id,
+          purchaseCurrencyId: selectedCurrency.id,
+          priceInPurchaseCurrency,
+          priceInBaseCurrency,
+        });
+
+        updated += 1;
+      } else {
+        const created = await getActiveDb().insert(materials).values({
+          name,
+          sku: null,
+          description: null,
+          materialType: 'primary',
+          category,
+          unit,
+          bulkQuantity,
+          bulkPrice,
+          purchaseCurrencyId: selectedCurrency.id,
+          priceInPurchaseCurrency,
+          priceInBaseCurrency,
+          unitPrice,
+          overheadPercentage: 0,
+          marginPercentage: 0,
+          yieldPercentage: 100,
+          calculatedCostPerUnit: unitPrice,
+          supplier: supplierType,
+          isActive: true,
+        }).returning();
+
+        const createdMaterial = created[0];
+
+        historyRows.push({
+          materialId: createdMaterial.id,
+          purchaseCurrencyId: selectedCurrency.id,
+          priceInPurchaseCurrency,
+          priceInBaseCurrency,
+        });
+
+        existingMaterialByName.set(normalizedName, {
+          id: createdMaterial.id,
+          name,
+          overheadPercentage: 0,
+          marginPercentage: 0,
+          yieldPercentage: 100,
+        });
+
+        imported += 1;
+      }
+    }
+
+    // Keep insert batches below SQLite parameter limits.
+    const HISTORY_BATCH_SIZE = 150;
+    for (let index = 0; index < historyRows.length; index += HISTORY_BATCH_SIZE) {
+      const batch = historyRows.slice(index, index + HISTORY_BATCH_SIZE);
+      await getActiveDb().insert(materialPriceHistory).values(batch);
+    }
+
+    const skipped = errors.length;
+    return res.json({
+      success: true,
+      imported,
+      updated,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    console.error('Error importing materials:', error);
+    return res.status(500).json({ error: 'Failed to import materials' });
+  }
+});
+
 // ============================================
 // PRODUCTS ENDPOINTS
 // ============================================
@@ -1222,7 +1521,7 @@ async function calculateOptimalPricePerUnit(productId: number) {
 }
 
 async function calculateProductCostSnapshot(productId: number): Promise<{ materialCost: number; optimalPrice: number }> {
-  const productRows = await db.select().from(products).where(eq(products.id, productId));
+  const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
   if (productRows.length === 0) {
     throw new Error('Product not found');
   }
@@ -1268,7 +1567,7 @@ function getSqliteClient() {
     $client?: {
       prepare: (query: string) => {
         all: () => Array<{ name: string }>;
-        run: (...values: number[]) => unknown;
+        run: (...values: unknown[]) => unknown;
       };
     };
   };
@@ -1328,8 +1627,31 @@ function persistProductComputedValues(productId: number, materialCost: number, o
   updateStatement.run(...values, productId);
 }
 
+let rejectionReasonColumnChecked = false;
+
+function ensureProductRejectionReasonColumn() {
+  if (rejectionReasonColumnChecked) {
+    return;
+  }
+
+  const sqliteClient = getSqliteClient();
+  if (!sqliteClient) {
+    return;
+  }
+
+  const productColumns = sqliteClient
+    .prepare("SELECT name FROM pragma_table_info('products')")
+    .all() as Array<{ name: string }>;
+
+  if (!productColumns.some((column) => column.name === 'rejection_reason')) {
+    sqliteClient.prepare('ALTER TABLE products ADD COLUMN rejection_reason TEXT').run();
+  }
+
+  rejectionReasonColumnChecked = true;
+}
+
 async function setNeedsReviewIfOutdated(productId: number): Promise<{ reviewed: boolean; movedToNeedsReview: boolean }> {
-  const productRows = await db.select().from(products).where(eq(products.id, productId));
+  const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
   if (productRows.length === 0) {
     return { reviewed: false, movedToNeedsReview: false };
   }
@@ -1345,8 +1667,9 @@ async function setNeedsReviewIfOutdated(productId: number): Promise<{ reviewed: 
   const optimalPrice = snapshot.optimalPrice;
   const diff = Math.abs(optimalPrice - product.approvedPrice);
   if (diff >= 0.01) {
-    await db.update(products).set({
+    await getActiveDb().update(products).set({
       approvalStatus: 'needs_review',
+      needsReviewReason: 'cost_changed',
       updatedAt: new Date(),
     }).where(eq(products.id, productId));
 
@@ -1379,21 +1702,131 @@ async function setNeedsReviewForMaterial(materialId: number): Promise<{ reviewed
   return { reviewedProductIds, productsNowNeedsReviewIds };
 }
 
+async function recalculateIntermediateMaterialCost(intermediateMaterialId: number): Promise<{ recalculated: boolean; unitPrice: number }> {
+  const rows = await getActiveDb().select().from(materials).where(eq(materials.id, intermediateMaterialId));
+  if (rows.length === 0) {
+    return { recalculated: false, unitPrice: 0 };
+  }
+
+  const intermediate = rows[0];
+  if (intermediate.materialType !== 'intermediate') {
+    return { recalculated: false, unitPrice: Number(intermediate.unitPrice || 0) };
+  }
+
+  const bomRows = await db
+    .select({
+      quantity: intermediateMaterialBom.quantity,
+      componentUnitPrice: materials.unitPrice,
+    })
+    .from(intermediateMaterialBom)
+    .innerJoin(materials, eq(intermediateMaterialBom.componentMaterialId, materials.id))
+    .where(eq(intermediateMaterialBom.intermediateMaterialId, intermediateMaterialId));
+
+  let baseCost = 0;
+  for (const row of bomRows) {
+    baseCost += Number(row.quantity || 0) * Number(row.componentUnitPrice || 0);
+  }
+
+  const overheadMultiplier = 1 + (Number(intermediate.overheadPercentage || 0) / 100);
+  const safeBulkQuantity = Math.max(0.0001, Number(intermediate.bulkQuantity || 1));
+  const yieldFraction = Math.max(0.01, Number(intermediate.yieldPercentage || 100) / 100);
+  const effectiveOutputQuantity = safeBulkQuantity * yieldFraction;
+
+  const totalBatchCost = roundToTwo(baseCost * overheadMultiplier);
+  const calculatedUnitPrice = roundToTwo(totalBatchCost / effectiveOutputQuantity);
+  const bulkPrice = roundToTwo(totalBatchCost);
+
+  await getActiveDb().update(materials)
+    .set({
+      unitPrice: calculatedUnitPrice,
+      calculatedCostPerUnit: calculatedUnitPrice,
+      bulkPrice,
+      priceInPurchaseCurrency: bulkPrice,
+      priceInBaseCurrency: bulkPrice,
+      updatedAt: new Date(),
+    })
+    .where(eq(materials.id, intermediateMaterialId));
+
+  return { recalculated: true, unitPrice: calculatedUnitPrice };
+}
+
+async function recalculateIntermediateMaterialWithCascade(intermediateMaterialId: number): Promise<{ intermediateMaterialId: number; recalculated: boolean; affectedProducts: number; productsNowNeedsReview: number; reviewedProductIds: number[]; productsNowNeedsReviewIds: number[] }> {
+  const recalc = await recalculateIntermediateMaterialCost(intermediateMaterialId);
+  if (!recalc.recalculated) {
+    return {
+      intermediateMaterialId,
+      recalculated: false,
+      affectedProducts: 0,
+      productsNowNeedsReview: 0,
+      reviewedProductIds: [],
+      productsNowNeedsReviewIds: [],
+    };
+  }
+
+  const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
+  return {
+    intermediateMaterialId,
+    recalculated: true,
+    affectedProducts: reviewSummary.reviewedProductIds.length,
+    productsNowNeedsReview: reviewSummary.productsNowNeedsReviewIds.length,
+    reviewedProductIds: reviewSummary.reviewedProductIds,
+    productsNowNeedsReviewIds: reviewSummary.productsNowNeedsReviewIds,
+  };
+}
+
+async function propagatePrimaryMaterialChange(materialId: number): Promise<{ reviewedProductIds: number[]; productsNowNeedsReviewIds: number[]; intermediateUpdatedIds: number[] }> {
+  const reviewedProductIds = new Set<number>();
+  const productsNowNeedsReviewIds = new Set<number>();
+
+  const directSummary = await setNeedsReviewForMaterial(materialId);
+  for (const productId of directSummary.reviewedProductIds) {
+    reviewedProductIds.add(productId);
+  }
+  for (const productId of directSummary.productsNowNeedsReviewIds) {
+    productsNowNeedsReviewIds.add(productId);
+  }
+
+  const intermediateLinks = await db
+    .select({ intermediateMaterialId: intermediateMaterialBom.intermediateMaterialId })
+    .from(intermediateMaterialBom)
+    .where(eq(intermediateMaterialBom.componentMaterialId, materialId));
+
+  const intermediateIds = Array.from(new Set(intermediateLinks.map((link) => link.intermediateMaterialId)));
+
+  for (const intermediateId of intermediateIds) {
+    const summary = await recalculateIntermediateMaterialWithCascade(intermediateId);
+    if (summary.recalculated) {
+      for (const productId of summary.reviewedProductIds) {
+        reviewedProductIds.add(productId);
+      }
+      for (const productId of summary.productsNowNeedsReviewIds) {
+        productsNowNeedsReviewIds.add(productId);
+      }
+    }
+  }
+
+  return {
+    reviewedProductIds: Array.from(reviewedProductIds),
+    productsNowNeedsReviewIds: Array.from(productsNowNeedsReviewIds),
+    intermediateUpdatedIds: intermediateIds,
+  };
+}
+
 async function recalculateMaterialsForCurrency(currencyId: number): Promise<RecalculationSummary> {
-  const rate = await db.select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
+  const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
   if (rate.length === 0) {
     throw new Error('Exchange rate not found');
   }
 
   const exchangeRate = parseFloat(rate[0].rateToBase.toString());
 
-  const currency = await db.select().from(currencies).where(eq(currencies.id, currencyId));
+  const currency = await getActiveDb().select().from(currencies).where(eq(currencies.id, currencyId));
   if (currency.length === 0) {
     throw new Error('Currency not found');
   }
   const currencyCode = currency[0].code;
 
-  const baseSettings = await db.select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+  const baseSettings = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
   const baseCurrency = baseSettings.length > 0 ? baseSettings[0].settingValue : 'GHS';
 
   if (currencyCode === baseCurrency) {
@@ -1405,7 +1838,7 @@ async function recalculateMaterialsForCurrency(currencyId: number): Promise<Reca
     };
   }
 
-  const materialsToUpdate = await db.select().from(materials).where(eq(materials.purchaseCurrencyId, currencyId));
+  const materialsToUpdate = await getActiveDb().select().from(materials).where(eq(materials.purchaseCurrencyId, currencyId));
 
   const reviewedProductIds = new Set<number>();
   const productsNowNeedsReviewIds = new Set<number>();
@@ -1419,7 +1852,7 @@ async function recalculateMaterialsForCurrency(currencyId: number): Promise<Reca
     const priceInBaseCurrency = bulkPrice * exchangeRate;
     const unitPrice = unitPriceInOriginalCurrency * exchangeRate;
 
-    await db.update(materials)
+    await getActiveDb().update(materials)
       .set({
         priceInBaseCurrency,
         unitPrice,
@@ -1427,7 +1860,7 @@ async function recalculateMaterialsForCurrency(currencyId: number): Promise<Reca
       })
       .where(eq(materials.id, material.id));
 
-    const reviewSummary = await setNeedsReviewForMaterial(material.id);
+    const reviewSummary = await propagatePrimaryMaterialChange(material.id);
     for (const productId of reviewSummary.reviewedProductIds) {
       reviewedProductIds.add(productId);
     }
@@ -1444,14 +1877,166 @@ async function recalculateMaterialsForCurrency(currencyId: number): Promise<Reca
   };
 }
 
+function toSafeNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function isPriceSet(value: unknown): boolean {
+  const parsed = toSafeNumber(value);
+  return parsed !== null && parsed > 0;
+}
+
+function arePricesEqual(a: unknown, b: unknown): boolean {
+  const aNum = toSafeNumber(a);
+  const bNum = toSafeNumber(b);
+  if (aNum === null || bNum === null) return false;
+  return Math.abs(aNum - bNum) < 0.01;
+}
+
+function getTodayDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizePriceExpiryDate(value: unknown): string | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const dateOnly = trimmed.includes('T') ? trimmed.slice(0, 10) : trimmed;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+    return null;
+  }
+
+  const parsed = new Date(`${dateOnly}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return dateOnly;
+}
+
+function daysUntilDate(dateString: string): number | null {
+  const normalized = normalizePriceExpiryDate(dateString);
+  if (!normalized) {
+    return null;
+  }
+
+  const target = new Date(`${normalized}T00:00:00`);
+  if (Number.isNaN(target.getTime())) {
+    return null;
+  }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = target.getTime() - today.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function withDerivedProductFields<T extends Record<string, any>>(product: T) {
+  const hasApprovedPrice = toSafeNumber(product.approvedPrice) !== null;
+  const mismatch = hasApprovedPrice && isPriceSet(product.currentSellingPrice) && !arePricesEqual(product.currentSellingPrice, product.approvedPrice);
+  const normalizedExpiryDate = normalizePriceExpiryDate(product.approvedPriceExpiresAt);
+  const expiryDaysRemaining = normalizedExpiryDate ? daysUntilDate(normalizedExpiryDate) : null;
+  const isPriceExpired = product.approvalStatus === 'approved'
+    && expiryDaysRemaining !== null
+    && expiryDaysRemaining <= 0;
+
+  return {
+    ...product,
+    priceMismatch: mismatch,
+    approvedPriceExpiresAt: normalizedExpiryDate,
+    isPriceExpired,
+    daysUntilExpiry: expiryDaysRemaining !== null && expiryDaysRemaining > 0 ? expiryDaysRemaining : null,
+  };
+}
+
+async function processExpiredApprovedPrices() {
+  const today = getTodayDateString();
+  const approvedProducts = await db
+    .select()
+    .from(products)
+    .where(eq(products.approvalStatus, 'approved'));
+
+  const expired = approvedProducts.filter((product) => {
+    const expiryDate = normalizePriceExpiryDate(product.approvedPriceExpiresAt);
+    return expiryDate !== null && expiryDate <= today;
+  });
+
+  for (const product of expired) {
+    await getActiveDb().update(products).set({
+      approvalStatus: 'needs_review',
+      needsReviewReason: 'price_expired',
+      priceExpiryNotifiedAt: new Date().toISOString(),
+      updatedAt: new Date(),
+    }).where(eq(products.id, product.id));
+  }
+
+  return {
+    processed: expired.length,
+    productNames: expired.map((product) => product.name),
+  };
+}
+
+app.post('/api/products/process-price-expiry', async (_req, res) => {
+  try {
+    const result = await processExpiredApprovedPrices();
+    res.json(result);
+  } catch (error) {
+    console.error('Failed to process product price expiry:', error);
+    res.status(500).json({ error: 'Failed to process product price expiry' });
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
-    console.log('📦 Fetching all products...');
-    const allProducts = await db.select().from(products);
-    console.log('✅ Products fetched:', allProducts.length, 'products');
-    res.json(allProducts);
+    const status = parseStatusFilter(req.query.status);
+    const allProducts = await db
+      .select()
+      .from(products)
+      .where(
+        status === 'all'
+          ? sql`1=1`
+          : eq(products.isActive, status === 'active')
+      );
+    const productsWithComputedCosts = await Promise.all(
+      allProducts.map(async (product) => {
+        try {
+          const snapshot = await calculateProductCostSnapshot(product.id);
+          const denominator = 1 + Number(product.profitMargin || 0) / 100;
+          const productionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+          return {
+            ...product,
+            productionCost,
+            optimalPrice: snapshot.optimalPrice,
+          };
+        } catch {
+          return {
+            ...product,
+            productionCost: 0,
+            optimalPrice: 0,
+          };
+        }
+      })
+    );
+    res.json(productsWithComputedCosts.map((product) => withDerivedProductFields(product)));
   } catch (error) {
-    console.error('❌ Error fetching products:', error);
+    console.error('âŒ Error fetching products:', error);
     console.error('Error details:', JSON.stringify(error, null, 2));
     res.status(500).json({ error: 'Failed to fetch products' });
   }
@@ -1460,13 +2045,20 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/:id', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const product = await db.select().from(products).where(eq(products.id, productId));
+    const product = await getActiveDb().select().from(products).where(eq(products.id, productId));
     
     if (product.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
     }
     
-    res.json(product[0]);
+        const snapshot = await calculateProductCostSnapshot(productId);
+        const denominator = 1 + Number(product[0].profitMargin || 0) / 100;
+        const productionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+    res.json(withDerivedProductFields({
+      ...product[0],
+          productionCost,
+      optimalPrice: snapshot.optimalPrice,
+    }));
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch product' });
   }
@@ -1475,7 +2067,7 @@ app.get('/api/products/:id', async (req, res) => {
 app.post('/api/products', async (req, res) => {
   try {
     const { name, sku, description, category, overheadPercentage, profitMargin, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
-    const result = await db.insert(products).values({
+    const result = await getActiveDb().insert(products).values({
       name,
       sku: sku || null,
       description: description || null,
@@ -1495,8 +2087,56 @@ app.post('/api/products', async (req, res) => {
 
 app.put('/api/products/:id', async (req, res) => {
   try {
-    const { name, sku, description, category, overheadPercentage, profitMargin, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
-    await db.update(products).set({
+    const productId = parseInt(req.params.id);
+    if (!Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid product id' });
+    }
+
+    const existingRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const existing = existingRows[0];
+    const name = req.body?.name ?? existing.name;
+    const sku = req.body?.sku ?? existing.sku;
+    const description = req.body?.description ?? existing.description;
+    const category = req.body?.category ?? existing.category;
+    const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage);
+    const profitMargin = Number(req.body?.profitMargin ?? existing.profitMargin);
+    const otherDirectCosts = Number(req.body?.otherDirectCosts ?? existing.otherDirectCosts ?? 0);
+    const productionMode = req.body?.productionMode ?? existing.productionMode ?? 'single';
+    const batchYield = Number(req.body?.batchYield ?? existing.batchYield ?? 1);
+    const hasCurrentSellingPriceInput = req.body?.currentSellingPrice !== undefined;
+    const hasApprovedPriceInput = req.body?.approvedPrice !== undefined;
+
+    let currentSellingPrice = Number(req.body?.currentSellingPrice ?? existing.currentSellingPrice ?? 0);
+    let approvedPrice = req.body?.approvedPrice ?? existing.approvedPrice;
+
+    if (hasCurrentSellingPriceInput) {
+      approvedPrice = currentSellingPrice;
+    }
+
+    if (hasApprovedPriceInput) {
+      currentSellingPrice = Number(req.body?.approvedPrice ?? 0);
+      approvedPrice = currentSellingPrice;
+    }
+    const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
+
+    const shouldReevaluateReview =
+      req.body?.overheadPercentage !== undefined
+      || req.body?.profitMargin !== undefined
+      || req.body?.otherDirectCosts !== undefined
+      || req.body?.productionMode !== undefined
+      || req.body?.batchYield !== undefined
+      || req.body?.currentSellingPrice !== undefined
+      || req.body?.name !== undefined
+      || req.body?.sku !== undefined
+      || req.body?.description !== undefined
+      || req.body?.category !== undefined
+      || req.body?.approvedPrice !== undefined;
+
+    await getActiveDb().update(products).set({
       name,
       sku: sku || null,
       description: description || null,
@@ -1507,12 +2147,16 @@ app.put('/api/products/:id', async (req, res) => {
       productionMode: productionMode || 'single',
       batchYield: batchYield || 1,
       currentSellingPrice: currentSellingPrice || 0,
+      approvedPrice,
+      isActive,
       updatedAt: new Date(),
-    }).where(eq(products.id, parseInt(req.params.id)));
+    }).where(eq(products.id, productId));
 
-    await setNeedsReviewIfOutdated(parseInt(req.params.id));
+    if (shouldReevaluateReview) {
+      await setNeedsReviewIfOutdated(productId);
+    }
     
-    const updated = await db.select().from(products).where(eq(products.id, parseInt(req.params.id)));
+    const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
     res.json(updated[0]);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update product' });
@@ -1522,7 +2166,13 @@ app.put('/api/products/:id', async (req, res) => {
 app.post('/api/products/:id/approve', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const { approvedPrice } = req.body;
+    const { approvedPrice, priceExpiryDate } = req.body;
+
+    const existingRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+    const existing = existingRows[0];
 
     const bomItems = await db
       .select({ id: billOfMaterials.id })
@@ -1533,18 +2183,91 @@ app.post('/api/products/:id/approve', async (req, res) => {
       return res.status(400).json({ error: 'Cannot approve product without BOM items' });
     }
 
-    const priceToApprove = approvedPrice ?? await calculateOptimalPricePerUnit(productId);
+    const approvedPriceNumber = approvedPrice !== undefined && approvedPrice !== null
+      ? Number(approvedPrice)
+      : await calculateOptimalPricePerUnit(productId);
 
-    await db.update(products).set({
+    if (!Number.isFinite(approvedPriceNumber) || approvedPriceNumber < 0) {
+      return res.status(400).json({ error: 'approvedPrice must be a non-negative number' });
+    }
+
+    const normalizedPriceExpiryDate = normalizePriceExpiryDate(priceExpiryDate);
+    const hasExplicitExpiryInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
+    if (hasExplicitExpiryInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
+      return res.status(400).json({ error: 'priceExpiryDate must be an ISO date string (YYYY-MM-DD) or null' });
+    }
+
+    const updatePayload: Record<string, any> = {
       approvalStatus: 'approved',
-      approvedPrice: priceToApprove,
+      approvedPrice: approvedPriceNumber,
+      currentSellingPrice: approvedPriceNumber,
       approvedBy: 'user',
       approvedAt: new Date(),
+      approvedPriceExpiresAt: hasExplicitExpiryInput ? normalizedPriceExpiryDate : existing.approvedPriceExpiresAt,
+      priceExpiryNotifiedAt: null,
+      needsReviewReason: null,
       updatedAt: new Date(),
-    }).where(eq(products.id, productId));
+    };
 
-    const updated = await db.select().from(products).where(eq(products.id, productId));
-    res.json(updated[0]);
+    await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
+
+    const sqliteClient = getSqliteClient();
+    if (sqliteClient) {
+      sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
+    }
+
+    const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    const updatedProduct = withDerivedProductFields(updated[0]);
+    const performedBy = await getCurrentUserName();
+    const productionCost = await calculateProductionCostForProduct(updated[0], productId);
+    const margin = approvedPriceNumber > 0
+      ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
+      : 0;
+
+    await logActivity({
+      entityType: 'product',
+      entityId: productId,
+      entityName: updatedProduct.name,
+      action: 'product.approved',
+      details: {
+        oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
+        newPrice: approvedPriceNumber,
+        productionCost: roundToTwo(productionCost),
+        margin: roundToTwo(margin),
+      },
+      performedBy,
+    });
+
+    const staleCustomPriceItems = await getActiveDb()
+      .select({
+        priceLevelId: priceLevelItems.priceLevelId,
+        priceLevelName: priceLevels.name,
+        customPrice: priceLevelItems.customPrice,
+      })
+      .from(priceLevelItems)
+      .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
+      .where(
+        and(
+          eq(priceLevelItems.productId, productId),
+          eq(priceLevelItems.overrideType, 'custom_price'),
+          eq(priceLevelItems.status, 'approved'),
+        )
+      );
+
+    const staleCustomPrices = staleCustomPriceItems
+      .filter((si) => si.customPrice != null)
+      .map((si) => ({
+        priceLevelId: si.priceLevelId,
+        priceLevelName: si.priceLevelName,
+        customPrice: Number(si.customPrice),
+        newApprovedBasePrice: approvedPriceNumber,
+      }));
+
+    res.json({
+      success: true,
+      product: updatedProduct,
+      staleCustomPrices,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to approve price' });
   }
@@ -1553,16 +2276,35 @@ app.post('/api/products/:id/approve', async (req, res) => {
 app.post('/api/products/:id/reject', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    await db.update(products).set({
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+    ensureProductRejectionReasonColumn();
+
+    await getActiveDb().update(products).set({
       approvalStatus: 'rejected',
       approvedPrice: null,
       approvedBy: null,
       approvedAt: null,
+      needsReviewReason: null,
       updatedAt: new Date(),
     }).where(eq(products.id, productId));
 
-    const updated = await db.select().from(products).where(eq(products.id, productId));
-    res.json(updated[0]);
+    const sqliteClient = getSqliteClient();
+    if (sqliteClient) {
+      sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(reason || null, productId);
+    }
+
+    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    const product = productRows[0];
+    await logActivity({
+      entityType: 'product',
+      entityId: productId,
+      entityName: product?.name || null,
+      action: 'product.rejected',
+      details: { reason: reason || null },
+      performedBy: await getCurrentUserName(),
+    });
+
+    res.json(product);
   } catch (error) {
     res.status(500).json({ error: 'Failed to reject price' });
   }
@@ -1570,12 +2312,42 @@ app.post('/api/products/:id/reject', async (req, res) => {
 
 app.post('/api/products/bulk-approve', async (req, res) => {
   try {
-    const { productIds } = req.body as { productIds?: number[] };
+    const { productIds, priceMethod, markupPercentage, priceExpiryDate } = req.body as {
+      productIds?: number[];
+      priceMethod?: 'optimal' | 'selling' | 'markup';
+      markupPercentage?: number;
+      priceExpiryDate?: string | null;
+    };
     if (!productIds || productIds.length === 0) {
       return res.status(400).json({ error: 'No products provided' });
     }
 
-    const updates = await Promise.all(productIds.map(async (productId) => {
+    const normalizedMethod = priceMethod || 'optimal';
+    if (!['optimal', 'selling', 'markup'].includes(normalizedMethod)) {
+      return res.status(400).json({ error: 'priceMethod must be one of optimal, selling, or markup' });
+    }
+
+    let normalizedMarkupPercentage = 0;
+    if (normalizedMethod === 'markup') {
+      const numericMarkup = Number(markupPercentage);
+      if (!Number.isFinite(numericMarkup)) {
+        return res.status(400).json({ error: 'markupPercentage is required when priceMethod is markup' });
+      }
+      normalizedMarkupPercentage = numericMarkup;
+    }
+
+    const normalizedPriceExpiryDate = normalizePriceExpiryDate(priceExpiryDate);
+    const hasExplicitExpiryInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
+    if (hasExplicitExpiryInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
+      return res.status(400).json({ error: 'priceExpiryDate must be an ISO date string (YYYY-MM-DD) or null' });
+    }
+
+    let approved = 0;
+    let skipped = 0;
+    const rejected: string[] = [];
+    const performedBy = await getCurrentUserName();
+
+    for (const productId of productIds) {
       const bomItems = await db
         .select({ id: billOfMaterials.id })
         .from(billOfMaterials)
@@ -1585,27 +2357,129 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         throw new Error(`Product ${productId} cannot be approved without BOM items`);
       }
 
-      const priceToApprove = await calculateOptimalPricePerUnit(productId);
-      await db.update(products).set({
+      const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+      if (currentRows.length === 0) {
+        throw new Error(`Product ${productId} not found`);
+      }
+
+      const current = currentRows[0];
+      const optimalPrice = await calculateOptimalPricePerUnit(productId);
+      let priceToApprove = optimalPrice;
+
+      if (normalizedMethod === 'selling') {
+        const currentSellingPrice = Number(current.currentSellingPrice || 0);
+        priceToApprove = currentSellingPrice > 0 ? currentSellingPrice : optimalPrice;
+      } else if (normalizedMethod === 'markup') {
+        priceToApprove = roundToTwo(optimalPrice * (1 + (normalizedMarkupPercentage / 100)));
+      }
+
+      if (current.approvalStatus === 'approved' && arePricesEqual(current.approvedPrice, priceToApprove)) {
+        skipped += 1;
+        continue;
+      }
+
+      const updatePayload: Record<string, any> = {
         approvalStatus: 'approved',
         approvedPrice: priceToApprove,
+        currentSellingPrice: priceToApprove,
         approvedBy: 'user',
         approvedAt: new Date(),
+        approvedPriceExpiresAt: hasExplicitExpiryInput ? normalizedPriceExpiryDate : current.approvedPriceExpiresAt,
+        priceExpiryNotifiedAt: null,
+        needsReviewReason: null,
         updatedAt: new Date(),
-      }).where(eq(products.id, productId));
-      return productId;
-    }));
+      };
 
-    res.json({ success: true, count: updates.length });
+      await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
+      const sqliteClient = getSqliteClient();
+      if (sqliteClient) {
+        sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
+      }
+
+      const productionCost = await calculateProductionCostForProduct(current, productId);
+      const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
+      await logActivity({
+        entityType: 'product',
+        entityId: productId,
+        entityName: current.name,
+        action: 'product.approved',
+        details: {
+          oldPrice: current.approvedPrice == null ? null : Number(current.approvedPrice),
+          newPrice: priceToApprove,
+          productionCost: roundToTwo(productionCost),
+          margin: roundToTwo(margin),
+        },
+        performedBy,
+      });
+
+      approved += 1;
+    }
+
+    res.json({
+      approved,
+      rejected,
+      skipped,
+      priceMethod: normalizedMethod,
+      ...(normalizedMethod === 'markup' ? { markupPercentage: normalizedMarkupPercentage } : {}),
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to bulk approve products' });
+  }
+});
+
+app.post('/api/products/bulk-reject', async (req, res) => {
+  try {
+    const { productIds, reason } = req.body as { productIds?: number[]; reason?: string };
+    if (!Array.isArray(productIds) || productIds.length === 0) {
+      return res.status(400).json({ error: 'No products provided' });
+    }
+
+    ensureProductRejectionReasonColumn();
+    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    let rejected = 0;
+    let skipped = 0;
+
+    for (const productId of productIds) {
+      const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+      if (currentRows.length === 0) {
+        skipped += 1;
+        continue;
+      }
+
+      const current = currentRows[0];
+      if (current.approvalStatus !== 'approved') {
+        skipped += 1;
+        continue;
+      }
+
+      await getActiveDb().update(products).set({
+        approvalStatus: 'rejected',
+        approvedPrice: null,
+        approvedBy: null,
+        approvedAt: new Date(),
+        needsReviewReason: null,
+        updatedAt: new Date(),
+      }).where(eq(products.id, productId));
+
+      const sqliteClient = getSqliteClient();
+      if (sqliteClient) {
+        sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(normalizedReason || null, productId);
+      }
+
+      rejected += 1;
+    }
+
+    res.json({ rejected, skipped });
+  } catch (error) {
+    console.error('Bulk reject failed:', error);
+    res.status(500).json({ error: 'Failed to bulk reject products' });
   }
 });
 
 app.delete('/api/products/:id', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    await db.delete(products).where(eq(products.id, productId));
+    await getActiveDb().delete(products).where(eq(products.id, productId));
     res.json({ success: true });
   } catch (error: any) {
     const message = String(error?.message || '');
@@ -1624,10 +2498,10 @@ app.get('/api/products/:id/bom', async (req, res) => {
     const productId = parseInt(req.params.id);
     
     // Get base currency symbol
-    const baseCurrencySetting = await db.select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
     const baseCurrencyCode = baseCurrencySetting.length > 0 ? baseCurrencySetting[0].settingValue : 'GHS';
-    const baseCurrencyData = await db.select().from(currencies).where(eq(currencies.code, baseCurrencyCode));
-    const baseCurrencySymbol = baseCurrencyData.length > 0 ? baseCurrencyData[0].symbol : '₵';
+    const baseCurrencyData = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencyCode));
+    const baseCurrencySymbol = baseCurrencyData.length > 0 ? baseCurrencyData[0].symbol : 'â‚µ';
     
     const bom = await db
       .select({
@@ -1636,6 +2510,7 @@ app.get('/api/products/:id/bom', async (req, res) => {
         materialId: billOfMaterials.materialId,
         quantity: billOfMaterials.quantity,
         materialName: materials.name,
+        materialType: materials.materialType,
         unit: materials.unit,
         unitPrice: materials.unitPrice,
       })
@@ -1662,7 +2537,7 @@ app.post('/api/products/:id/bom', async (req, res) => {
     const productId = parseInt(req.params.id);
     const { materialId, quantity } = req.body;
     
-    const result = await db.insert(billOfMaterials).values({
+    const result = await getActiveDb().insert(billOfMaterials).values({
       productId,
       materialId,
       quantity,
@@ -1682,7 +2557,7 @@ app.delete('/api/products/:id/bom/:bomId', async (req, res) => {
   try {
     const bomId = parseInt(req.params.bomId);
     const productId = parseInt(req.params.id);
-    await db.delete(billOfMaterials).where(eq(billOfMaterials.id, bomId));
+    await getActiveDb().delete(billOfMaterials).where(eq(billOfMaterials.id, bomId));
     await setNeedsReviewIfOutdated(productId);
     res.json({ success: true });
   } catch (error) {
@@ -1696,7 +2571,7 @@ app.get('/api/products/:id/calculate', async (req, res) => {
     const productId = parseInt(req.params.id);
     
     // Get product details
-    const product = await db.select().from(products).where(eq(products.id, productId));
+    const product = await getActiveDb().select().from(products).where(eq(products.id, productId));
     if (product.length === 0) {
       return res.status(404).json({ error: 'Product not found' });
     }
@@ -1744,7 +2619,7 @@ app.get('/api/products/:id/calculate', async (req, res) => {
 // Price Level Rules endpoints
 app.get('/api/price-level-rules', async (req, res) => {
   try {
-    const rules = await db.select().from(priceLevels);
+    const rules = await getActiveDb().select().from(priceLevels);
     res.json(rules);
   } catch (error) {
     console.error('Error fetching price level rules:', error);
@@ -1781,13 +2656,23 @@ app.post('/api/price-level-rules', async (req, res) => {
       ? 1 + (numericPercentage / 100)
       : 1 - (numericPercentage / 100);
 
-    const result = await db.insert(priceLevels).values({
+    const result = await getActiveDb().insert(priceLevels).values({
       name,
       multiplier,
       adjustmentType,
       adjustmentPercentage: numericPercentage,
       description,
     }).returning();
+
+    await logActivity({
+      entityType: 'price_level',
+      entityId: result[0].id,
+      entityName: result[0].name,
+      action: 'price_level.created',
+      details: null,
+      performedBy: await getCurrentUserName(),
+    });
+
     res.json(result[0]);
   } catch (error) {
     console.error('Error creating customer price rule:', error);
@@ -1826,7 +2711,7 @@ app.put('/api/price-level-rules/:id', async (req, res) => {
       ? 1 + (numericPercentage / 100)
       : 1 - (numericPercentage / 100);
 
-    await db.update(priceLevels)
+    await getActiveDb().update(priceLevels)
       .set({
         name,
         multiplier,
@@ -1849,12 +2734,471 @@ app.delete('/api/price-level-rules/:id', async (req, res) => {
   try {
     const rawId = req.params.id;
     const id = Array.isArray(rawId) ? rawId[0] : rawId;
-    await db.delete(priceLevels)
-      .where(eq(priceLevels.id, parseInt(id)));
+    const levelId = parseInt(id);
+    const existingRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, levelId));
+    const deletedLevel = existingRows[0];
+
+    await getActiveDb().delete(priceLevels)
+      .where(eq(priceLevels.id, levelId));
+
+    await logActivity({
+      entityType: 'price_level',
+      entityId: levelId,
+      entityName: deletedLevel?.name || null,
+      action: 'price_level.deleted',
+      details: null,
+      performedBy: await getCurrentUserName(),
+    });
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting customer price rule:', error);
     res.status(500).json({ error: 'Failed to delete customer price rule' });
+  }
+});
+
+app.get('/api/price-levels/:id/items', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    if (!Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'Invalid price level id' });
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    if (levelRows.length === 0) {
+      return res.status(404).json({ error: 'Price level not found' });
+    }
+
+    const items = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(eq(priceLevelItems.priceLevelId, priceLevelId));
+
+    if (items.length === 0) {
+      return res.json([]);
+    }
+
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const productRows = await getActiveDb()
+      .select()
+      .from(products)
+      .where(inArray(products.id, productIds));
+    const productById = new Map(productRows.map((row) => [row.id, row]));
+
+    const response = await Promise.all(
+      items
+        .filter((item) => productById.has(item.productId))
+        .map((item) => toPriceLevelItemResponse(item, productById.get(item.productId)!))
+    );
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching price level items:', error);
+    res.status(500).json({ error: 'Failed to fetch price level items' });
+  }
+});
+
+app.post('/api/price-levels/:id/items', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    if (!Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'Invalid price level id' });
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    if (levelRows.length === 0) {
+      return res.status(404).json({ error: 'Price level not found' });
+    }
+
+    const productId = Number(req.body?.productId);
+    if (!Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'productId is required' });
+    }
+
+    const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType);
+    if (!overrideType) {
+      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+    }
+
+    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    if (productRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const selectedProduct = productRows[0];
+    if (selectedProduct.approvalStatus !== 'approved' || selectedProduct.approvedPrice == null) {
+      return res.status(400).json({ error: 'Product must be approved before adding level pricing' });
+    }
+
+    const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage);
+    const customPrice = toOptionalNumber(req.body?.customPrice);
+    const justification = typeof req.body?.justification === 'string' && req.body.justification.trim().length > 0
+      ? req.body.justification.trim()
+      : null;
+
+    let resolvedAdjustment: number | null = null;
+    let resolvedCustomPrice: number | null = null;
+
+    if (overrideType === 'rule_discount') {
+      if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
+        return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 100 for rule_discount' });
+      }
+      resolvedAdjustment = adjustmentPercentage;
+      resolvedCustomPrice = null;
+    } else if (overrideType === 'rule_markup') {
+      if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 1000) {
+        return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 1000 for rule_markup' });
+      }
+      resolvedAdjustment = adjustmentPercentage;
+      resolvedCustomPrice = null;
+    } else {
+      if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
+        return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+      }
+
+      const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
+      if (customPrice <= productionCost) {
+        return res.status(400).json({
+          error: 'customPrice must be above production cost',
+          code: 'PRICE_BELOW_COST',
+          details: {
+            productionCost: roundToTwo(productionCost),
+            proposedPrice: roundToTwo(customPrice),
+          },
+        });
+      }
+
+      const resultingMarginPercentage = ((customPrice - productionCost) / customPrice) * 100;
+      if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
+        return res.status(400).json({
+          error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
+          code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
+          details: {
+            productionCost: roundToTwo(productionCost),
+            proposedPrice: roundToTwo(customPrice),
+            resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
+            thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
+          },
+        });
+      }
+
+      resolvedAdjustment = null;
+      resolvedCustomPrice = roundToFour(customPrice);
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
+
+    const now = new Date();
+    let savedId: number;
+
+    if (existingRows.length > 0) {
+      await getActiveDb().update(priceLevelItems)
+        .set({
+          overrideType,
+          adjustmentPercentage: resolvedAdjustment,
+          customPrice: resolvedCustomPrice,
+          status: 'pending',
+          approvedBy: null,
+          approvedAt: null,
+          justification,
+          updatedAt: now,
+        })
+        .where(eq(priceLevelItems.id, existingRows[0].id));
+      savedId = existingRows[0].id;
+    } else {
+      const created = await getActiveDb().insert(priceLevelItems).values({
+        priceLevelId,
+        productId,
+        overrideType,
+        adjustmentPercentage: resolvedAdjustment,
+        customPrice: resolvedCustomPrice,
+        status: 'pending',
+        approvedBy: null,
+        approvedAt: null,
+        justification,
+        createdAt: now,
+        updatedAt: now,
+      }).returning();
+      savedId = created[0].id;
+    }
+
+    const savedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, savedId));
+    const response = await toPriceLevelItemResponse(savedRows[0], selectedProduct);
+    res.status(existingRows.length > 0 ? 200 : 201).json(response);
+  } catch (error) {
+    console.error('Error upserting price level item:', error);
+    res.status(500).json({ error: 'Failed to save price level item' });
+  }
+});
+
+app.delete('/api/price-levels/:id/items/:productId', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    const productId = parseInt(req.params.productId);
+    if (!Number.isInteger(priceLevelId) || !Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid price level id or product id' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    await getActiveDb().delete(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting price level item:', error);
+    res.status(500).json({ error: 'Failed to delete price level item' });
+  }
+});
+
+app.post('/api/price-levels/:id/items/:productId/approve', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    const productId = parseInt(req.params.productId);
+    if (!Number.isInteger(priceLevelId) || !Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid price level id or product id' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
+      ? req.body.approvedBy.trim()
+      : 'user';
+
+    await getActiveDb().update(priceLevelItems)
+      .set({
+        status: 'approved',
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(priceLevelItems.id, existingRows[0].id));
+
+    const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
+    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0]);
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
+    const productName = productRows[0]?.name || `Product ${productId}`;
+    await logActivity({
+      entityType: 'price_level_item',
+      entityId: updatedRows[0].id,
+      entityName: productName,
+      action: 'price_level_item.approved',
+      details: {
+        levelName,
+        productName,
+        overrideType: updatedRows[0].overrideType,
+        value: Number(updatedRows[0].adjustmentPercentage ?? updatedRows[0].customPrice ?? 0),
+        finalPrice: Number(response.finalPrice ?? 0),
+      },
+      performedBy: await getCurrentUserName(),
+    });
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error approving price level item:', error);
+    res.status(500).json({ error: 'Failed to approve price level item' });
+  }
+});
+
+app.post('/api/price-levels/:id/items/:productId/reject', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    const productId = parseInt(req.params.productId);
+    if (!Number.isInteger(priceLevelId) || !Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid price level id or product id' });
+    }
+
+    const rejectionJustification = typeof req.body?.justification === 'string' ? req.body.justification.trim() : '';
+    if (!rejectionJustification) {
+      return res.status(400).json({ error: 'justification is required for rejection' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
+      ? req.body.approvedBy.trim()
+      : 'user';
+
+    await getActiveDb().update(priceLevelItems)
+      .set({
+        status: 'rejected',
+        approvedBy,
+        approvedAt: new Date(),
+        justification: rejectionJustification,
+        updatedAt: new Date(),
+      })
+      .where(eq(priceLevelItems.id, existingRows[0].id));
+
+    const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
+    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0]);
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
+    const productName = productRows[0]?.name || `Product ${productId}`;
+    await logActivity({
+      entityType: 'price_level_item',
+      entityId: updatedRows[0].id,
+      entityName: productName,
+      action: 'price_level_item.rejected',
+      details: {
+        levelName,
+        productName,
+        reason: rejectionJustification || null,
+      },
+      performedBy: await getCurrentUserName(),
+    });
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error rejecting price level item:', error);
+    res.status(500).json({ error: 'Failed to reject price level item' });
+  }
+});
+
+app.post('/api/price-levels/:id/items/bulk-approve', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    if (!Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'Invalid price level id' });
+    }
+
+    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
+      ? req.body.approvedBy.trim()
+      : 'user';
+
+    const pendingRows = await getActiveDb()
+      .select({ id: priceLevelItems.id })
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.status, 'pending')));
+
+    if (pendingRows.length > 0) {
+      await getActiveDb().update(priceLevelItems)
+        .set({
+          status: 'approved',
+          approvedBy,
+          approvedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.status, 'pending')));
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
+    await logActivity({
+      entityType: 'price_level_item',
+      entityId: priceLevelId,
+      entityName: levelName,
+      action: 'price_level_item.bulk_approved',
+      details: { count: pendingRows.length, levelName },
+      performedBy: await getCurrentUserName(),
+    });
+
+    res.json({ approved: pendingRows.length });
+  } catch (error) {
+    console.error('Error bulk approving price level items:', error);
+    res.status(500).json({ error: 'Failed to bulk approve price level items' });
+  }
+});
+
+app.get('/api/activity', async (req, res) => {
+  try {
+    const requestedLimit = Number(req.query.limit);
+    const requestedOffset = Number(req.query.offset);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 200) : 50;
+    const offset = Number.isFinite(requestedOffset) ? Math.max(requestedOffset, 0) : 0;
+
+    const entityType = typeof req.query.entityType === 'string' ? req.query.entityType.trim() : '';
+    const action = typeof req.query.action === 'string' ? req.query.action.trim() : '';
+    const from = Number(req.query.from);
+    const to = Number(req.query.to);
+
+    const filters = [] as Array<any>;
+    if (entityType) {
+      filters.push(eq(activityLog.entityType, entityType));
+    }
+    if (action) {
+      filters.push(eq(activityLog.action, action));
+    }
+    if (Number.isFinite(from)) {
+      filters.push(sql`${activityLog.createdAt} >= ${Math.floor(from)}`);
+    }
+    if (Number.isFinite(to)) {
+      filters.push(sql`${activityLog.createdAt} <= ${Math.floor(to)}`);
+    }
+
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
+    let entriesQuery = getActiveDb().select().from(activityLog);
+    if (whereClause) {
+      entriesQuery = entriesQuery.where(whereClause) as typeof entriesQuery;
+    }
+
+    const rows = await entriesQuery
+      .orderBy(desc(activityLog.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    let totalQuery = getActiveDb()
+      .select({ count: sql<number>`count(*)` })
+      .from(activityLog);
+    if (whereClause) {
+      totalQuery = totalQuery.where(whereClause) as typeof totalQuery;
+    }
+    const totalRows = await totalQuery;
+    const total = Number(totalRows[0]?.count || 0);
+
+    const entries: ActivityLogEntry[] = rows.map((row) => {
+      let parsedDetails: Record<string, unknown> | null = null;
+      if (row.details) {
+        try {
+          const candidate = JSON.parse(row.details);
+          parsedDetails = candidate && typeof candidate === 'object' ? candidate : null;
+        } catch {
+          parsedDetails = null;
+        }
+      }
+
+      const createdAtValue = row.createdAt instanceof Date
+        ? Math.floor(row.createdAt.getTime() / 1000)
+        : Number(row.createdAt || 0);
+
+      return {
+        ...row,
+        details: parsedDetails as any,
+        createdAt: createdAtValue as any,
+      };
+    });
+
+    res.json({ entries, total });
+  } catch (error) {
+    console.error('Error fetching activity log:', error);
+    res.status(500).json({ error: 'Failed to fetch activity log' });
   }
 });
 
@@ -1866,15 +3210,11 @@ app.get('/api/customers', async (req, res) => {
         name: customers.name,
         priceLevelId: customers.priceLevelId,
         priceLevelName: priceLevels.name,
-        allowSpecialPricing: customers.allowSpecialPricing,
         createdAt: customers.createdAt,
         updatedAt: customers.updatedAt,
-        specialPricingCount: sql<number>`count(${specialPricing.id})`,
       })
       .from(customers)
-      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id))
-      .leftJoin(specialPricing, eq(customers.id, specialPricing.customerId))
-      .groupBy(customers.id, priceLevels.name);
+      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id));
 
     res.json(allCustomers);
   } catch (error) {
@@ -1885,22 +3225,21 @@ app.get('/api/customers', async (req, res) => {
 
 app.post('/api/customers', async (req, res) => {
   try {
-    const { name, priceLevelId, allowSpecialPricing } = req.body;
+    const { name, priceLevelId } = req.body;
     const numericPriceLevelId = Number(priceLevelId);
 
     if (!name || !Number.isInteger(numericPriceLevelId)) {
       return res.status(400).json({ error: 'name and priceLevelId are required' });
     }
 
-    const existingPriceLevel = await db.select().from(priceLevels).where(eq(priceLevels.id, numericPriceLevelId));
+    const existingPriceLevel = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, numericPriceLevelId));
     if (existingPriceLevel.length === 0) {
       return res.status(400).json({ error: 'Invalid priceLevelId' });
     }
 
-    const result = await db.insert(customers).values({
+    const result = await getActiveDb().insert(customers).values({
       name,
       priceLevelId: numericPriceLevelId,
-      allowSpecialPricing: Boolean(allowSpecialPricing),
     }).returning();
 
     const created = await db
@@ -1909,7 +3248,6 @@ app.post('/api/customers', async (req, res) => {
         name: customers.name,
         priceLevelId: customers.priceLevelId,
         priceLevelName: priceLevels.name,
-        allowSpecialPricing: customers.allowSpecialPricing,
         createdAt: customers.createdAt,
         updatedAt: customers.updatedAt,
       })
@@ -1927,7 +3265,7 @@ app.post('/api/customers', async (req, res) => {
 app.put('/api/customers/:id', async (req, res) => {
   try {
     const customerId = parseInt(req.params.id);
-    const { name, priceLevelId, allowSpecialPricing } = req.body;
+    const { name, priceLevelId } = req.body;
     const numericPriceLevelId = Number(priceLevelId);
 
     if (!Number.isInteger(customerId)) {
@@ -1938,16 +3276,15 @@ app.put('/api/customers/:id', async (req, res) => {
       return res.status(400).json({ error: 'name and priceLevelId are required' });
     }
 
-    const existingPriceLevel = await db.select().from(priceLevels).where(eq(priceLevels.id, numericPriceLevelId));
+    const existingPriceLevel = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, numericPriceLevelId));
     if (existingPriceLevel.length === 0) {
       return res.status(400).json({ error: 'Invalid priceLevelId' });
     }
 
-    await db.update(customers)
+    await getActiveDb().update(customers)
       .set({
         name,
         priceLevelId: numericPriceLevelId,
-        allowSpecialPricing: Boolean(allowSpecialPricing),
         updatedAt: new Date(),
       })
       .where(eq(customers.id, customerId));
@@ -1958,7 +3295,6 @@ app.put('/api/customers/:id', async (req, res) => {
         name: customers.name,
         priceLevelId: customers.priceLevelId,
         priceLevelName: priceLevels.name,
-        allowSpecialPricing: customers.allowSpecialPricing,
         createdAt: customers.createdAt,
         updatedAt: customers.updatedAt,
       })
@@ -1984,225 +3320,13 @@ app.delete('/api/customers/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid customer id' });
     }
 
-    await db.delete(priceLists).where(eq(priceLists.customerId, customerId));
+    await getActiveDb().delete(priceLists).where(eq(priceLists.customerId, customerId));
 
-    await db.delete(customers).where(eq(customers.id, customerId));
+    await getActiveDb().delete(customers).where(eq(customers.id, customerId));
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting customer:', error);
     res.status(500).json({ error: 'Failed to delete customer' });
-  }
-});
-
-app.get('/api/customers/:id/custom-prices', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    const customer = await db.select().from(customers).where(eq(customers.id, customerId));
-    if (customer.length === 0) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    const customPrices = await db
-      .select({
-        id: specialPricing.id,
-        customerId: specialPricing.customerId,
-        productId: specialPricing.productId,
-        productName: products.name,
-        customPrice: specialPricing.customPrice,
-        productionCost: specialPricing.productionCost,
-        marginImpactPercentage: specialPricing.marginImpactPercentage,
-        oldMarginPercentage: specialPricing.oldMarginPercentage,
-        overrideType: specialPricing.overrideType,
-        discountPercentage: specialPricing.discountPercentage,
-        markupPercentage: specialPricing.markupPercentage,
-        status: specialPricing.status,
-        approvedBy: specialPricing.approvedBy,
-        approvedAt: specialPricing.approvedAt,
-        justification: specialPricing.justification,
-        createdBy: specialPricing.createdBy,
-        createdAt: specialPricing.createdAt,
-      })
-      .from(specialPricing)
-      .innerJoin(products, eq(specialPricing.productId, products.id))
-      .where(eq(specialPricing.customerId, customerId));
-
-    res.json(customPrices);
-  } catch (error) {
-    console.error('Error fetching customer custom prices:', error);
-    res.status(500).json({ error: 'Failed to fetch customer custom prices' });
-  }
-});
-
-app.post('/api/customers/:id/custom-prices', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    const productId = Number(req.body?.productId);
-    if (!Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'productId is required' });
-    }
-
-    const result = await handleSpecialPricingUpsert({
-      customerId,
-      productId,
-      payload: (req.body ?? {}) as Record<string, unknown>,
-    });
-
-    res.status(result.status).json(result.payload);
-  } catch (error) {
-    if (error instanceof Error && (
-      error.message === 'Customer not found'
-      || error.message === 'Customer is not allowed to use special pricing'
-      || error.message === 'Product not found'
-      || error.message === 'Only approved products can have custom prices'
-    )) {
-      const status = error.message.includes('not found') ? 404 : 400;
-      return res.status(status).json({ error: error.message });
-    }
-    console.error('Error saving customer custom price:', error);
-    res.status(500).json({ error: 'Failed to save customer custom price' });
-  }
-});
-
-app.put('/api/customers/:id/custom-prices/:productId', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const result = await handleSpecialPricingUpsert({
-      customerId,
-      productId,
-      payload: { ...(req.body ?? {}), productId },
-    });
-
-    const statusCode = result.status === 201 ? 200 : result.status;
-    res.status(statusCode).json(result.payload);
-  } catch (error) {
-    if (error instanceof Error && (
-      error.message === 'Customer not found'
-      || error.message === 'Customer is not allowed to use special pricing'
-      || error.message === 'Product not found'
-      || error.message === 'Only approved products can have custom prices'
-    )) {
-      const status = error.message.includes('not found') ? 404 : 400;
-      return res.status(status).json({ error: error.message });
-    }
-    console.error('Error updating customer custom price:', error);
-    res.status(500).json({ error: 'Failed to update customer custom price' });
-  }
-});
-
-app.put('/api/customers/:id/custom-prices/:productId/approve', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    const { approvedBy } = req.body || {};
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const existing = await db
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Special pricing entry not found' });
-    }
-
-    await db
-      .update(specialPricing)
-      .set({
-        status: 'approved',
-        approvedBy: approvedBy || 'pricing_manager',
-        approvedAt: new Date(),
-      })
-      .where(eq(specialPricing.id, existing[0].id));
-
-    const saved = await db
-      .select()
-      .from(specialPricing)
-      .where(eq(specialPricing.id, existing[0].id));
-
-    res.json(saved[0]);
-  } catch (error) {
-    console.error('Error approving special pricing:', error);
-    res.status(500).json({ error: 'Failed to approve special pricing' });
-  }
-});
-
-app.put('/api/customers/:id/custom-prices/:productId/reject', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    const { approvedBy, justification } = req.body || {};
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const existing = await db
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Special pricing entry not found' });
-    }
-
-    await db
-      .update(specialPricing)
-      .set({
-        status: 'rejected',
-        approvedBy: approvedBy || 'pricing_manager',
-        approvedAt: new Date(),
-        justification: justification || existing[0].justification || null,
-      })
-      .where(eq(specialPricing.id, existing[0].id));
-
-    const saved = await db
-      .select()
-      .from(specialPricing)
-      .where(eq(specialPricing.id, existing[0].id));
-
-    res.json(saved[0]);
-  } catch (error) {
-    console.error('Error rejecting special pricing:', error);
-    res.status(500).json({ error: 'Failed to reject special pricing' });
-  }
-});
-
-app.delete('/api/customers/:id/custom-prices/:productId', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    await db
-      .delete(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    await removeSpecialPricingPriceListItem(customerId, productId);
-
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting customer custom price:', error);
-    res.status(500).json({ error: 'Failed to delete customer custom price' });
   }
 });
 
@@ -2275,6 +3399,7 @@ app.get('/api/price-lists', async (req, res) => {
         id: priceLists.id,
         name: priceLists.name,
         customerId: priceLists.customerId,
+        customerName: customers.name,
         priceLevelId: priceLists.priceLevelId,
         priceLevelName: priceLevels.name,
         validFrom: priceLists.validFrom,
@@ -2283,9 +3408,26 @@ app.get('/api/price-lists', async (req, res) => {
         createdBy: priceLists.createdBy,
         createdAt: priceLists.createdAt,
         updatedAt: priceLists.updatedAt,
+        itemsCount: sql<number>`count(${priceListItems.id})`,
       })
       .from(priceLists)
-      .leftJoin(priceLevels, eq(priceLists.priceLevelId, priceLevels.id));
+      .leftJoin(priceLevels, eq(priceLists.priceLevelId, priceLevels.id))
+      .leftJoin(customers, eq(priceLists.customerId, customers.id))
+      .leftJoin(priceListItems, eq(priceListItems.priceListId, priceLists.id))
+      .groupBy(
+        priceLists.id,
+        priceLists.name,
+        priceLists.customerId,
+        customers.name,
+        priceLists.priceLevelId,
+        priceLevels.name,
+        priceLists.validFrom,
+        priceLists.validUntil,
+        priceLists.status,
+        priceLists.createdBy,
+        priceLists.createdAt,
+        priceLists.updatedAt,
+      );
     res.json(
       lists.map((list) => ({
         ...list,
@@ -2375,6 +3517,7 @@ app.get('/api/price-lists/expiry-monitor', async (req, res) => {
 // GET /api/price-lists/:id - Get price list with items
 app.get('/api/price-lists/:id', async (req, res) => {
   try {
+    const includeInactive = parseIncludeInactive(req.query.includeInactive);
     const id = parseInt(req.params.id);
     const list = await db
       .select({
@@ -2403,6 +3546,7 @@ app.get('/api/price-lists/:id', async (req, res) => {
         id: priceListItems.id,
         productId: priceListItems.productId,
         productName: products.name,
+        productIsActive: products.isActive,
         basePrice: priceListItems.basePrice,
         discountPercentage: priceListItems.discountPercentage,
         finalPrice: priceListItems.finalPrice,
@@ -2411,7 +3555,12 @@ app.get('/api/price-lists/:id', async (req, res) => {
       })
       .from(priceListItems)
       .innerJoin(products, eq(priceListItems.productId, products.id))
-      .where(eq(priceListItems.priceListId, id));
+      .where(
+        and(
+          eq(priceListItems.priceListId, id),
+          includeInactive ? sql`1=1` : eq(products.isActive, true),
+        )
+      );
 
     res.json({
       ...list[0],
@@ -2427,6 +3576,7 @@ app.get('/api/price-lists/:id', async (req, res) => {
 // POST /api/price-lists - Create new price list
 app.post('/api/price-lists', async (req, res) => {
   try {
+    const includeInactive = parseIncludeInactive(req.query.includeInactive);
     const {
       name,
       priceLevelId,
@@ -2475,7 +3625,7 @@ app.post('/api/price-lists', async (req, res) => {
       return res.status(400).json({ error: 'No active price level rule found for the provided priceLevelId' });
     }
 
-    let selectedCustomer: { id: number; priceLevelId: number; allowSpecialPricing: boolean } | null = null;
+    let selectedCustomer: { id: number; priceLevelId: number } | null = null;
     const numericCustomerId = customerId === undefined || customerId === null || customerId === ''
       ? null
       : Number(customerId);
@@ -2489,7 +3639,7 @@ app.post('/api/price-lists', async (req, res) => {
         return res.status(400).json({ error: 'customerId must be an integer when provided' });
       }
 
-      const foundCustomer = await db.select().from(customers).where(eq(customers.id, numericCustomerId));
+      const foundCustomer = await getActiveDb().select().from(customers).where(eq(customers.id, numericCustomerId));
       if (foundCustomer.length === 0) {
         return res.status(404).json({ error: 'Customer not found' });
       }
@@ -2501,7 +3651,6 @@ app.post('/api/price-lists', async (req, res) => {
       selectedCustomer = {
         id: foundCustomer[0].id,
         priceLevelId: foundCustomer[0].priceLevelId,
-        allowSpecialPricing: Boolean(foundCustomer[0].allowSpecialPricing),
       };
     } else if (numericCustomerId !== null) {
       return res.status(400).json({ error: 'customerId is only allowed in By Customer mode' });
@@ -2532,7 +3681,7 @@ app.post('/api/price-lists', async (req, res) => {
           ? `user-multi-level:${effectivePriceLevelIds.join(',')}`
           : ('user' as string),
     };
-    const newList = await db.insert(priceLists).values(priceListData).returning();
+    const newList = await getActiveDb().insert(priceLists).values(priceListData).returning();
 
     // Fetch approved products and create items
     const normalizedProductIds = productIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id));
@@ -2547,30 +3696,13 @@ app.post('/api/price-lists', async (req, res) => {
         and(
           inArray(products.id, normalizedProductIds),
           eq(products.approvalStatus, 'approved'),
-          sql`${products.approvedPrice} IS NOT NULL`
+          sql`${products.approvedPrice} IS NOT NULL`,
+          includeInactive ? sql`1=1` : eq(products.isActive, true)
         )
       );
 
     if (productsData.length === 0) {
       return res.status(400).json({ error: 'No approved products available. Approve at least one product first.' });
-    }
-
-    const customPricesByProductId: Record<number, number> = {};
-    if (mode === 'byCustomer' && selectedCustomer?.allowSpecialPricing && productsData.length > 0) {
-      const overrides = await db
-        .select({ productId: specialPricing.productId, customPrice: specialPricing.customPrice })
-        .from(specialPricing)
-        .where(
-          and(
-            eq(specialPricing.customerId, selectedCustomer.id),
-            eq(specialPricing.status, 'approved'),
-            inArray(specialPricing.productId, productsData.map((product) => product.id))
-          )
-        );
-
-      for (const override of overrides) {
-        customPricesByProductId[override.productId] = Number(override.customPrice);
-      }
     }
 
     const pricingRulesToApply = mode === 'byPriceLevel'
@@ -2579,32 +3711,53 @@ app.post('/api/price-lists', async (req, res) => {
           .filter((rule): rule is NonNullable<typeof rule> => Boolean(rule))
       : [selectedRule];
 
+    // Load approved price_level_items for all effective price levels
+    const levelItemRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(
+        and(
+          inArray(priceLevelItems.priceLevelId, effectivePriceLevelIds),
+          eq(priceLevelItems.status, 'approved')
+        )
+      );
+
+    // Map: priceLevelId -> productId -> item
+    const itemByLevelAndProduct = new Map<number, Map<number, typeof levelItemRows[0]>>();
+    for (const item of levelItemRows) {
+      if (!itemByLevelAndProduct.has(item.priceLevelId)) {
+        itemByLevelAndProduct.set(item.priceLevelId, new Map());
+      }
+      itemByLevelAndProduct.get(item.priceLevelId)!.set(item.productId, item);
+    }
+
     const items = productsData.flatMap((product) => {
       const basePrice = Number(product.approvedPrice || 0);
-      const customPrice = customPricesByProductId[product.id];
-      const hasSpecialPrice = mode === 'byCustomer' && Number.isFinite(customPrice);
 
       return pricingRulesToApply.map((rule) => {
-        const adjustmentType = rule.adjustmentType;
-        const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
-        const levelAdjustedPrice = adjustmentType === 'markup'
-          ? Math.round(basePrice * (1 + adjustmentPercentage / 100) * 100) / 100
-          : Math.round(basePrice * (1 - adjustmentPercentage / 100) * 100) / 100;
-        const discountPercentage = adjustmentType === 'discount' ? adjustmentPercentage : -adjustmentPercentage;
-        const hasLevelRule = adjustmentPercentage > 0;
+        const levelMap = itemByLevelAndProduct.get(rule.id);
+        const levelItem = levelMap?.get(product.id);
 
         let finalPrice = basePrice;
-        let priceSource: 'base' | 'level_rule' | 'special' = 'base';
+        let priceSource: 'base' | 'level_item_custom' | 'level_item_discount' | 'level_item_markup' = 'base';
         let normalizedDiscountPercentage = 0;
 
-        if (hasSpecialPrice) {
-          finalPrice = Math.round(Number(customPrice) * 100) / 100;
-          priceSource = 'special';
-          normalizedDiscountPercentage = 0;
-        } else if (hasLevelRule) {
-          finalPrice = levelAdjustedPrice;
-          priceSource = 'level_rule';
-          normalizedDiscountPercentage = discountPercentage;
+        if (levelItem) {
+          if (levelItem.overrideType === 'custom_price' && levelItem.customPrice != null) {
+            finalPrice = Math.round(Number(levelItem.customPrice) * 100) / 100;
+            priceSource = 'level_item_custom';
+            normalizedDiscountPercentage = 0;
+          } else if (levelItem.overrideType === 'rule_discount' && levelItem.adjustmentPercentage != null) {
+            const pct = Number(levelItem.adjustmentPercentage);
+            finalPrice = Math.round(basePrice * (1 - pct / 100) * 100) / 100;
+            priceSource = 'level_item_discount';
+            normalizedDiscountPercentage = pct;
+          } else if (levelItem.overrideType === 'rule_markup' && levelItem.adjustmentPercentage != null) {
+            const pct = Number(levelItem.adjustmentPercentage);
+            finalPrice = Math.round(basePrice * (1 + pct / 100) * 100) / 100;
+            priceSource = 'level_item_markup';
+            normalizedDiscountPercentage = -pct;
+          }
         }
 
         return {
@@ -2623,7 +3776,7 @@ app.post('/api/price-lists', async (req, res) => {
     });
 
     if (items.length > 0) {
-      await db.insert(priceListItems).values(items);
+      await getActiveDb().insert(priceListItems).values(items);
     }
 
     // Return created list with items
@@ -2663,7 +3816,7 @@ app.put('/api/price-lists/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid price list id' });
     }
 
-    const existing = await db.select().from(priceLists).where(eq(priceLists.id, id));
+    const existing = await getActiveDb().select().from(priceLists).where(eq(priceLists.id, id));
     if (existing.length === 0) {
       return res.status(404).json({ error: 'Price list not found' });
     }
@@ -2677,7 +3830,7 @@ app.put('/api/price-lists/:id', async (req, res) => {
       basePrice: number;
       discountPercentage: number;
       finalPrice: number;
-      priceSource: 'base' | 'level_rule' | 'special';
+      priceSource: 'base' | 'level_item_custom' | 'level_item_discount' | 'level_item_markup';
       notes: string | null;
     }> | null = null;
 
@@ -2794,52 +3947,56 @@ app.put('/api/price-lists/:id', async (req, res) => {
           return res.status(400).json({ error: 'No approved products available for recalculating this list' });
         }
 
-        const customPricesByProductId: Record<number, number> = {};
-        if (customerSpecific && existingList.customerId != null) {
-          const overrides = await db
-            .select({ productId: specialPricing.productId, customPrice: specialPricing.customPrice })
-            .from(specialPricing)
-            .where(
-              and(
-                eq(specialPricing.customerId, Number(existingList.customerId)),
-                eq(specialPricing.status, 'approved'),
-                inArray(specialPricing.productId, productsData.map((product) => product.id))
-              )
-            );
-
-          for (const override of overrides) {
-            customPricesByProductId[override.productId] = Number(override.customPrice);
-          }
-        }
-
         const rulesToApply = customerSpecific ? [selectedRules[0]] : selectedRules;
+
+        // Load approved price_level_items for all selected price levels
+        const ruleIds = rulesToApply.map((r) => r.id);
+        const levelItemRows = await db
+          .select()
+          .from(priceLevelItems)
+          .where(
+            and(
+              inArray(priceLevelItems.priceLevelId, ruleIds),
+              eq(priceLevelItems.status, 'approved')
+            )
+          );
+
+        // Map: priceLevelId -> productId -> item
+        const itemByLevelAndProduct = new Map<number, Map<number, typeof levelItemRows[0]>>();
+        for (const item of levelItemRows) {
+          if (!itemByLevelAndProduct.has(item.priceLevelId)) {
+            itemByLevelAndProduct.set(item.priceLevelId, new Map());
+          }
+          itemByLevelAndProduct.get(item.priceLevelId)!.set(item.productId, item);
+        }
 
         regeneratedItems = productsData.flatMap((product) => {
           const basePrice = Number(product.approvedPrice || 0);
-          const customPrice = customPricesByProductId[product.id];
-          const hasSpecialPrice = customerSpecific && Number.isFinite(customPrice);
 
           return rulesToApply.map((rule) => {
-            const adjustmentType = rule.adjustmentType;
-            const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
-            const levelAdjustedPrice = adjustmentType === 'markup'
-              ? Math.round(basePrice * (1 + adjustmentPercentage / 100) * 100) / 100
-              : Math.round(basePrice * (1 - adjustmentPercentage / 100) * 100) / 100;
-            const discountPercentage = adjustmentType === 'discount' ? adjustmentPercentage : -adjustmentPercentage;
-            const hasLevelRule = adjustmentPercentage > 0;
+            const levelMap = itemByLevelAndProduct.get(rule.id);
+            const levelItem = levelMap?.get(product.id);
 
             let finalPrice = basePrice;
-            let priceSource: 'base' | 'level_rule' | 'special' = 'base';
+            let priceSource: 'base' | 'level_item_custom' | 'level_item_discount' | 'level_item_markup' = 'base';
             let normalizedDiscountPercentage = 0;
 
-            if (hasSpecialPrice) {
-              finalPrice = Math.round(Number(customPrice) * 100) / 100;
-              priceSource = 'special';
-              normalizedDiscountPercentage = 0;
-            } else if (hasLevelRule) {
-              finalPrice = levelAdjustedPrice;
-              priceSource = 'level_rule';
-              normalizedDiscountPercentage = discountPercentage;
+            if (levelItem) {
+              if (levelItem.overrideType === 'custom_price' && levelItem.customPrice != null) {
+                finalPrice = Math.round(Number(levelItem.customPrice) * 100) / 100;
+                priceSource = 'level_item_custom';
+                normalizedDiscountPercentage = 0;
+              } else if (levelItem.overrideType === 'rule_discount' && levelItem.adjustmentPercentage != null) {
+                const pct = Number(levelItem.adjustmentPercentage);
+                finalPrice = Math.round(basePrice * (1 - pct / 100) * 100) / 100;
+                priceSource = 'level_item_discount';
+                normalizedDiscountPercentage = pct;
+              } else if (levelItem.overrideType === 'rule_markup' && levelItem.adjustmentPercentage != null) {
+                const pct = Number(levelItem.adjustmentPercentage);
+                finalPrice = Math.round(basePrice * (1 + pct / 100) * 100) / 100;
+                priceSource = 'level_item_markup';
+                normalizedDiscountPercentage = -pct;
+              }
             }
 
             return {
@@ -2862,12 +4019,12 @@ app.put('/api/price-lists/:id', async (req, res) => {
 
     updates.updatedAt = new Date();
 
-    await db.update(priceLists).set(updates).where(eq(priceLists.id, id));
+    await getActiveDb().update(priceLists).set(updates).where(eq(priceLists.id, id));
 
     if (regeneratedItems !== null) {
-      await db.delete(priceListItems).where(eq(priceListItems.priceListId, id));
+      await getActiveDb().delete(priceListItems).where(eq(priceListItems.priceListId, id));
       if (regeneratedItems.length > 0) {
-        await db.insert(priceListItems).values(regeneratedItems);
+        await getActiveDb().insert(priceListItems).values(regeneratedItems);
       }
     }
 
@@ -2922,7 +4079,7 @@ app.put('/api/price-lists/:id/items', async (req, res) => {
       return res.status(400).json({ error: 'Invalid price list id' });
     }
 
-    const list = await db.select().from(priceLists).where(eq(priceLists.id, id));
+    const list = await getActiveDb().select().from(priceLists).where(eq(priceLists.id, id));
     if (list.length === 0) {
       return res.status(404).json({ error: 'Price list not found' });
     }
@@ -2963,10 +4120,10 @@ app.put('/api/price-lists/:id/items', async (req, res) => {
         updatePayload.notes = item.notes || null;
       }
 
-      await db.update(priceListItems).set(updatePayload).where(eq(priceListItems.id, itemId));
+      await getActiveDb().update(priceListItems).set(updatePayload).where(eq(priceListItems.id, itemId));
     }
 
-    await db.update(priceLists).set({ updatedAt: new Date() }).where(eq(priceLists.id, id));
+    await getActiveDb().update(priceLists).set({ updatedAt: new Date() }).where(eq(priceLists.id, id));
 
     const refreshedList = await db
       .select({
@@ -3015,7 +4172,7 @@ app.put('/api/price-lists/:id/items', async (req, res) => {
 app.delete('/api/price-lists/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    await db.delete(priceLists).where(eq(priceLists.id, id));
+    await getActiveDb().delete(priceLists).where(eq(priceLists.id, id));
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting price list:', error);
@@ -3024,8 +4181,17 @@ app.delete('/api/price-lists/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`âœ… Server running on http://localhost:${PORT}`);
   startAutoBackupScheduler();
+  processExpiredApprovedPrices()
+    .then((result) => {
+      if (result.processed > 0) {
+        console.log(`â° Processed ${result.processed} expired approved price(s) on startup`);
+      }
+    })
+    .catch((error) => {
+      console.error('Failed startup price expiry processing:', error);
+    });
 });
 
 // Import products (grouped rows: one row per BOM material)
@@ -3069,7 +4235,7 @@ app.post('/api/products/import', async (req, res) => {
     let successCount = 0;
 
     // Load all existing products for duplicate name check
-    const existingProducts = await db.select().from(products);
+    const existingProducts = await getActiveDb().select().from(products);
 
     for (const [productName, entries] of Object.entries(groups)) {
       if (productName === '__INVALID__') {
@@ -3087,6 +4253,7 @@ app.post('/api/products/import', async (req, res) => {
       const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield']);
       const overheadRaw = getField(first, ['Overhead %', 'Overhead', 'overhead', 'Overhead%']);
       const profitRaw = getField(first, ['Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
+      const currentSellingPriceRaw = getField(first, ['Current Selling Price', 'currentSellingPrice', 'Selling Price', 'Current Price']);
 
       // Validate product-level fields
       if (!category) {
@@ -3108,8 +4275,13 @@ app.post('/api/products/import', async (req, res) => {
 
       const overhead = parseFloat(overheadRaw || '0');
       const profitMargin = parseFloat(profitRaw || '0');
+      const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
       if (isNaN(overhead)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Overhead %: ${overheadRaw}`, originalRow: e.row }); continue; }
       if (isNaN(profitMargin)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Profit Margin %: ${profitRaw}`, originalRow: e.row }); continue; }
+      if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
+        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}`, originalRow: e.row });
+        continue;
+      }
 
       // Duplicate product name check (case-insensitive)
       const lowerName = productName.toLowerCase();
@@ -3120,7 +4292,7 @@ app.post('/api/products/import', async (req, res) => {
       }
 
       // Create product
-      const created = await db.insert(products).values({
+      const created = await getActiveDb().insert(products).values({
         name: productName,
         sku: sku || null,
         description: first['Description'] || first['description'] || null,
@@ -3129,6 +4301,7 @@ app.post('/api/products/import', async (req, res) => {
         profitMargin: profitMargin,
         productionMode: productionMode,
         batchYield: batchYield || 1,
+        currentSellingPrice,
       }).returning();
 
       const productId = created[0].id;
@@ -3149,14 +4322,14 @@ app.post('/api/products/import', async (req, res) => {
         }
 
         // Find material by name (case-insensitive)
-        const mats = await db.select().from(materials).where(sql`lower(${materials.name}) = ${matName.toLowerCase()}`);
+        const mats = await getActiveDb().select().from(materials).where(sql`lower(${materials.name}) = ${matName.toLowerCase()}`);
         if (!mats || mats.length === 0) {
           failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Material '${matName}' not found - BOM row skipped`, originalRow: e.row });
           continue;
         }
 
         try {
-          await db.insert(billOfMaterials).values({ productId, materialId: mats[0].id, quantity: qty });
+          await getActiveDb().insert(billOfMaterials).values({ productId, materialId: mats[0].id, quantity: qty });
         } catch (err: any) {
           failures.push({ rowNumber: e.rowNumber, name: productName, reason: `API error adding BOM material '${matName}': ${err?.message || String(err)}`, originalRow: e.row });
         }
@@ -3172,7 +4345,7 @@ app.post('/api/products/import', async (req, res) => {
 
 app.get('/api/price-levels', async (req, res) => {
   try {
-    const rules = await db.select().from(priceLevels);
+    const rules = await getActiveDb().select().from(priceLevels);
     res.json(rules);
   } catch (error) {
     console.error('Error fetching price levels:', error);
@@ -3209,7 +4382,7 @@ app.post('/api/price-levels', async (req, res) => {
       ? 1 + (numericPercentage / 100)
       : 1 - (numericPercentage / 100);
 
-    const result = await db.insert(priceLevels).values({
+    const result = await getActiveDb().insert(priceLevels).values({
       name,
       multiplier,
       adjustmentType,
@@ -3223,214 +4396,114 @@ app.post('/api/price-levels', async (req, res) => {
   }
 });
 
-app.post('/api/customers/:id/special-pricing', async (req, res) => {
+app.get('/api/materials/:id/bom', async (req, res) => {
   try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
+    const materialId = Number(req.params.id);
+    if (!Number.isInteger(materialId)) {
+      return res.status(400).json({ error: 'Invalid material id' });
     }
 
-    const productId = Number(req.body?.productId);
-    if (!Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'productId is required' });
-    }
-
-    const result = await handleSpecialPricingUpsert({
-      customerId,
-      productId,
-      payload: (req.body ?? {}) as Record<string, unknown>,
-    });
-
-    res.status(result.status).json(result.payload);
-  } catch (error) {
-    if (error instanceof Error && (
-      error.message === 'Customer not found'
-      || error.message === 'Customer is not allowed to use special pricing'
-      || error.message === 'Product not found'
-      || error.message === 'Only approved products can have custom prices'
-    )) {
-      const status = error.message.includes('not found') ? 404 : 400;
-      return res.status(status).json({ error: error.message });
-    }
-    console.error('Error saving customer special pricing:', error);
-    res.status(500).json({ error: 'Failed to save customer special pricing' });
-  }
-});
-
-app.get('/api/customers/:id/special-pricing', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    const customer = await db.select().from(customers).where(eq(customers.id, customerId));
-    if (customer.length === 0) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    const customPrices = await db
+    const rows = await db
       .select({
-        id: specialPricing.id,
-        customerId: specialPricing.customerId,
-        productId: specialPricing.productId,
-        productName: products.name,
-        customPrice: specialPricing.customPrice,
-        productionCost: specialPricing.productionCost,
-        marginImpactPercentage: specialPricing.marginImpactPercentage,
-        oldMarginPercentage: specialPricing.oldMarginPercentage,
-        overrideType: specialPricing.overrideType,
-        discountPercentage: specialPricing.discountPercentage,
-        markupPercentage: specialPricing.markupPercentage,
-        status: specialPricing.status,
-        approvedBy: specialPricing.approvedBy,
-        approvedAt: specialPricing.approvedAt,
-        justification: specialPricing.justification,
-        createdBy: specialPricing.createdBy,
-        createdAt: specialPricing.createdAt,
+        id: intermediateMaterialBom.id,
+        intermediateMaterialId: intermediateMaterialBom.intermediateMaterialId,
+        componentMaterialId: intermediateMaterialBom.componentMaterialId,
+        quantity: intermediateMaterialBom.quantity,
+        componentMaterialName: materials.name,
+        unit: materials.unit,
+        unitPrice: materials.unitPrice,
       })
-      .from(specialPricing)
-      .innerJoin(products, eq(specialPricing.productId, products.id))
-      .where(eq(specialPricing.customerId, customerId));
+      .from(intermediateMaterialBom)
+      .innerJoin(materials, eq(intermediateMaterialBom.componentMaterialId, materials.id))
+      .where(eq(intermediateMaterialBom.intermediateMaterialId, materialId));
 
-    res.json(customPrices);
+    res.json(rows);
   } catch (error) {
-    console.error('Error fetching customer special pricing:', error);
-    res.status(500).json({ error: 'Failed to fetch customer special pricing' });
+    console.error('Error loading intermediate material BOM:', error);
+    res.status(500).json({ error: 'Failed to load intermediate material BOM' });
   }
 });
 
-app.put('/api/customers/:id/special-pricing/:productId', async (req, res) => {
+app.post('/api/materials/:id/bom', async (req, res) => {
   try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
+    const materialId = Number(req.params.id);
+    const componentMaterialId = Number(req.body?.componentMaterialId);
+    const quantity = Number(req.body?.quantity);
 
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
+    if (!Number.isInteger(materialId) || !Number.isInteger(componentMaterialId) || !Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'Invalid BOM item payload' });
     }
 
-    const result = await handleSpecialPricingUpsert({
-      customerId,
-      productId,
-      payload: { ...(req.body ?? {}), productId },
-    });
+    if (materialId === componentMaterialId) {
+      return res.status(400).json({ error: 'Intermediate material cannot reference itself' });
+    }
 
-    const statusCode = result.status === 201 ? 200 : result.status;
-    res.status(statusCode).json(result.payload);
+    const inserted = await getActiveDb().insert(intermediateMaterialBom).values({
+      intermediateMaterialId: materialId,
+      componentMaterialId,
+      quantity,
+    }).returning();
+
+    await recalculateIntermediateMaterialWithCascade(materialId);
+
+    res.json(inserted[0]);
   } catch (error) {
-    if (error instanceof Error && (
-      error.message === 'Customer not found'
-      || error.message === 'Customer is not allowed to use special pricing'
-      || error.message === 'Product not found'
-      || error.message === 'Only approved products can have custom prices'
-    )) {
-      const status = error.message.includes('not found') ? 404 : 400;
-      return res.status(status).json({ error: error.message });
-    }
-    console.error('Error updating customer special pricing:', error);
-    res.status(500).json({ error: 'Failed to update customer special pricing' });
+    console.error('Error adding intermediate BOM item:', error);
+    res.status(500).json({ error: 'Failed to add intermediate BOM item' });
   }
 });
 
-app.put('/api/customers/:id/special-pricing/:productId/approve', async (req, res) => {
+app.put('/api/materials/:id/bom/:bomId', async (req, res) => {
   try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    const { approvedBy } = req.body || {};
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
+    const materialId = Number(req.params.id);
+    const bomId = Number(req.params.bomId);
+    const quantity = Number(req.body?.quantity);
+    if (!Number.isInteger(materialId) || !Number.isInteger(bomId) || !Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'Invalid payload' });
     }
 
-    const existing = await db
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
+    await getActiveDb().update(intermediateMaterialBom)
+      .set({ quantity })
+      .where(and(eq(intermediateMaterialBom.id, bomId), eq(intermediateMaterialBom.intermediateMaterialId, materialId)));
 
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Special pricing entry not found' });
-    }
-
-    await db
-      .update(specialPricing)
-      .set({
-        status: 'approved',
-        approvedBy: approvedBy || 'pricing_manager',
-        approvedAt: new Date(),
-      })
-      .where(eq(specialPricing.id, existing[0].id));
-
-    const saved = await db
-      .select()
-      .from(specialPricing)
-      .where(eq(specialPricing.id, existing[0].id));
-
-    res.json(saved[0]);
-  } catch (error) {
-    console.error('Error approving special pricing (alias):', error);
-    res.status(500).json({ error: 'Failed to approve special pricing' });
-  }
-});
-
-app.put('/api/customers/:id/special-pricing/:productId/reject', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    const { approvedBy, justification } = req.body || {};
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const existing = await db
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Special pricing entry not found' });
-    }
-
-    await db
-      .update(specialPricing)
-      .set({
-        status: 'rejected',
-        approvedBy: approvedBy || 'pricing_manager',
-        approvedAt: new Date(),
-        justification: justification || existing[0].justification || null,
-      })
-      .where(eq(specialPricing.id, existing[0].id));
-
-    const saved = await db
-      .select()
-      .from(specialPricing)
-      .where(eq(specialPricing.id, existing[0].id));
-
-    res.json(saved[0]);
-  } catch (error) {
-    console.error('Error rejecting special pricing (alias):', error);
-    res.status(500).json({ error: 'Failed to reject special pricing' });
-  }
-});
-
-app.delete('/api/customers/:id/special-pricing/:productId', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    await db
-      .delete(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    await removeSpecialPricingPriceListItem(customerId, productId);
-
+    await recalculateIntermediateMaterialWithCascade(materialId);
     res.json({ success: true });
   } catch (error) {
-    console.error('Error deleting customer special pricing (alias):', error);
-    res.status(500).json({ error: 'Failed to delete customer special pricing' });
+    console.error('Error updating intermediate BOM item:', error);
+    res.status(500).json({ error: 'Failed to update intermediate BOM item' });
+  }
+});
+
+app.delete('/api/materials/:id/bom/:bomId', async (req, res) => {
+  try {
+    const materialId = Number(req.params.id);
+    const bomId = Number(req.params.bomId);
+    if (!Number.isInteger(materialId) || !Number.isInteger(bomId)) {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    await getActiveDb().delete(intermediateMaterialBom)
+      .where(and(eq(intermediateMaterialBom.id, bomId), eq(intermediateMaterialBom.intermediateMaterialId, materialId)));
+
+    await recalculateIntermediateMaterialWithCascade(materialId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting intermediate BOM item:', error);
+    res.status(500).json({ error: 'Failed to delete intermediate BOM item' });
+  }
+});
+
+app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
+  try {
+    const materialId = Number(req.params.id);
+    if (!Number.isInteger(materialId)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const summary = await recalculateIntermediateMaterialWithCascade(materialId);
+    res.json(summary);
+  } catch (error) {
+    console.error('Error recalculating intermediate material cost:', error);
+    res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });
   }
 });

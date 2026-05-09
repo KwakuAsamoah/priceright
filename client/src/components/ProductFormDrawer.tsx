@@ -21,6 +21,7 @@ interface Material {
   unit: string;
   unitPrice: string;
   baseCurrencySymbol: string;
+  materialType?: 'primary' | 'intermediate';
 }
 
 interface BOMMaterial {
@@ -31,6 +32,7 @@ interface BOMMaterial {
   unit: string;
   unitPrice: string;
   currencySymbol: string;
+  materialType?: 'primary' | 'intermediate';
 }
 interface ProductFormDrawerProps {
   isOpen: boolean;
@@ -72,16 +74,20 @@ export default function ProductFormDrawer({
   const [tempBomMaterials, setTempBomMaterials] = useState<BOMMaterial[]>([]);
   const [editingBomId, setEditingBomId] = useState<number | null>(null);
   const [editingQuantity, setEditingQuantity] = useState('');
+  const [newCategoryValue, setNewCategoryValue] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
 
     if (product) {
+      const productCategory = (product.category || '').trim();
+      const hasKnownCategory = productCategory.length > 0 && categoryOptions.includes(productCategory);
+
       setFormData({
         name: product.name,
         sku: product.sku || '',
         description: product.description || '',
-        category: product.category || '',
+        category: hasKnownCategory ? productCategory : productCategory ? '__custom__' : '',
         overheadPercentage: product.overheadPercentage?.toString() || defaultOverhead,
         profitMargin: product.profitMargin?.toString() || '30',
         otherDirectCosts: product.otherDirectCosts?.toString() || '0',
@@ -89,6 +95,7 @@ export default function ProductFormDrawer({
         batchYield: product.batchYield?.toString() || '1',
         currentSellingPrice: product.currentSellingPrice?.toString() || '0',
       });
+      setNewCategoryValue(hasKnownCategory ? '' : productCategory);
       loadExistingBOM(product.id);
     } else {
       resetForm();
@@ -122,6 +129,7 @@ export default function ProductFormDrawer({
     setMaterialSearchTerm('');
     setEditingBomId(null);
     setEditingQuantity('');
+    setNewCategoryValue('');
   }
 
   const filteredMaterials = useMemo(() => {
@@ -140,6 +148,7 @@ export default function ProductFormDrawer({
       unit: material.unit,
       unitPrice: material.unitPrice,
       currencySymbol: material.baseCurrencySymbol,
+      materialType: material.materialType,
     };
 
     setTempBomMaterials((prev) => [...prev, newMaterial]);
@@ -239,10 +248,17 @@ export default function ProductFormDrawer({
     e.preventDefault();
     if (saving) return;
 
+    const resolvedCategory = (formData.category === '__custom__' ? newCategoryValue : formData.category).trim();
+    if (!resolvedCategory) {
+      alert('Please select a category or enter a new one.');
+      return;
+    }
+
     try {
       setSaving(true);
       const productData = {
         ...formData,
+        category: resolvedCategory,
         overheadPercentage: parseFloat(formData.overheadPercentage),
         profitMargin: parseFloat(formData.profitMargin),
         otherDirectCosts: parseFloat(formData.otherDirectCosts),
@@ -316,7 +332,7 @@ export default function ProductFormDrawer({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
             <div style={{ color: '#64748b', fontSize: '13px' }}>Update product details and BOM inline</div>
           </div>
           <button
@@ -336,7 +352,7 @@ export default function ProductFormDrawer({
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Product Name *</label>
@@ -360,21 +376,31 @@ export default function ProductFormDrawer({
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Category *</label>
-                  <input
+                  <select
                     required
-                    list="product-category-options"
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    placeholder="Type or select category"
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                  />
-                  <datalist id="product-category-options">
+                  >
+                    <option value="" disabled>
+                      Select category
+                    </option>
                     {categoryOptions.map((category) => (
                       <option key={category} value={category}>
                         {category}
                       </option>
                     ))}
-                  </datalist>
+                    <option value="__custom__">+ Add new category...</option>
+                  </select>
+                  {formData.category === '__custom__' && (
+                    <input
+                      required
+                      value={newCategoryValue}
+                      onChange={(e) => setNewCategoryValue(e.target.value)}
+                      placeholder="Enter new category"
+                      style={{ width: '100%', marginTop: '8px', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    />
+                  )}
                 </div>
               </div>
               <div>
@@ -389,7 +415,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Production Settings</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Production Mode</label>
@@ -414,7 +440,9 @@ export default function ProductFormDrawer({
               </div>
               {formData.productionMode === 'batch' && (
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Batch Yield *</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="The number of finished units your recipe produces in one production run. If your recipe makes 6 bottles of sugar, enter 6.">
+                    Batch Yield *
+                  </label>
                   <input
                     type="number"
                     required
@@ -427,7 +455,9 @@ export default function ProductFormDrawer({
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Overhead % *</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="A percentage added to your material costs to cover indirect costs like electricity, water, rent, and labour. 25% overhead on GHS 1,000 of materials adds GHS 250 to your production cost.">
+                    Overhead % *
+                  </label>
                   <input
                     type="number"
                     required
@@ -438,7 +468,9 @@ export default function ProductFormDrawer({
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Profit Margin % *</label>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="The percentage of the final approved base price that is profit. A 20% margin on a GHS 100 product means GHS 20 is profit. PriceRight uses this to calculate your optimal approved base price.">
+                    Profit Margin % *
+                  </label>
                   <input
                     type="number"
                     required
@@ -450,7 +482,7 @@ export default function ProductFormDrawer({
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Current Selling Price</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Approved base price</label>
                 <input
                   type="number"
                   step="0.01"
@@ -463,7 +495,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Bill of Materials</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Bill of Materials</h3>
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Select Material</label>
               <div style={{ position: 'relative' }}>
@@ -522,7 +554,14 @@ export default function ProductFormDrawer({
                           transition: 'background-color 0.15s',
                         }}
                       >
-                        <span style={{ fontSize: '14px', fontWeight: '500' }}>{material.name}</span>
+                        <span style={{ fontSize: '14px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          {material.name}
+                          {material.materialType === 'intermediate' ? (
+                            <span style={{ fontSize: 12, border: '1px solid #94a3b8', borderRadius: 999, padding: '2px 6px', color: '#475569' }}>
+                              Intermediate
+                            </span>
+                          ) : null}
+                        </span>
                         <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '12px', whiteSpace: 'nowrap' }}>
                           GHS {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
                         </span>
@@ -641,7 +680,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
             <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
@@ -661,7 +700,7 @@ export default function ProductFormDrawer({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#1e40af', fontWeight: '700' }}>Optimal Price</span>
-                <span style={{ fontWeight: '800', color: '#16a34a', fontSize: '16px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
+                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

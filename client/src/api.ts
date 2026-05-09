@@ -17,6 +17,147 @@ async function parseResponse(res: Response) {
   return data;
 }
 
+export type EntityStatusFilter = 'active' | 'inactive' | 'all';
+export type MaterialTypeFilter = 'primary' | 'intermediate' | 'all';
+
+export interface MaterialRecord {
+  id: number;
+  name: string;
+  sku?: string;
+  description?: string;
+  materialType?: 'primary' | 'intermediate';
+  category: string;
+  unit: string;
+  bulkQuantity: number | string;
+  bulkPrice: number | string;
+  purchaseCurrencyId: number;
+  purchaseCurrencyCode?: string;
+  purchaseCurrencySymbol?: string;
+  baseCurrencySymbol?: string;
+  unitPrice: number | string;
+  overheadPercentage?: number | string;
+  marginPercentage?: number | string;
+  yieldPercentage?: number | string;
+  calculatedCostPerUnit?: number | string;
+  supplier: string;
+  isActive: boolean;
+}
+
+export interface IntermediateBomItemRecord {
+  id: number;
+  intermediateMaterialId: number;
+  componentMaterialId: number;
+  quantity: number;
+  componentMaterialName?: string;
+  unit?: string;
+  unitPrice?: number | string;
+}
+
+export interface ProductRecord {
+  id: number;
+  name: string;
+  sku?: string;
+  description?: string;
+  category?: string;
+  overheadPercentage: number;
+  profitMargin: number;
+  otherDirectCosts?: number;
+  productionMode?: 'single' | 'batch';
+  batchYield?: number;
+  currentSellingPrice?: number;
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  approvedPrice?: number | null;
+  approvedBy?: string | null;
+  approvedAt?: string | number | null;
+  approvedPriceExpiresAt?: string | null;
+  priceExpiryNotifiedAt?: string | null;
+  needsReviewReason?: string | null;
+  isPriceExpired?: boolean;
+  daysUntilExpiry?: number | null;
+  isActive: boolean;
+}
+
+export interface ImportMaterialRow {
+  name: string;
+  category: string;
+  unit: string;
+  currencyCode?: string;
+  bulkPrice: number;
+  bulkQuantity: number;
+  supplierType?: string;
+}
+
+export interface ImportResult {
+  success: boolean;
+  imported: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{ row: number; name: string; error: string }>;
+}
+
+export interface DemoModeState {
+  demoMode: boolean;
+  message?: string;
+}
+
+export interface PriceLevelItemResponse {
+  id: number;
+  priceLevelId: number;
+  productId: number;
+  productName: string;
+  productCategory: string;
+  productApprovedPrice: number;
+  productOptimalPrice: number;
+  productProductionCost: number;
+  overrideType: 'rule_discount' | 'rule_markup' | 'custom_price';
+  adjustmentPercentage: number | null;
+  customPrice: number | null;
+  finalPrice: number;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy: string | null;
+  approvedAt: number | null;
+  justification: string | null;
+  createdAt: number;
+  updatedAt: number;
+  productApprovedAt: number | null;
+  isCustomPriceStale: boolean;
+}
+
+export interface ActivityEntry {
+  id: number;
+  entityType: string;
+  entityId: number | null;
+  entityName: string | null;
+  action: string;
+  details: Record<string, unknown> | null;
+  performedBy: string | null;
+  createdAt: number;
+}
+
+export const activityLogApi = {
+  getAll: async (params?: {
+    limit?: number;
+    offset?: number;
+    entityType?: string;
+    action?: string;
+    from?: number;
+    to?: number;
+  }): Promise<{ entries: ActivityEntry[]; total: number }> => {
+    const query = new URLSearchParams();
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.entityType) query.set('entityType', params.entityType);
+    if (params?.action) query.set('action', params.action);
+    if (params?.from) query.set('from', String(params.from));
+    if (params?.to) query.set('to', String(params.to));
+
+    const queryString = query.toString();
+    const url = `${API_BASE}/activity${queryString ? `?${queryString}` : ''}`;
+    const res = await fetch(url);
+    return parseResponse(res);
+  },
+};
+
 // Settings API
 export const settingsApi = {
   getAll: async () => {
@@ -106,8 +247,16 @@ export const exchangeRatesApi = {
 
 // Materials API
 export const materialsApi = {
-  getAll: async () => {
-    const res = await fetch(`${API_BASE}/materials`);
+  getAll: async (status?: EntityStatusFilter, type?: MaterialTypeFilter) => {
+    const params = new URLSearchParams();
+    if (status && status !== 'all') {
+      params.set('status', status);
+    }
+    if (type && type !== 'all') {
+      params.set('type', type);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API_BASE}/materials${query}`);
     return parseResponse(res);
   },
   create: async (data: any) => {
@@ -116,7 +265,7 @@ export const materialsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return res.json();
+    return parseResponse(res);
   },
   update: async (id: number, data: any) => {
     const res = await fetch(`${API_BASE}/materials/${id}`, {
@@ -124,13 +273,13 @@ export const materialsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return res.json();
+    return parseResponse(res);
   },
   delete: async (id: number) => {
     const res = await fetch(`${API_BASE}/materials/${id}`, {
       method: 'DELETE',
     });
-    return res.json();
+    return parseResponse(res);
   },
   getPriceHistory: async (id: number) => {
     const res = await fetch(`${API_BASE}/materials/${id}/price-history`);
@@ -144,12 +293,54 @@ export const materialsApi = {
     });
     return res.json();
   },
+  getIntermediateBom: async (materialId: number) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/bom`);
+    return parseResponse(res);
+  },
+  addIntermediateBomItem: async (materialId: number, data: { componentMaterialId: number; quantity: number }) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/bom`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return parseResponse(res);
+  },
+  updateIntermediateBomItem: async (materialId: number, bomId: number, data: { quantity: number }) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return parseResponse(res);
+  },
+  deleteIntermediateBomItem: async (materialId: number, bomId: number) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
+      method: 'DELETE',
+    });
+    return parseResponse(res);
+  },
+  recalculateIntermediateCost: async (materialId: number) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/recalculate-cost`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return parseResponse(res);
+  },
+  importMaterials: async (materials: ImportMaterialRow[]): Promise<ImportResult> => {
+    const res = await fetch(`${API_BASE}/materials/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ materials }),
+    });
+    return parseResponse(res);
+  },
 };
 
 // Products API
 export const productsApi = {
-  getAll: async () => {
-    const res = await fetch(`${API_BASE}/products`);
+  getAll: async (status?: EntityStatusFilter) => {
+    const query = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
+    const res = await fetch(`${API_BASE}/products${query}`);
     return parseResponse(res);
   },
   getById: async (id: number) => {
@@ -204,7 +395,7 @@ export const productsApi = {
     const res = await fetch(`${API_BASE}/products/${productId}/calculate`);
     return res.json();
   },
-  approve: async (productId: number, data: { approvedPrice?: number; reason?: string }) => {
+  approve: async (productId: number, data: { approvedPrice?: number; reason?: string; priceExpiryDate?: string | null }) => {
     const res = await fetch(`${API_BASE}/products/${productId}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -228,15 +419,34 @@ export const productsApi = {
     }
     return res.json();
   },
-  bulkApprove: async (productIds: number[]) => {
+  bulkApprove: async (
+    productIds: number[],
+    options?: {
+      priceMethod?: 'optimal' | 'selling' | 'markup';
+      markupPercentage?: number;
+      priceExpiryDate?: string | null;
+    }
+  ) => {
     const res = await fetch(`${API_BASE}/products/bulk-approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productIds }),
+      body: JSON.stringify({ productIds, ...options }),
     });
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to bulk approve products');
+    }
+    return res.json();
+  },
+  bulkReject: async (productIds: number[], reason?: string) => {
+    const res = await fetch(`${API_BASE}/products/bulk-reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productIds, reason }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to bulk reject products');
     }
     return res.json();
   },
@@ -245,6 +455,13 @@ export const productsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rows),
+    });
+    return parseResponse(res);
+  },
+  processPriceExpiry: async () => {
+    const res = await fetch(`${API_BASE}/products/process-price-expiry`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     });
     return parseResponse(res);
   },
@@ -281,83 +498,70 @@ export const priceLevelRulesApi = {
   },
 };
 
+export const priceLevelItemsApi = {
+  getAll: async (priceLevelId: number): Promise<PriceLevelItemResponse[]> => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items`);
+    return parseResponse(res);
+  },
+  upsert: async (
+    priceLevelId: number,
+    data: {
+      productId: number;
+      overrideType: 'rule_discount' | 'rule_markup' | 'custom_price';
+      adjustmentPercentage?: number;
+      customPrice?: number;
+      justification?: string;
+    }
+  ): Promise<PriceLevelItemResponse> => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return parseResponse(res);
+  },
+  delete: async (priceLevelId: number, productId: number) => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}`, {
+      method: 'DELETE',
+    });
+    return parseResponse(res);
+  },
+  approve: async (priceLevelId: number, productId: number, approvedBy?: string): Promise<PriceLevelItemResponse> => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvedBy }),
+    });
+    return parseResponse(res);
+  },
+  reject: async (
+    priceLevelId: number,
+    productId: number,
+    data: {
+      approvedBy?: string;
+      justification: string;
+    }
+  ): Promise<PriceLevelItemResponse> => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return parseResponse(res);
+  },
+  bulkApprove: async (priceLevelId: number, approvedBy?: string): Promise<{ approved: number }> => {
+    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/bulk-approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvedBy }),
+    });
+    return parseResponse(res);
+  },
+};
+
 export const customersApi = {
   getAll: async () => {
     const res = await fetch(`${API_BASE}/customers`);
-    return parseResponse(res);
-  },
-  create: async (data: { name: string; priceLevelId: number; allowSpecialPricing?: boolean }) => {
-    const res = await fetch(`${API_BASE}/customers`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return parseResponse(res);
-  },
-  update: async (id: number, data: { name: string; priceLevelId: number; allowSpecialPricing?: boolean }) => {
-    const res = await fetch(`${API_BASE}/customers/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return parseResponse(res);
-  },
-  delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/customers/${id}`, {
-      method: 'DELETE',
-    });
-    return parseResponse(res);
-  },
-  getCustomPrices: async (customerId: number) => {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/custom-prices`);
-    return parseResponse(res);
-  },
-  setCustomPrice: async (
-    customerId: number,
-    data: {
-      productId: number;
-      customPrice: number;
-      overrideType?: 'discount' | 'markup' | 'custom';
-      discountPercentage?: number;
-      markupPercentage?: number;
-      status?: string;
-      approvedBy?: string;
-      approvedAt?: string;
-      justification?: string;
-      createdBy?: string;
-    }
-  ) => {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/custom-prices`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    return parseResponse(res);
-  },
-  deleteCustomPrice: async (customerId: number, productId: number) => {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/custom-prices/${productId}`, {
-      method: 'DELETE',
-    });
-    return parseResponse(res);
-  },
-  approveCustomPrice: async (customerId: number, productId: number, data?: { approvedBy?: string }) => {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/custom-prices/${productId}/approve`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data || {}),
-    });
-    return parseResponse(res);
-  },
-  rejectCustomPrice: async (
-    customerId: number,
-    productId: number,
-    data?: { approvedBy?: string; justification?: string }
-  ) => {
-    const res = await fetch(`${API_BASE}/customers/${customerId}/custom-prices/${productId}/reject`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data || {}),
-    });
     return parseResponse(res);
   },
 };
@@ -393,96 +597,19 @@ export const priceListsApi = {
     }
     return res.json();
   },
+};
 
-  getById: async (id: number) => {
-    const res = await fetch(`${API_BASE}/price-lists/${id}`);
-    if (!res.ok) {
-      throw new Error('Failed to fetch price list');
-    }
-    return res.json();
+export const demoModeApi = {
+  get: async (): Promise<DemoModeState> => {
+    const res = await fetch(`${API_BASE}/demo-mode`);
+    return parseResponse(res);
   },
-
-  getExpiryMonitor: async (days = 30) => {
-    const res = await fetch(`${API_BASE}/price-lists/expiry-monitor?days=${encodeURIComponent(days)}`);
-    if (!res.ok) {
-      throw new Error('Failed to fetch expiry reminders');
-    }
-    return res.json();
-  },
-
-  create: async (data: {
-    name: string;
-    priceLevelId: number;
-    selectedPriceLevelIds?: number[];
-    customerId?: number;
-    generationMode?: 'byPriceLevel' | 'byCustomer';
-    validFrom: string;
-    validUntil?: string;
-    products: number[];
-  }) => {
-    const res = await fetch(`${API_BASE}/price-lists`, {
+  set: async (demoMode: boolean): Promise<DemoModeState> => {
+    const res = await fetch(`${API_BASE}/demo-mode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ demoMode }),
     });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to create price list');
-    }
-    return res.json();
-  },
-
-  update: async (
-    id: number,
-    data: {
-      name?: string;
-      validFrom?: string;
-      validUntil?: string | null;
-      status?: 'draft' | 'active' | 'expired' | 'archived';
-      selectedPriceLevelIds?: number[];
-    }
-  ) => {
-    const res = await fetch(`${API_BASE}/price-lists/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({}));
-      throw new Error(error.error || 'Failed to update price list');
-    }
-    return res.json();
-  },
-
-  updateItems: async (
-    id: number,
-    data: {
-      items: Array<{
-        id: number;
-        finalPrice: number;
-        notes?: string;
-      }>;
-    }
-  ) => {
-    const res = await fetch(`${API_BASE}/price-lists/${id}/items`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({}));
-      throw new Error(error.error || 'Failed to update price list items');
-    }
-    return res.json();
-  },
-
-  delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/price-lists/${id}`, {
-      method: 'DELETE',
-    });
-    if (!res.ok) {
-      throw new Error('Failed to delete price list');
-    }
-    return res.json();
+    return parseResponse(res);
   },
 };

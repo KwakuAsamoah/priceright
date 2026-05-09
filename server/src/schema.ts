@@ -35,6 +35,7 @@ export const materials = sqliteTable('materials', {
   name: text('name').notNull(),
   sku: text('sku'),
   description: text('description'),
+  materialType: text('material_type').notNull().default('primary'),
   category: text('category').notNull(),
   unit: text('unit').notNull(),
   bulkQuantity: real('bulk_quantity').notNull(),
@@ -43,10 +44,22 @@ export const materials = sqliteTable('materials', {
   priceInPurchaseCurrency: real('price_in_purchase_currency').notNull(),
   priceInBaseCurrency: real('price_in_base_currency').notNull(),
   unitPrice: real('unit_price').notNull(),
+  overheadPercentage: real('overhead_percentage').notNull().default(0),
+  marginPercentage: real('margin_percentage').notNull().default(0),
+  yieldPercentage: real('yield_percentage').notNull().default(100),
+  calculatedCostPerUnit: real('calculated_cost_per_unit').notNull().default(0),
   supplier: text('supplier').notNull(),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export const intermediateMaterialBom = sqliteTable('intermediate_material_bom', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  intermediateMaterialId: integer('intermediate_material_id').notNull().references(() => materials.id, { onDelete: 'cascade' }),
+  componentMaterialId: integer('component_material_id').notNull().references(() => materials.id, { onDelete: 'cascade' }),
+  quantity: real('quantity').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
 
 // Products table
@@ -66,6 +79,10 @@ export const products = sqliteTable('products', {
   approvedPrice: real('approved_price'),
   approvedBy: text('approved_by'),
   approvedAt: integer('approved_at', { mode: 'timestamp' }),
+  approvedPriceExpiresAt: text('approved_price_expires_at'),
+  priceExpiryNotifiedAt: text('price_expiry_notified_at'),
+  needsReviewReason: text('needs_review_reason'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
@@ -81,6 +98,32 @@ export const priceLevels = sqliteTable('price_levels', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),
 });
+
+export const priceLevelItems = sqliteTable('price_level_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  priceLevelId: integer('price_level_id')
+    .notNull()
+    .references(() => priceLevels.id, { onDelete: 'cascade' }),
+  productId: integer('product_id')
+    .notNull()
+    .references(() => products.id, { onDelete: 'cascade' }),
+  overrideType: text('override_type').notNull().default('rule_discount'),
+  adjustmentPercentage: real('adjustment_percentage'),
+  customPrice: real('custom_price'),
+  status: text('status').notNull().default('pending'),
+  approvedBy: text('approved_by'),
+  approvedAt: integer('approved_at', { mode: 'timestamp' }),
+  justification: text('justification'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export type PriceLevelItem = typeof priceLevelItems.$inferSelect;
+export type NewPriceLevelItem = typeof priceLevelItems.$inferInsert;
 
 export const customers = sqliteTable('customers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -155,3 +198,17 @@ export const priceListItems = sqliteTable('price_list_items', {
   notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
+
+export const activityLog = sqliteTable('activity_log', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  entityType: text('entity_type').notNull(),
+  entityId: integer('entity_id'),
+  entityName: text('entity_name'),
+  action: text('action').notNull(),
+  details: text('details'),
+  performedBy: text('performed_by'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
+export type ActivityLogEntry = typeof activityLog.$inferSelect;
+export type NewActivityLogEntry = typeof activityLog.$inferInsert;

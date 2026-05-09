@@ -95,4 +95,5 @@ For a concrete deployment path using Render (API) + Vercel (frontend), see:
 
 - `PORT` (default: `3000`)
 - `CORS_ORIGIN` (default includes localhost dev frontend)
+- `CSP_CONNECT_SRC` (optional; default: `'self'`, comma-separated CSP `connect-src` sources)
 - backup-related vars in `server/.env.example`

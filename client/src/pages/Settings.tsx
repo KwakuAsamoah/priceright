@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, CheckCircle2, Clock3, Coins, HardDrive, Package, Plus, Trash2 } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, priceLevelRulesApi, backupApi, productsApi, materialsApi } from '../api';
+import { Calculator, CheckCircle2, Clock3, Database, HardDrive, ListTree, Package, Plus, Settings2, Trash2, WalletCards, Wrench } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi } from '../api';
+import AppToast from '../components/AppToast';
+import useAppToast from '../hooks/useAppToast';
+import { useDemoMode } from '../context/DemoModeContext';
 
 interface Currency {
   id: number;
@@ -43,6 +47,17 @@ interface RateSaveBanner {
   message: string;
   reminder?: string;
 }
+
+type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups' | 'advanced';
+
+const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
+  { key: 'general', label: 'General', icon: Settings2 },
+  { key: 'pricing', label: 'Pricing Engine', icon: Calculator },
+  { key: 'currencies', label: 'Currencies & Rates', icon: WalletCards },
+  { key: 'master-data', label: 'Master Data', icon: ListTree },
+  { key: 'data-backups', label: 'Data & Backups', icon: Database },
+  { key: 'advanced', label: 'Advanced', icon: Wrench },
+];
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -91,6 +106,7 @@ function countByNormalized(values: string[]): Record<string, number> {
 }
 
 export default function Settings() {
+  const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrency, setBaseCurrency] = useState<string>('');
@@ -102,17 +118,6 @@ export default function Settings() {
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
   const [isSavingBranding, setIsSavingBranding] = useState(false);
   const [brandingMessage, setBrandingMessage] = useState('');
-  // Price Level Rules State
-  const [priceRules, setPriceRules] = useState<any[]>([]);
-  const [showAddRuleModal, setShowAddRuleModal] = useState(false);
-  const [editingRule, setEditingRule] = useState<any>(null);
-  const [ruleFormData, setRuleFormData] = useState({
-    name: '',
-    adjustmentType: 'discount' as 'discount' | 'markup',
-    adjustmentPercentage: '',
-    description: '',
-  });
-
   // Overhead Calculator State
   const [overheadInputs, setOverheadInputs] = useState({
     totalOverhead: '',
@@ -132,6 +137,7 @@ export default function Settings() {
   const [isSavingRate, setIsSavingRate] = useState(false);
   const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
   const [rateSaveBanner, setRateSaveBanner] = useState<RateSaveBanner | null>(null);
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const [productCategoriesInput, setProductCategoriesInput] = useState('');
   const [materialCategoriesInput, setMaterialCategoriesInput] = useState('');
   const [materialUnitsInput, setMaterialUnitsInput] = useState('');
@@ -140,6 +146,25 @@ export default function Settings() {
   const [productCategoryCounts, setProductCategoryCounts] = useState<Record<string, number>>({});
   const [materialCategoryCounts, setMaterialCategoryCounts] = useState<Record<string, number>>({});
   const [materialUnitCounts, setMaterialUnitCounts] = useState<Record<string, number>>({});
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    try {
+      const saved = window.localStorage.getItem('priceright_settings_active_tab');
+      if (
+        saved === 'general'
+        || saved === 'pricing'
+        || saved === 'currencies'
+        || saved === 'master-data'
+        || saved === 'data-backups'
+        || saved === 'advanced'
+      ) {
+        return saved;
+      }
+    } catch {
+      // Ignore storage errors and use default.
+    }
+    return 'general';
+  });
 
   const configuredProductCategories = useMemo(
     () => normalizeMasterListInput(productCategoriesInput),
@@ -153,13 +178,6 @@ export default function Settings() {
     () => normalizeMasterListInput(materialUnitsInput),
     [materialUnitsInput]
   );
-
-  function formatPercentMaxTwo(value: number) {
-    return Number(value || 0).toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    });
-  }
 
   useEffect(() => {
     loadData();
@@ -182,18 +200,16 @@ export default function Settings() {
 
 async function loadData() {
     try {
-      const [currenciesData, ratesData, settingsData, rulesData, backupData, productsData, materialsData] = await Promise.all([
+      const [currenciesData, ratesData, settingsData, backupData, productsData, materialsData] = await Promise.all([
         currenciesApi.getAll(),
         exchangeRatesApi.getAll(),
         settingsApi.getAll(),
-        priceLevelRulesApi.getAll(),
         backupApi.getStatus(),
         productsApi.getAll(),
         materialsApi.getAll(),
       ]);
       setCurrencies(currenciesData);
       setExchangeRates(ratesData);
-      setPriceRules(rulesData);
       setBackupStatus(backupData);
       
       const baseSetting = settingsData.find((s: any) => s.settingKey === 'baseCurrency');
@@ -326,10 +342,10 @@ async function loadData() {
   async function handleSaveDefaultOverhead() {
     try {
       await settingsApi.save({ settingKey: 'defaultOverhead', settingValue: defaultOverhead });
-      alert('Default overhead rate saved successfully!');
+      showToastMessage('Default overhead rate saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving default overhead:', error);
-      alert('Failed to save default overhead rate');
+      showToastMessage('Failed to save default overhead rate', 'error');
     }
   }
 
@@ -441,77 +457,48 @@ async function loadData() {
     setDefaultOverhead(calculatedRate.toString());
   }
 
-// Price Level Rules Functions
-  async function handleSavePriceRule(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleDemoModeToggle() {
+    if (demoModeLoading || isSwitchingMode) {
+      return;
+    }
+
+    const nextMode = !isDemoMode;
+    const confirmMessage = nextMode
+      ? 'Enable Demo Mode? The app will start reading from demo.db sample data.'
+      : 'Switch to Live Data? The app will start reading from priceright.db real data.';
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsSwitchingMode(true);
     try {
-      const data = {
-        name: ruleFormData.name,
-        adjustmentType: ruleFormData.adjustmentType,
-        adjustmentPercentage: parseFloat(ruleFormData.adjustmentPercentage),
-        description: ruleFormData.description,
-      };
-
-      if (Number.isNaN(data.adjustmentPercentage) || data.adjustmentPercentage < 0) {
-        alert('Adjustment percentage must be a non-negative number');
-        return;
-      }
-
-      if (data.adjustmentType === 'discount' && data.adjustmentPercentage > 100) {
-        alert('Discount percentage must be between 0 and 100');
-        return;
-      }
-
-      if (data.adjustmentType === 'markup' && data.adjustmentPercentage > 1000) {
-        alert('Markup percentage must be between 0 and 1000');
-        return;
-      }
-
-      if (editingRule) {
-        await priceLevelRulesApi.update(editingRule.id, data);
-      } else {
-        await priceLevelRulesApi.create(data);
-      }
-
-      setShowAddRuleModal(false);
-      setEditingRule(null);
-      setRuleFormData({ name: '', adjustmentType: 'discount', adjustmentPercentage: '', description: '' });
-      loadData();
+      await setDemoMode(nextMode);
+      window.location.reload();
     } catch (error) {
-      console.error('Error saving price rule:', error);
-      alert('Failed to save price rule');
+      console.error('Failed to switch data mode:', error);
+      showToastMessage('Failed to switch data mode', 'error');
+    } finally {
+      setIsSwitchingMode(false);
     }
   }
 
-  async function handleDeletePriceRule(id: number) {
-    if (window.confirm('Delete this pricing rule? This cannot be undone.')) {
-      try {
-        await priceLevelRulesApi.delete(id);
-        loadData();
-      } catch (error) {
-        console.error('Error deleting price rule:', error);
-        alert('Failed to delete price rule');
-      }
+  function handleTabChange(tab: SettingsTab) {
+    setActiveTab(tab);
+    try {
+      window.localStorage.setItem('priceright_settings_active_tab', tab);
+    } catch {
+      // Ignore storage errors.
     }
   }
 
-  function handleEditPriceRule(rule: any) {
-    setEditingRule(rule);
-    setRuleFormData({
-      name: rule.name,
-      adjustmentType: rule.adjustmentType || 'discount',
-      adjustmentPercentage: String(rule.adjustmentPercentage ?? 0),
-      description: rule.description || '',
-    });
-    setShowAddRuleModal(true);
-  }
-
+// Price Level Rules Functions
   return (
-    <div className="app-page">
+    <div className="app-page settings-page">
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       {/* Header */}
       <div className="app-page-header">
         <h1 className="app-page-title">Settings</h1>
-        <p className="app-page-subtitle">Manage currencies, exchange rates, and default values</p>
       </div>
 
       <div className="app-page-content" style={{ paddingTop: '24px' }}>
@@ -557,10 +544,32 @@ async function loadData() {
           </div>
         )}
 
-        {/* Two Column Layout */}
+        <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ marginBottom: '6px' }}>
+          {SETTINGS_TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`app-section-tab ${isActive ? 'is-active' : ''}`}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleTabChange(tab.key)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {(activeTab === 'general' || activeTab === 'pricing' || activeTab === 'master-data') && (
         <div className="app-settings-grid">
-          {/* Left Column */}
           <div>
+            {activeTab === 'general' && (
+            <>
             <div className="app-card app-settings-card">
               <h2>Company Branding</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -623,7 +632,6 @@ async function loadData() {
               </div>
             </div>
 
-            {/* Base Currency Section */}
             <div className="app-card app-settings-card">
               <h2>Base Currency</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -643,8 +651,10 @@ async function loadData() {
                 ))}
               </select>
             </div>
+            </>
+            )}
 
-            {/* Default Overhead Section */}
+            {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2>Default Overhead Rate</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -683,7 +693,9 @@ async function loadData() {
                 </button>
               </div>
             </div>
+            )}
 
+            {activeTab === 'master-data' && (
             <div className="app-card app-settings-card">
               <h2>Master Data</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -773,11 +785,11 @@ async function loadData() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
-          {/* Right Column */}
           <div>
-            {/* Overhead Calculator Section - Compact */}
+            {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2 style={{ marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Calculator size={18} strokeWidth={2} />
@@ -787,13 +799,11 @@ async function loadData() {
                 (Overhead ÷ Material Costs) × 100 = Rate %
               </p>
 
-              {/* Quick Guidance */}
               <div className="app-settings-note">
                 <strong style={{ color: '#1f2937' }}>Include:</strong> Rent, utilities, salaries, maintenance, transport, admin<br/>
                 <strong style={{ color: '#1f2937' }}>Exclude:</strong> Materials, capital equipment, profit, debt
               </div>
 
-              {/* Input Fields - Compact */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '600' }}>
@@ -829,11 +839,10 @@ async function loadData() {
                 </div>
               </div>
 
-              {/* Results - Compact */}
-              <div style={{ 
-                backgroundColor: '#f0fdf4', 
-                border: '2px solid #10b981', 
-                borderRadius: '6px', 
+              <div style={{
+                backgroundColor: '#f0fdf4',
+                border: '2px solid #10b981',
+                borderRadius: '6px',
                 padding: '12px',
                 marginBottom: '12px',
                 textAlign: 'center'
@@ -861,10 +870,34 @@ async function loadData() {
                 Use as Default
               </button>
             </div>
+            )}
+          </div>
+        </div>
+        )}
+
+        {activeTab === 'data-backups' && (
+        <>
+        <div className="app-card app-settings-card" style={{ marginBottom: '16px' }}>
+          <h2 title="Toggle between demo data and your live business data. Demo mode uses a separate SQLite file.">
+            Data Mode
+          </h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
+            Current mode: <strong>{demoModeLoading ? 'Loading...' : isDemoMode ? 'Demo Data (demo.db)' : 'Live Data (priceright.db)'}</strong>
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isDemoMode}
+                disabled={demoModeLoading || isSwitchingMode}
+                onChange={handleDemoModeToggle}
+              />
+              <span>{isDemoMode ? 'Demo Mode ON' : 'Demo Mode OFF'}</span>
+            </label>
+            {isSwitchingMode && <span style={{ fontSize: '12px', color: '#64748b' }}>Switching data mode...</span>}
           </div>
         </div>
 
-        {/* Backup Section */}
         <div className="app-card app-settings-card">
           <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Database Backups</h2>
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -912,125 +945,10 @@ async function loadData() {
             )}
           </div>
         </div>
+        </>
+        )}
 
-        {/* Price Level Rules Section */}
-        <div className="app-card app-settings-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '4px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Coins size={18} strokeWidth={2} /> Price Level Rules</h2>
-              <p style={{ color: '#64748b', fontSize: '14px' }}>
-                Define discount or markup percentages for each price level across all approved products.
-              </p>
-            </div>
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setEditingRule(null);
-                setRuleFormData({ name: '', adjustmentType: 'discount', adjustmentPercentage: '', description: '' });
-                setShowAddRuleModal(true);
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Plus size={14} strokeWidth={2} />
-              Add Price Level
-            </button>
-          </div>
-
-          <div className="app-table-wrap">
-          <table className="app-table">
-            <thead>
-              <tr>
-                <th style={{ textAlign: 'left' }}>Price Level</th>
-                <th style={{ textAlign: 'left' }}>Adjustment</th>
-                <th style={{ textAlign: 'left' }}>Preview (GHS 100)</th>
-                <th style={{ textAlign: 'left' }}>Description</th>
-                <th style={{ textAlign: 'center' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {priceRules.map((rule) => (
-                <tr key={rule.id}>
-                  <td style={{ fontWeight: '600' }}>{rule.name}</td>
-                  <td>
-                    {(() => {
-                      const adjustmentType = rule.adjustmentType || 'discount';
-                      const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
-                      const isDiscount = adjustmentType === 'discount';
-                      return (
-                    <span style={{
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      backgroundColor: isDiscount ? '#fee2e2' : '#d1fae5',
-                      color: isDiscount ? '#991b1b' : '#065f46',
-                      fontWeight: '600',
-                    }}>
-                      {isDiscount ? 'Discount' : 'Markup'} {formatPercentMaxTwo(adjustmentPercentage)}%
-                    </span>
-                      )
-                    })()}
-                  </td>
-                  <td style={{ color: '#64748b' }}>
-                    {(() => {
-                      const adjustmentType = rule.adjustmentType || 'discount';
-                      const adjustmentPercentage = Number(rule.adjustmentPercentage || 0);
-                      const finalPrice = adjustmentType === 'markup'
-                        ? 100 * (1 + adjustmentPercentage / 100)
-                        : 100 * (1 - adjustmentPercentage / 100);
-                      return `GHS 100 → GHS ${finalPrice.toFixed(2)}`;
-                    })()}
-                  </td>
-                  <td style={{ color: '#64748b' }}>
-                    {rule.description || '-'}
-                  </td>
-                  <td style={{ textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                      <button
-                        onClick={() => handleEditPriceRule(rule)}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '12px',
-                          backgroundColor: '#eff6ff',
-                          color: '#3b82f6',
-                          borderRadius: '4px',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeletePriceRule(rule.id)}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '12px',
-                          backgroundColor: '#fee2e2',
-                          color: '#991b1b',
-                          borderRadius: '4px',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-
-          {priceRules.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
-              <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}><Coins size={42} strokeWidth={1.8} /></div>
-              <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>No price level rules yet</div>
-              <div style={{ fontSize: '14px' }}>Add rules to define different price levels from approved base prices</div>
-            </div>
-          )}
-        </div>
-
-        {/* Currencies Section */}
-        {/* Currencies Section */}
+        {activeTab === 'currencies' && (
         <div className="app-card app-settings-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2>Currencies</h2>
@@ -1078,20 +996,6 @@ async function loadData() {
                           }}
                         />
                         <button
-                          onClick={() => handleUpdateRate(currency.id)}
-                          disabled={isSavingRate && savingRateCurrencyId === currency.id}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: (isSavingRate && savingRateCurrencyId === currency.id) ? '#cbd5e1' : '#3b82f6',
-                            color: 'white',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: (isSavingRate && savingRateCurrencyId === currency.id) ? 'not-allowed' : 'pointer',
-                          }}
-                        >
-                          {(isSavingRate && savingRateCurrencyId === currency.id) ? 'Saving...' : 'Save'}
-                        </button>
-                        <button
                           onClick={() => {
                             setEditingRate(null);
                             setRateValue('');
@@ -1106,6 +1010,20 @@ async function loadData() {
                           }}
                         >
                           Cancel
+                        </button>
+                        <button
+                          onClick={() => handleUpdateRate(currency.id)}
+                          disabled={isSavingRate && savingRateCurrencyId === currency.id}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: (isSavingRate && savingRateCurrencyId === currency.id) ? '#cbd5e1' : '#3b82f6',
+                            color: 'white',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: (isSavingRate && savingRateCurrencyId === currency.id) ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {(isSavingRate && savingRateCurrencyId === currency.id) ? 'Saving...' : 'Save'}
                         </button>
                       </div>
                     ) : (
@@ -1164,8 +1082,9 @@ async function loadData() {
                             try {
                               await currenciesApi.delete(currency.id);
                               loadData();
+                              showToastMessage(`${currency.code} deleted`, 'success');
                             } catch (error) {
-                              alert('Failed to delete currency');
+                              showToastMessage('Failed to delete currency', 'error');
                             }
                           }
                         }}
@@ -1193,6 +1112,19 @@ async function loadData() {
           </table>
           </div>
         </div>
+        )}
+
+        {activeTab === 'advanced' && (
+        <div className="app-card app-settings-card">
+          <h2>Advanced</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '8px' }}>
+            This section is reserved for maintenance and advanced operational controls.
+          </p>
+          <div style={{ fontSize: '12px', color: '#475569' }}>
+            Add future items here, such as audit tools, migration helpers, and diagnostics.
+          </div>
+        </div>
+        )}
       </div>
 
       {/* Add Currency Modal */}
@@ -1260,99 +1192,6 @@ async function loadData() {
                   type="submit"
                 >
                   Add Currency
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-{/* Add/Edit Price Level Rule Modal */}
-      {showAddRuleModal && (
-        <div
-          className="app-modal-overlay"
-        >
-          <div
-            className="app-modal"
-            style={{ maxWidth: '500px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="app-modal-title">
-              {editingRule ? 'Edit Price Level Rule' : 'Add Price Level Rule'}
-            </h2>
-            <form onSubmit={handleSavePriceRule}>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Price Level Name *
-                </label>
-                <input
-                  className="app-control"
-                  type="text"
-                  required
-                  value={ruleFormData.name}
-                  onChange={(e) => setRuleFormData({ ...ruleFormData, name: e.target.value })}
-                  placeholder="e.g., Wholesale, Retail, VIP"
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Adjustment *
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  <select
-                    className="app-control"
-                    value={ruleFormData.adjustmentType}
-                    onChange={(e) => setRuleFormData({ ...ruleFormData, adjustmentType: e.target.value as 'discount' | 'markup' })}
-                  >
-                    <option value="discount">Discount</option>
-                    <option value="markup">Markup</option>
-                  </select>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      className="app-control"
-                      type="number"
-                      step="0.01"
-                      required
-                      value={ruleFormData.adjustmentPercentage}
-                      onChange={(e) => setRuleFormData({ ...ruleFormData, adjustmentPercentage: e.target.value })}
-                      placeholder="15"
-                      style={{ paddingRight: '28px' }}
-                    />
-                    <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
-                  </div>
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-                  {`${ruleFormData.name || 'Price Level'}: ${ruleFormData.adjustmentType === 'markup' ? 'Markup' : 'Discount'} ${ruleFormData.adjustmentPercentage || 0}% (GHS 100 → GHS ${(ruleFormData.adjustmentType === 'markup' ? 100 * (1 + Number(ruleFormData.adjustmentPercentage || 0) / 100) : 100 * (1 - Number(ruleFormData.adjustmentPercentage || 0) / 100)).toFixed(2)})`}
-                </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Description
-                </label>
-                <textarea
-                  className="app-control"
-                  value={ruleFormData.description}
-                  onChange={(e) => setRuleFormData({ ...ruleFormData, description: e.target.value })}
-                  placeholder="e.g., 10% discount for bulk buyers"
-                  style={{ minHeight: '60px' }}
-                />
-              </div>
-              <div className="app-modal-actions">
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => {
-                    setShowAddRuleModal(false);
-                    setEditingRule(null);
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                >
-                  {editingRule ? 'Update Rule' : 'Add Rule'}
                 </button>
               </div>
             </form>

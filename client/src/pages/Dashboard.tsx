@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -19,13 +19,14 @@ import {
   customersApi,
   exchangeRatesApi,
   materialsApi,
-  priceListsApi,
+  priceLevelItemsApi,
+  priceLevelRulesApi,
   productsApi,
   settingsApi,
+  type PriceLevelItemResponse,
 } from '../api';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'rejected' | 'needs_review';
-type SpecialStatus = 'pending' | 'approved' | 'rejected';
 type BannerTone = 'success' | 'error';
 
 interface Product {
@@ -34,11 +35,22 @@ interface Product {
   category?: string | null;
   approvalStatus?: ProductApprovalStatus | null;
   approvedPrice?: number | null;
+  productionMode?: 'single' | 'batch' | null;
+  batchYield?: number | null;
   currentSellingPrice?: number | null;
   profitMargin?: number | null;
   profit_margin?: number | null;
   approvedAt?: string | number | null;
+  approvedPriceExpiresAt?: string | null;
+  priceExpiryNotifiedAt?: string | null;
+  needsReviewReason?: string | null;
+  daysUntilExpiry?: number | null;
   updatedAt?: string | number | null;
+  isActive?: boolean;
+}
+
+interface ProductCostSnapshot {
+  totalCost: string;
 }
 
 interface Material {
@@ -51,12 +63,7 @@ interface Material {
 interface Customer {
   id: number;
   name: string;
-  allowSpecialPricing: boolean;
-}
-
-interface PriceList {
-  id: number;
-  status: 'draft' | 'active' | 'expired' | 'archived';
+  priceLevelId?: number | null;
 }
 
 interface ExchangeRate {
@@ -67,20 +74,6 @@ interface ExchangeRate {
   updatedAt?: string | number | null;
 }
 
-interface SpecialPricingRow {
-  id: number;
-  customerId: number;
-  customerName: string;
-  productId: number;
-  productName: string;
-  customPrice: number;
-  productionCost?: number | null;
-  marginImpactPercentage?: number | null;
-  status: SpecialStatus;
-  approvedAt?: string | number | null;
-  createdAt?: string | number | null;
-}
-
 interface BannerState {
   tone: BannerTone;
   message: string;
@@ -88,9 +81,16 @@ interface BannerState {
 
 interface ActivityItem {
   id: string;
-  type: 'approved' | 'review' | 'special' | 'exchange';
+  type: 'approved' | 'review' | 'exchange';
   text: string;
   timestamp: Date;
+}
+
+interface PriceLevelSummary {
+  exportReadyLevels: number;
+  fullyApprovedLevels: number;
+  levelsWithPendingItems: number;
+  pendingItems: number;
 }
 
 function toNumber(value: unknown): number {
@@ -123,20 +123,13 @@ function getProductStatus(product: Product): ProductApprovalStatus {
   return 'pending';
 }
 
-function formatNow(date: Date): string {
-  const dayPart = new Intl.DateTimeFormat('en-GB', {
+function formatCurrentDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(date);
-  const timePart = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date);
-
-  return `${dayPart} · ${timePart}`;
 }
 
 function relativeTime(date: Date): string {
@@ -163,37 +156,48 @@ export default function Dashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
-  const [specialPricingRows, setSpecialPricingRows] = useState<SpecialPricingRow[]>([]);
+  const [productionCostByProductId, setProductionCostByProductId] = useState<Record<number, number>>({});
+  const [priceLevelsCount, setPriceLevelsCount] = useState(0);
+  const [priceLevelSummary, setPriceLevelSummary] = useState<PriceLevelSummary>({
+    exportReadyLevels: 0,
+    fullyApprovedLevels: 0,
+    levelsWithPendingItems: 0,
+    pendingItems: 0,
+  });
   const [banner, setBanner] = useState<BannerState | null>(null);
-  const [now, setNow] = useState(new Date());
+  const [currentDateLabel] = useState(() => formatCurrentDate(new Date()));
   const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(timer);
+    let isMounted = true;
+    loadDashboardData(isMounted);
+    return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  async function loadDashboardData() {
+  async function loadDashboardData(isMounted = true) {
     try {
       setLoading(true);
       setError('');
 
-      const [productsData, materialsData, customersData, priceListsData, exchangeRatesData, settingsData] = await Promise.all([
+      try {
+        await productsApi.processPriceExpiry();
+      } catch {
+        // Ignore this background call and continue with dashboard load.
+      }
+
+      const [productsData, materialsData, customersData, exchangeRatesData, settingsData, priceLevelsData] = await Promise.all([
         productsApi.getAll() as Promise<Product[]>,
         materialsApi.getAll() as Promise<Material[]>,
         customersApi.getAll() as Promise<Customer[]>,
-        priceListsApi.getAll() as Promise<PriceList[]>,
         exchangeRatesApi.getAll() as Promise<ExchangeRate[]>,
         settingsApi.getAll() as Promise<Array<{ settingKey: string; settingValue: string }>>,
+        priceLevelRulesApi.getAll() as Promise<Array<{ id: number; isActive?: boolean }>>,
       ]);
+
+      if (!isMounted) return;
 
       const baseSetting = (settingsData || []).find((entry) => entry.settingKey === 'baseCurrency');
       setBaseCurrencyCode(baseSetting?.settingValue || 'GHS');
@@ -202,45 +206,92 @@ export default function Dashboard() {
       setCompanyName(companyNameSetting?.settingValue || '');
       setCompanyLogoDataUrl(companyLogoSetting?.settingValue || '');
 
-      const specialPricingNested = await Promise.all(
-        (customersData || []).map(async (customer) => {
+      const approvedActiveProducts = (productsData || []).filter(
+        (product) => product.isActive === true && getProductStatus(product) === 'approved' && toNumber(product.approvedPrice) > 0,
+      );
+
+      const costEntries = await Promise.all(
+        approvedActiveProducts.map(async (product) => {
           try {
-            const rows = await customersApi.getCustomPrices(customer.id);
-            const typedRows = Array.isArray(rows) ? rows : [];
-            return typedRows.map((row) => ({
-              ...row,
-              customerId: customer.id,
-              customerName: customer.name,
-            })) as SpecialPricingRow[];
+            const cost = await productsApi.calculateCost(product.id) as ProductCostSnapshot;
+            const rawTotalCost = toNumber(cost.totalCost);
+            const batchYield = product.productionMode === 'batch' ? Math.max(1, toNumber(product.batchYield)) : 1;
+            const productionCostPerUnit = rawTotalCost > 0 ? rawTotalCost / batchYield : 0;
+            return { productId: product.id, productionCost: productionCostPerUnit };
           } catch {
-            return [] as SpecialPricingRow[];
+            return { productId: product.id, productionCost: 0 };
           }
         }),
       );
 
-      const allSpecialRows = specialPricingNested.flat();
+      if (!isMounted) return;
+
+      const productionCostMap: Record<number, number> = {};
+      costEntries.forEach((entry) => {
+        productionCostMap[entry.productId] = entry.productionCost;
+      });
+
+      const levelItemsByLevel = await Promise.all(
+        (priceLevelsData || []).map(async (level) => {
+          try {
+            const items = await priceLevelItemsApi.getAll(level.id) as PriceLevelItemResponse[];
+            return { levelId: level.id, items };
+          } catch {
+            return { levelId: level.id, items: [] as PriceLevelItemResponse[] };
+          }
+        }),
+      );
+
+      if (!isMounted) return;
+
+      const nextPriceLevelSummary = levelItemsByLevel.reduce<PriceLevelSummary>((summary, entry) => {
+        const approvedItems = entry.items.filter((item) => item.status === 'approved');
+        const pendingItems = entry.items.filter((item) => item.status === 'pending');
+
+        if (approvedItems.length > 0) {
+          summary.exportReadyLevels += 1;
+        }
+        if (entry.items.length > 0 && approvedItems.length === entry.items.length) {
+          summary.fullyApprovedLevels += 1;
+        }
+        if (pendingItems.length > 0) {
+          summary.levelsWithPendingItems += 1;
+          summary.pendingItems += pendingItems.length;
+        }
+
+        return summary;
+      }, {
+        exportReadyLevels: 0,
+        fullyApprovedLevels: 0,
+        levelsWithPendingItems: 0,
+        pendingItems: 0,
+      });
 
       setProducts(productsData || []);
       setMaterials(materialsData || []);
       setCustomers(customersData || []);
-      setPriceLists(priceListsData || []);
       setExchangeRates(exchangeRatesData || []);
-      setSpecialPricingRows(allSpecialRows);
+      setProductionCostByProductId(productionCostMap);
+      setPriceLevelsCount(Array.isArray(priceLevelsData) ? priceLevelsData.length : 0);
+      setPriceLevelSummary(nextPriceLevelSummary);
     } catch (fetchError) {
+      if (!isMounted) return;
       setError('Could not load dashboard data. Please refresh the page.');
       console.error(fetchError);
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   }
 
   const productCounts = useMemo(() => {
+    const activeProducts = products.filter((product) => product.isActive !== false);
+    const inactiveCount = Math.max(0, products.length - activeProducts.length);
     let approved = 0;
     let pending = 0;
     let needsReview = 0;
     let rejected = 0;
 
-    products.forEach((product) => {
+    activeProducts.forEach((product) => {
       const status = getProductStatus(product);
       if (status === 'approved') approved += 1;
       else if (status === 'needs_review') needsReview += 1;
@@ -249,7 +300,9 @@ export default function Dashboard() {
     });
 
     return {
-      total: products.length,
+      total: activeProducts.length,
+      active: activeProducts.length,
+      inactive: inactiveCount,
       approved,
       pending,
       needsReview,
@@ -257,30 +310,83 @@ export default function Dashboard() {
     };
   }, [products]);
 
-  const specialPending = useMemo(
-    () => specialPricingRows.filter((row) => row.status === 'pending'),
-    [specialPricingRows],
-  );
+  const needsReviewBreakdown = useMemo(() => {
+    let costChanges = 0;
+    let priceExpired = 0;
+    let other = 0;
+
+    products.forEach((product) => {
+      if (product.isActive === false || getProductStatus(product) !== 'needs_review') {
+        return;
+      }
+
+      const reason = (product.needsReviewReason || '').toLowerCase();
+      if (reason === 'cost_changed') {
+        costChanges += 1;
+      } else if (reason === 'price_expired') {
+        priceExpired += 1;
+      } else {
+        other += 1;
+      }
+    });
+
+    return { costChanges, priceExpired, other };
+  }, [products]);
+
+  const upcomingPriceExpiries = useMemo(() => {
+    return products
+      .filter((product) => {
+        if (product.isActive === false) return false;
+        if (getProductStatus(product) !== 'approved') return false;
+        const daysLeft = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
+        return daysLeft !== null && daysLeft > 0 && daysLeft <= 30;
+      })
+      .sort((a, b) => {
+        const aDays = typeof a.daysUntilExpiry === 'number' ? a.daysUntilExpiry : 999;
+        const bDays = typeof b.daysUntilExpiry === 'number' ? b.daysUntilExpiry : 999;
+        return aDays - bDays;
+      })
+      .slice(0, 5);
+  }, [products]);
 
   const lowMarginProducts = useMemo(() => {
-    return products.filter((product) => {
-      if (getProductStatus(product) !== 'approved') return false;
-      const margin = toNumber(product.profitMargin ?? product.profit_margin);
-      return margin < 15;
-    });
-  }, [products]);
+    return products
+      .filter((product) => product.isActive === true && getProductStatus(product) === 'approved')
+      .map((product) => {
+        const currentSellingPrice = toNumber(product.currentSellingPrice);
+        const productionCost = toNumber(productionCostByProductId[product.id]);
+        const realisedMargin = currentSellingPrice > 0 && productionCost > 0
+          ? ((currentSellingPrice - productionCost) / currentSellingPrice) * 100
+          : null;
+
+        return {
+          product,
+          referencePrice: currentSellingPrice,
+          referencePriceLabel: 'Approved base price',
+          approvedPrice: toNumber(product.approvedPrice),
+          productionCost,
+          realisedMargin,
+        };
+      })
+      .filter((entry) => entry.realisedMargin !== null && (entry.realisedMargin as number) < 15)
+      .sort((a, b) => (a.realisedMargin as number) - (b.realisedMargin as number));
+  }, [products, productionCostByProductId]);
 
   const averageApprovedMargin = useMemo(() => {
-    const approved = products.filter((product) => getProductStatus(product) === 'approved');
-    if (approved.length === 0) return 0;
-    const sum = approved.reduce((acc, product) => acc + toNumber(product.profitMargin ?? product.profit_margin), 0);
-    return sum / approved.length;
-  }, [products]);
+    const realisedMargins = products
+      .filter((product) => product.isActive === true && getProductStatus(product) === 'approved')
+      .map((product) => {
+        const currentSellingPrice = toNumber(product.currentSellingPrice);
+        const productionCost = toNumber(productionCostByProductId[product.id]);
+        if (currentSellingPrice <= 0 || productionCost <= 0) return null;
+        return ((currentSellingPrice - productionCost) / currentSellingPrice) * 100;
+      })
+      .filter((margin): margin is number => margin !== null);
 
-  const customerSpecialEnabledCount = useMemo(
-    () => customers.filter((customer) => customer.allowSpecialPricing).length,
-    [customers],
-  );
+    if (realisedMargins.length === 0) return 0;
+    const sum = realisedMargins.reduce((acc, margin) => acc + margin, 0);
+    return sum / realisedMargins.length;
+  }, [products, productionCostByProductId]);
 
   const materialCounts = useMemo(() => {
     const byCode: Record<string, number> = {};
@@ -309,14 +415,22 @@ export default function Dashboard() {
     };
   }, [materials, baseCurrencyCode]);
 
+  const customersWithAssignedLevel = useMemo(
+    () => customers.filter((customer) => customer.priceLevelId != null).length,
+    [customers],
+  );
+
   const lowMarginTopTen = useMemo(() => {
-    return [...lowMarginProducts]
-      .map((product) => ({
-        product,
-        margin: toNumber(product.profitMargin ?? product.profit_margin),
-      }))
-      .sort((a, b) => a.margin - b.margin)
-      .slice(0, 10);
+    return lowMarginProducts
+      .slice(0, 10)
+      .map((entry) => ({
+        product: entry.product,
+        realisedMargin: entry.realisedMargin as number,
+        referencePrice: entry.referencePrice,
+        referencePriceLabel: entry.referencePriceLabel,
+        approvedPrice: entry.approvedPrice,
+        productionCost: entry.productionCost,
+      }));
   }, [lowMarginProducts]);
 
   const currencyExposureData = useMemo(() => {
@@ -332,27 +446,13 @@ export default function Dashboard() {
     return { segments, total };
   }, [materialCounts, baseCurrencyCode]);
 
-  const priceListCounts = useMemo(() => {
-    let active = 0;
-    let draft = 0;
-    let expired = 0;
-
-    priceLists.forEach((list) => {
-      if (list.status === 'active') active += 1;
-      if (list.status === 'draft') draft += 1;
-      if (list.status === 'expired') expired += 1;
-    });
-
-    return { active, draft, expired };
-  }, [priceLists]);
-
-  const priceListChartData = useMemo(() => {
+  const priceLevelChartData = useMemo(() => {
     return [
-      { key: 'active', label: 'Active', value: priceListCounts.active, color: '#16a34a' },
-      { key: 'draft', label: 'Draft', value: priceListCounts.draft, color: '#2563eb' },
-      { key: 'expired', label: 'Expired', value: priceListCounts.expired, color: '#f59e0b' },
+      { key: 'export-ready', label: 'Export-ready', value: priceLevelSummary.exportReadyLevels, color: '#16a34a' },
+      { key: 'fully-approved', label: 'Fully approved', value: priceLevelSummary.fullyApprovedLevels, color: '#2563eb' },
+      { key: 'pending-levels', label: 'Needs approval', value: priceLevelSummary.levelsWithPendingItems, color: '#f59e0b' },
     ];
-  }, [priceListCounts]);
+  }, [priceLevelSummary]);
 
   const currencyLookup = useMemo(() => {
     const map: Record<number, { code: string; symbol: string }> = {};
@@ -432,28 +532,6 @@ export default function Dashboard() {
       }
     });
 
-    specialPricingRows.forEach((entry) => {
-      const approvedAt = parseDate(entry.approvedAt ?? null);
-      if (approvedAt && approvedAt.getTime() >= sevenDaysAgo && entry.status === 'approved') {
-        events.push({
-          id: `special-approved-${entry.id}-${approvedAt.getTime()}`,
-          type: 'special',
-          text: `Special price approved for ${entry.customerName} on ${entry.productName}`,
-          timestamp: approvedAt,
-        });
-      }
-
-      const createdAt = parseDate(entry.createdAt ?? null);
-      if (createdAt && createdAt.getTime() >= sevenDaysAgo && entry.status === 'pending') {
-        events.push({
-          id: `special-pending-${entry.id}-${createdAt.getTime()}`,
-          type: 'special',
-          text: `New special pricing request for ${entry.customerName}`,
-          timestamp: createdAt,
-        });
-      }
-    });
-
     exchangeRates.forEach((rate) => {
       const changedAt = parseDate(rate.effectiveDate ?? rate.updatedAt ?? null);
       if (!changedAt || changedAt.getTime() < sevenDaysAgo) return;
@@ -470,15 +548,32 @@ export default function Dashboard() {
     return events
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 10);
-  }, [products, specialPricingRows, exchangeRates, currencyLookup]);
+  }, [products, exchangeRates, currencyLookup]);
 
   const isNewInstallation =
     products.length === 0
     && materials.length === 0
     && customers.length === 0
-    && priceLists.length === 0
-    && exchangeRates.length === 0
-    && specialPricingRows.length === 0;
+    && exchangeRates.length === 0;
+
+  const setupSteps = useMemo(() => {
+    const activeProducts = products.filter((product) => product.isActive !== false);
+    const hasActiveProducts = activeProducts.length > 0;
+    const allActiveProductsApproved = hasActiveProducts
+      && activeProducts.every((product) => getProductStatus(product) === 'approved');
+
+    return [
+      { key: 'materials', label: 'Materials', route: '/materials', complete: materials.length > 0 },
+      { key: 'products', label: 'Products', route: '/products', complete: products.length > 0 },
+      { key: 'approve', label: 'Approve Prices', route: '/products?approval=pending', complete: allActiveProductsApproved },
+      { key: 'levels', label: 'Price Levels', route: '/price-levels', complete: priceLevelsCount > 0 },
+      { key: 'customers', label: 'Customer Pricing', route: '/price-levels', complete: customers.length > 0 },
+      { key: 'lists', label: 'Price List Export', route: '/price-levels', complete: priceLevelSummary.exportReadyLevels > 0 },
+    ];
+  }, [materials.length, products, priceLevelsCount, customers.length, priceLevelSummary.exportReadyLevels]);
+
+  const firstIncompleteStepIndex = setupSteps.findIndex((step) => !step.complete);
+  const allSetupStepsComplete = firstIncompleteStepIndex === -1;
 
   const skeletonCards = (
     <div className="dashboard-stat-grid">
@@ -502,7 +597,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="app-page">
+      <div className="app-page app-uniform-numbers">
         <div className="app-page-header">
           <div className="app-header-row" style={{ alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -517,11 +612,10 @@ export default function Dashboard() {
               )}
               <div>
                 {companyName && <div className="app-page-subtitle" style={{ fontSize: '12px' }}>{companyName}</div>}
-                <h1 className="app-page-title" style={{ fontSize: '22px', fontWeight: 700 }}>Dashboard</h1>
-                <p className="app-page-subtitle" style={{ fontSize: '13px' }}>Pricing health overview</p>
+                <h1 className="app-page-title">Dashboard</h1>
               </div>
             </div>
-            <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{formatNow(now)}</div>
+            <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{currentDateLabel}</div>
           </div>
         </div>
 
@@ -575,12 +669,12 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="app-page">
+      <div className="app-page app-uniform-numbers">
         <div className="app-page-content" style={{ minHeight: '65vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="app-card" style={{ maxWidth: '520px', width: '100%', textAlign: 'center', padding: '24px' }}>
             <AlertTriangle size={24} color="#dc2626" style={{ marginBottom: '12px' }} />
             <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>{error}</div>
-            <button className="btn btn-secondary" onClick={loadDashboardData}>
+            <button className="btn btn-secondary" onClick={() => { void loadDashboardData(); }}>
               <RefreshCw size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
               Refresh
             </button>
@@ -591,7 +685,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="app-page">
+    <div className="app-page app-uniform-numbers">
       <div className="app-page-header">
         <div className="app-header-row" style={{ alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -606,11 +700,10 @@ export default function Dashboard() {
             )}
             <div>
               {companyName && <div className="app-page-subtitle" style={{ fontSize: '12px' }}>{companyName}</div>}
-              <h1 className="app-page-title" style={{ fontSize: '22px', fontWeight: 700 }}>Dashboard</h1>
-              <p className="app-page-subtitle" style={{ fontSize: '13px' }}>Pricing health overview</p>
+              <h1 className="app-page-title">Dashboard</h1>
             </div>
           </div>
-          <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{formatNow(now)}</div>
+          <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{currentDateLabel}</div>
         </div>
       </div>
 
@@ -669,6 +762,68 @@ export default function Dashboard() {
           </div>
         )}
 
+        {!allSetupStepsComplete && (
+          <div className="app-card" style={{ padding: '16px 18px', border: '1px solid #dbeafe', backgroundColor: '#f8fbff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e3a8a' }}>Setup Progress</div>
+              {firstIncompleteStepIndex >= 0 && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => navigate(setupSteps[firstIncompleteStepIndex].route)}
+                  style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700 }}
+                >
+                  Go → {setupSteps[firstIncompleteStepIndex].label}
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {setupSteps.map((step, index) => {
+                const isCurrent = firstIncompleteStepIndex === index;
+                return (
+                  <Fragment key={step.key}>
+                    <button
+                      onClick={() => navigate(step.route)}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        cursor: 'pointer',
+                        padding: '4px 0',
+                        whiteSpace: 'nowrap',
+                      }}
+                      title={`Open ${step.label}`}
+                    >
+                      <span
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '999px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          border: step.complete ? '1px solid #1f2937' : isCurrent ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                          backgroundColor: step.complete ? '#1f2937' : isCurrent ? '#dbeafe' : '#fff',
+                          color: step.complete ? '#fff' : isCurrent ? '#1e40af' : '#64748b',
+                        }}
+                      >
+                        {step.complete ? '✓' : index + 1}
+                      </span>
+                      <span style={{ fontSize: '12px', fontWeight: isCurrent ? 700 : 600, color: isCurrent ? '#1e40af' : '#475569' }}>{step.label}</span>
+                    </button>
+                    {index < setupSteps.length - 1 && (
+                      <span style={{ color: '#94a3b8', fontSize: '12px' }}>→</span>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="dashboard-stat-grid">
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -688,7 +843,7 @@ export default function Dashboard() {
             <div className="dashboard-stat-title">Total Products</div>
             <div className="dashboard-stat-value">{productCounts.total}</div>
             <div className="dashboard-stat-hint">Click to open all products</div>
-            <div className="dashboard-stat-sub">{productCounts.approved} approved · {productCounts.pending} pending · {productCounts.needsReview} needs review</div>
+            <div className="dashboard-stat-sub">{productCounts.active} active · {productCounts.inactive} inactive</div>
           </button>
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/products?approval=rejected')} title="Open rejected products">
@@ -716,30 +871,40 @@ export default function Dashboard() {
             <div className="dashboard-stat-sub">Across approved products</div>
           </div>
 
-          <button className="app-card dashboard-stat-card" onClick={() => navigate('/customers')} title="Open customers">
+          <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div className="dashboard-icon-box"><Users size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Active Customers</div>
             <div className="dashboard-stat-value">{customers.length}</div>
-            <div className="dashboard-stat-hint">Click to manage customer pricing access</div>
-            <div className="dashboard-stat-sub">{customerSpecialEnabledCount} with special pricing enabled</div>
+            <div className="dashboard-stat-hint">Customer count retained for reference</div>
+            <div className="dashboard-stat-sub">{customersWithAssignedLevel} assigned to price levels</div>
+          </div>
+
+          <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div className="dashboard-icon-box"><Tag size={20} color="#ffffff" /></div>
+            </div>
+            <div className="dashboard-stat-title">Price levels</div>
+            <div className="dashboard-stat-value">{priceLevelsCount}</div>
+            <div className="dashboard-stat-hint">Click to manage level pricing rules</div>
+            <div className="dashboard-stat-sub">{priceLevelsCount} price levels configured</div>
           </button>
 
-          <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-lists')} title="Open price lists">
+          <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div className="dashboard-icon-box"><FileText size={20} color="#ffffff" /></div>
             </div>
-            <div className="dashboard-stat-title">Active Price Lists</div>
-            <div className="dashboard-stat-value">{priceListCounts.active}</div>
-            <div className="dashboard-stat-hint">Click to create or update lists</div>
-            <div className="dashboard-stat-sub">{priceListCounts.draft} draft · {priceListCounts.expired} expired</div>
+            <div className="dashboard-stat-title">Export-ready Levels</div>
+            <div className="dashboard-stat-value">{priceLevelSummary.exportReadyLevels}</div>
+            <div className="dashboard-stat-hint">Open price levels to export approved pricing</div>
+            <div className="dashboard-stat-sub">{priceLevelSummary.fullyApprovedLevels} fully approved · {priceLevelSummary.pendingItems} pending items</div>
           </button>
 
           <div className="app-card dashboard-quick-card">
             <div className="dashboard-quick-actions">
               <div className="dashboard-quick-actions-head">
-                <div className="dashboard-quick-actions-title">Quick Actions</div>
+                <div className="dashboard-quick-actions-title">Quick actions</div>
                 <div className="dashboard-quick-actions-sub">Most-used shortcuts for daily pricing operations</div>
               </div>
               <div className="dashboard-quick-actions-buttons">
@@ -747,9 +912,9 @@ export default function Dashboard() {
                   <Plus size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
                   Add Product
                 </button>
-                <button className="btn btn-secondary quick-action-pricelist btn-sem-pricelist" onClick={() => navigate('/price-lists')}>
+                <button className="btn btn-secondary quick-action-pricelist btn-sem-pricelist" onClick={() => navigate('/price-levels')}>
                   <FileText size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                  Generate Price List
+                  Open Price Levels
                 </button>
                 <button className="btn btn-secondary quick-action-approvals btn-sem-approvals" onClick={() => navigate('/products?approval=pending')}>
                   <ShieldCheck size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
@@ -767,19 +932,19 @@ export default function Dashboard() {
         <div className="dashboard-chart-grid">
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Low-Margin Top 10</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Low-Margin Top 10</h3>
             </div>
             <p className="dashboard-help-text">Products with the weakest margins first. Click a row to open low-margin product view.</p>
             {lowMarginTopTen.length === 0 ? (
               <div className="dashboard-empty">No low-margin products</div>
             ) : (
               <div style={{ display: 'grid', gap: '7px' }}>
-                {lowMarginTopTen.map(({ product, margin }) => {
-                  const widthPercent = Math.max(8, Math.min(100, (margin / 15) * 100));
+                {lowMarginTopTen.map(({ product, realisedMargin, referencePrice, referencePriceLabel, productionCost }) => {
+                  const widthPercent = Math.max(8, Math.min(100, (realisedMargin / 15) * 100));
                   return (
                     <button
                       key={`low-margin-chart-${product.id}`}
-                      onClick={() => navigate('/products?lowMargin=1')}
+                      onClick={() => navigate(`/products?lowMargin=1&productId=${product.id}`)}
                       style={{
                         background: 'transparent',
                         border: 'none',
@@ -790,7 +955,17 @@ export default function Dashboard() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px', gap: '8px' }}>
                         <span className="dashboard-chart-label" style={{ color: '#475569' }}>{product.name}</span>
-                        <span style={{ color: '#e65100', fontWeight: 700 }}>{margin.toFixed(1)}%</span>
+                        <span className="dashboard-number-sm" style={{ color: '#e65100' }}>{realisedMargin.toFixed(1)}%</span>
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 400,
+                          fontSize: '11px',
+                          color: '#888',
+                          marginBottom: '4px',
+                        }}
+                      >
+                        {referencePriceLabel}: GHS {referencePrice.toFixed(2)} · Cost: GHS {productionCost.toFixed(2)}
                       </div>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#fee2e2' }}>
                         <div style={{ width: `${widthPercent}%`, height: '8px', borderRadius: '999px', backgroundColor: '#f59e0b' }} />
@@ -804,7 +979,7 @@ export default function Dashboard() {
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Currency Exposure</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Currency Exposure</h3>
             </div>
             <p className="dashboard-help-text">Shows how many materials are purchased in each currency. Click legend items to open Materials.</p>
             {currencyExposureData.total === 0 ? (
@@ -861,7 +1036,7 @@ export default function Dashboard() {
                         <span style={{ width: '8px', height: '8px', borderRadius: '999px', backgroundColor: segment.color }} />
                         {segment.label}
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 700 }}>{segment.value}</span>
+                      <span className="dashboard-number-xs">{segment.value}</span>
                     </button>
                   ))}
                 </div>
@@ -871,25 +1046,25 @@ export default function Dashboard() {
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>Price List Status</h3>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Price Level Approval Status</h3>
             </div>
-            <p className="dashboard-help-text">Distribution of current price list lifecycle states.</p>
-            {(priceListCounts.active + priceListCounts.draft + priceListCounts.expired) === 0 ? (
-              <div className="dashboard-empty">No price lists yet</div>
+            <p className="dashboard-help-text">Shows which levels are ready to export and which still need approval work.</p>
+            {(priceLevelSummary.exportReadyLevels + priceLevelSummary.fullyApprovedLevels + priceLevelSummary.levelsWithPendingItems) === 0 ? (
+              <div className="dashboard-empty">No price level activity yet</div>
             ) : (
               <div style={{ display: 'grid', gap: '8px' }}>
-                {priceListChartData.map((item) => {
-                  const total = priceListCounts.active + priceListCounts.draft + priceListCounts.expired;
+                {priceLevelChartData.map((item) => {
+                  const total = priceLevelChartData.reduce((sum, entry) => sum + entry.value, 0);
                   const width = total > 0 ? Math.max(8, (item.value / total) * 100) : 0;
                   return (
                     <button
-                      key={`price-list-chart-${item.key}`}
-                      onClick={() => navigate('/price-lists')}
+                      key={`price-level-chart-${item.key}`}
+                      onClick={() => navigate('/price-levels')}
                       style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '12px' }}>
                         <span style={{ color: '#475569' }}>{item.label}</span>
-                        <span style={{ color: '#0f172a', fontWeight: 700 }}>{item.value}</span>
+                        <span className="dashboard-number-xs" style={{ color: '#0f172a' }}>{item.value}</span>
                       </div>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0' }}>
                         <div style={{ height: '8px', width: `${width}%`, borderRadius: '999px', backgroundColor: item.color }} />
@@ -913,15 +1088,42 @@ export default function Dashboard() {
               <div style={{ display: 'grid', gap: '8px' }}>
                 <button className="btn btn-secondary btn-sem-approvals" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=pending')}>
                   <span>Pending</span>
-                  <strong>{productCounts.pending + specialPending.length}</strong>
+                  <strong className="dashboard-number-xs">{productCounts.pending}</strong>
                 </button>
-                <button className="btn btn-secondary btn-sem-approvals" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=needs_review')}>
-                  <span>Needs Review</span>
-                  <strong>{productCounts.needsReview}</strong>
-                </button>
+                {productCounts.needsReview > 0 ? (
+                  <div
+                    style={{
+                      backgroundColor: '#fff3e0',
+                      borderLeft: '3px solid #e65100',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      display: 'grid',
+                      gap: '6px',
+                    }}
+                  >
+                    <div style={{ color: '#9a3412', fontSize: '12px', fontWeight: 700 }}>Prices need review</div>
+                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#e65100', lineHeight: 1 }}>{productCounts.needsReview}</div>
+                    <div style={{ fontSize: '12px', color: '#9a3412' }}>products affected by cost changes</div>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }}
+                      onClick={() => navigate('/products', { state: { openUpdatePrices: true } })}
+                    >
+                      <span>Review now</span>
+                      <strong className="dashboard-number-xs">{productCounts.needsReview}</strong>
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', color: '#166534', fontSize: '12px', fontWeight: 600 }}>
+                    All prices current
+                  </div>
+                )}
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  {needsReviewBreakdown.costChanges} cost changes · {needsReviewBreakdown.priceExpired} price expired · {needsReviewBreakdown.other} other
+                </div>
                 <button className="btn btn-secondary btn-sem-approvals" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=rejected')}>
                   <span>Rejected</span>
-                  <strong>{productCounts.rejected}</strong>
+                  <strong className="dashboard-number-xs">{productCounts.rejected}</strong>
                 </button>
               </div>
             </div>
@@ -935,8 +1137,8 @@ export default function Dashboard() {
               </div>
               <div style={{ display: 'grid', gap: '8px', fontSize: '13px', color: '#334155' }}>
                 <div>{staleRateSummary.latestLabel}</div>
-                <div>{staleRateSummary.staleCount} rate{staleRateSummary.staleCount === 1 ? '' : 's'} older than 7 days</div>
-                <div>Oldest update age: {staleRateSummary.oldestAgeDays} day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'}</div>
+                <div><span className="dashboard-number-xs">{staleRateSummary.staleCount}</span> rate{staleRateSummary.staleCount === 1 ? '' : 's'} older than 7 days</div>
+                <div>Oldest update age: <span className="dashboard-number-xs">{staleRateSummary.oldestAgeDays}</span> day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'}</div>
               </div>
             </div>
 
@@ -944,18 +1146,18 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FileText size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Price List Focus</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Price Level Focus</h3>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
-                <div style={{ fontSize: '13px', color: '#334155' }}>{priceListCounts.active} active lists currently published</div>
-                <button className="btn btn-secondary btn-sem-pricelist" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/price-lists')}>
-                  <span>Draft Lists</span>
-                  <strong>{priceListCounts.draft}</strong>
+                <div style={{ fontSize: '13px', color: '#334155' }}><span className="dashboard-number-xs">{priceLevelSummary.exportReadyLevels}</span> levels have approved pricing ready to export</div>
+                <button className="btn btn-secondary btn-sem-pricelist" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/price-levels')}>
+                  <span>Levels Needing Approval</span>
+                  <strong className="dashboard-number-xs">{priceLevelSummary.levelsWithPendingItems}</strong>
                 </button>
-                <button className="btn btn-secondary btn-sem-pricelist" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/price-lists')}>
-                  <span>Expired Lists</span>
-                  <strong>{priceListCounts.expired}</strong>
+                <button className="btn btn-secondary btn-sem-pricelist" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=pending')}>
+                  <span>Pending Product Approvals</span>
+                  <strong className="dashboard-number-xs">{priceLevelSummary.pendingItems}</strong>
                 </button>
               </div>
             </div>
@@ -978,8 +1180,7 @@ export default function Dashboard() {
                     const icon =
                       item.type === 'approved' ? <CheckCircle size={14} strokeWidth={2} />
                         : item.type === 'review' ? <AlertTriangle size={14} strokeWidth={2} />
-                          : item.type === 'special' ? <Tag size={14} strokeWidth={2} />
-                            : <RefreshCw size={14} strokeWidth={2} />;
+                          : <RefreshCw size={14} strokeWidth={2} />;
 
                     return (
                       <div key={item.id} style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
@@ -997,6 +1198,49 @@ export default function Dashboard() {
               )}
             </div>
         </div>
+
+        {upcomingPriceExpiries.length > 0 && (
+          <div className="app-card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Upcoming Price Expiries</h3>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700 }}
+                onClick={() => navigate('/products?expiringSoon=1')}
+              >
+                View all →
+              </button>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+                    <th style={{ padding: '8px 10px' }}>Product Name</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Approved base price</th>
+                    <th style={{ padding: '8px 10px' }}>Expires On</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'right' }}>Days Left</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {upcomingPriceExpiries.map((product) => {
+                    const expiryDate = product.approvedPriceExpiresAt
+                      ? parseDate(`${product.approvedPriceExpiresAt.slice(0, 10)}T00:00:00`)
+                      : null;
+
+                    return (
+                      <tr key={`expiry-${product.id}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{product.name}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>{currency(toNumber(product.approvedPrice))}</td>
+                        <td style={{ padding: '8px 10px' }}>{expiryDate ? expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{product.daysUntilExpiry ?? '-'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -1035,10 +1279,24 @@ export default function Dashboard() {
           right: -2px;
         }
         .dashboard-stat-value {
-          font-size: 28px;
+          font-size: 24px;
           font-weight: 700;
           margin-top: 6px;
           color: #0f172a;
+          font-variant-numeric: tabular-nums;
+        }
+        .dashboard-number-sm,
+        .dashboard-number-xs {
+          font-variant-numeric: tabular-nums;
+          line-height: 1.2;
+        }
+        .dashboard-number-sm {
+          font-size: 13px;
+          font-weight: 700;
+        }
+        .dashboard-number-xs {
+          font-size: 12px;
+          font-weight: 700;
         }
         .dashboard-stat-title {
           margin-top: 10px;
@@ -1046,7 +1304,6 @@ export default function Dashboard() {
           font-weight: 700;
           color: #64748b;
           letter-spacing: 0.3px;
-          text-transform: uppercase;
         }
         .dashboard-stat-sub {
           margin-top: 6px;
@@ -1083,7 +1340,6 @@ export default function Dashboard() {
           font-weight: 700;
           color: #1d4ed8;
           letter-spacing: 0.2px;
-          text-transform: uppercase;
         }
         .dashboard-quick-actions-title::before {
           content: '⚡';

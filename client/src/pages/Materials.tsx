@@ -1,7 +1,17 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, ArrowDownToLine, ArrowUpDown, CheckCircle2, Copy, FileSpreadsheet, FileUp, History, Loader2, Pencil, Plus, Printer, Tags, Trash2, X } from 'lucide-react';
-import { materialsApi, currenciesApi, settingsApi } from '../api';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import OverflowMenu from '../components/OverflowMenu';
+import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import ActionDropdown from '../components/ActionDropdown';
+import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi } from '../api';
+import type { ImportMaterialRow, ImportResult } from '../api';
+import AppBadge from '../components/AppBadge';
+import AppButton from '../components/AppButton';
+import AppToast from '../components/AppToast';
+import useAppToast from '../hooks/useAppToast';
+import usePersistedColumns from '../hooks/usePersistedColumns';
+import useUndoAction from '../hooks/useUndoAction';
 
 interface Material {
   id: number;
@@ -29,6 +39,27 @@ interface Currency {
   isActive: boolean;
 }
 
+interface ExchangeRate {
+  id: number;
+  currencyId: number;
+  rateToBase: number;
+  effectiveDate?: string | number | null;
+  updatedAt?: string | number | null;
+}
+
+interface ExchangeRateRecalculationSummary {
+  materialsUpdated: number;
+  productsReviewed: number;
+  productsNowNeedsReview: number;
+}
+
+interface ExchangeRateUpdateResponse {
+  success?: boolean;
+  rate?: ExchangeRate;
+  recalculation?: ExchangeRateRecalculationSummary;
+  recalculationFailed?: boolean;
+}
+
 interface MaterialUsage {
   materialId: number;
   materialName: string;
@@ -40,6 +71,29 @@ interface UsageCheckResult {
   canDelete: number[];
   inUse: MaterialUsage[];
 }
+
+type MaterialColumnKey =
+  | 'material'
+  | 'category'
+  | 'unit'
+  | 'unitCost'
+  | 'bulkPricing'
+  | 'supplier'
+  | 'status'
+  | 'actions';
+
+const MATERIAL_COLUMN_OPTIONS: Array<{ key: MaterialColumnKey; label: string }> = [
+  { key: 'material', label: 'Material Name' },
+  { key: 'category', label: 'Category' },
+  { key: 'unit', label: 'Unit' },
+  { key: 'unitCost', label: 'Unit Cost' },
+  { key: 'bulkPricing', label: 'Bulk Pricing' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'status', label: 'Status' },
+  { key: 'actions', label: 'Actions' },
+];
+
+const DEFAULT_MATERIAL_COLUMNS: MaterialColumnKey[] = MATERIAL_COLUMN_OPTIONS.map((option) => option.key);
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -64,6 +118,15 @@ function parseConfiguredList(rawValue: unknown): string[] {
     .filter((entry) => entry.length > 0);
 }
 
+function normalizeChoiceValue(selectedValue: string, customValue: string, fallback = '') {
+  const resolved = selectedValue === '__custom__' ? customValue : selectedValue;
+  const trimmed = resolved.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return fallback;
+}
+
 function buildDuplicateName(baseName: string, existingNames: Set<string>) {
   const normalizedBase = (baseName || 'Untitled Material').trim();
   let candidate = `${normalizedBase} (Copy)`;
@@ -75,42 +138,156 @@ function buildDuplicateName(baseName: string, existingNames: Set<string>) {
   return candidate;
 }
 
-export default function Materials() {
+function formatListMessage(title: string, lines: string[]) {
+  const cleanLines = lines.filter((line) => line && line.trim().length > 0);
+  if (cleanLines.length === 0) return title;
+  return [title, ...cleanLines.map((line) => `• ${line}`)].join('\n');
+}
+
+function formatRateValue(value: number) {
+  return Number(value || 0).toFixed(4);
+}
+
+function getCurrencyFlag(code: string) {
+  const map: Record<string, string> = {
+    USD: 'US',
+    EUR: 'EU',
+    GBP: 'GB',
+    CAD: 'CA',
+    AUD: 'AU',
+    JPY: 'JP',
+    CNY: 'CN',
+    ZAR: 'ZA',
+    NGN: 'NG',
+    KES: 'KE',
+  };
+
+  const countryCode = map[(code || '').toUpperCase()];
+  if (!countryCode || countryCode.length !== 2) return '';
+
+  return countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+    .join('');
+}
+
+function parseDateInput(value: string | number | null | undefined): Date | null {
+  if (value == null) return null;
+  const asDate = new Date(value);
+  return Number.isNaN(asDate.getTime()) ? null : asDate;
+}
+
+function parseCsvLine(line: string) {
+  const values: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      values.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  values.push(current.trim());
+  return values;
+}
+
+function parseCsvText(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+type ParsedImportPreviewRow = {
+  rowNumber: number;
+  name: string;
+  category: string;
+  unit: string;
+  currencyCode: string;
+  bulkPriceRaw: string;
+  bulkQuantityRaw: string;
+  supplierType: string;
+  errors: string[];
+  parsed: ImportMaterialRow | null;
+};
+
+interface MaterialsPageProps {
+  materialType?: 'primary' | 'intermediate';
+}
+
+export default function Materials({ materialType = 'primary' }: MaterialsPageProps) {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
+  const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
+  const [editingRateCurrencyId, setEditingRateCurrencyId] = useState<number | null>(null);
+  const [editingRateValue, setEditingRateValue] = useState('');
+  const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
+  const [recentlySavedCurrencyId, setRecentlySavedCurrencyId] = useState<number | null>(null);
+  const [exchangeRateNotice, setExchangeRateNotice] = useState('');
   const [configuredMaterialCategories, setConfiguredMaterialCategories] = useState<string[]>([]);
   const [configuredMaterialUnits, setConfiguredMaterialUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All Categories');
-  const [selectedStatus, setSelectedStatus] = useState('All Status');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
+  const [visibleColumns, setVisibleColumns] = usePersistedColumns<MaterialColumnKey>(
+    'priceright_columns_materials',
+    DEFAULT_MATERIAL_COLUMNS,
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedMaterials, setSelectedMaterials] = useState<Set<number>>(new Set());
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importPreview, setImportPreview] = useState<ParsedImportPreviewRow[]>([]);
   const [importing, setImporting] = useState(false);
-  const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
-  // Reference to avoid TS6133 error (used in UI but static analysis doesn't detect it)
-  void importFailures;
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importRuntimeError, setImportRuntimeError] = useState('');
   const [sortField, setSortField] = useState<string>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [showSortMenu, setShowSortMenu] = useState(false);
   const [showPriceHistory, setShowPriceHistory] = useState(false);
   const [selectedMaterialForHistory, setSelectedMaterialForHistory] = useState<Material | null>(null);
   const [priceHistory, setPriceHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [showUsageModal, setShowUsageModal] = useState(false);
+  const [selectedMaterialForUsage, setSelectedMaterialForUsage] = useState<Material | null>(null);
+  const [selectedMaterialUsage, setSelectedMaterialUsage] = useState<MaterialUsage | null>(null);
+  const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
   
   // New state for bulk actions
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
+  const [bulkCustomCategoryValue, setBulkCustomCategoryValue] = useState('');
+  const materialsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [usageData, setUsageData] = useState<UsageCheckResult | null>(null);
   const [loadingUsageCheck, setLoadingUsageCheck] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  useUndoAction();
+
+  const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
+  const [materialCustomUnitValue, setMaterialCustomUnitValue] = useState('');
+  const MAX_IMPORT_ROWS = 500;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -125,26 +302,43 @@ export default function Materials() {
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadData(selectedStatus);
+  }, [selectedStatus]);
 
-  async function loadData() {
+  useEffect(() => {
+    if (recentlySavedCurrencyId == null) return;
+    const timeout = window.setTimeout(() => setRecentlySavedCurrencyId(null), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [recentlySavedCurrencyId]);
+
+  useEffect(() => {
+    if (!exchangeRateNotice) return;
+    const timeout = window.setTimeout(() => setExchangeRateNotice(''), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [exchangeRateNotice]);
+
+  async function loadData(statusFilter: 'all' | 'active' | 'inactive' = selectedStatus) {
     try {
-      const [materialsData, currenciesData, settingsData] = await Promise.all([
-        materialsApi.getAll(),
+      const [materialsData, currenciesData, settingsData, exchangeRatesData] = await Promise.all([
+        materialsApi.getAll(statusFilter, materialType),
         currenciesApi.getAll(),
         settingsApi.getAll(),
+        exchangeRatesApi.getAll(),
       ]);
       const safeMaterials = Array.isArray(materialsData) ? materialsData : [];
       const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
+      const safeExchangeRates = Array.isArray(exchangeRatesData) ? exchangeRatesData : [];
 
       setMaterials(safeMaterials);
       setCurrencies(safeCurrencies.filter((c: Currency) => c.isActive));
+      setExchangeRates(safeExchangeRates);
 
       const materialCategoriesSetting = (settingsData || []).find((entry: any) => entry.settingKey === 'materialCategories');
       const materialUnitsSetting = (settingsData || []).find((entry: any) => entry.settingKey === 'materialUnits');
+      const baseCurrencySetting = (settingsData || []).find((entry: any) => entry.settingKey === 'baseCurrency');
       setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
       setConfiguredMaterialUnits(parseConfiguredList(materialUnitsSetting?.settingValue));
+      setBaseCurrencyCode(baseCurrencySetting?.settingValue || 'GHS');
 
       if (safeCurrencies.length > 0) {
         setFormData((prev) => ({ ...prev, purchaseCurrencyId: safeCurrencies[0].id }));
@@ -161,64 +355,129 @@ export default function Materials() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
+      const resolvedCategory = normalizeChoiceValue(formData.category, materialCustomCategoryValue);
+      const resolvedUnit = normalizeChoiceValue(formData.unit, materialCustomUnitValue, 'kg');
+
+      if (!resolvedCategory || !resolvedUnit) {
+        showToastMessage('Please provide both category and unit of measurement', 'error');
+        return;
+      }
+
+      const payload = {
+        ...formData,
+        category: resolvedCategory,
+        unit: resolvedUnit,
+        bulkQuantity: parseFloat(formData.bulkQuantity),
+        bulkPrice: parseFloat(formData.bulkPrice),
+      };
+
       if (editingMaterial) {
-        await materialsApi.update(editingMaterial.id, {
-          ...formData,
-          bulkQuantity: parseFloat(formData.bulkQuantity),
-          bulkPrice: parseFloat(formData.bulkPrice),
-        });
+        await materialsApi.update(editingMaterial.id, payload);
       } else {
-        await materialsApi.create({
-          ...formData,
-          bulkQuantity: parseFloat(formData.bulkQuantity),
-          bulkPrice: parseFloat(formData.bulkPrice),
-        });
+        await materialsApi.create(payload);
       }
       setShowAddModal(false);
       setEditingMaterial(null);
       resetForm();
-      loadData();
+      loadData(selectedStatus);
     } catch (error) {
       console.error('Error saving material:', error);
-      alert('Failed to save material');
+      showToastMessage('Failed to save material', 'error');
     }
   }
 
-  function handleDownloadTemplate() {
-    const templateData = [
-      {
-        'Material Name': 'Raw Palm Oil',
-        'SKU': 'RPO-001',
-        'Category': 'Raw Materials',
-        'Unit': 'L',
-        'Bulk Quantity': '200',
-        'Bulk Price': '2500.00',
-        'Currency': 'GHS',
-        'Supplier': 'Palm Oil Supplier Ltd',
-        'Description': 'Premium grade palm oil'
-      },
-      {
-        'Material Name': 'PET Bottles 1L',
-        'SKU': 'BOT-1L',
-        'Category': 'Packaging',
-        'Unit': 'piece',
-        'Bulk Quantity': '1000',
-        'Bulk Price': '850.00',
-        'Currency': 'GHS',
-        'Supplier': 'Bottles Co',
-        'Description': 'Clear PET bottles'
-      },
-    ];
+  function resetImportState() {
+    setImportFile(null);
+    setImportPreview([]);
+    setImportResult(null);
+    setImportRuntimeError('');
+  }
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    ws['!cols'] = [
-      { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 8 },
-      { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 30 },
-    ];
+  function parseImportCsv(fileText: string): ParsedImportPreviewRow[] {
+    try {
+      const allLines = parseCsvText(fileText).map((line) => line.trim());
+      const nonEmpty = allLines.filter((line) => line.length > 0 && !line.startsWith('#'));
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Materials Template');
-    XLSX.writeFile(wb, 'Materials_Import_Template.xlsx');
+      if (nonEmpty.length === 0) return [];
+
+      const firstCells = parseCsvLine(nonEmpty[0]).map((v) => v.trim().toLowerCase());
+      const firstLooksLikeHeader =
+        firstCells[0] === 'material name' &&
+        firstCells[1] === 'category' &&
+        firstCells[2] === 'unit';
+
+      const dataLines = firstLooksLikeHeader ? nonEmpty.slice(1) : nonEmpty;
+      const lineOffset = firstLooksLikeHeader ? 2 : 1;
+
+      const result: ParsedImportPreviewRow[] = [];
+
+      for (let index = 0; index < dataLines.length; index++) {
+        const line = dataLines[index];
+        const cells = parseCsvLine(line);
+
+        // Skip blank rows (all cells empty)
+        if (cells.every((c) => c.trim() === '')) continue;
+
+        const rowNumber = index + lineOffset;
+        const errors: string[] = [];
+
+        const name = (cells[0] || '').trim();
+        const category = (cells[1] || '').trim();
+        const unit = (cells[2] || '').trim();
+        const currencyCode = (cells[3] || '').trim().toUpperCase();
+        const rawBulkPrice = (cells[4] || '').trim();
+        const rawBulkQty = (cells[5] || '').trim();
+        const supplierTypeRaw = (cells[6] || '').trim();
+
+        if (!name) errors.push('Material Name is required.');
+        if (!category) errors.push('Category is required.');
+        if (!unit) errors.push('Unit is required.');
+
+        const bulkPriceNum = rawBulkPrice === '' ? NaN : parseFloat(rawBulkPrice.replace(/,/g, ''));
+        if (rawBulkPrice === '') {
+          errors.push('Bulk Price is required');
+        } else if (isNaN(bulkPriceNum) || bulkPriceNum <= 0) {
+          errors.push(`Bulk Price "${rawBulkPrice}" must be a positive number`);
+        }
+
+        const bulkQtyNum = rawBulkQty === '' ? NaN : parseFloat(rawBulkQty.replace(/,/g, ''));
+        if (rawBulkQty === '') {
+          errors.push('Bulk Quantity is required');
+        } else if (isNaN(bulkQtyNum) || bulkQtyNum <= 0) {
+          errors.push(`Bulk Quantity "${rawBulkQty}" must be a positive number`);
+        }
+
+        const supplierType = supplierTypeRaw || 'Local';
+        if (supplierTypeRaw && !['local', 'foreign'].includes(supplierTypeRaw.toLowerCase())) {
+          errors.push('Supplier Type must be Local or Foreign.');
+        }
+
+        const parsed: ImportMaterialRow | null =
+          errors.length === 0
+            ? { name, category, unit, currencyCode, bulkPrice: bulkPriceNum, bulkQuantity: bulkQtyNum, supplierType }
+            : null;
+
+        result.push({
+          rowNumber,
+          name,
+          category,
+          unit,
+          currencyCode,
+          bulkPriceRaw: rawBulkPrice,
+          bulkQuantityRaw: rawBulkQty,
+          supplierType,
+          errors,
+          parsed,
+        });
+      }
+
+      return result;
+    } catch (err) {
+      setImportRuntimeError(
+        `Failed to read file: ${err instanceof Error ? err.message : 'Unknown error'}`
+      );
+      return [];
+    }
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -226,209 +485,172 @@ export default function Materials() {
     if (!file) return;
 
     setImportFile(file);
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    setImportResult(null);
+    setImportRuntimeError('');
+
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    if (extension !== 'csv') {
+      setImportPreview([]);
+      setImportRuntimeError('Only CSV files are supported for materials import.');
+      return;
+    }
+
+    const textReader = new FileReader();
+    textReader.onload = (event) => {
       try {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        setImportPreview(jsonData);
+        const text = String(event.target?.result || '');
+        const rows = parseImportCsv(text);
+
+        if (rows.length > MAX_IMPORT_ROWS) {
+          setImportPreview(rows);
+          setImportRuntimeError(`CSV has ${rows.length} rows. Maximum supported is ${MAX_IMPORT_ROWS}.`);
+          return;
+        }
+
+        setImportPreview(rows);
       } catch (error) {
-        console.error('Error reading file:', error);
-        alert('Error reading file. Please check the format.');
+        console.error('Error reading CSV file:', error);
+        setImportPreview([]);
+        setImportRuntimeError('Error reading CSV file. Please check the format.');
       }
     };
-    reader.readAsBinaryString(file);
+    textReader.readAsText(file);
   }
 
   async function handleImport() {
-    if (importPreview.length === 0) {
-      alert('No data to import');
+    const validRows = importPreview
+      .filter((row) => row.errors.length === 0 && row.parsed)
+      .map((row) => row.parsed as ImportMaterialRow);
+
+    if (validRows.length === 0) {
+      showToastMessage('No valid rows to import', 'error');
+      return;
+    }
+    if (validRows.length > MAX_IMPORT_ROWS) {
+      showToastMessage(`Maximum ${MAX_IMPORT_ROWS} rows allowed`, 'error');
       return;
     }
 
     setImporting(true);
-    const failures: Array<{ rowNumber: number; name: string; reason: string; originalRow: any }> = [];
-    let successCount = 0;
+    setImportRuntimeError('');
+    setImportResult(null);
 
-    for (let i = 0; i < importPreview.length; i++) {
-      const row = importPreview[i];
-      const rowNumber = i + 1;
-
-      try {
-        const name = (row['Material Name'] || row['name'] || '').toString().trim();
-        const category = (row['Category'] || row['category'] || '').toString().trim();
-        const unit = (row['Unit'] || row['unit'] || 'kg').toString();
-        const bulkQuantityRaw = row['Bulk Quantity'] || row['bulkQuantity'] || '0';
-        const bulkPriceRaw = row['Bulk Price'] || row['bulkPrice'] || '0';
-        const currencyCode = (row['Currency'] || row['currency'] || 'GHS').toString().trim();
-        const sku = row['SKU'] || row['sku'] || '';
-        const description = row['Description'] || row['description'] || '';
-        const supplier = row['Supplier'] || row['supplier'] || '';
-
-        if (!name) {
-          failures.push({ rowNumber, name: '', reason: 'Missing required field: Name', originalRow: row });
-          continue;
-        }
-        if (!category) {
-          failures.push({ rowNumber, name, reason: 'Missing required field: Category', originalRow: row });
-          continue;
-        }
-
-        const bulkQuantity = parseFloat(bulkQuantityRaw as any);
-        const bulkPrice = parseFloat(bulkPriceRaw as any);
-        if (isNaN(bulkQuantity) || bulkQuantity <= 0) {
-          failures.push({ rowNumber, name, reason: `Invalid bulk quantity: ${bulkQuantityRaw}`, originalRow: row });
-          continue;
-        }
-        if (isNaN(bulkPrice) || bulkPrice <= 0) {
-          failures.push({ rowNumber, name, reason: `Invalid bulk price: ${bulkPriceRaw}`, originalRow: row });
-          continue;
-        }
-
-        const currency = currencies.find((c) => c.code.toUpperCase() === currencyCode.toUpperCase());
-        if (!currency) {
-          failures.push({ rowNumber, name, reason: `Currency code '${currencyCode}' not found`, originalRow: row });
-          continue;
-        }
-
-        const exists = materials.some((m) => m.name.toLowerCase() === name.toLowerCase());
-        if (exists) {
-          failures.push({ rowNumber, name, reason: 'Duplicate material name already exists', originalRow: row });
-          continue;
-        }
-
-        const materialData = {
-          name,
-          sku,
-          description,
-          category,
-          unit,
-          bulkQuantity: bulkQuantity,
-          bulkPrice: bulkPrice,
-          purchaseCurrencyId: currency.id,
-          supplier,
-        };
-
-        try {
-          await materialsApi.create(materialData);
-          successCount++;
-        } catch (apiErr: any) {
-          const msg = apiErr?.message || JSON.stringify(apiErr) || 'API error';
-          failures.push({ rowNumber, name, reason: `API error: ${msg}`, originalRow: row });
-        }
-      } catch (err: any) {
-        failures.push({ rowNumber, name: '', reason: `Unexpected error: ${err?.message || String(err)}`, originalRow: importPreview[i] });
-      }
-    }
-
-    setImporting(false);
-    setImportFailures(failures);
-
-    if (successCount > 0) await loadData();
-  }
-
-
-
-  function handleSelectAll() {
-    if (selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0) {
-      setSelectedMaterials(new Set());
-    } else {
-      setSelectedMaterials(new Set(filteredMaterials.map((m) => m.id)));
-    }
-  }
-
-  function handleSelectMaterial(id: number) {
-    const newSet = new Set(selectedMaterials);
-    if (newSet.has(id)) {
-      newSet.delete(id);
-    } else {
-      newSet.add(id);
-    }
-    setSelectedMaterials(newSet);
-  }
-
-  async function handleOpenDeleteModal() {
-    if (selectedMaterials.size === 0) return;
-    
-    setLoadingUsageCheck(true);
     try {
-      const result = await materialsApi.checkUsage(Array.from(selectedMaterials));
-      setUsageData(result);
-      setShowDeleteModal(true);
-    } catch (error) {
-      console.error('Error checking usage:', error);
-      showToastMessage('Failed to check material usage', 'error');
-    } finally {
-      setLoadingUsageCheck(false);
-    }
-  }
+      const response = await materialsApi.importMaterials(validRows);
+      setImportResult(response);
+      await loadData(selectedStatus);
 
-  async function handleConfirmDelete() {
-    if (!usageData) return;
-    
-    try {
-      // Delete only materials that can be deleted
-      await Promise.all(usageData.canDelete.map((id) => materialsApi.delete(id)));
-      
-      const deletedCount = usageData.canDelete.length;
-      const skippedCount = usageData.inUse.length;
-      
-      if (skippedCount > 0) {
-        showToastMessage(
-          `Deleted ${deletedCount} material${deletedCount !== 1 ? 's' : ''}. ${skippedCount} skipped (in use in products).`,
-          'success'
-        );
+      if (response.skipped === 0) {
+        setShowImportModal(false);
+        resetImportState();
+        showToastMessage(`Import complete: ${response.imported} materials added, ${response.updated} updated.`, 'success');
       } else {
-        showToastMessage(
-          `Successfully deleted ${deletedCount} material${deletedCount !== 1 ? 's' : ''}`,
-          'success'
-        );
+        showToastMessage(`Import complete with ${response.skipped} errors. Check the error report.`, 'error');
       }
-      
-      setSelectedMaterials(new Set());
-      setShowDeleteModal(false);
-      setUsageData(null);
-      loadData();
-    } catch (error) {
-      console.error('Error deleting materials:', error);
-      showToastMessage('Failed to delete materials', 'error');
+    } catch (error: any) {
+      console.error('Error importing materials:', error);
+      const rawMessage = String(error?.message || '');
+      const isNetworkError = rawMessage.toLowerCase().includes('failed to fetch')
+        || rawMessage.toLowerCase().includes('networkerror')
+        || rawMessage.toLowerCase().includes('load failed');
+      const message = isNetworkError
+        ? 'Cannot reach the server. Make sure the API is running on http://localhost:3000, then try import again.'
+        : (error?.message || 'Failed to import materials');
+      setImportRuntimeError(message);
+      showToastMessage(message, 'error');
+    } finally {
+      setImporting(false);
     }
   }
 
-  async function handleBulkCategoryChange() {
-    if (!bulkCategoryValue || selectedMaterials.size === 0) return;
-    
-    try {
-      await Promise.all(
-        Array.from(selectedMaterials).map((id) =>
-          materialsApi.update(id, {
-            ...materials.find((m) => m.id === id),
-            category: bulkCategoryValue,
-          })
-        )
-      );
-      
-      showToastMessage(
-        `Updated category for ${selectedMaterials.size} material${selectedMaterials.size !== 1 ? 's' : ''}`,
-        'success'
-      );
-      
-      setShowCategoryModal(false);
-      setBulkCategoryValue('');
-      loadData();
-    } catch (error) {
-      console.error('Error updating category:', error);
-      showToastMessage('Failed to update category', 'error');
-    }
+  function downloadMaterialFailureReport() {
+    if (!importResult || importResult.errors.length === 0) return;
+
+    const validRows = importPreview
+      .filter((row) => row.errors.length === 0 && row.parsed)
+      .map((row) => row.parsed as ImportMaterialRow);
+
+    const rows = importResult.errors.map((failure) => {
+      const source = validRows[failure.row - 1] || {
+        name: '',
+        category: '',
+        unit: '',
+        currencyCode: '',
+        bulkPrice: '',
+        bulkQuantity: '',
+        supplierType: '',
+      };
+
+      return [
+        failure.row,
+        source.name,
+        source.category,
+        source.unit,
+        source.currencyCode || '',
+        source.bulkPrice,
+        source.bulkQuantity,
+        source.supplierType || '',
+        failure.error,
+      ];
+    });
+
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(
+      `materials-import-failures-${date}.csv`,
+      ['Row', 'Material Name', 'Category', 'Unit', 'Purchase Currency', 'Bulk Price', 'Bulk Quantity', 'Supplier Type', 'Error'],
+      rows
+    );
+  }
+
+  function getHowToFix(error: string): string {
+    if (error.includes('Bulk Price is required')) return 'Enter a positive number in column E (Bulk Price). Example: 25';
+    if (error.includes('Bulk Quantity is required')) return 'Enter a positive number in column F (Bulk Quantity). Example: 50';
+    if (/Bulk Price.*positive number/.test(error)) return 'Remove any symbols or commas. Numbers only. Example: 320.50';
+    if (/Bulk Quantity.*positive number/.test(error)) return 'Enter a whole number greater than zero. Example: 25';
+    if (error.includes('Currency')) return 'Check Settings → Currencies. Use a configured code or leave blank for GHS.';
+    if (error.includes('Material Name is required')) return 'Enter a name in column A (Material Name).';
+    if (error.includes('Category is required')) return 'Enter a category in column B (Category).';
+    if (error.includes('Unit is required')) return 'Enter a unit in column C (Unit). Example: Kg, L, Ea.';
+    if (error.includes('Supplier Type')) return 'Enter either Local or Foreign in column G (Supplier Type).';
+    return 'Check the CSV format and correct this row.';
+  }
+
+  function downloadParseErrorReport() {
+    const errorRows = importPreview.filter((row) => row.errors.length > 0);
+    if (errorRows.length === 0) return;
+    const rows = errorRows.map((row) => [
+      row.rowNumber,
+      row.name,
+      row.category,
+      row.unit,
+      row.currencyCode,
+      row.bulkPriceRaw,
+      row.bulkQuantityRaw,
+      row.supplierType,
+      row.errors.join('; '),
+      row.errors.map(getHowToFix).join('; '),
+    ]);
+    const date = new Date().toISOString().split('T')[0];
+    downloadCsv(
+      `materials-import-errors-${date}.csv`,
+      ['Line #', 'Material Name', 'Category', 'Unit', 'Currency', 'Bulk Price', 'Bulk Quantity', 'Supplier Type', 'Error', 'How to Fix'],
+      rows
+    );
   }
 
   function handleBulkExport() {
-    if (selectedMaterials.size === 0) return;
+    if (selectedMaterials.size === 0) {
+      showToastMessage('No selected materials to export', 'error');
+      return;
+    }
     
     const selectedMatList = filteredMaterials.filter((m) => selectedMaterials.has(m.id));
+    if (selectedMatList.length === 0) {
+      showToastMessage('Selected materials are not visible in the current filter. Clear filters and retry export.', 'error');
+      return;
+    }
+
+    try {
     const exportData = selectedMatList.map((material) => ({
       'Material Name': material.name,
       'SKU': material.sku || '',
@@ -456,7 +678,19 @@ export default function Materials() {
     const filename = `PriceRight_Materials_Selected_${date}.xlsx`;
     XLSX.writeFile(workbook, filename);
 
-    showToastMessage(`Exported ${selectedMaterials.size} material${selectedMaterials.size !== 1 ? 's' : ''} to Excel`, 'success');
+    const exportedNames = selectedMatList.map((material) => material.name);
+    const exportedPreview = exportedNames.slice(0, 5).join(', ');
+    const exportedSuffix = exportedNames.length > 5 ? ` +${exportedNames.length - 5} more` : '';
+    showToastMessage(
+      formatListMessage(
+        `Exported ${selectedMatList.length} material${selectedMatList.length !== 1 ? 's' : ''}`,
+        [`Materials: ${exportedPreview}${exportedSuffix}`]
+      ),
+      'success'
+    );
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to export selected materials', 'error');
+    }
   }
 
   function handleExportFilteredMaterialsExcel() {
@@ -579,8 +813,8 @@ export default function Materials() {
         <head>
           <title>Raw Materials Report</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 22px; }
+            body { font-family: 'Open Sans', sans-serif; margin: 24px; color: #0f172a; }
+            h1 { margin: 0 0 6px; font-size: 24px; }
             .meta { margin-bottom: 12px; color: #475569; font-size: 12px; }
             table { width: 100%; border-collapse: collapse; }
             th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; text-align: left; }
@@ -607,13 +841,6 @@ export default function Materials() {
     setTimeout(() => printWindow.print(), 250);
   }
 
-  function showToastMessage(message: string, type: 'success' | 'error') {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
-  }
-
   async function handleViewPriceHistory(material: Material) {
     setSelectedMaterialForHistory(material);
     setShowPriceHistory(true);
@@ -624,9 +851,28 @@ export default function Materials() {
       setPriceHistory(history);
     } catch (error) {
       console.error('Error loading price history:', error);
-      alert('Failed to load price history');
+      showToastMessage('Failed to load price history', 'error');
     } finally {
       setLoadingHistory(false);
+    }
+  }
+
+  async function handleViewMaterialUsage(material: Material) {
+    setSelectedMaterialForUsage(material);
+    setSelectedMaterialUsage(null);
+    setShowUsageModal(true);
+    setLoadingMaterialUsage(true);
+
+    try {
+      const result = await materialsApi.checkUsage([material.id]);
+      const usageList = Array.isArray(result?.inUse) ? result.inUse : [];
+      const usageRecord = usageList.find((entry: MaterialUsage) => entry.materialId === material.id) || null;
+      setSelectedMaterialUsage(usageRecord);
+    } catch (error) {
+      console.error('Error loading material usage:', error);
+      showToastMessage('Failed to load material usage', 'error');
+    } finally {
+      setLoadingMaterialUsage(false);
     }
   }
 
@@ -634,7 +880,7 @@ export default function Materials() {
     if (window.confirm('Are you sure you want to delete this material?')) {
       try {
         await materialsApi.delete(id);
-        loadData();
+        loadData(selectedStatus);
         showToastMessage('Material deleted successfully', 'success');
       } catch (error) {
         console.error('Error deleting material:', error);
@@ -669,14 +915,143 @@ export default function Materials() {
     }
   }
 
+  async function handleToggleMaterialActive(material: Material) {
+    const nextActiveState = !material.isActive;
+    if (!nextActiveState) {
+      const confirmed = window.confirm(
+        `Mark ${material.name} as inactive?\nIt will remain in existing BOMs but will be flagged in the filter.`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    try {
+      await materialsApi.update(material.id, { isActive: nextActiveState });
+      showToastMessage(`Material marked as ${nextActiveState ? 'active' : 'inactive'}`, 'success');
+      await loadData(selectedStatus);
+    } catch (error) {
+      console.error('Error updating material status:', error);
+      showToastMessage('Failed to update material status', 'error');
+    }
+  }
+
+  async function handleBulkSetActiveState(isActive: boolean) {
+    if (selectedMaterials.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedMaterials).map((id) => materialsApi.update(id, { isActive }))
+      );
+      showToastMessage(
+        `Set ${selectedMaterials.size} material${selectedMaterials.size !== 1 ? 's' : ''} ${isActive ? 'active' : 'inactive'}`,
+        'success'
+      );
+      await loadData(selectedStatus);
+    } catch (error) {
+      console.error('Error bulk updating material status:', error);
+      showToastMessage('Failed to update selected material statuses', 'error');
+    }
+  }
+
+  function handleSelectAll() {
+    if (selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0) {
+      setSelectedMaterials(new Set());
+    } else {
+      setSelectedMaterials(new Set(filteredMaterials.map((material) => material.id)));
+    }
+  }
+
+  function handleSelectMaterial(id: number) {
+    const nextSelected = new Set(selectedMaterials);
+    if (nextSelected.has(id)) {
+      nextSelected.delete(id);
+    } else {
+      nextSelected.add(id);
+    }
+    setSelectedMaterials(nextSelected);
+  }
+
+  async function handleOpenDeleteModal() {
+    if (selectedMaterials.size === 0) return;
+
+    setLoadingUsageCheck(true);
+    try {
+      const selectedIds = Array.from(selectedMaterials);
+      const result = await materialsApi.checkUsage(selectedIds);
+      setUsageData(result);
+      setShowDeleteModal(true);
+    } catch (error: any) {
+      console.error('Error checking material usage:', error);
+      showToastMessage(error?.message || 'Failed to check material usage', 'error');
+    } finally {
+      setLoadingUsageCheck(false);
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!usageData || usageData.canDelete.length === 0) return;
+
+    try {
+      await Promise.all(usageData.canDelete.map((id) => materialsApi.delete(id)));
+      setShowDeleteModal(false);
+      setUsageData(null);
+      setSelectedMaterials(new Set());
+      await loadData(selectedStatus);
+
+      const blockedCount = usageData.inUse.length;
+      if (blockedCount > 0) {
+        showToastMessage(
+          `Deleted ${usageData.canDelete.length} material${usageData.canDelete.length !== 1 ? 's' : ''}. ${blockedCount} could not be deleted due to usage.`,
+          'success'
+        );
+      } else {
+        showToastMessage(
+          `Deleted ${usageData.canDelete.length} material${usageData.canDelete.length !== 1 ? 's' : ''}`,
+          'success'
+        );
+      }
+    } catch (error: any) {
+      console.error('Error deleting selected materials:', error);
+      showToastMessage(error?.message || 'Failed to delete selected materials', 'error');
+    }
+  }
+
+  async function handleBulkCategoryChange() {
+    const nextCategory = normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue);
+    if (!nextCategory || selectedMaterials.size === 0) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedMaterials).map((id) => materialsApi.update(id, { category: nextCategory }))
+      );
+
+      setShowCategoryModal(false);
+      setBulkCategoryValue('');
+      setBulkCustomCategoryValue('');
+      setSelectedMaterials(new Set());
+      await loadData(selectedStatus);
+      showToastMessage(`Updated category for selected materials to ${nextCategory}`, 'success');
+    } catch (error: any) {
+      console.error('Error bulk updating category:', error);
+      showToastMessage(error?.message || 'Failed to update category', 'error');
+    }
+  }
+
   function handleEdit(material: Material) {
+    const knownCategory = materialCategories.includes(material.category);
+    const knownUnit = materialUnits.includes(material.unit);
+
+    setMaterialCustomCategoryValue(knownCategory ? '' : material.category);
+    setMaterialCustomUnitValue(knownUnit ? '' : material.unit);
+
     setEditingMaterial(material);
     setFormData({
       name: material.name,
       sku: material.sku || '',
       description: material.description || '',
-      category: material.category,
-      unit: material.unit,
+      category: knownCategory ? material.category : '__custom__',
+      unit: knownUnit ? material.unit : '__custom__',
       bulkQuantity: material.bulkQuantity,
       bulkPrice: material.bulkPrice,
       purchaseCurrencyId: material.purchaseCurrencyId,
@@ -686,27 +1061,21 @@ export default function Materials() {
   }
 
   function resetForm() {
+    const defaultUnit = materialUnits.includes('kg') ? 'kg' : materialUnits[0] || 'kg';
+    setMaterialCustomCategoryValue('');
+    setMaterialCustomUnitValue('');
     setFormData({
       name: '',
       sku: '',
       description: '',
       category: '',
-      unit: 'kg',
+      unit: defaultUnit,
       bulkQuantity: '',
       bulkPrice: '',
       purchaseCurrencyId: currencies[0]?.id || 0,
       supplier: '',
     });
   }
-
-  // When filters change, update selection (deselect materials not in filtered list)
-  useEffect(() => {
-    const validIds = new Set(filteredMaterials.map((m) => m.id));
-    const newSelected = new Set(
-      Array.from(selectedMaterials).filter((id) => validIds.has(id))
-    );
-    setSelectedMaterials(newSelected);
-  }, [searchTerm, selectedCategory, selectedStatus]);
 
   const materialCategories = useMemo(() => {
     const observed = materials
@@ -731,14 +1100,7 @@ export default function Materials() {
           material.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           material.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           material.supplier.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesCategory = selectedCategory === 'All Categories' || material.category === selectedCategory;
-        const matchesStatus =
-          selectedStatus === 'All Status' ||
-          (selectedStatus === 'Active' && material.isActive) ||
-          (selectedStatus === 'Inactive' && !material.isActive);
-
-        return matchesSearch && matchesCategory && matchesStatus;
+        return matchesSearch;
       })
       .sort((a, b) => {
         let aValue: any = a[sortField as keyof Material];
@@ -758,24 +1120,120 @@ export default function Materials() {
         if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
         return 0;
       });
-  }, [materials, searchTerm, selectedCategory, selectedStatus, sortField, sortOrder]);
+  }, [materials, searchTerm, sortField, sortOrder]);
+
+  const foreignCurrencyRates = useMemo(() => {
+    return currencies
+      .filter((currency) => currency.isActive && currency.code !== baseCurrencyCode)
+      .map((currency) => {
+        const rate = exchangeRates.find((entry) => entry.currencyId === currency.id);
+        return {
+          currency,
+          rate,
+          displayRate: Number(rate?.rateToBase || 1),
+          lastUpdatedAt: parseDateInput(rate?.effectiveDate || rate?.updatedAt),
+          flag: getCurrencyFlag(currency.code),
+        };
+      });
+  }, [baseCurrencyCode, currencies, exchangeRates]);
+
+  const latestRateUpdateLabel = useMemo(() => {
+    const latest = foreignCurrencyRates
+      .map((entry) => entry.lastUpdatedAt)
+      .filter((value): value is Date => value instanceof Date)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+
+    if (!latest) return 'Last updated: —';
+    return `Last updated: ${latest.toLocaleDateString('en-GB')} ${latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+  }, [foreignCurrencyRates]);
+
+  function startEditingExchangeRate(currencyId: number, rateToBase: number) {
+    setEditingRateCurrencyId(currencyId);
+    setEditingRateValue(formatRateValue(rateToBase));
+  }
+
+  function cancelEditingExchangeRate() {
+    setEditingRateCurrencyId(null);
+    setEditingRateValue('');
+  }
+
+  async function saveExchangeRate(currencyId: number) {
+    const nextRate = Number.parseFloat(editingRateValue);
+    if (!Number.isFinite(nextRate) || nextRate <= 0) {
+      showToastMessage('Please enter a valid exchange rate greater than zero', 'error');
+      return;
+    }
+
+    setSavingRateCurrencyId(currencyId);
+    try {
+      const response = await exchangeRatesApi.update(currencyId, { rateToBase: nextRate }) as ExchangeRateUpdateResponse;
+      const materialsUpdated = response.recalculation?.materialsUpdated ?? 0;
+
+      setEditingRateCurrencyId(null);
+      setEditingRateValue('');
+      setRecentlySavedCurrencyId(currencyId);
+      setExchangeRateNotice(`Exchange rate updated. ${materialsUpdated} materials recalculated.`);
+      await loadData(selectedStatus);
+    } catch (error) {
+      console.error('Error updating exchange rate:', error);
+      showToastMessage('Failed to update exchange rate', 'error');
+    } finally {
+      setSavingRateCurrencyId(null);
+    }
+  }
+
+  // When filters change, update selection (deselect materials not in filtered list)
+  useEffect(() => {
+    const validIds = new Set(filteredMaterials.map((m) => m.id));
+    setSelectedMaterials((prev) => {
+      const newSelected = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      if (newSelected.size === prev.size) return prev;
+      return newSelected;
+    });
+  }, [filteredMaterials]);
+
+  const compactControlStyle = {
+    minHeight: '32px',
+    padding: '6px 8px',
+    fontSize: '12px',
+  } as const;
+
+  function openMaterialsTableSettings() {
+    const trigger = materialsTableSettingsAnchorRef.current?.querySelector('button');
+    if (trigger instanceof HTMLButtonElement) {
+      trigger.click();
+    }
+  }
+
+  function isMaterialColumnVisible(key: MaterialColumnKey) {
+    return visibleColumns.includes(key);
+  }
+
+  function toggleMaterialColumn(key: MaterialColumnKey) {
+    const currentlyVisible = visibleColumns.includes(key);
+    if (currentlyVisible && visibleColumns.length <= 2) {
+      return;
+    }
+
+    const nextColumns = currentlyVisible
+      ? visibleColumns.filter((columnKey) => columnKey !== key)
+      : [...visibleColumns, key];
+
+    setVisibleColumns(nextColumns);
+  }
+
+  function resetMaterialColumns() {
+    setVisibleColumns(DEFAULT_MATERIAL_COLUMNS);
+    try {
+      window.localStorage.removeItem('priceright_columns_materials');
+    } catch {
+      // Ignore localStorage access errors.
+    }
+  }
 
   if (loading) {
     return (
       <div className="app-page">
-        <div className="app-page-header">
-          <div className="app-breadcrumb">
-            <span>Home</span>
-            <span>›</span>
-            <span className="app-breadcrumb-current">Raw Materials</span>
-          </div>
-          <div className="app-header-row">
-            <div>
-              <h1 className="app-page-title">Raw Materials</h1>
-              <p className="app-page-subtitle">Manage your raw materials and bulk pricing</p>
-            </div>
-          </div>
-        </div>
         <div className="app-page-content" style={{ gap: '20px' }}>
           <div className="app-card app-loading-state">
             <div className="app-loading-title">Loading materials...</div>
@@ -791,248 +1249,306 @@ export default function Materials() {
 
   return (
     <div className="app-page">
-      {/* Toast Notification */}
-      {showToast && (
-        <div
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            backgroundColor: toastType === 'success' ? '#d1fae5' : '#fee2e2',
-            color: toastType === 'success' ? '#065f46' : '#991b1b',
-            padding: '16px 24px',
-            borderRadius: '8px',
-            fontWeight: '600',
-            zIndex: 2000,
-            animation: 'slideIn 0.3s ease-out',
-          }}
-        >
-          {toastMessage}
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="app-page-header">
-        <div className="app-breadcrumb">
-          <span>Home</span>
-          <span>›</span>
-          <span className="app-breadcrumb-current">Raw Materials</span>
-        </div>
-        <div className="app-header-row">
-          <div>
-            <h1 className="app-page-title">Raw Materials</h1>
-            <p className="app-page-subtitle">Manage your raw materials and bulk pricing</p>
-          </div>
-          <div className="app-header-actions">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                setEditingMaterial(null);
-                resetForm();
-                setShowAddModal(true);
-              }}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Plus size={16} strokeWidth={2.2} />
-              Add Material
-            </button>
-            <button
-              className="btn btn-success"
-              onClick={() => setShowImportModal(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <FileUp size={16} strokeWidth={2.2} />
-              Import
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleExportFilteredMaterialsCsv}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <FileSpreadsheet size={16} strokeWidth={2.2} />
-              Export CSV
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handlePrintFilteredMaterials}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Printer size={16} strokeWidth={2.2} />
-              Print
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={handleExportFilteredMaterialsExcel}
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <FileSpreadsheet size={16} strokeWidth={2.2} />
-              Export Excel
-            </button>
-          </div>
-        </div>
-      </div>
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
 
       {/* Search and Filters */}
-      <div className="app-page-content" style={{ gap: '20px' }}>
-        <div className="app-card app-filter-card">
-          <div className="app-filter-row">
-            <div className="app-filter-search">
-              <input
-                className="app-control"
-                type="text"
-                placeholder="Search materials..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <select
-              className="app-control app-filter-select"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              <option>All Categories</option>
-              {materialCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-            <select
-              className="app-control app-filter-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option>All Status</option>
-              <option>Active</option>
-              <option>Inactive</option>
-            </select>
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowSortMenu(!showSortMenu)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '14px',
-                  backgroundColor: 'white',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+        <div className="app-card app-filter-card" style={{ padding: '8px 10px' }}>
+          <div style={{ minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+              <div className="app-filter-search" style={{ minWidth: '280px' }}>
+                <input
+                  className="app-control"
+                  type="text"
+                  placeholder="Search materials..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={compactControlStyle}
+                />
+              </div>
+              <select
+                className="app-control app-filter-select"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')}
+                style={{ ...compactControlStyle, width: '160px' }}
               >
-                <ArrowUpDown size={14} strokeWidth={2} />
-                Sort
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setEditingMaterial(null);
+                  resetForm();
+                  setShowAddModal(true);
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={14} strokeWidth={2} />
+                Add material
               </button>
 
-              {showSortMenu && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '4px',
-                    backgroundColor: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    zIndex: 100,
-                    minWidth: '200px',
+              {materialType === 'primary' && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    resetImportState();
+                    setShowImportModal(true);
                   }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
-                  <div style={{ padding: '8px' }}>
-                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', padding: '8px', textTransform: 'uppercase' }}>
-                      Sort By
-                    </div>
-                    {[
-                      { label: 'Name (A-Z)', field: 'name', order: 'asc' as const },
-                      { label: 'Name (Z-A)', field: 'name', order: 'desc' as const },
-                      { label: 'Category (A-Z)', field: 'category', order: 'asc' as const },
-                      { label: 'Unit Price (Low-High)', field: 'unitPrice', order: 'asc' as const },
-                    ].map((option) => (
-                      <button
-                        key={`${option.field}-${option.order}`}
-                        onClick={() => {
-                          setSortField(option.field);
-                          setSortOrder(option.order);
-                          setShowSortMenu(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          textAlign: 'left',
-                          border: 'none',
-                          backgroundColor: sortField === option.field && sortOrder === option.order ? '#eff6ff' : 'transparent',
-                          color: sortField === option.field && sortOrder === option.order ? '#3b82f6' : '#1a202c',
-                          cursor: 'pointer',
-                          borderRadius: '4px',
-                          fontSize: '14px',
-                        }}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  <Upload size={16} strokeWidth={2} />
+                  Import
+                </button>
               )}
+
+              <ActionDropdown
+                label="More"
+                buttonClassName="btn btn-ghost btn-sm"
+                items={[
+                  {
+                    key: 'export-excel',
+                    label: 'Export to Excel',
+                    onSelect: handleExportFilteredMaterialsExcel,
+                    icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'export-csv',
+                    label: 'Export to CSV',
+                    onSelect: handleExportFilteredMaterialsCsv,
+                    icon: <FileText size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'print',
+                    label: 'Print',
+                    onSelect: handlePrintFilteredMaterials,
+                    icon: <Printer size={13} strokeWidth={2} />,
+                  },
+                  { key: 'divider-1', type: 'divider' },
+                  {
+                    key: 'table-settings',
+                    label: 'Table settings',
+                    onSelect: openMaterialsTableSettings,
+                    icon: <Settings2 size={13} strokeWidth={2} />,
+                  },
+                ]}
+              />
+
+              <div
+                ref={materialsTableSettingsAnchorRef}
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+                aria-hidden="true"
+              >
+                <TableSettingsDropdown
+                  columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
+                    key: column.key,
+                    label: column.label,
+                    visible: isMaterialColumnVisible(column.key),
+                  }))}
+                  onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
+                  onResetColumns={resetMaterialColumns}
+                  density={tableDensity}
+                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+                />
+              </div>
             </div>
           </div>
         </div>
+
+        {materialType === 'primary' && foreignCurrencyRates.length > 0 && (
+          <>
+            <div
+              style={{
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e8e8e8',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '14px',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exchange rates</span>
+                {foreignCurrencyRates.map(({ currency, displayRate, flag }) => {
+                  const isEditing = editingRateCurrencyId === currency.id;
+                  const isSaving = savingRateCurrencyId === currency.id;
+                  const isSaved = recentlySavedCurrencyId === currency.id;
+                  return (
+                    <span key={currency.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#0f172a' }}>
+                      <strong style={{ fontWeight: 600 }}>{currency.code}</strong>
+                      {flag ? <span aria-label={`${currency.code} flag`}>{flag}</span> : null}
+                      {isEditing ? (
+                        <>
+                          <input
+                            type="number"
+                            step="0.0001"
+                            value={editingRateValue}
+                            onChange={(e) => setEditingRateValue(e.target.value)}
+                            style={{ width: '94px', minHeight: '26px', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                          />
+                          <span style={{ color: '#475569' }}>{baseCurrencyCode}</span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => saveExchangeRate(currency.id)}
+                            disabled={isSaving}
+                            style={{ minHeight: '24px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <CheckCircle2 size={14} strokeWidth={2} />
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            onClick={cancelEditingExchangeRate}
+                            disabled={isSaving}
+                            style={{ minHeight: '24px', padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <X size={14} strokeWidth={2} />
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span>{formatRateValue(displayRate)} {baseCurrencyCode}</span>
+                          <button
+                            type="button"
+                            onClick={() => startEditingExchangeRate(currency.id, displayRate)}
+                            style={{ border: 'none', background: 'transparent', color: '#475569', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: 0 }}
+                            aria-label={`Edit ${currency.code} exchange rate`}
+                            title={`Edit ${currency.code} exchange rate`}
+                          >
+                            <Pencil size={14} strokeWidth={2} />
+                          </button>
+                          {isSaved && <CheckCircle2 size={14} strokeWidth={2} color="#16a34a" />}
+                        </>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              <span style={{ fontSize: '12px', color: '#888' }}>{latestRateUpdateLabel}</span>
+            </div>
+
+            {exchangeRateNotice && (
+              <div
+                style={{
+                  marginTop: '-2px',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  color: '#166534',
+                }}
+              >
+                {exchangeRateNotice}
+              </div>
+            )}
+          </>
+        )}
 
         {/* Bulk Action Bar */}
         {selectedMaterials.size > 0 && (
-          <div className="app-bulk-bar">
-            <div className="app-bulk-count-wrap">
-              <span className="app-bulk-count">
-                {visibleInSelected} of {materials.length} material{materials.length !== 1 ? 's' : ''} selected
-              </span>
-            </div>
+          <div
+            className="app-bulk-bar app-bulk-bar-sticky"
+            style={{
+              backgroundColor: '#1a1a1a',
+              color: 'white',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+            }}
+          >
+            <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+              {visibleInSelected} selected
+            </span>
+
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
+                {
+                  key: 'export-excel',
+                  label: 'Export selected (Excel)',
+                  onSelect: handleBulkExport,
+                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'export-csv',
+                  label: 'Export selected (CSV)',
+                  onSelect: handleExportFilteredMaterialsCsv,
+                  icon: <FileText size={13} strokeWidth={2} />,
+                },
+                { key: 'divider-1', type: 'divider' },
+                {
+                  key: 'set-active',
+                  label: 'Set active',
+                  onSelect: () => handleBulkSetActiveState(true),
+                  icon: <Eye size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'set-inactive',
+                  label: 'Set inactive',
+                  onSelect: () => handleBulkSetActiveState(false),
+                  icon: <EyeOff size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'change-category',
+                  label: 'Change category',
+                  onSelect: () => setShowCategoryModal(true),
+                  icon: <Tags size={13} strokeWidth={2} />,
+                },
+                { key: 'divider-2', type: 'divider' },
+                {
+                  key: 'delete-selected',
+                  label: loadingUsageCheck ? 'Delete selected (checking...)' : 'Delete selected',
+                  onSelect: handleOpenDeleteModal,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  disabled: loadingUsageCheck,
+                  destructive: true,
+                },
+              ]}
+            />
+
             <button
-              onClick={handleOpenDeleteModal}
-              disabled={loadingUsageCheck}
-              className="btn btn-danger"
-              style={{ cursor: loadingUsageCheck ? 'not-allowed' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              {loadingUsageCheck ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Checking...</> : <><Trash2 size={14} strokeWidth={2} /> Delete</>}
-            </button>
-            <button
-              onClick={() => setShowCategoryModal(true)}
-              className="btn"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Tags size={14} strokeWidth={2} />
-              Change Category
-            </button>
-            <button
-              onClick={handleBulkExport}
-              className="btn btn-success"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileSpreadsheet size={14} strokeWidth={2} />
-              Export Excel
-            </button>
-            <button
+              type="button"
               onClick={() => setSelectedMaterials(new Set())}
-              className="btn btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              className="btn btn-ghost btn-sm"
+              style={{ marginLeft: 'auto', color: '#e2e8f0' }}
             >
               <X size={14} strokeWidth={2} />
-              Clear
+              Clear selection
             </button>
           </div>
         )}
 
         {/* Materials Table */}
-        <div className="app-card app-data-card">
-          <h2>
+        <div className="app-card app-data-card" style={{ padding: 0 }}>
+          <h2 style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0' }}>
             Materials ({filteredMaterials.length})
           </h2>
 
-          <div className="app-table-wrap">
-            <table className="app-table">
+          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
+            <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '12px 16px', textAlign: 'center', fontWeight: '600', fontSize: '13px', color: '#475569', width: '40px' }}>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '13px', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       checked={selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0}
@@ -1043,20 +1559,33 @@ export default function Materials() {
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', fontSize: '14px', width: '48px' }}>#</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Material</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Category</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Unit Cost</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Bulk Pricing</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Supplier</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Status</th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Actions</th>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '13px', width: '40px', whiteSpace: 'nowrap' }}>#</th>
+                  {isMaterialColumnVisible('material') && <th onClick={() => {
+                    setSortField('name');
+                    setSortOrder((prev) => (sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
+                  {isMaterialColumnVisible('category') && <th onClick={() => {
+                    setSortField('category');
+                    setSortOrder((prev) => (sortField === 'category' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
+                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  {isMaterialColumnVisible('unitCost') && <th onClick={() => {
+                    setSortField('unitPrice');
+                    setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  {isMaterialColumnVisible('supplier') && <th onClick={() => {
+                    setSortField('supplier');
+                    setSortOrder((prev) => (sortField === 'supplier' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
+                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredMaterials.map((material, idx) => (
-                  <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '12px 16px', width: '40px', textAlign: 'center' }}>
+                  <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa' }}>
+                    <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedMaterials.has(material.id)}
@@ -1064,140 +1593,67 @@ export default function Materials() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
-                    <td style={{ padding: '16px', width: '48px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                    <td style={{ padding: '16px' }}>
-                      <div>
-                        <div style={{ fontWeight: '600', fontSize: '14px' }}>{material.name}</div>
-                        {material.sku && (
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>SKU: {material.sku}</div>
-                        )}
-                        {material.description && (
-                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                            {material.description}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <span
-                        style={{
-                          padding: '4px 12px',
-                          borderRadius: '12px',
-                          fontSize: '12px',
-                          backgroundColor: '#f1f5f9',
-                          color: '#475569',
-                        }}
-                      >
-                        {material.category}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <div className="money-value" style={{ fontWeight: '600', fontSize: '16px' }}>
+                    <td style={{ padding: '6px 6px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
+                    {isMaterialColumnVisible('material') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: '600', fontSize: '12px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                    </td>}
+                    {isMaterialColumnVisible('category') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ fontSize: '11px', color: '#334155' }}>{material.category}</span>
+                    </td>}
+                    {isMaterialColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
+                    {isMaterialColumnVisible('unitCost') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
+                      <div className="money-value" style={{ fontWeight: '600', fontSize: '12px' }}>
                         {material.baseCurrencySymbol}
                         {parseFloat(material.unitPrice).toFixed(2)}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>per {material.unit}</div>
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <div className="money-value" style={{ fontSize: '14px', fontWeight: '600' }}>
+                    </td>}
+                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
+                      <div className="money-value" style={{ fontSize: '12px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
                         {material.purchaseCurrencySymbol}
                         {parseFloat(material.bulkPrice).toFixed(2)}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>
-                        for {parseFloat(material.bulkQuantity).toFixed(2)} {material.unit}
-                      </div>
-                    </td>
-                    <td style={{ padding: '16px', fontSize: '14px' }}>{material.supplier}</td>
-                    <td style={{ padding: '16px' }}>
-                      <span
-                        style={{
-                          padding: '4px 12px',
-                          borderRadius: '12px',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          backgroundColor: material.isActive ? '#d1fae5' : '#fee2e2',
-                          color: material.isActive ? '#065f46' : '#991b1b',
-                        }}
-                      >
+                    </td>}
+                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
+                    {isMaterialColumnVisible('status') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap' }}>
+                      <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
                         {material.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => handleViewPriceHistory(material)}
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            backgroundColor: '#f0fdf4',
-                            color: '#166534',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <History size={13} strokeWidth={2} />
-                          History
-                        </button>
-                        <button
+                      </AppBadge>
+                    </td>}
+                    {isMaterialColumnVisible('actions') && <td style={{ padding: '4px 3px' }}>
+                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                        <AppButton
                           onClick={() => handleEdit(material)}
+                          variant="ghost"
+                          size="sm"
+                          className="app-row-action-icon"
+                          title="Edit"
+                          ariaLabel={`Edit ${material.name}`}
                           style={{
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            backgroundColor: '#eff6ff',
-                            color: '#3b82f6',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '0px',
+                            padding: '2px',
+                            minWidth: '20px',
                           }}
                         >
-                          <Pencil size={13} strokeWidth={2} />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(material)}
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            backgroundColor: '#ecfeff',
-                            color: '#0f766e',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Copy size={13} strokeWidth={2} />
-                          Duplicate
-                        </button>
-                        <button
-                          onClick={() => handleDelete(material.id)}
-                          style={{
-                            padding: '6px 12px',
-                            fontSize: '12px',
-                            backgroundColor: '#fee2e2',
-                            color: '#991b1b',
-                            borderRadius: '4px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Trash2 size={13} strokeWidth={2} />
-                          Delete
-                        </button>
+                          <Pencil size={14} strokeWidth={2} />
+                        </AppButton>
+                        <OverflowMenu
+                          ariaLabel={`More actions for ${material.name}`}
+                          items={[
+                            { label: 'View usage', icon: BarChart2, onClick: () => handleViewMaterialUsage(material) },
+                            { label: 'Price history', icon: Clock3, onClick: () => handleViewPriceHistory(material) },
+                            { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicate(material) },
+                            { type: 'divider', key: `state-divider-${material.id}` },
+                            material.isActive
+                              ? { label: 'Set inactive', icon: EyeOff, onClick: () => handleToggleMaterialActive(material) }
+                              : { label: 'Set active', icon: Eye, onClick: () => handleToggleMaterialActive(material) },
+                            { type: 'divider', key: `delete-divider-${material.id}` },
+                            { label: 'Delete', icon: Trash2, onClick: () => handleDelete(material.id), danger: true },
+                          ]}
+                        />
                       </div>
-                    </td>
+                    </td>}
                   </tr>
                 ))}
               </tbody>
@@ -1258,22 +1714,33 @@ export default function Materials() {
                     <label className="app-settings-label">
                       Category *
                     </label>
-                    <input
+                    <select
                       className="app-control"
                       required
-                      list="material-category-options"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      placeholder="Type or select category"
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                       style={{ width: '100%' }}
-                    />
-                    <datalist id="material-category-options">
+                    >
+                      <option value="" disabled>
+                        Select category
+                      </option>
                       {materialCategories.map((cat) => (
                         <option key={cat} value={cat}>
                           {cat}
                         </option>
                       ))}
-                    </datalist>
+                      <option value="__custom__">+ Add new category...</option>
+                    </select>
+                    {formData.category === '__custom__' && (
+                      <input
+                        className="app-control"
+                        required
+                        value={materialCustomCategoryValue}
+                        onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
+                        placeholder="Enter new category"
+                        style={{ width: '100%', marginTop: '8px' }}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -1294,22 +1761,33 @@ export default function Materials() {
                     <label className="app-settings-label">
                       Unit of Measurement *
                     </label>
-                    <input
+                    <select
                       className="app-control"
                       required
-                      list="material-unit-options"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      placeholder="Type or select unit"
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       style={{ width: '100%' }}
-                    />
-                    <datalist id="material-unit-options">
+                    >
+                      <option value="" disabled>
+                        Select unit
+                      </option>
                       {materialUnits.map((unit) => (
                         <option key={unit} value={unit}>
                           {unit}
                         </option>
                       ))}
-                    </datalist>
+                      <option value="__custom__">+ Add new unit...</option>
+                    </select>
+                    {formData.unit === '__custom__' && (
+                      <input
+                        className="app-control"
+                        required
+                        value={materialCustomUnitValue}
+                        onChange={(e) => setMaterialCustomUnitValue(e.target.value)}
+                        placeholder="Enter new unit"
+                        style={{ width: '100%', marginTop: '8px' }}
+                      />
+                    )}
                   </div>
                   <div>
                     <label className="app-settings-label">
@@ -1410,9 +1888,7 @@ export default function Materials() {
             style={{ maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="app-modal-title">
-              Import Materials from CSV/Excel
-            </h2>
+            <h2 className="app-modal-title">Import Primary Materials (CSV)</h2>
 
             {!importFile ? (
               <div>
@@ -1430,80 +1906,258 @@ export default function Materials() {
                 >
                   <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
                   <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
-                    Click to upload CSV or Excel file
+                    Upload materials CSV
                   </div>
                   <div style={{ fontSize: '14px', color: '#64748b' }}>
-                    Supports .csv, .xlsx, .xls files
+                    Use the standard template for best results.
                   </div>
                   <input
                     id="file-upload"
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv"
                     onChange={handleFileUpload}
                     style={{ display: 'none' }}
                   />
                 </label>
+
+                <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
+                  <div style={{ fontSize: '13px', color: '#475569' }}>Columns: Material Name, Category, Unit, Purchase Currency, Bulk Price, Bulk Quantity, Supplier Type.</div>
+                  <div style={{ fontSize: '13px', color: '#475569' }}>Supplier Type accepts Local or Foreign. Currency can be blank to use base currency.</div>
+                </div>
+
                 <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                  <button
-                    onClick={handleDownloadTemplate}
+                  <a
+                    href="/templates/PriceRight_Materials_Import_Template.xlsx"
+                    download
                     style={{
                       backgroundColor: '#10b981',
                       color: 'white',
                       padding: '12px 24px',
                       borderRadius: '8px',
                       fontWeight: '600',
-                      border: 'none',
-                      cursor: 'pointer',
+                      textDecoration: 'none',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '6px',
                     }}
                   >
                     <ArrowDownToLine size={15} strokeWidth={2} />
-                    Download Template
-                  </button>
+                    Download Excel template (.xlsx)
+                  </a>
+                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8' }}>
+                    Fill in the Excel template, then save as CSV (File → Save As → CSV UTF-8) before uploading here.
+                  </div>
                 </div>
               </div>
             ) : (
               <div>
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
+                <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
                   <strong>File:</strong> {importFile.name} ({importPreview.length} rows)
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImportFile(null);
-                      setImportPreview([]);
-                    }}
-                    style={{
-                      padding: '10px 20px',
-                      borderRadius: '8px',
-                      border: '1px solid #e2e8f0',
-                      backgroundColor: 'white',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Choose Different File
-                  </button>
-                  <button
-                    onClick={handleImport}
-                    disabled={importing || importPreview.length === 0}
-                    style={{
-                      padding: '10px 20px',
-                      borderRadius: '8px',
-                      backgroundColor: importing ? '#94a3b8' : '#10b981',
-                      color: 'white',
-                      fontWeight: '600',
-                      border: 'none',
-                      cursor: importing ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {importing ? 'Importing...' : `Import ${importPreview.length} Materials`}
-                  </button>
-                </div>
+                {importRuntimeError && (
+                  <div style={{ marginBottom: '12px', backgroundColor: '#fee2e2', color: '#991b1b', padding: '10px 12px', borderRadius: '8px' }}>
+                    {importRuntimeError}
+                  </div>
+                )}
+
+                {(() => {
+                  const errorRows = importPreview.filter((r) => r.errors.length > 0);
+                  const validCount = importPreview.length - errorRows.length;
+                  if (errorRows.length === 0 || importResult) return null;
+                  return (
+                    <div style={{ marginBottom: '12px' }}>
+                      {/* Amber summary banner */}
+                      <div style={{ backgroundColor: '#fff3e0', color: '#e65100', padding: '10px 12px', borderRadius: '8px', marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', lineHeight: 1 }}>⚠</span>
+                        <div>
+                          <strong>{errorRows.length} row{errorRows.length !== 1 ? 's' : ''} have errors and will be skipped.</strong>
+                          <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                            {validCount} valid row{validCount !== 1 ? 's' : ''} will be imported. Fix the errors in your CSV and re-upload to import all rows.
+                          </div>
+                        </div>
+                      </div>
+                      {/* Error detail table */}
+                      <div style={{ border: '1px solid #fcd34d', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                          <thead style={{ backgroundColor: '#fffbeb' }}>
+                            <tr>
+                              <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>Line #</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d' }}>Material Name</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d' }}>Error</th>
+                              <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d' }}>How to Fix</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {errorRows.map((row) =>
+                              row.errors.map((err, ei) => (
+                                <tr key={`${row.rowNumber}-${ei}`} style={{ borderBottom: '1px solid #fef3c7' }}>
+                                  {ei === 0 && <td style={{ padding: '6px 8px', verticalAlign: 'top' }} rowSpan={row.errors.length}>{row.rowNumber}</td>}
+                                  {ei === 0 && <td style={{ padding: '6px 8px', verticalAlign: 'top' }} rowSpan={row.errors.length}>{row.name || '—'}</td>}
+                                  <td style={{ padding: '6px 8px', color: '#b91c1c' }}>{err}</td>
+                                  <td style={{ padding: '6px 8px', color: '#374151' }}>{getHowToFix(err)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Pre-import error report download */}
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          onClick={downloadParseErrorReport}
+                          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+                        >
+                          Download error report (CSV)
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {importPreview.length > 0 && (
+                  <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
+                        <tr>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Row</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Currency</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Bulk Price</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Bulk Quantity</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map((row) => (
+                          <tr key={row.rowNumber} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: row.errors.length > 0 ? '#fdecea' : 'white' }}>
+                            <td style={{ padding: '8px' }}>
+                              {row.errors.length > 0 && <span style={{ color: '#dc2626', marginRight: '4px', fontWeight: 700 }}>✕</span>}
+                              {row.rowNumber}
+                            </td>
+                            <td style={{ padding: '8px' }}>{row.name || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row.category || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row.unit || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row.currencyCode || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row.bulkPriceRaw || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row.bulkQuantityRaw || '-'}</td>
+                            <td style={{ padding: '8px', color: row.errors.length > 0 ? '#be123c' : '#166534' }}>
+                              {row.errors.length > 0 ? row.errors.join(' | ') : 'Ready'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {(() => {
+                  const validCount = importPreview.filter((r) => r.errors.length === 0).length;
+                  const errorCount = importPreview.filter((r) => r.errors.length > 0).length;
+                  const label = importing
+                    ? 'Importing...'
+                    : errorCount > 0
+                    ? `Import ${validCount} valid row${validCount !== 1 ? 's' : ''} (${errorCount} row${errorCount !== 1 ? 's' : ''} will be skipped)`
+                    : `Import ${validCount} Material${validCount !== 1 ? 's' : ''}`;
+                  return (
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={resetImportState}
+                        style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', fontWeight: '600', cursor: 'pointer' }}
+                      >
+                        Choose Different File
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleImport}
+                        disabled={importing || validCount === 0 || importPreview.length > MAX_IMPORT_ROWS}
+                        style={{
+                          padding: '10px 20px',
+                          borderRadius: '8px',
+                          backgroundColor: importing || validCount === 0 ? '#94a3b8' : '#10b981',
+                          color: 'white',
+                          fontWeight: '600',
+                          border: 'none',
+                          cursor: importing || validCount === 0 ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {importResult && (
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
+                      Added: {importResult.imported} | Updated: {importResult.updated} | Failed: {importResult.skipped}
+                    </div>
+
+                    {importResult.errors.length > 0 && (
+                      <div>
+                        <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                            <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
+                              <tr>
+                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row</th>
+                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Name</th>
+                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Error</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {importResult.errors.slice(0, 20).map((failure) => (
+                                <tr key={`${failure.row}-${failure.name}`} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                  <td style={{ padding: '8px' }}>{failure.row}</td>
+                                  <td style={{ padding: '8px' }}>{failure.name || '-'}</td>
+                                  <td style={{ padding: '8px' }}>{failure.error}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={downloadMaterialFailureReport}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: 'white',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                            }}
+                          >
+                            Download Failure Report
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setImportResult(null);
+                              setImportRuntimeError('');
+                            }}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: 'white',
+                              cursor: 'pointer',
+                              fontWeight: '600',
+                            }}
+                          >
+                            Try Again
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1512,8 +2166,7 @@ export default function Materials() {
                 type="button"
                 onClick={() => {
                   setShowImportModal(false);
-                  setImportFile(null);
-                  setImportPreview([]);
+                  resetImportState();
                 }}
                 style={{
                   padding: '10px 20px',
@@ -1522,6 +2175,71 @@ export default function Materials() {
                   backgroundColor: 'white',
                   fontWeight: '600',
                   cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Material Usage Modal */}
+      {showUsageModal && selectedMaterialForUsage && (
+        <div
+          className="app-modal-overlay"
+        >
+          <div
+            className="app-modal"
+            style={{ maxWidth: '560px', maxHeight: '85vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
+              Products Using {selectedMaterialForUsage.name}
+            </h2>
+            <p style={{ color: '#64748b', marginBottom: '18px' }}>
+              This list shows every product BOM that currently includes this material.
+            </p>
+
+            {loadingMaterialUsage ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', padding: '10px 0 18px' }}>
+                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                Loading usage data...
+              </div>
+            ) : selectedMaterialUsage && selectedMaterialUsage.productCount > 0 ? (
+              <div style={{ marginBottom: '18px' }}>
+                <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                  Used in {selectedMaterialUsage.productCount} product{selectedMaterialUsage.productCount !== 1 ? 's' : ''}
+                </div>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '260px', overflowY: 'auto' }}>
+                  {selectedMaterialUsage.products.map((productName, index) => (
+                    <div
+                      key={`${selectedMaterialUsage.materialId}-${productName}-${index}`}
+                      style={{
+                        padding: '10px 12px',
+                        borderBottom: index === selectedMaterialUsage.products.length - 1 ? 'none' : '1px solid #f1f5f9',
+                        fontSize: '14px',
+                        color: '#1e293b',
+                      }}
+                    >
+                      {productName}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: '18px', padding: '14px', borderRadius: '8px', backgroundColor: '#f8fafc', color: '#334155' }}>
+                This material is not currently used in any product BOM.
+              </div>
+            )}
+
+            <div className="app-modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => {
+                  setShowUsageModal(false);
+                  setSelectedMaterialForUsage(null);
+                  setSelectedMaterialUsage(null);
                 }}
               >
                 Close
@@ -1621,21 +2339,31 @@ export default function Materials() {
               <label className="app-settings-label" style={{ marginBottom: '8px' }}>
                 Select New Category *
               </label>
-              <input
+              <select
                 className="app-control"
-                list="material-bulk-category-options"
                 value={bulkCategoryValue}
                 onChange={(e) => setBulkCategoryValue(e.target.value)}
-                placeholder="Type or select category"
                 style={{ width: '100%' }}
-              />
-              <datalist id="material-bulk-category-options">
+              >
+                <option value="" disabled>
+                  Select category
+                </option>
                 {materialCategories.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
                 ))}
-              </datalist>
+                <option value="__custom__">+ Add new category...</option>
+              </select>
+              {bulkCategoryValue === '__custom__' && (
+                <input
+                  className="app-control"
+                  value={bulkCustomCategoryValue}
+                  onChange={(e) => setBulkCustomCategoryValue(e.target.value)}
+                  placeholder="Enter new category"
+                  style={{ width: '100%', marginTop: '8px' }}
+                />
+              )}
             </div>
 
             <div className="app-modal-actions">
@@ -1644,6 +2372,7 @@ export default function Materials() {
                 onClick={() => {
                   setShowCategoryModal(false);
                   setBulkCategoryValue('');
+                  setBulkCustomCategoryValue('');
                 }}
               >
                 Cancel
@@ -1651,10 +2380,10 @@ export default function Materials() {
               <button
                 className="btn btn-primary"
                 onClick={handleBulkCategoryChange}
-                disabled={!bulkCategoryValue}
+                disabled={!normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue)}
                 style={{
-                  backgroundColor: bulkCategoryValue ? '#3b82f6' : '#94a3b8',
-                  cursor: bulkCategoryValue ? 'pointer' : 'not-allowed',
+                  backgroundColor: normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue) ? '#3b82f6' : '#94a3b8',
+                  cursor: normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue) ? 'pointer' : 'not-allowed',
                 }}
               >
                 Apply
@@ -1694,10 +2423,10 @@ export default function Materials() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Date</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Purchase Price</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Base Currency</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', fontSize: '14px' }}>Change</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Date</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Purchase Price</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Base Currency</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Change</th>
                     </tr>
                   </thead>
                   <tbody>
