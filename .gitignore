@@ -2,6 +2,10 @@ server/.env
 client/.env
 server/migration/*.json
 server/backups/
+dist-electron/
+server/priceright.db
+server/demo.db
+.tmp.driveupload/
 node_modules/
 client/node_modules/
 server/node_modules/
