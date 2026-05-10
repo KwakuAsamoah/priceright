@@ -336,6 +336,37 @@ export const materialsApi = {
     });
     return parseResponse(res);
   },
+  importIntermediateMaterials: async (file: File): Promise<{
+    imported: number;
+    skipped: number;
+    errors: Array<{ row: number; name: string; reason: string }>;
+  }> => {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    
+    if (lines.length < 1) {
+      throw new Error('CSV file is empty');
+    }
+
+    const headers = lines[0].split(',').map((h) => h.trim());
+    const materials: Array<Record<string, unknown>> = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(',').map((p) => p.trim());
+      const row: Record<string, unknown> = {};
+      headers.forEach((header, index) => {
+        row[header] = parts[index] ?? '';
+      });
+      materials.push(row);
+    }
+
+    const res = await fetch(`${API_BASE}/intermediate-materials/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ materials }),
+    });
+    return parseResponse(res);
+  },
 };
 
 // Products API

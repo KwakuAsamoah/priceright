@@ -1379,6 +1379,122 @@ app.post('/api/materials/import', async (req, res) => {
   }
 });
 
+// Intermediate Materials Import Endpoint
+app.post('/api/intermediate-materials/import', async (req, res) => {
+  try {
+    const payload = req.body as { materials?: Array<Record<string, unknown>> };
+    const rows = Array.isArray(payload?.materials) ? payload.materials : null;
+
+    if (!rows) {
+      return res.status(400).json({ error: 'Request body must include a materials array' });
+    }
+
+    // Get existing intermediate materials by name (case-insensitive)
+    const existingIntermediates = await db
+      .select({
+        id: materials.id,
+        name: materials.name,
+      })
+      .from(materials)
+      .where(eq(materials.materialType, 'intermediate'));
+
+    const existingMaterialByName = new Map(
+      existingIntermediates.map((material) => [String(material.name || '').trim().toLowerCase(), material]),
+    );
+
+    // Get the base currency ID for default value
+    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
+    const baseCurrencyCode = (baseCurrencySetting[0]?.settingValue || 'GHS').trim().toUpperCase();
+    const allCurrencies = await db.select({ id: currencies.id, code: currencies.code }).from(currencies);
+    const baseCurrency = allCurrencies.find((c) => c.code === baseCurrencyCode);
+    const defaultCurrencyId = baseCurrency?.id || 1;
+
+    const normalizeString = (value: unknown) => String(value ?? '').trim();
+
+    const errors: Array<{ row: number; name: string; reason: string }> = [];
+    let imported = 0;
+    let skipped = 0;
+
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index] || {};
+      const rowNumber = index + 1;
+
+      const name = normalizeString(row['Intermediate Name'] || row.name || '');
+      const category = normalizeString(row.Category || row.category || '');
+      const unit = normalizeString(row.Unit || row.unit || 'Kg');
+      const notes = normalizeString(row.Notes || row.notes || '');
+
+      // Skip empty rows
+      if (!name) {
+        continue;
+      }
+
+      // Check for duplicates
+      const normalizedName = name.toLowerCase();
+      if (existingMaterialByName.has(normalizedName)) {
+        errors.push({
+          row: rowNumber,
+          name,
+          reason: 'Intermediate material with this name already exists',
+        });
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        // Insert new intermediate material
+        const created = await getActiveDb()
+          .insert(materials)
+          .values({
+            name,
+            sku: null,
+            description: notes || null,
+            materialType: 'intermediate',
+            category: category || '',
+            unit: unit || 'Kg',
+            bulkQuantity: 1,
+            bulkPrice: 0,
+            purchaseCurrencyId: defaultCurrencyId,
+            priceInPurchaseCurrency: 0,
+            priceInBaseCurrency: 0,
+            unitPrice: 0,
+            overheadPercentage: 0,
+            marginPercentage: 0,
+            yieldPercentage: 100,
+            calculatedCostPerUnit: 0,
+            supplier: '',
+            isActive: true,
+          })
+          .returning();
+
+        // Add to map to prevent duplicates in this batch
+        existingMaterialByName.set(normalizedName, {
+          id: created[0].id,
+          name,
+        });
+
+        imported += 1;
+      } catch (error: any) {
+        errors.push({
+          row: rowNumber,
+          name,
+          reason: error?.message || 'Failed to import row',
+        });
+        skipped += 1;
+      }
+    }
+
+    return res.json({
+      imported,
+      skipped,
+      errors,
+    });
+  } catch (error) {
+    console.error('Error importing intermediate materials:', error);
+    return res.status(500).json({ error: 'Failed to import intermediate materials' });
+  }
+});
+
 // ============================================
 // PRODUCTS ENDPOINTS
 // ============================================
@@ -3255,8 +3371,7 @@ app.post('/api/products/import', async (req, res) => {
       const rowNumber = i + 1;
       const productName = getField(raw, ['Product Name', 'name', 'ProductName']);
       if (!productName) {
-        // put into failures later
-        groups[`__INVALID__`]= groups[`__INVALID__`] || [];
+        groups[`__INVALID__`] = groups[`__INVALID__`] || [];
         groups[`__INVALID__`].push({ row: raw, rowNumber });
         continue;
       }
@@ -3265,16 +3380,19 @@ app.post('/api/products/import', async (req, res) => {
       groups[key].push({ row: raw, rowNumber });
     }
 
-    const failures: Array<any> = [];
-    let successCount = 0;
+    const errors: Array<{ productName: string; reason: string }> = [];
+    let imported = 0;
+    let skipped = 0;
 
     // Load all existing products for duplicate name check
     const existingProducts = await getActiveDb().select().from(products);
+    const existingProductNames = new Set(existingProducts.map((p: any) => String(p.name).toLowerCase()));
 
     for (const [productName, entries] of Object.entries(groups)) {
       if (productName === '__INVALID__') {
         for (const e of entries) {
-          failures.push({ rowNumber: e.rowNumber, name: '', reason: 'Missing required field: Product Name', originalRow: e.row });
+          errors.push({ productName: '', reason: 'Missing required field: Product Name' });
+          skipped += 1;
         }
         continue;
       }
@@ -3286,91 +3404,125 @@ app.post('/api/products/import', async (req, res) => {
       const productionModeRaw = getField(first, ['Production Mode', 'productionMode', 'ProductionMode']);
       const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield']);
       const overheadRaw = getField(first, ['Overhead %', 'Overhead', 'overhead', 'Overhead%']);
-      const profitRaw = getField(first, ['Profit on cost %', 'Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
+      const profitRaw = getField(first, ['Profit on Cost %', 'Profit on cost %', 'Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
       const currentSellingPriceRaw = getField(first, ['Current Selling Price', 'currentSellingPrice', 'Selling Price', 'Current Price']);
 
       // Validate product-level fields
-      if (!category) {
-        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: 'Missing required field: Category', originalRow: e.row });
-        continue;
-      }
-
       const productionMode = productionModeRaw ? String(productionModeRaw).toLowerCase() : 'single';
       if (!['single', 'batch'].includes(productionMode)) {
-        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Production Mode: ${productionModeRaw}`, originalRow: e.row });
+        errors.push({ productName, reason: `Invalid Production Mode: ${productionModeRaw}` });
+        skipped += 1;
         continue;
       }
 
       const batchYield = productionMode === 'batch' ? parseInt(batchYieldRaw || '0') : 1;
       if (productionMode === 'batch' && (!batchYield || isNaN(batchYield) || batchYield <= 0)) {
-        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: 'Missing or invalid Batch Yield for batch product', originalRow: e.row });
+        errors.push({ productName, reason: 'Missing or invalid Batch Yield for batch product' });
+        skipped += 1;
         continue;
       }
 
       const overhead = parseFloat(overheadRaw || '0');
       const profitMargin = parseFloat(profitRaw || '0');
       const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
-      if (isNaN(overhead)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Overhead %: ${overheadRaw}`, originalRow: e.row }); continue; }
-      if (isNaN(profitMargin)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Profit on cost %: ${profitRaw}`, originalRow: e.row }); continue; }
+      if (isNaN(overhead)) {
+        errors.push({ productName, reason: `Invalid Overhead %: ${overheadRaw}` });
+        skipped += 1;
+        continue;
+      }
+      if (isNaN(profitMargin) || profitMargin < 0 || profitMargin > 99) {
+        errors.push({ productName, reason: `Invalid Profit on Cost %: ${profitRaw}` });
+        skipped += 1;
+        continue;
+      }
       if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
-        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}`, originalRow: e.row });
+        errors.push({ productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
+        skipped += 1;
         continue;
       }
 
       // Duplicate product name check (case-insensitive)
       const lowerName = productName.toLowerCase();
-      const exists = existingProducts.some((p: any) => String(p.name).toLowerCase() === lowerName);
-      if (exists) {
-        for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: 'Duplicate product name already exists', originalRow: e.row });
+      if (existingProductNames.has(lowerName)) {
+        errors.push({ productName, reason: 'Product already exists' });
+        skipped += 1;
         continue;
       }
 
-      // Create product
-      const created = await getActiveDb().insert(products).values({
-        name: productName,
-        sku: sku || null,
-        description: first['Description'] || first['description'] || null,
-        category: category || null,
-        overheadPercentage: overhead,
-        profitMargin: profitMargin,
-        productionMode: productionMode,
-        batchYield: batchYield || 1,
-        currentSellingPrice,
-      }).returning();
-
-      const productId = created[0].id;
-      successCount++;
-
-      // For each BOM row, try to find material and add to BOM
+      // Validate all materials BEFORE creating product (if any missing, skip entire product)
+      const materialValidationErrors: Array<{ rowNumber: number; matName: string }> = [];
       for (const e of entries) {
         const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
         const qtyRaw = getField(e.row, ['Quantity', 'quantity']);
         const qty = parseFloat(qtyRaw || '0');
+
         if (!matName) {
-          failures.push({ rowNumber: e.rowNumber, name: productName, reason: 'Missing required field: Material Name', originalRow: e.row });
+          materialValidationErrors.push({ rowNumber: e.rowNumber, matName: '' });
           continue;
         }
         if (isNaN(qty) || qty <= 0) {
-          failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid quantity for material '${matName}': ${qtyRaw}`, originalRow: e.row });
+          materialValidationErrors.push({ rowNumber: e.rowNumber, matName });
           continue;
         }
 
         // Find material by name (case-insensitive)
         const mats = await getActiveDb().select().from(materials).where(sql`lower(${materials.name}) = ${matName.toLowerCase()}`);
         if (!mats || mats.length === 0) {
-          failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Material '${matName}' not found - BOM row skipped`, originalRow: e.row });
-          continue;
+          materialValidationErrors.push({ rowNumber: e.rowNumber, matName });
+        }
+      }
+
+      // If any material validation failed, skip entire product
+      if (materialValidationErrors.length > 0) {
+        const firstError = materialValidationErrors[0];
+        errors.push({ productName, reason: `Material '${firstError.matName}' not found` });
+        skipped += 1;
+        continue;
+      }
+
+      // Create product
+      try {
+        const created = await getActiveDb().insert(products).values({
+          name: productName,
+          sku: sku || null,
+          description: first['Description'] || first['description'] || null,
+          category: category || null,
+          overheadPercentage: overhead,
+          profitMargin: profitMargin,
+          productionMode: productionMode,
+          batchYield: batchYield || 1,
+          currentSellingPrice,
+          approvalStatus: 'pending',
+          isActive: true,
+        }).returning();
+
+        const productId = created[0].id;
+
+        // For each BOM row, find material and add to BOM
+        for (const e of entries) {
+          const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
+          const qtyRaw = getField(e.row, ['Quantity', 'quantity']);
+          const qty = parseFloat(qtyRaw || '0');
+
+          // Material already validated above, so just insert
+          const mats = await getActiveDb().select().from(materials).where(sql`lower(${materials.name}) = ${matName.toLowerCase()}`);
+          if (mats && mats.length > 0) {
+            await getActiveDb().insert(billOfMaterials).values({
+              productId,
+              materialId: mats[0].id,
+              quantity: qty,
+            });
+          }
         }
 
-        try {
-          await getActiveDb().insert(billOfMaterials).values({ productId, materialId: mats[0].id, quantity: qty });
-        } catch (err: any) {
-          failures.push({ rowNumber: e.rowNumber, name: productName, reason: `API error adding BOM material '${matName}': ${err?.message || String(err)}`, originalRow: e.row });
-        }
+        imported += 1;
+      } catch (err: any) {
+        errors.push({ productName, reason: `Failed to create product: ${err?.message || String(err)}` });
+        skipped += 1;
       }
     }
 
-    res.json({ successCount, failures });
+    res.json({ imported, skipped, errors });
   } catch (error) {
     console.error('Error importing products:', error);
     res.status(500).json({ error: 'Failed to import products' });

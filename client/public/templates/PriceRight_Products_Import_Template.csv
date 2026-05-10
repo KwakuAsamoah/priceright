@@ -1,0 +1,10 @@
+# Products + BOM Import Template
+# One row per BOM line. Keep Product Name, Category, Production Mode identical for all rows of the same product.
+# Product Name (required), Category, Production Mode (single or batch), Batch Yield, Overhead %, Profit on Cost %, Material Name (required), Quantity
+Product Name,Category,Production Mode,Batch Yield,Overhead %,Profit on Cost %,Material Name,Quantity
+Palm Butter,Spreads,single,1,15,25,Palm Oil,1.2
+Palm Butter,Spreads,single,1,15,25,Cacao Beans,0.3
+Palm Butter,Spreads,single,1,15,25,Cassava Flour,0.5
+Cocoa Powder Mix,Beverages,single,1,20,30,Cacao Beans,2.0
+Cocoa Powder Mix,Beverages,single,1,20,30,Cassava Flour,0.8
+Cocoa Powder Mix,Beverages,single,1,20,30,Palm Oil,0.2

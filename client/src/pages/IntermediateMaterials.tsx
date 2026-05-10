@@ -1,13 +1,12 @@
 import * as XLSX from 'xlsx';
-import { useEffect, useMemo, useState } from 'react';
-import { Copy, Eye, EyeOff, FileSpreadsheet, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
-import ExportDropdown from '../components/ExportDropdown';
-import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import { materialsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import usePersistedColumns from '../hooks/usePersistedColumns';
@@ -243,7 +242,15 @@ export default function IntermediateMaterials() {
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
   const [importSuccessCount, setImportSuccessCount] = useState(0);
+  const [showIntermediateImportModal, setShowIntermediateImportModal] = useState(false);
+  const [intermediateImportFile, setIntermediateImportFile] = useState<File | null>(null);
+  const [intermediateImportResult, setIntermediateImportResult] = useState<{
+    imported: number;
+    skipped: number;
+    errors: Array<{ row: number; name: string; reason: string }>;
+  } | null>(null);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const intermediatesTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
 
   const selectedMaterial = useMemo(
     () => materials.find((m) => m.id === selectedId) ?? null,
@@ -293,6 +300,13 @@ export default function IntermediateMaterials() {
       return sortOrder === 'asc' ? comparison : -comparison;
     });
   }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
+
+  function openIntermediateTableSettings() {
+    const trigger = intermediatesTableSettingsAnchorRef.current?.querySelector('button');
+    if (trigger instanceof HTMLButtonElement) {
+      trigger.click();
+    }
+  }
 
   function isIntermediateColumnVisible(key: IntermediateColumnKey) {
     return visibleColumns.includes(key);
@@ -933,6 +947,37 @@ export default function IntermediateMaterials() {
     );
   }
 
+  async function handleIntermediateImport() {
+    if (!intermediateImportFile) return;
+
+    setImporting(true);
+    try {
+      const result = await materialsApi.importIntermediateMaterials(intermediateImportFile);
+      setIntermediateImportResult(result);
+      await loadData();
+
+      if (result.skipped === 0) {
+        setShowIntermediateImportModal(false);
+        setIntermediateImportFile(null);
+        showToastMessage(`Imported ${result.imported} intermediate material${result.imported !== 1 ? 's' : ''} successfully`, 'success');
+      } else {
+        showToastMessage(`Import complete: ${result.imported} imported, ${result.skipped} failed.`, 'error');
+      }
+    } catch (error: any) {
+      console.error('Error importing intermediate materials:', error);
+      showToastMessage(error?.message || 'Failed to import intermediate materials', 'error');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function handleIntermediateFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIntermediateImportFile(file);
+    setIntermediateImportResult(null);
+  }
+
   const availableComponents = components.filter((m) => m.id !== selectedId && m.isActive);
 
   const filteredAvailableComponents = useMemo(() => {
@@ -1000,35 +1045,88 @@ export default function IntermediateMaterials() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <TableSettingsDropdown
-                columns={INTERMEDIATE_COLUMN_OPTIONS.map((column) => ({
-                  key: column.key,
-                  label: column.label,
-                  visible: isIntermediateColumnVisible(column.key),
-                }))}
-                onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
-                onResetColumns={resetIntermediateColumns}
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
-              <ExportDropdown
-                onExportCSV={handleExportFilteredMaterialsCsv}
-                onExportExcel={handleExportFilteredMaterialsExcel}
-                onPrint={handlePrintFilteredMaterials}
-              />
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={openNewMaterialForm}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={14} strokeWidth={2} />
+                Add intermediate material
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowIntermediateImportModal(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Upload size={14} strokeWidth={2} />
+                Import
+              </button>
+
               <ActionDropdown
-                label="Actions"
-                buttonIcon={<Plus size={14} strokeWidth={2} />}
-                buttonClassName="btn btn-primary btn-sm"
+                label="More"
+                buttonClassName="btn btn-ghost btn-sm"
                 items={[
                   {
-                    key: 'add-intermediate',
-                    label: 'Add intermediate material',
-                    onSelect: openNewMaterialForm,
-                    icon: <Plus size={14} strokeWidth={2} />,
+                    key: 'export-excel',
+                    label: 'Export to Excel',
+                    onSelect: handleExportFilteredMaterialsExcel,
+                    icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'export-csv',
+                    label: 'Export to CSV',
+                    onSelect: handleExportFilteredMaterialsCsv,
+                    icon: <FileText size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'print',
+                    label: 'Print',
+                    onSelect: handlePrintFilteredMaterials,
+                    icon: <Printer size={13} strokeWidth={2} />,
+                  },
+                  { key: 'divider-1', type: 'divider' },
+                  {
+                    key: 'table-settings',
+                    label: 'Table settings',
+                    onSelect: openIntermediateTableSettings,
+                    icon: <Settings2 size={13} strokeWidth={2} />,
+                  },
+                  {
+                    key: 'download-template',
+                    label: 'Download template',
+                    onSelect: () => {
+                      const link = document.createElement('a');
+                      link.href = '/templates/PriceRight_Intermediates_Import_Template.csv';
+                      link.download = 'PriceRight_Intermediates_Import_Template.csv';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    },
+                    icon: <ArrowDownToLine size={13} strokeWidth={2} />,
                   },
                 ]}
               />
+
+              <div
+                ref={intermediatesTableSettingsAnchorRef}
+                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+                aria-hidden="true"
+              >
+                <TableSettingsDropdown
+                  columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
+                    key: columnKey,
+                    label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
+                    visible: isIntermediateColumnVisible(columnKey),
+                  }))}
+                  onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
+                  onResetColumns={resetIntermediateColumns}
+                  density={tableDensity}
+                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1561,6 +1659,160 @@ export default function IntermediateMaterials() {
             </div>
           </div>
         ) : null}
+
+        {/* Intermediate Materials Import Modal */}
+        {showIntermediateImportModal && (
+          <div className="app-modal-overlay" onClick={() => setShowIntermediateImportModal(false)}>
+            <div
+              className="app-modal"
+              style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="app-modal-title">Import Intermediate Materials</h2>
+
+              {!intermediateImportFile ? (
+                <div>
+                  <p style={{ fontSize: '14px', color: '#475569', marginBottom: '16px' }}>
+                    Upload a CSV file to add multiple intermediate materials at once.
+                  </p>
+
+                  <label
+                    htmlFor="intermediate-file-upload"
+                    style={{
+                      display: 'block',
+                      padding: '40px',
+                      border: '2px dashed #cbd5e1',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      backgroundColor: '#f8fafc',
+                    }}
+                  >
+                    <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
+                      <Upload size={40} strokeWidth={1.8} />
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '6px' }}>
+                      Select CSV file
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>
+                      Columns: Intermediate Name, Category, Unit, Notes
+                    </div>
+                    <input
+                      id="intermediate-file-upload"
+                      type="file"
+                      accept=".csv"
+                      onChange={handleIntermediateFileUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+
+                  <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                    <a
+                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
+                      download
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        padding: '10px 20px',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '14px',
+                      }}
+                    >
+                      Download template
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
+                    <strong>File:</strong> {intermediateImportFile.name}
+                  </div>
+
+                  {intermediateImportResult && (
+                    <div>
+                      <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', marginBottom: '12px', fontWeight: '600' }}>
+                        ✓ Imported: {intermediateImportResult.imported}
+                        {intermediateImportResult.skipped > 0 && ` | Skipped: ${intermediateImportResult.skipped}`}
+                      </div>
+
+                      {intermediateImportResult.errors.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '10px 12px', borderRadius: '8px', marginBottom: '8px', fontWeight: '600' }}>
+                            {intermediateImportResult.errors.length} error{intermediateImportResult.errors.length !== 1 ? 's' : ''}
+                          </div>
+                          <div style={{ border: '1px solid #fecaca', borderRadius: '8px', overflow: 'hidden', maxHeight: '200px', overflowY: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                              <thead style={{ backgroundColor: '#fef2f2' }}>
+                                <tr>
+                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca', whiteSpace: 'nowrap' }}>Row</th>
+                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca' }}>Name</th>
+                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca' }}>Reason</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {intermediateImportResult.errors.map((err, idx) => (
+                                  <tr key={idx} style={{ borderBottom: '1px solid #fecaca' }}>
+                                    <td style={{ padding: '8px' }}>{err.row}</td>
+                                    <td style={{ padding: '8px' }}>{err.name || '—'}</td>
+                                    <td style={{ padding: '8px', color: '#b91c1c' }}>{err.reason}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntermediateImportFile(null);
+                        setIntermediateImportResult(null);
+                      }}
+                      className="btn btn-secondary"
+                    >
+                      Choose Different File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleIntermediateImport}
+                      disabled={importing}
+                      style={{
+                        backgroundColor: importing ? '#94a3b8' : '#10b981',
+                        color: 'white',
+                      }}
+                      className="btn"
+                    >
+                      {importing ? 'Importing...' : 'Import'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowIntermediateImportModal(false);
+                    setIntermediateImportFile(null);
+                    setIntermediateImportResult(null);
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
     </div>

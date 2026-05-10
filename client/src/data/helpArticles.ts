@@ -36,7 +36,32 @@ export const helpArticles: HelpArticle[] = [
         <li>Use the Activity log to track important pricing actions</li>
         <li>Review product Price history before making decisions</li>
         <li>Run reports on your pricing health</li>
-      </ul>`,
+      </ul>
+
+      <p>Sample data files are included so you can explore all features with realistic data before entering your own.</p>`,
+  },
+
+  {
+    id: 'sample-data',
+    section: 'Getting Started',
+    title: 'Using the sample data files',
+    keywords: ['sample', 'sample data', 'demo files', 'import sample', 'getting started', 'example data', 'try', 'explore'],
+    content: `
+      <p>PriceRight includes three sample data files designed for a Ghanaian food manufacturer. Use them to explore all features with realistic data before entering your own.</p>
+
+      <p>Go to Settings in the Setup section and find the Sample data section. Download each file and import them in this exact order:</p>
+
+      <ol>
+        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic GHS prices. Import via Materials page using the Import button.</li>
+        <li><strong>Intermediate materials</strong> — 5 in-house processed ingredients such as peanut paste and cocoa powder. Import via the Intermediate tab on the Materials page.</li>
+        <li><strong>Products with ingredients</strong> — 11 finished products including peanut butter, cocoa powder, gari, pepper sauce, and more. Each product comes with a full bill of materials. Import via the Products page using Import in the More menu.</li>
+      </ol>
+
+      <p>The order matters. Products reference ingredients by name — if the materials are not imported first, products will be skipped during import.</p>
+
+      <p>Once imported, you can approve base prices, create price levels, export price lists, and run reports — all with realistic data. When you are ready to use your own data, clear the sample records and start fresh.</p>
+
+      <p>The sample data files are always available in Settings under Sample data. You can re-download and re-import them at any time.</p>`,
   },
 
   {
@@ -49,6 +74,7 @@ export const helpArticles: HelpArticle[] = [
       material costs are ready. Follow these steps in order — each one builds
       on the last.</p>
 
+      <p>If you want to explore PriceRight before entering your own data, download the sample data files from Settings under Sample data. Import them in order — raw materials first, then intermediate materials, then products — and the app will be populated with a realistic set of Ghanaian food manufacturer data you can use to try every feature.</p>
       <ol>
         <li><strong>Add your raw materials.</strong> Go to Materials. Select the Primary tab.
         Add every ingredient, packaging item, and component you use. For each material

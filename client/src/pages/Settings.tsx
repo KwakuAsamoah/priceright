@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, CheckCircle2, Clock3, Database, HardDrive, ListTree, Package, Plus, Settings2, Trash2, WalletCards, Wrench } from 'lucide-react';
+import { Calculator, CheckCircle2, Clock3, Database, HardDrive, Info, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi } from '../api';
 import AppToast from '../components/AppToast';
@@ -650,6 +650,76 @@ async function loadData() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="app-card app-settings-card">
+              <h2>Sample data</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Download sample files to explore PriceRight with realistic data before entering your own.
+              </p>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {/* Row 1 — Raw materials */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Package size={18} style={{ color: '#94a3b8' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
+                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
+                  </div>
+                  <a
+                    href="/templates/PriceRight_Sample_Materials.csv"
+                    download="PriceRight_Sample_Materials.csv"
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '6px 12px' }}
+                  >
+                    Download
+                  </a>
+                </div>
+                {/* Row 2 — Intermediate materials */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Layers size={18} style={{ color: '#94a3b8' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
+                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
+                  </div>
+                  <a
+                    href="/templates/PriceRight_Sample_Intermediates.csv"
+                    download="PriceRight_Sample_Intermediates.csv"
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '6px 12px' }}
+                  >
+                    Download
+                  </a>
+                </div>
+                {/* Row 3 — Products with BOM */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
+                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
+                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
+                  </div>
+                  <a
+                    href="/templates/PriceRight_Sample_Products.csv"
+                    download="PriceRight_Sample_Products.csv"
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '6px 12px' }}
+                  >
+                    Download
+                  </a>
+                </div>
+              </div>
+              {/* Import order notice */}
+              <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                <Info size={14} style={{ color: '#0284c7', flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ fontSize: '13px', color: '#0c4a6e', lineHeight: '1.5' }}>
+                  <strong>Import in this order:</strong> (1) Raw materials, (2) Intermediate materials, (3) Products. Products will be skipped if their ingredients are not already in your materials list.
+                </div>
+              </div>
             </div>
             </>
             )}

@@ -3216,6 +3216,13 @@ export default function Products() {
 
             {!importFile ? (
               <div>
+                <div style={{ marginBottom: '12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <AlertTriangle size={18} strokeWidth={2} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '13px', color: '#78350f' }}>
+                    <strong>Import materials first.</strong> Product import matches material names to your existing materials. Any product whose material is not found will be skipped.
+                  </div>
+                </div>
+
                 <label
                   htmlFor="product-file-upload"
                   style={{
