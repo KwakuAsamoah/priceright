@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { productsApi } from '../api';
+import AppToast from './AppToast';
+import useAppToast from '../hooks/useAppToast';
 
 interface Product {
   id: number;
@@ -53,6 +55,7 @@ export default function ProductFormDrawer({
   defaultOverhead,
   onSaved,
 }: ProductFormDrawerProps) {
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -192,7 +195,7 @@ export default function ProductFormDrawer({
   function handleSaveBomEdit(id: number) {
     const quantity = parseFloat(editingQuantity);
     if (!editingQuantity || Number.isNaN(quantity) || quantity <= 0) {
-      alert('Please enter a valid quantity');
+      showToastMessage('Please enter a valid quantity', 'error');
       return;
     }
 
@@ -250,7 +253,7 @@ export default function ProductFormDrawer({
 
     const resolvedCategory = (formData.category === '__custom__' ? newCategoryValue : formData.category).trim();
     if (!resolvedCategory) {
-      alert('Please select a category or enter a new one.');
+      showToastMessage('Please select a category or enter a new one.', 'error');
       return;
     }
 
@@ -295,7 +298,7 @@ export default function ProductFormDrawer({
       await onSaved();
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('Failed to save product');
+      showToastMessage('Failed to save product', 'error');
     } finally {
       setSaving(false);
     }
@@ -306,7 +309,9 @@ export default function ProductFormDrawer({
   const liveCost = calculateLiveCost();
 
   return (
-    <div
+    <>
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+      <div
       style={{
         position: 'fixed',
         top: 0,
@@ -724,5 +729,6 @@ export default function ProductFormDrawer({
         </form>
       </div>
     </div>
+    </>
   );
 }

@@ -139,6 +139,7 @@ export const activityLogApi = {
     limit?: number;
     offset?: number;
     entityType?: string;
+    entityId?: number;
     action?: string;
     from?: number;
     to?: number;
@@ -147,6 +148,7 @@ export const activityLogApi = {
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.entityType) query.set('entityType', params.entityType);
+    if (params?.entityId) query.set('entityId', String(params.entityId));
     if (params?.action) query.set('action', params.action);
     if (params?.from) query.set('from', String(params.from));
     if (params?.to) query.set('to', String(params.to));

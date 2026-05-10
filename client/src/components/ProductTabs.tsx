@@ -1,6 +1,7 @@
-import { Fragment } from 'react';
+import { useCallback, useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Clock3, TrendingUp, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, History, TrendingUp, XCircle } from 'lucide-react';
+import { activityLogApi, type ActivityEntry } from '../api';
 
 interface Product {
   id: number;
@@ -26,6 +27,7 @@ interface BOMMaterial {
 
 interface ProductTabsProps {
   product: Product;
+  productId: number;
   displayBom: BOMMaterial[];
   bomLoading: boolean;
   activeTab: 'bom' | 'history' | 'activity';
@@ -53,7 +55,18 @@ const TAB_BUTTONS = [
   { id: 'activity', label: 'Activity' },
 ];
 
-function formatRelativeTime(unixSeconds: number): string {
+function formatAbsoluteDate(unixSeconds: number): string {
+  const date = new Date(unixSeconds * 1000);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function getMarginColor(margin: number): string {
+  if (margin >= 15) return '#16a34a';
+  if (margin >= 10) return '#d97706';
+  return '#dc2626';
+}
+
+
   const now = Math.floor(Date.now() / 1000);
   const delta = now - unixSeconds;
 
@@ -109,6 +122,7 @@ function getActivityVisual(action: string) {
 
 export default function ProductTabs({
   product,
+  productId,
   displayBom,
   bomLoading,
   activeTab,
@@ -117,6 +131,36 @@ export default function ProductTabs({
   activityLoading,
   activityViewAllHref,
 }: ProductTabsProps) {
+  const [priceHistory, setPriceHistory] = useState<ActivityEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyFetched, setHistoryFetched] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (historyFetched) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const result = await activityLogApi.getAll({
+        entityType: 'product',
+        action: 'product.approved',
+        entityId: productId,
+        limit: 100,
+      });
+      setPriceHistory(result.entries);
+      setHistoryFetched(true);
+    } catch {
+      setHistoryError('Could not load price history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [productId, historyFetched]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      void fetchHistory();
+    }
+  }, [activeTab, fetchHistory]);
   return (
     <div>
       {/* Tab Header Buttons */}
@@ -228,13 +272,6 @@ export default function ProductTabs({
           </div>
         )}
 
-        {activeTab === 'history' && (
-          <div style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>
-            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Price history</div>
-            <div style={{ fontSize: '13px' }}>Coming soon...</div>
-          </div>
-        )}
-
         {activeTab === 'activity' && (
           <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -265,6 +302,94 @@ export default function ProductTabs({
                   );
                 })}
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          <div style={{ padding: '16px' }}>
+            {historyLoading ? (
+              <div style={{ padding: '12px', color: '#64748b', fontSize: '12px' }}>Loading price history...</div>
+            ) : historyError ? (
+              <div style={{ padding: '12px', color: '#dc2626', fontSize: '12px' }}>{historyError}</div>
+            ) : priceHistory.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '32px 16px', color: '#94a3b8' }}>
+                <History size={28} />
+                <span style={{ fontSize: '13px' }}>No approved prices yet</span>
+                <span style={{ fontSize: '12px' }}>Approve a price to start tracking history.</span>
+              </div>
+            ) : (
+              <Fragment>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#e2e8f0' }}>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Date</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Approved price</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Production cost</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Margin</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Change</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Approved by</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceHistory.map((entry, index) => {
+                      const d = entry.details as Record<string, unknown> | null;
+                      const newPrice = typeof d?.newPrice === 'number' ? d.newPrice : null;
+                      const oldPrice = typeof d?.oldPrice === 'number' ? d.oldPrice : null;
+                      const productionCostVal = typeof d?.productionCost === 'number' ? d.productionCost : null;
+                      const marginVal = typeof d?.margin === 'number' ? d.margin : null;
+
+                      const priceChange = newPrice !== null && oldPrice !== null
+                        ? newPrice - oldPrice
+                        : null;
+                      const isFirst = index === 0;
+                      const isMostRecent = index === 0;
+
+                      return (
+                        <Fragment key={entry.id}>
+                          {index === 1 && (
+                            <tr>
+                              <td colSpan={6} style={{ padding: '8px 8px 4px', color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid #e2e8f0' }}>
+                                Previous approvals
+                              </td>
+                            </tr>
+                          )}
+                          <tr style={{ backgroundColor: isMostRecent ? '#f0f9ff' : undefined, borderTop: index > 1 ? '1px solid #f1f5f9' : undefined }}>
+                            <td style={{ padding: '8px' }}>
+                              <div style={{ fontWeight: 500 }}>{formatAbsoluteDate(entry.createdAt)}</div>
+                              <div style={{ color: '#94a3b8', fontSize: '11px' }}>{formatRelativeTime(entry.createdAt)}</div>
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
+                              {newPrice !== null ? `GHS ${newPrice.toFixed(2)}` : '—'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: '#475569' }}>
+                              {productionCostVal !== null ? `GHS ${productionCostVal.toFixed(2)}` : '—'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: marginVal !== null ? getMarginColor(marginVal) : '#475569' }}>
+                              {marginVal !== null ? `${marginVal.toFixed(1)}%` : '—'}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>
+                              {isFirst && oldPrice === null ? (
+                                <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>First approval</span>
+                              ) : priceChange !== null ? (
+                                <span style={{ color: priceChange >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                                  {priceChange >= 0 ? '+' : ''}GHS {priceChange.toFixed(2)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ padding: '8px', color: '#475569' }}>
+                              {entry.performedBy ?? '—'}
+                            </td>
+                          </tr>
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <div style={{ padding: '8px', color: '#94a3b8', fontSize: '11px', textAlign: 'right' }}>
+                  Showing {priceHistory.length} approval{priceHistory.length !== 1 ? 's' : ''}
+                </div>
+              </Fragment>
             )}
           </div>
         )}

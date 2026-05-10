@@ -7,7 +7,6 @@ import {
   CheckSquare,
   Clock3,
   PlusCircle,
-  Shield,
   Tag,
   Trash2,
   TrendingUp,
@@ -233,11 +232,12 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
 }
 
 export default function Activity() {
+  // Tier 2: add role-based access control here
+  // For Tier 1 Solo this page is accessible to all users
   const searchParams = new URLSearchParams(window.location.search);
   const initialEntityType = (searchParams.get('entityType') || '').trim();
 
   const [currentUserName, setCurrentUserName] = useState('');
-  const [hasAccess, setHasAccess] = useState(true);
 
   const [entityType, setEntityType] = useState<EntityFilter>(
     initialEntityType === 'product' || initialEntityType === 'material' || initialEntityType === 'exchange_rate' || initialEntityType === 'price_level'
@@ -258,7 +258,7 @@ export default function Activity() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadAccess() {
+    async function loadCurrentUserName() {
       try {
         const settings = await settingsApi.getAll() as Array<{ settingKey: string; settingValue: string }>;
         if (!mounted) return;
@@ -266,21 +266,13 @@ export default function Activity() {
           || settings.find((item) => item.settingKey === 'companyName')?.settingValue?.trim()
           || 'Admin';
         setCurrentUserName(userName);
-
-        const isAdminByName = userName.toLowerCase().includes('admin');
-        const isAdmin = true; // Tier 1: always admin
-        // Tier 2: const isAdmin = currentUser?.role === 'admin'
-        setHasAccess(isAdmin || isAdminByName);
       } catch {
         if (!mounted) return;
         setCurrentUserName('Admin');
-        const isAdmin = true; // Tier 1: always admin
-        // Tier 2: const isAdmin = currentUser?.role === 'admin'
-        setHasAccess(isAdmin);
       }
     }
 
-    loadAccess();
+    loadCurrentUserName();
 
     return () => {
       mounted = false;
@@ -350,16 +342,7 @@ export default function Activity() {
       </div>
 
       <div className="app-page-content" style={{ gap: '12px' }}>
-        {accessDenied ? (
-          <div className="app-card" style={{ minHeight: '320px', display: 'grid', placeItems: 'center' }}>
-            <div style={{ textAlign: 'center', color: '#64748b' }}>
-              <Shield size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '12px' }} />
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Access restricted</div>
-              <div style={{ fontSize: '13px' }}>The Activity log is only available to administrators.</div>
-            </div>
-          </div>
-        ) : (
-          <>
+        <>
             <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(140px, 1fr))', gap: '10px' }}>
                 <div>
@@ -483,8 +466,7 @@ export default function Activity() {
                 </div>
               )}
             </div>
-          </>
-        )}
+        </>
       </div>
     </div>
   );

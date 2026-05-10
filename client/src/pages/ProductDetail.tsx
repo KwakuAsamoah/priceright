@@ -616,6 +616,7 @@ export default function ProductDetail() {
           <div className="app-card" style={{ padding: 0 }}>
             <ProductTabs
               product={product as any}
+              productId={product.id}
               displayBom={displayBom}
               bomLoading={bomLoading}
               activeTab={activeTab}

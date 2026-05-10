@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, Dot, ExternalLink } from 'lucide-react';
+import { CheckCircle, Dot, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { priceLevelItemsApi, priceLevelRulesApi, productsApi } from '../api';
+import { priceLevelItemsApi, priceLevelRulesApi } from '../api';
 import AppBadge from './AppBadge';
 
 interface ProductRow {
@@ -39,18 +39,6 @@ interface CoverageState {
   error: string | null;
   coveredProductIds: Set<number>;
   levelsByProductId: Map<number, string[]>;
-}
-
-interface CalculatorResult {
-  quantity: number;
-  productionCostPerUnit: number;
-  totalMaterialCost: number;
-  totalOverhead: number;
-  totalProductionCost: number;
-  approvedBasePrice: number;
-  totalRevenue: number;
-  grossProfit: number;
-  marginPercent: number;
 }
 
 const MARGIN_BANDS = [
@@ -115,12 +103,6 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
     coveredProductIds: new Set<number>(),
     levelsByProductId: new Map<number, string[]>(),
   });
-
-  const [selectedCalcProductId, setSelectedCalcProductId] = useState<number | null>(null);
-  const [calcQuantity, setCalcQuantity] = useState('');
-  const [calculating, setCalculating] = useState(false);
-  const [calculatorError, setCalculatorError] = useState<string | null>(null);
-  const [calculatorResult, setCalculatorResult] = useState<CalculatorResult | null>(null);
 
   const activeProducts = useMemo(() => products.filter((product) => product.isActive), [products]);
 
@@ -278,70 +260,6 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
     const uncovered = activeProducts.filter((product) => !coverageState.coveredProductIds.has(product.id));
     return { covered, uncovered };
   }, [activeProducts, coverageState.coveredProductIds]);
-
-  const calculatorProducts = useMemo(
-    () => activeProducts.filter((product) => getApprovedPrice(product) != null),
-    [activeProducts],
-  );
-
-  async function handleCalculateProduction() {
-    if (!selectedCalcProductId) {
-      return;
-    }
-
-    const quantity = Number(calcQuantity);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
-      setCalculatorError('Enter a valid quantity above 0.');
-      setCalculatorResult(null);
-      return;
-    }
-
-    const selectedProduct = activeProducts.find((product) => product.id === selectedCalcProductId);
-    if (!selectedProduct) {
-      setCalculatorError('Selected product not found.');
-      setCalculatorResult(null);
-      return;
-    }
-
-    setCalculating(true);
-    setCalculatorError(null);
-
-    try {
-      const calculation = await productsApi.calculateCost(selectedCalcProductId);
-      const batchYield = selectedProduct.productionMode === 'batch'
-        ? Math.max(1, Number(selectedProduct.batchYield || 1))
-        : 1;
-
-      const productionCostPerUnit = toNumber((calculation as any).totalCost) / batchYield;
-      const materialCostPerUnit = toNumber((calculation as any).totalMaterialCost) / batchYield;
-      const overheadPerUnit = toNumber((calculation as any).overheadCost) / batchYield;
-
-      const approvedBasePrice = getApprovedPrice(selectedProduct) ?? 0;
-      const totalMaterialCost = materialCostPerUnit * quantity;
-      const totalOverhead = overheadPerUnit * quantity;
-      const totalProductionCost = productionCostPerUnit * quantity;
-      const totalRevenue = approvedBasePrice * quantity;
-      const grossProfit = totalRevenue - totalProductionCost;
-      const marginPercent = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
-
-      setCalculatorResult({
-        quantity,
-        productionCostPerUnit,
-        totalMaterialCost,
-        totalOverhead,
-        totalProductionCost,
-        approvedBasePrice,
-        totalRevenue,
-        grossProfit,
-        marginPercent,
-      });
-    } catch (error: any) {
-      setCalculatorError(error?.message || 'Failed to calculate production values.');
-      setCalculatorResult(null);
-    } finally {
-      setCalculating(false);
-    }
-  }
 
   const chartMaxCount = Math.max(1, ...bandData.map((item) => item.count));
 
@@ -649,88 +567,6 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         )}
       </div>
 
-      <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Production calculator</div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>Estimate costs and profit for a production run</div>
-        </div>
-
-        <div style={{ display: 'grid', gap: '10px' }}>
-          <div style={{ display: 'grid', gap: '4px' }}>
-            <label style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>Product</label>
-            <select
-              className="app-control"
-              value={selectedCalcProductId ?? ''}
-              onChange={(event) => {
-                const nextId = Number(event.target.value);
-                setSelectedCalcProductId(Number.isFinite(nextId) && nextId > 0 ? nextId : null);
-                setCalculatorResult(null);
-                setCalculatorError(null);
-              }}
-            >
-              <option value="">Select a product...</option>
-              {calculatorProducts
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((product) => (
-                  <option key={product.id} value={product.id}>{product.name}</option>
-                ))}
-            </select>
-          </div>
-
-          <div style={{ display: 'grid', gap: '4px' }}>
-            <label style={{ fontSize: '12px', color: '#334155', fontWeight: 600 }}>Quantity (units)</label>
-            <input
-              className="app-control"
-              type="number"
-              min={1}
-              step={1}
-              value={calcQuantity}
-              onChange={(event) => {
-                setCalcQuantity(event.target.value);
-                setCalculatorResult(null);
-                setCalculatorError(null);
-              }}
-              placeholder="e.g. 500"
-            />
-          </div>
-
-          <div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleCalculateProduction}
-              disabled={calculating || !selectedCalcProductId || !calcQuantity}
-            >
-              {calculating ? 'Calculating...' : 'Calculate'}
-            </button>
-          </div>
-        </div>
-
-        {calculatorError && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#b91c1c' }}>
-            <AlertCircle size={14} strokeWidth={2} />
-            {calculatorError}
-          </div>
-        )}
-
-        {calculatorResult && (
-          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', display: 'grid', gap: '6px' }}>
-            <div style={{ fontSize: '12px', color: '#334155' }}>Production cost per unit: <strong>{formatMoney(calculatorResult.productionCostPerUnit)}</strong></div>
-            <div style={{ fontSize: '12px', color: '#334155' }}>Total material cost: <strong>{formatMoney(calculatorResult.totalMaterialCost)}</strong></div>
-            <div style={{ fontSize: '12px', color: '#334155' }}>Total overhead: <strong>{formatMoney(calculatorResult.totalOverhead)}</strong></div>
-            <div style={{ fontSize: '12px', color: '#334155' }}>Total production cost: <strong>{formatMoney(calculatorResult.totalProductionCost)}</strong></div>
-            <div style={{ borderTop: '1px solid #cbd5e1', margin: '4px 0' }} />
-            <div style={{ fontSize: '12px', color: '#334155' }}>Approved base price: <strong>{formatMoney(calculatorResult.approvedBasePrice)}</strong></div>
-            <div style={{ fontSize: '12px', color: '#334155' }}>Total revenue: <strong>{formatMoney(calculatorResult.totalRevenue)}</strong></div>
-            <div style={{ borderTop: '1px solid #cbd5e1', margin: '4px 0' }} />
-            <div style={{ fontSize: '12px', color: '#334155' }}>Gross profit: <strong>{formatMoney(calculatorResult.grossProfit)}</strong></div>
-            <div style={{ fontSize: '12px', color: getMarginColor(calculatorResult.marginPercent), fontWeight: 700 }}>
-              Profit margin: {calculatorResult.marginPercent.toFixed(1)}%
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
