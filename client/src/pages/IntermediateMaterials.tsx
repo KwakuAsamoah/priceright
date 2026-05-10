@@ -785,20 +785,6 @@ export default function IntermediateMaterials() {
     await saveMaterial();
   }
 
-  function handleDownloadTemplate() {
-    const rows = [
-      ['Palm Oil Premix', 'INT-001', 'Intermediate', 'kg', '1', '5', '8', '95', 'Mix Plant', 'Intermediate blend from palm oil base'],
-      ['Fragrance Concentrate', 'INT-002', 'Intermediate', 'kg', '1', '3', '12', '98', 'Fragrance Supplier', 'Fragrance concentrate premix'],
-    ];
-
-    const date = new Date().toISOString().split('T')[0];
-    downloadCsv(
-      `intermediate-materials-import-template-${date}.csv`,
-      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Supplier', 'Description'],
-      rows
-    );
-  }
-
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1045,25 +1031,25 @@ export default function IntermediateMaterials() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={openNewMaterialForm}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} strokeWidth={2} />
-                Add intermediate material
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowIntermediateImportModal(true)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Upload size={14} strokeWidth={2} />
-                Import
-              </button>
+              <ActionDropdown
+                label="+ Add"
+                buttonClassName="btn btn-primary btn-sm"
+                items={[
+                  {
+                    key: 'add-single',
+                    label: 'Add single intermediate',
+                    icon: <Plus size={14} strokeWidth={2} />,
+                    onSelect: openNewMaterialForm,
+                  },
+                  { key: 'divider-add', type: 'divider' as const },
+                  {
+                    key: 'import-csv',
+                    label: 'Import from CSV',
+                    icon: <Upload size={14} strokeWidth={2} />,
+                    onSelect: () => setShowIntermediateImportModal(true),
+                  },
+                ]}
+              />
 
               <ActionDropdown
                 label="More"
@@ -1093,19 +1079,6 @@ export default function IntermediateMaterials() {
                     label: 'Table settings',
                     onSelect: openIntermediateTableSettings,
                     icon: <Settings2 size={13} strokeWidth={2} />,
-                  },
-                  {
-                    key: 'download-template',
-                    label: 'Download template',
-                    onSelect: () => {
-                      const link = document.createElement('a');
-                      link.href = '/templates/PriceRight_Intermediates_Import_Template.csv';
-                      link.download = 'PriceRight_Intermediates_Import_Template.csv';
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                    },
-                    icon: <ArrowDownToLine size={13} strokeWidth={2} />,
                   },
                 ]}
               />
@@ -1579,6 +1552,17 @@ export default function IntermediateMaterials() {
 
               {!importFile ? (
                 <div>
+                  <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <a
+                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
+                      download
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                    >
+                      <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
+                      Download CSV template
+                    </a>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                  </div>
                   <label htmlFor="intermediate-file-upload" style={{ display: 'block', padding: '40px', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' }}>
                     <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
                     <div style={{ fontSize: '14px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
@@ -1588,12 +1572,6 @@ export default function IntermediateMaterials() {
                   <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                     <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
                     <div style={{ fontSize: '13px', color: '#475569' }}>Required fields: Material Name, Category, Unit, Bulk Quantity, Yield %, Overhead %, Margin %.</div>
-                  </div>
-                  <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                    <button onClick={handleDownloadTemplate} className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                      <FileSpreadsheet size={15} strokeWidth={2} />
-                      Download Template
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -1672,6 +1650,17 @@ export default function IntermediateMaterials() {
 
               {!intermediateImportFile ? (
                 <div>
+                  <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <a
+                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
+                      download
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                    >
+                      <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
+                      Download CSV template
+                    </a>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                  </div>
                   <p style={{ fontSize: '14px', color: '#475569', marginBottom: '16px' }}>
                     Upload a CSV file to add multiple intermediate materials at once.
                   </p>
@@ -1705,27 +1694,6 @@ export default function IntermediateMaterials() {
                       style={{ display: 'none' }}
                     />
                   </label>
-
-                  <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                    <a
-                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
-                      download
-                      style={{
-                        backgroundColor: '#10b981',
-                        color: 'white',
-                        padding: '10px 20px',
-                        borderRadius: '8px',
-                        fontWeight: '600',
-                        textDecoration: 'none',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '14px',
-                      }}
-                    >
-                      Download template
-                    </a>
-                  </div>
                 </div>
               ) : (
                 <div>

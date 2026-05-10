@@ -1279,34 +1279,34 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => {
-                  setEditingMaterial(null);
-                  resetForm();
-                  setShowAddModal(true);
-                }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} strokeWidth={2} />
-                Add material
-              </button>
-
-              {materialType === 'primary' && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => {
-                    resetImportState();
-                    setShowImportModal(true);
-                  }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Upload size={16} strokeWidth={2} />
-                  Import
-                </button>
-              )}
+              <ActionDropdown
+                label="+ Add"
+                buttonClassName="btn btn-primary btn-sm"
+                items={[
+                  {
+                    key: 'add-single',
+                    label: 'Add single material',
+                    icon: <Plus size={14} strokeWidth={2} />,
+                    onSelect: () => {
+                      setEditingMaterial(null);
+                      resetForm();
+                      setShowAddModal(true);
+                    },
+                  },
+                  ...(materialType === 'primary' ? [
+                    { key: 'divider-add', type: 'divider' as const },
+                    {
+                      key: 'import-csv',
+                      label: 'Import from CSV',
+                      icon: <Upload size={14} strokeWidth={2} />,
+                      onSelect: () => {
+                        resetImportState();
+                        setShowImportModal(true);
+                      },
+                    },
+                  ] : []),
+                ]}
+              />
 
               <ActionDropdown
                 label="More"
@@ -1892,6 +1892,17 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
             {!importFile ? (
               <div>
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <a
+                    href="/templates/PriceRight_Materials_Import_Template.xlsx"
+                    download
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                  >
+                    <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
+                    Download import template
+                  </a>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                </div>
                 <label
                   htmlFor="file-upload"
                   style={{
@@ -1926,29 +1937,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   <div style={{ fontSize: '13px', color: '#475569' }}>Supplier Type accepts Local or Foreign. Currency can be blank to use base currency.</div>
                 </div>
 
-                <div style={{ marginTop: '20px', textAlign: 'center' }}>
-                  <a
-                    href="/templates/PriceRight_Materials_Import_Template.xlsx"
-                    download
-                    style={{
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      padding: '12px 24px',
-                      borderRadius: '8px',
-                      fontWeight: '600',
-                      textDecoration: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <ArrowDownToLine size={15} strokeWidth={2} />
-                    Download Excel template (.xlsx)
-                  </a>
-                  <div style={{ marginTop: '8px', fontSize: '11px', color: '#94a3b8' }}>
-                    Fill in the Excel template, then save as CSV (File → Save As → CSV UTF-8) before uploading here.
-                  </div>
-                </div>
+
               </div>
             ) : (
               <div>

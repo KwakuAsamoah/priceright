@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -2006,15 +2006,25 @@ export default function Products() {
             </div>
 
             <div className="products-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={handleAddProduct}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} strokeWidth={2} />
-                Add Product
-              </button>
+              <ActionDropdown
+                label="+ Add"
+                buttonClassName="btn btn-primary btn-sm"
+                items={[
+                  {
+                    key: 'add-single',
+                    label: 'Add single product',
+                    icon: <Plus size={14} strokeWidth={2} />,
+                    onSelect: handleAddProduct,
+                  },
+                  { key: 'divider-add', type: 'divider' as const },
+                  {
+                    key: 'import-csv',
+                    label: 'Import from CSV',
+                    icon: <Upload size={14} strokeWidth={2} />,
+                    onSelect: () => setShowImportModal(true),
+                  },
+                ]}
+              />
 
               {products.length > 0 && (
                 <button
@@ -2056,12 +2066,6 @@ export default function Products() {
                     label: 'Table settings',
                     onSelect: openProductsTableSettings,
                     icon: <Settings2 size={13} strokeWidth={2} />,
-                  },
-                  {
-                    key: 'import-products',
-                    label: 'Import products',
-                    onSelect: () => setShowImportModal(true),
-                    icon: <Upload size={13} strokeWidth={2} />,
                   },
                 ]}
               />
@@ -3216,6 +3220,17 @@ export default function Products() {
 
             {!importFile ? (
               <div>
+                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <a
+                    href="/templates/PriceRight_Products_Import_Template.csv"
+                    download
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                  >
+                    <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
+                    Download CSV template
+                  </a>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                </div>
                 <div style={{ marginBottom: '12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <AlertTriangle size={18} strokeWidth={2} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
                   <div style={{ fontSize: '13px', color: '#78350f' }}>
@@ -3246,14 +3261,6 @@ export default function Products() {
                   <div style={{ fontSize: '13px', color: '#475569' }}>Include Approved base price when available; leave blank to default to 0.</div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
-                  <button
-                    onClick={handleDownloadProductTemplate}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontWeight: '600' }}
-                  >
-                    Download Template
-                  </button>
-                </div>
               </div>
             ) : (
               <div>
