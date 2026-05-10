@@ -66,7 +66,7 @@ function getMarginColor(margin: number): string {
   return '#dc2626';
 }
 
-
+function formatRelativeTime(unixSeconds: number): string {
   const now = Math.floor(Date.now() / 1000);
   const delta = now - unixSeconds;
 

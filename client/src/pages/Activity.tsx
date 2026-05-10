@@ -332,8 +332,6 @@ export default function Activity() {
     setToDate('');
   };
 
-  const accessDenied = !hasAccess;
-
   return (
     <div className="app-page">
       <div className="app-page-header">
