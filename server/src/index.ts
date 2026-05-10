@@ -253,11 +253,7 @@ function computePriceLevelItemFinalPrice(input: {
 async function toPriceLevelItemResponse(item: PriceLevelItem, productRow: typeof products.$inferSelect) {
   const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
   const approvedPrice = Number(productRow.approvedPrice || 0);
-  // Gross margin formula: optimalPrice = totalCost / (1 - margin)
-  // This ensures the target margin % is earned on the selling price,
-  // not on the cost (which would be markup, not margin).
-  const safeMarginLevelItem = Math.min(Number(productRow.profitMargin || 0), 99);
-  const optimalPrice = roundToFour(productionCost / (1 - safeMarginLevelItem / 100));
+  const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
   const overrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
   const adjustmentPercentage = toOptionalNumber(item.adjustmentPercentage);
   const customPrice = toOptionalNumber(item.customPrice);
@@ -1417,11 +1413,12 @@ async function calculateProductCostSnapshot(productId: number): Promise<{ materi
   const otherCosts = parseFloat(product.otherDirectCosts?.toString() || '0');
   const overheadCost = totalMaterialCost * (parseFloat(product.overheadPercentage.toString()) / 100);
   const totalCost = totalMaterialCost + overheadCost + otherCosts;
-  // Gross margin formula: optimalPrice = totalCost / (1 - margin)
-  // This ensures the target margin % is earned on the selling price,
-  // not on the cost (which would be markup, not margin).
-  const safeMargin = Math.min(parseFloat(product.profitMargin.toString()), 99);
-  const recommendedPrice = totalCost / (1 - safeMargin / 100);
+  // Markup formula: optimal price = totalCost × (1 + margin%)
+  // The margin% here means profit on cost (markup), not profit on sales.
+  // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
+  // Gross margin at that price = (2.89-2.41)/2.89 = 16.6%
+  const profitAmount = totalCost * (parseFloat(product.profitMargin.toString()) / 100);
+  const recommendedPrice = totalCost + profitAmount;
 
   const perUnitMaterialCost = product.productionMode === 'batch'
     ? totalMaterialCost / Math.max(1, product.batchYield || 1)
@@ -1893,8 +1890,8 @@ app.get('/api/products', async (req, res) => {
       allProducts.map(async (product) => {
         try {
           const snapshot = await calculateProductCostSnapshot(product.id);
-          const safeMarginList = Math.min(Number(product.profitMargin || 0), 99);
-          const productionCost = snapshot.optimalPrice * (1 - safeMarginList / 100);
+          const denominator = 1 + Number(product.profitMargin || 0) / 100;
+          const productionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
           return {
             ...product,
             productionCost,
@@ -1927,8 +1924,8 @@ app.get('/api/products/:id', async (req, res) => {
     }
     
         const snapshot = await calculateProductCostSnapshot(productId);
-        const safeMarginSingle = Math.min(Number(product[0].profitMargin || 0), 99);
-        const productionCost = snapshot.optimalPrice * (1 - safeMarginSingle / 100);
+        const denominator = 1 + Number(product[0].profitMargin || 0) / 100;
+        const productionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
     res.json(withDerivedProductFields({
       ...product[0],
           productionCost,
@@ -2472,12 +2469,12 @@ app.get('/api/products/:id/calculate', async (req, res) => {
     const otherCosts = parseFloat(product[0].otherDirectCosts?.toString() || '0');
     const overheadCost = totalMaterialCost * (parseFloat(product[0].overheadPercentage.toString()) / 100);
     const totalCost = totalMaterialCost + overheadCost + otherCosts;
-    // Gross margin formula: optimalPrice = totalCost / (1 - margin)
-    // This ensures the target margin % is earned on the selling price,
-    // not on the cost (which would be markup, not margin).
-    const safeMarginCalc = Math.min(parseFloat(product[0].profitMargin.toString()), 99);
-    const recommendedPrice = totalCost / (1 - safeMarginCalc / 100);
-    const profitAmount = recommendedPrice - totalCost;
+    // Markup formula: optimal price = totalCost × (1 + margin%)
+    // The margin% here means profit on cost (markup), not profit on sales.
+    // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
+    // Gross margin at that price = (2.89-2.41)/2.89 = 16.6%
+    const profitAmount = totalCost * (parseFloat(product[0].profitMargin.toString()) / 100);
+    const recommendedPrice = totalCost + profitAmount;
     res.json({
   totalMaterialCost: totalMaterialCost.toFixed(2),
   overheadCost: overheadCost.toFixed(2),

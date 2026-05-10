@@ -457,6 +457,10 @@ export default function ProductDetail() {
   const panelColors = getApprovalPanelColors(product.approvalStatus);
   const optimalPrice = toNum(product.optimalPrice);
   const productionCost = toNum(product.productionCost || product.totalCost);
+  const profitOnCostAmount = productionCost * (toNum(product.profitMargin) / 100);
+  const grossMarginAtOptimal = optimalPrice > 0 && productionCost > 0
+    ? ((optimalPrice - productionCost) / optimalPrice) * 100
+    : null;
   const displayBom = getDisplayBOM(bom, product);
 
   const normalizedExpiryDate = product.approvedPriceExpiresAt
@@ -643,6 +647,10 @@ export default function ProductDetail() {
                 <span style={{ color: '#64748b' }}>Target profit margin:</span>
                 <span style={{ fontWeight: 600 }}>{product.profitMargin}%</span>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Profit on cost ({product.profitMargin}%):</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>GHS {profitOnCostAmount.toFixed(2)}</span>
+              </div>
               {(product.otherDirectCosts ?? 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Other direct costs:</span>
@@ -653,6 +661,12 @@ export default function ProductDetail() {
                 <span style={{ color: '#475569', fontWeight: 700 }}>Optimal price:</span>
                 <span className="money-value" style={{ fontWeight: 700, color: '#16a34a' }}>GHS {optimalPrice.toFixed(2)}</span>
               </div>
+              {grossMarginAtOptimal !== null && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                  <span>Profit on sales at this price:</span>
+                  <span style={{ fontWeight: 600 }}>{grossMarginAtOptimal.toFixed(1)}%</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

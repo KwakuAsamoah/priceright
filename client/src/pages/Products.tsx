@@ -176,7 +176,7 @@ function calculateRealisedProfitMargin(product: ProductPricing) {
     return null;
   }
 
-  return ((sellingPrice - productionCost) / sellingPrice) * 100;
+  return ((sellingPrice - productionCost) / productionCost) * 100;
 }
 
 function getApprovalBadge(status?: Product['approvalStatus']) {
@@ -2254,7 +2254,14 @@ export default function Products() {
                     {isProductColumnVisible('sellingPrice') && (
                       <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '104px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
-                    {isProductColumnVisible('profitMargin') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '120px', textAlign: 'left', whiteSpace: 'nowrap' }}>Profit Margin</th>}
+                    {isProductColumnVisible('profitMargin') && (
+                      <th
+                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '120px', textAlign: 'left', whiteSpace: 'nowrap' }}
+                        title="Profit on cost. To see profit on sales (gross margin), open the product detail page."
+                      >
+                        Markup %
+                      </th>
+                    )}
                     {isProductColumnVisible('status') && (
                       <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>

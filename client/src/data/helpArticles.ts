@@ -425,27 +425,31 @@ export const helpArticles: HelpArticle[] = [
       <strong>Production cost</strong> when calculating the
       <strong>Optimal price</strong>.</p>
 
-      <p><strong>Profit Margin</strong> is different from markup. Margin is the
-      percentage of the approved base price that is profit. Markup is the percentage
-      added on top of cost. PriceRight uses gross margin.</p>
-
-      <p>The optimal price is calculated so that your target margin percentage
-      is earned on the selling price — not on the cost. The formula is:</p>
+      <p>In PriceRight, the percentage you set as <strong>Profit Margin</strong>
+      is applied as <strong>profit on cost (markup)</strong>. That means the
+      system adds this percentage on top of production cost to suggest the
+      <strong>Optimal price</strong>.</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
-        Optimal price = Production cost ÷ (1 − Margin%)
+        Optimal price = Production cost × (1 + Markup%)
       </p>
 
-      <p>For example, a 20% margin on a product costing GHS 80 gives an optimal
-      price of GHS 100 (GHS 80 ÷ 0.80), because GHS 20 is exactly 20% of GHS 100.
-      A 20% markup would give only GHS 96, where GHS 16 is 16.67% of GHS 96 —
-      a different result.</p>
+      <p>Example: if production cost is GHS 2.41 and markup is 20%, then
+      profit on cost is GHS 0.48 and optimal price is GHS 2.89.</p>
 
-      <p>PriceRight uses gross margin consistently throughout — the
-      <strong>Profit Margin</strong> column in the Products table and the
-      margin shown in price level reviews all use the same formula, so the
-      number you set as your target is the number you see when approved at
-      the optimal price.</p>`,
+      <p>The app also shows what this means as <strong>profit on sales
+      (gross margin)</strong>, which is profit as a percentage of the selling
+      price. At GHS 2.89 with GHS 2.41 cost, gross margin is 16.7%.</p>
+
+      <p>Both numbers are useful:</p>
+      <ul>
+        <li><strong>Profit on cost (markup)</strong> tells you how much you are adding above what you spent.</li>
+        <li><strong>Profit on sales (gross margin)</strong> is what banks, investors, and distributors typically ask about.</li>
+      </ul>
+
+      <p>The <strong>Markup %</strong> column in Products shows profit on cost.
+      Open any product to see both markup and profit on sales at the suggested
+      price.</p>`,
   },
 
   // ── PRICING AND APPROVALS ──────────────────────────────────────────────────

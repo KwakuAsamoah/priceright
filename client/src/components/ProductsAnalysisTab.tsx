@@ -70,23 +70,23 @@ function getMarginPercent(product: ProductRow): number | null {
   if (approved == null || approved <= 0 || cost <= 0) {
     return null;
   }
-  return ((approved - cost) / approved) * 100;
+  return ((approved - cost) / cost) * 100;
 }
 
 function getMarginColor(margin: number | null): string {
   if (margin == null) return '#9ca3af';
-  if (margin < 10) return '#dc2626';
-  if (margin < 15) return '#d97706';
+  if (margin < 12) return '#dc2626';
+  if (margin < 20) return '#d97706';
   return '#16a34a';
 }
 
 function getFilterLabel(filterKey: FilterKey): string {
-  if (filterKey === 'healthy') return 'Showing: Healthy margin (>= 15%)';
-  if (filterKey === 'low') return 'Showing: Low margin (10 - 14.9%)';
-  if (filterKey === 'critical') return 'Showing: Critical margin (Below 10%)';
+  if (filterKey === 'healthy') return 'Showing: Healthy markup (>= 20%)';
+  if (filterKey === 'low') return 'Showing: Low markup (12 - 19.9%)';
+  if (filterKey === 'critical') return 'Showing: Critical markup (Below 12%)';
   if (filterKey === 'not-priced') return 'Showing: Not priced';
   const band = MARGIN_BANDS.find((item) => item.key === filterKey);
-  if (band) return `Showing: ${band.band} margin`;
+  if (band) return `Showing: ${band.band} markup`;
   return '';
 }
 
@@ -123,8 +123,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         notPriced += 1;
         return;
       }
-      if (margin >= 15) healthy += 1;
-      else if (margin >= 10) low += 1;
+      if (margin >= 20) healthy += 1;
+      else if (margin >= 12) low += 1;
       else if (margin >= 0) critical += 1;
       else critical += 1;
     });
@@ -157,9 +157,9 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
     const filteredRows = rows.filter((row) => {
       if (selectedBand === null) return true;
-      if (selectedBand === 'healthy') return row.margin !== null && row.margin >= 15;
-      if (selectedBand === 'low') return row.margin !== null && row.margin >= 10 && row.margin < 15;
-      if (selectedBand === 'critical') return row.margin !== null && row.margin < 10;
+      if (selectedBand === 'healthy') return row.margin !== null && row.margin >= 20;
+      if (selectedBand === 'low') return row.margin !== null && row.margin >= 12 && row.margin < 20;
+      if (selectedBand === 'critical') return row.margin !== null && row.margin < 12;
       if (selectedBand === 'not-priced') return row.margin === null;
 
       const band = MARGIN_BANDS.find((item) => item.key === selectedBand);
@@ -272,8 +272,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'healthy' as const,
               count: summaryCounts.healthy,
-              label: 'Healthy margin',
-              sub: '>= 15%',
+              label: 'Healthy markup',
+              sub: '>= 20%',
               color: '#16a34a',
               background: '#f0fdf4',
               border: '#bbf7d0',
@@ -281,8 +281,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'low' as const,
               count: summaryCounts.low,
-              label: 'Low margin',
-              sub: '10 - 14.9%',
+              label: 'Low markup',
+              sub: '12 - 19.9%',
               color: '#d97706',
               background: '#fffbeb',
               border: '#fde68a',
@@ -290,8 +290,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'critical' as const,
               count: summaryCounts.critical,
-              label: 'Critical margin',
-              sub: 'Below 10%',
+              label: 'Critical markup',
+              sub: 'Below 12%',
               color: '#dc2626',
               background: '#fef2f2',
               border: '#fecaca',
@@ -423,7 +423,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                   <th>Category</th>
                   <th style={{ textAlign: 'right' }}>Production cost</th>
                   <th style={{ textAlign: 'right' }}>Approved base price</th>
-                  <th style={{ minWidth: '210px' }}>Margin %</th>
+                  <th style={{ minWidth: '210px' }}>Markup %</th>
                   <th style={{ width: '90px', textAlign: 'center' }}>Needs review</th>
                 </tr>
               </thead>
