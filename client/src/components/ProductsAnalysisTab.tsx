@@ -73,10 +73,26 @@ function getMarginPercent(product: ProductRow): number | null {
   return ((approved - cost) / cost) * 100;
 }
 
+function getOnSalesPercent(product: ProductRow): number | null {
+  const approved = getApprovedPrice(product);
+  const cost = toNumber(product.totalCost);
+  if (approved == null || approved <= 0 || cost <= 0) {
+    return null;
+  }
+  return ((approved - cost) / approved) * 100;
+}
+
 function getMarginColor(margin: number | null): string {
   if (margin == null) return '#9ca3af';
   if (margin < 12) return '#dc2626';
   if (margin < 20) return '#d97706';
+  return '#16a34a';
+}
+
+function getOnSalesColor(value: number | null): string {
+  if (value == null) return '#9ca3af';
+  if (value < 10) return '#dc2626';
+  if (value < 15) return '#d97706';
   return '#16a34a';
 }
 
@@ -148,9 +164,11 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
   const rankedRows = useMemo(() => {
     const rows = activeProducts.map((product) => {
       const margin = getMarginPercent(product);
+      const onSales = getOnSalesPercent(product);
       return {
         product,
         margin,
+        onSales,
         approvedPrice: getApprovedPrice(product),
       };
     });
@@ -273,7 +291,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'healthy' as const,
               count: summaryCounts.healthy,
               label: 'Healthy markup',
-              sub: '>= 20%',
+              sub: 'Profit on cost >= 20%',
               color: '#16a34a',
               background: '#f0fdf4',
               border: '#bbf7d0',
@@ -282,7 +300,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'low' as const,
               count: summaryCounts.low,
               label: 'Low markup',
-              sub: '12 - 19.9%',
+              sub: 'Profit on cost 12-19.9%',
               color: '#d97706',
               background: '#fffbeb',
               border: '#fde68a',
@@ -291,7 +309,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'critical' as const,
               count: summaryCounts.critical,
               label: 'Critical markup',
-              sub: 'Below 12%',
+              sub: 'Profit on cost < 12%',
               color: '#dc2626',
               background: '#fef2f2',
               border: '#fecaca',
@@ -423,14 +441,17 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                   <th>Category</th>
                   <th style={{ textAlign: 'right' }}>Production cost</th>
                   <th style={{ textAlign: 'right' }}>Approved base price</th>
-                  <th style={{ minWidth: '210px' }}>Markup %</th>
+                  <th style={{ minWidth: '210px' }}>Profit on cost</th>
+                  <th style={{ minWidth: '140px' }}>On sales</th>
                   <th style={{ width: '90px', textAlign: 'center' }}>Needs review</th>
                 </tr>
               </thead>
               <tbody>
                 {rankedRows.map((row, index) => {
                   const margin = row.margin;
+                  const onSales = row.onSales;
                   const marginColor = getMarginColor(margin);
+                  const onSalesColor = getOnSalesColor(onSales);
                   const normalizedMargin = Math.max(0, Math.min(40, margin ?? 0));
                   const barWidth = `${(normalizedMargin / 40) * 100}%`;
                   return (
@@ -469,6 +490,13 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                             </div>
                             <span style={{ color: marginColor, fontWeight: 700 }}>{margin.toFixed(1)}%</span>
                           </div>
+                        )}
+                      </td>
+                      <td>
+                        {onSales == null ? (
+                          <span style={{ color: '#9ca3af' }}>—</span>
+                        ) : (
+                          <span style={{ color: onSalesColor, fontWeight: 700 }}>{onSales.toFixed(1)}%</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>

@@ -473,17 +473,21 @@ export default function ProductFormDrawer({
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="The percentage of the final approved base price that is profit. A 20% margin on a GHS 100 product means GHS 20 is profit. PriceRight uses this to calculate your optimal approved base price.">
-                    Profit Margin % *
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="Profit on cost (markup). A value of 20 means add 20% on top of production cost when calculating optimal price.">
+                    Profit on cost (%) *
                   </label>
                   <input
                     type="number"
                     required
                     step="0.1"
+                    placeholder="e.g. 20"
                     value={formData.profitMargin}
                     onChange={(e) => setFormData({ ...formData, profitMargin: e.target.value })}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                   />
+                  <div style={{ marginTop: '6px', color: '#64748b', fontSize: '12px' }}>
+                    How much profit to add on top of production cost. E.g. 20 means add 20% on top of cost.
+                  </div>
                 </div>
               </div>
               <div>
@@ -700,7 +704,7 @@ export default function ProductFormDrawer({
                 <span style={{ fontWeight: '700' }}>GHS {liveCost.totalCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Profit ({formData.profitMargin}%)</span>
+                <span style={{ color: '#64748b' }}>Profit on cost ({formData.profitMargin}%)</span>
                 <span style={{ fontWeight: '600' }}>GHS {liveCost.profitAmount.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

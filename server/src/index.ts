@@ -3286,7 +3286,7 @@ app.post('/api/products/import', async (req, res) => {
       const productionModeRaw = getField(first, ['Production Mode', 'productionMode', 'ProductionMode']);
       const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield']);
       const overheadRaw = getField(first, ['Overhead %', 'Overhead', 'overhead', 'Overhead%']);
-      const profitRaw = getField(first, ['Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
+      const profitRaw = getField(first, ['Profit on cost %', 'Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
       const currentSellingPriceRaw = getField(first, ['Current Selling Price', 'currentSellingPrice', 'Selling Price', 'Current Price']);
 
       // Validate product-level fields
@@ -3311,7 +3311,7 @@ app.post('/api/products/import', async (req, res) => {
       const profitMargin = parseFloat(profitRaw || '0');
       const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
       if (isNaN(overhead)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Overhead %: ${overheadRaw}`, originalRow: e.row }); continue; }
-      if (isNaN(profitMargin)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Profit Margin %: ${profitRaw}`, originalRow: e.row }); continue; }
+      if (isNaN(profitMargin)) { for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Profit on cost %: ${profitRaw}`, originalRow: e.row }); continue; }
       if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
         for (const e of entries) failures.push({ rowNumber: e.rowNumber, name: productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}`, originalRow: e.row });
         continue;

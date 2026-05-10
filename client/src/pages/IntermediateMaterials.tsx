@@ -1285,7 +1285,7 @@ export default function IntermediateMaterials() {
                       />
                     </div>
                     <div>
-                      <label style={fieldLabelStyle}>Profit Margin % *</label>
+                      <label style={fieldLabelStyle}>Profit on cost % *</label>
                       <input
                         className="app-input"
                         type="number"

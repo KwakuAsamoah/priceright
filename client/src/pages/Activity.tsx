@@ -145,7 +145,7 @@ function getActivityDescription(entry: ActivityEntry): { title: string; subline?
         : `${entityName} base price approved at GHS ${toMoney(newPrice)}`;
       return {
         title,
-        subline: `Margin: ${toNumberString(details.margin)}% | Production cost: GHS ${toMoney(details.productionCost)}`,
+        subline: `Profit on sales: ${toNumberString(details.margin)}% | Production cost: GHS ${toMoney(details.productionCost)}`,
       };
     }
     case 'product.rejected': {

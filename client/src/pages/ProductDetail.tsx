@@ -644,7 +644,7 @@ export default function ProductDetail() {
                 <span style={{ fontWeight: 600 }}>{product.overheadPercentage}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Target profit margin:</span>
+                <span style={{ color: '#64748b' }}>Target profit on cost:</span>
                 <span style={{ fontWeight: 600 }}>{product.profitMargin}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

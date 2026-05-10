@@ -80,7 +80,8 @@ type ProductColumnKey =
   | 'optimalPrice'
   | 'approvedDate'
   | 'sellingPrice'
-  | 'profitMargin'
+  | 'profitOnCost'
+  | 'profitOnSales'
   | 'status'
   | 'pricingStatus'
   | 'actions';
@@ -93,7 +94,8 @@ const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = 
   { key: 'optimalPrice', label: 'Optimal Price' },
   { key: 'approvedDate', label: 'Approved Date' },
   { key: 'sellingPrice', label: 'Approved base price' },
-  { key: 'profitMargin', label: 'Profit Margin' },
+  { key: 'profitOnCost', label: 'Profit on cost' },
+  { key: 'profitOnSales', label: 'Profit on sales' },
   { key: 'status', label: 'Status' },
   { key: 'pricingStatus', label: 'Pricing' },
   { key: 'actions', label: 'Actions' },
@@ -168,7 +170,7 @@ function calculatePricingAnalysis(product: ProductPricing) {
   };
 }
 
-function calculateRealisedProfitMargin(product: ProductPricing) {
+function calculateProfitOnCost(product: ProductPricing): number | null {
   const sellingPrice = Number(product.currentSellingPrice || 0);
   const productionCost = Number(product.totalCost || 0);
 
@@ -177,6 +179,17 @@ function calculateRealisedProfitMargin(product: ProductPricing) {
   }
 
   return ((sellingPrice - productionCost) / productionCost) * 100;
+}
+
+function calculateProfitOnSales(product: ProductPricing): number | null {
+  const sellingPrice = Number(product.currentSellingPrice || 0);
+  const productionCost = Number(product.totalCost || 0);
+
+  if (sellingPrice <= 0 || productionCost <= 0) {
+    return null;
+  }
+
+  return ((sellingPrice - productionCost) / sellingPrice) * 100;
 }
 
 function getApprovalBadge(status?: Product['approvalStatus']) {
@@ -299,6 +312,29 @@ export default function Products() {
     'priceright_columns_products',
     DEFAULT_PRODUCT_COLUMNS,
   );
+
+  useEffect(() => {
+    const hasProfitOnCost = visibleColumns.includes('profitOnCost');
+    const hasProfitOnSales = visibleColumns.includes('profitOnSales');
+
+    if (hasProfitOnCost && hasProfitOnSales) {
+      return;
+    }
+
+    const baseColumns: ProductColumnKey[] = visibleColumns.filter(
+      (column) => column !== 'profitOnCost' && column !== 'profitOnSales',
+    ) as ProductColumnKey[];
+    const sellingPriceIndex = baseColumns.indexOf('sellingPrice');
+
+    if (sellingPriceIndex >= 0) {
+      const nextColumns: ProductColumnKey[] = [...baseColumns];
+      nextColumns.splice(sellingPriceIndex + 1, 0, 'profitOnCost' as ProductColumnKey, 'profitOnSales' as ProductColumnKey);
+      setVisibleColumns(nextColumns);
+      return;
+    }
+
+    setVisibleColumns([...baseColumns, 'profitOnCost', 'profitOnSales']);
+  }, [setVisibleColumns, visibleColumns]);
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
   const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
@@ -716,7 +752,10 @@ export default function Products() {
     }
 
     try {
-    const exportData = selectedProdList.map((product) => ({
+    const exportData = selectedProdList.map((product) => {
+      const profitOnCost = calculateProfitOnCost(product);
+      const profitOnSales = calculateProfitOnSales(product);
+      return ({
       'Product Name': product.name,
       'SKU': product.sku || '',
       'Category': product.category || '',
@@ -725,17 +764,20 @@ export default function Products() {
       'Material Cost': product.materialCost.toFixed(2),
       'Overhead %': product.overheadPercentage.toFixed(2),
       'Total Cost': product.totalCost.toFixed(2),
-      'Profit Margin %': product.profitMargin.toFixed(2),
+      'Profit on cost (%)': profitOnCost != null ? profitOnCost.toFixed(1) : '—',
+      'Profit on sales (%)': profitOnSales != null ? profitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
       'Approved base price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
       'Status': calculatePricingAnalysis(product).label,
-    }));
+      });
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const columnWidths = [
-      { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+      { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 14 },
+      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
+      { wch: 12 },
     ];
     worksheet['!cols'] = columnWidths;
 
@@ -1103,7 +1145,7 @@ export default function Products() {
       'Production Mode',
       'Batch Yield',
       'Overhead %',
-      'Profit Margin %',
+      'Profit on cost %',
       'Approved base price',
       'Material Name',
       'Quantity',
@@ -1121,7 +1163,7 @@ export default function Products() {
         source['Production Mode'] || source['productionMode'] || '',
         source['Batch Yield'] || source['batchYield'] || '',
         source['Overhead %'] || source['Overhead'] || source['overhead'] || source['overheadPercentage'] || '',
-        source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
+        source['Profit on cost %'] || source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
         source['Approved base price'] || source['currentSellingPrice'] || '',
         source['Material Name'] || source['materialName'] || '',
         source['Quantity'] || source['quantity'] || '',
@@ -1142,7 +1184,7 @@ export default function Products() {
       'Production Mode',
       'Batch Yield',
       'Overhead %',
-      'Profit Margin %',
+      'Profit on cost %',
       'Approved base price',
       'Material Name',
       'Quantity',
@@ -1170,7 +1212,8 @@ export default function Products() {
       'Material Cost',
       'Optimal Price',
       'Approved base price',
-      'Actual Profit Margin (%)',
+      'Profit on cost (%)',
+      'Profit on sales (%)',
       'Variance (GHS)',
       'Variance (%)',
       'Pricing Status',
@@ -1179,7 +1222,8 @@ export default function Products() {
     const exportRows = products.map((product) => {
       const analysis = calculatePricingAnalysis(product);
       const currentPrice = Number(product.currentSellingPrice || 0);
-      const realisedProfitMargin = calculateRealisedProfitMargin(product);
+      const profitOnCost = calculateProfitOnCost(product);
+      const profitOnSales = calculateProfitOnSales(product);
       return {
         values: [
           product.name,
@@ -1189,7 +1233,8 @@ export default function Products() {
           Number(product.materialCost || 0),
           Number(product.optimalPrice || 0),
           currentPrice > 0 ? currentPrice : null,
-          realisedProfitMargin != null ? Number(realisedProfitMargin.toFixed(1)) : null,
+          profitOnCost != null ? Number(profitOnCost.toFixed(1)) : null,
+          profitOnSales != null ? Number(profitOnSales.toFixed(1)) : null,
           currentPrice > 0 ? Number(analysis.variance || 0) : null,
           currentPrice > 0 ? Number(analysis.variancePercent || 0) : null,
           analysis.label,
@@ -1212,6 +1257,7 @@ export default function Products() {
       { wch: 15 },
       { wch: 20 },
       { wch: 18 },
+      { wch: 18 },
       { wch: 15 },
       { wch: 14 },
       { wch: 14 },
@@ -1220,12 +1266,14 @@ export default function Products() {
     for (let rowIndex = 0; rowIndex < exportRows.length; rowIndex += 1) {
       const excelRow = rowIndex + 2;
       const currentPriceCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 6 });
-      const realisedMarginCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
-      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
-      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
+      const profitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
+      const profitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
+      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
+      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 10 });
 
       if (ws[currentPriceCell]) ws[currentPriceCell].z = '#,##0.00';
-      if (ws[realisedMarginCell]) ws[realisedMarginCell].z = '0.0';
+      if (ws[profitOnCostCell]) ws[profitOnCostCell].z = '0.0';
+      if (ws[profitOnSalesCell]) ws[profitOnSalesCell].z = '0.0';
       if (ws[varianceAmountCell]) ws[varianceAmountCell].z = '#,##0.00';
       if (ws[variancePercentCell]) ws[variancePercentCell].z = '0.0';
 
@@ -1239,7 +1287,8 @@ export default function Products() {
 
       if (fillStyle) {
         if (ws[currentPriceCell]) ws[currentPriceCell].s = fillStyle as any;
-        if (ws[realisedMarginCell]) ws[realisedMarginCell].s = fillStyle as any;
+        if (ws[profitOnCostCell]) ws[profitOnCostCell].s = fillStyle as any;
+        if (ws[profitOnSalesCell]) ws[profitOnSalesCell].s = fillStyle as any;
         if (ws[varianceAmountCell]) ws[varianceAmountCell].s = fillStyle as any;
         if (ws[variancePercentCell]) ws[variancePercentCell].s = fillStyle as any;
       }
@@ -1274,12 +1323,8 @@ export default function Products() {
         (selectedApprovalStatus === 'Needs Review' && approvalStatus === 'needs_review');
       const matchesApprovalQuery = !approvalQueryFilter || approvalStatus === approvalQueryFilter;
 
-      const currentSellingPrice = Number(product.currentSellingPrice || 0);
-      const productionCost = Number(product.totalCost || 0);
-      const realisedMargin = currentSellingPrice > 0 && productionCost > 0
-        ? ((currentSellingPrice - productionCost) / currentSellingPrice) * 100
-        : null;
-      const matchesLowMargin = !lowMarginOnly || (realisedMargin !== null && realisedMargin < 15);
+      const profitOnCost = calculateProfitOnCost(product);
+      const matchesLowMargin = !lowMarginOnly || (profitOnCost !== null && profitOnCost < 12);
       const productDaysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
       const matchesExpiringSoon = !expiringSoonOnly || (
         approvalStatus === 'approved'
@@ -1713,7 +1758,8 @@ export default function Products() {
     const rows = filteredProducts.map((product) => {
       const analysis = calculatePricingAnalysis(product);
       const currentPrice = Number(product.currentSellingPrice || 0);
-      const realisedProfitMargin = calculateRealisedProfitMargin(product);
+      const profitOnCost = calculateProfitOnCost(product);
+      const profitOnSales = calculateProfitOnSales(product);
       return [
         product.name,
         product.sku || '-',
@@ -1722,7 +1768,8 @@ export default function Products() {
         product.totalCost.toFixed(2),
         product.optimalPrice.toFixed(2),
         currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set',
-        realisedProfitMargin != null ? `${realisedProfitMargin.toFixed(1)}%` : '-',
+        profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-',
+        profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-',
         currentPrice > 0 ? analysis.variance.toFixed(2) : '-',
         currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
         analysis.label,
@@ -1732,7 +1779,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Category', 'Production Mode', 'Total Cost', 'Optimal Price', 'Approved base price', 'Actual Profit Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Category', 'Production Mode', 'Total Cost', 'Optimal Price', 'Approved base price', 'Profit on cost %', 'Profit on sales %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1752,7 +1799,8 @@ export default function Products() {
       .map((product) => {
         const analysis = calculatePricingAnalysis(product);
         const currentPrice = Number(product.currentSellingPrice || 0);
-        const realisedProfitMargin = calculateRealisedProfitMargin(product);
+        const profitOnCost = calculateProfitOnCost(product);
+        const profitOnSales = calculateProfitOnSales(product);
         const statusColor = analysis.status === 'below-optimal'
           ? '#b91c1c'
           : analysis.status === 'above-optimal'
@@ -1772,7 +1820,8 @@ export default function Products() {
             <td style="text-align:right;">${product.totalCost.toFixed(2)}</td>
             <td style="text-align:right;">${product.optimalPrice.toFixed(2)}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set'}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${realisedProfitMargin != null ? `${realisedProfitMargin.toFixed(1)}%` : '-'}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-'}</td>
+            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-'}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? analysis.variance.toFixed(2) : '-'}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-'}</td>
             <td>${analysis.label}</td>
@@ -1801,7 +1850,7 @@ export default function Products() {
           <table>
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Category</th><th>Mode</th><th>Total Cost</th><th>Optimal Price</th><th>Approved base price</th><th>Actual Profit Margin (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
+                <th>Product</th><th>SKU</th><th>Category</th><th>Mode</th><th>Total Cost</th><th>Optimal Price</th><th>Approved base price</th><th>Profit on cost (%)</th><th>Profit on sales (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -2246,20 +2295,28 @@ export default function Products() {
                     {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
                     {isProductColumnVisible('category') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '90px', whiteSpace: 'nowrap' }}>Category</th>}
                     {isProductColumnVisible('mode') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '98px', whiteSpace: 'nowrap' }}>Mode</th>}
-                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }}>Production Cost</th>}
+                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
                       <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
                     )}
                     {isProductColumnVisible('approvedDate') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'nowrap' }}>Date</th>}
                     {isProductColumnVisible('sellingPrice') && (
-                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '104px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
+                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
-                    {isProductColumnVisible('profitMargin') && (
+                    {isProductColumnVisible('profitOnCost') && (
                       <th
-                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '120px', textAlign: 'left', whiteSpace: 'nowrap' }}
-                        title="Profit on cost. To see profit on sales (gross margin), open the product detail page."
+                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        title="Markup percentage: (approved base price - production cost) / production cost."
                       >
-                        Markup %
+                        Profit on cost
+                      </th>
+                    )}
+                    {isProductColumnVisible('profitOnSales') && (
+                      <th
+                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        title="Gross margin percentage: (approved base price - production cost) / approved base price."
+                      >
+                        Profit on sales
                       </th>
                     )}
                     {isProductColumnVisible('status') && (
@@ -2306,7 +2363,8 @@ export default function Products() {
                     }
 
                     const hasSellingPrice = product.currentSellingPrice != null && product.currentSellingPrice > 0;
-                    const realisedProfitMargin = calculateRealisedProfitMargin(product);
+                    const profitOnCost = calculateProfitOnCost(product);
+                    const profitOnSales = calculateProfitOnSales(product);
                     const sellingMismatch = !!product.priceMismatch;
                     const batchLabel =
                       product.productionMode === 'batch'
@@ -2407,17 +2465,31 @@ export default function Products() {
                               <span style={{ fontSize: '12px', color: '#94a3b8' }}>Not set</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitMargin') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                            {realisedProfitMargin == null ? (
+                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {profitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
                               <span
                                 style={{
-                                  color: realisedProfitMargin < 0 ? '#c62828' : '#16a34a',
-                                  fontWeight: 700,
+                                  color: profitOnCost < 0 ? '#dc2626' : '#16a34a',
+                                  fontWeight: 500,
                                 }}
                               >
-                                {realisedProfitMargin.toFixed(1)}%
+                                {profitOnCost.toFixed(1)}%
+                              </span>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                            {profitOnSales == null ? (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            ) : (
+                              <span
+                                style={{
+                                  color: profitOnSales >= 15 ? '#16a34a' : profitOnSales >= 10 ? '#d97706' : '#dc2626',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {profitOnSales.toFixed(1)}%
                               </span>
                             )}
                           </td>}
@@ -3201,7 +3273,7 @@ export default function Products() {
                           <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Overhead %</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Profit %</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>Profit on cost %</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Approved base price</th>
                         </tr>
                       </thead>
@@ -3211,7 +3283,7 @@ export default function Products() {
                             <td style={{ padding: '8px' }}>{row['Product Name'] || row['name'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
                           </tr>
                         ))}

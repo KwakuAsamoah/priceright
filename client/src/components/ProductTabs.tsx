@@ -262,7 +262,7 @@ export default function ProductTabs({
                       <span style={{ fontWeight: '700' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100)).toFixed(2)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Profit Margin ({product.profitMargin}%):</span>
+                      <span style={{ color: '#64748b' }}>Profit on cost ({product.profitMargin}%):</span>
                       <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100) * (product.profitMargin / 100)).toFixed(2)}</span>
                     </div>
                   </div>
