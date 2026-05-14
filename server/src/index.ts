@@ -4,6 +4,7 @@ import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db';
+import { seedDemoData } from './seedDemo';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 const app = express();
@@ -385,6 +386,20 @@ app.post('/api/demo-mode', (req, res) => {
   });
 });
 
+app.post('/api/demo/reset', async (_req, res) => {
+  try {
+    if (!readDemoModeState()) {
+      return res.status(400).json({ error: 'Demo reset is only available when demo mode is enabled' });
+    }
+
+    await seedDemoData({ force: true });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('Error resetting demo data:', error);
+    return res.status(500).json({ error: 'Failed to reset demo data' });
+  }
+});
+
 // ============================================
 // BACKUP ENDPOINTS
 // ============================================
@@ -702,6 +717,7 @@ app.get('/api/materials', async (req, res) => {
         unitPrice: materials.unitPrice,
         overheadPercentage: materials.overheadPercentage,
         marginPercentage: materials.marginPercentage,
+        intermediateCostMode: materials.intermediateCostMode,
         yieldPercentage: materials.yieldPercentage,
         calculatedCostPerUnit: materials.calculatedCostPerUnit,
         supplier: materials.supplier,
@@ -749,6 +765,7 @@ app.post('/api/materials', async (req, res) => {
       materialType,
       overheadPercentage,
       marginPercentage,
+      intermediateCostMode,
       yieldPercentage,
       calculatedCostPerUnit,
     } = req.body;
@@ -779,6 +796,10 @@ app.post('/api/materials', async (req, res) => {
     const normalizedOverhead = Number(overheadPercentage || 0);
     const normalizedMargin = Number(marginPercentage || 0);
     const normalizedYield = Number(yieldPercentage || 100);
+    const normalizedIntermediateCostMode =
+      resolvedMaterialType === 'intermediate'
+        ? (intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield')
+        : 'yield';
 
     const priceInPurchaseCurrency = resolvedMaterialType === 'intermediate'
       ? intermediateCost * normalizedBulkQuantity
@@ -806,6 +827,7 @@ app.post('/api/materials', async (req, res) => {
       unitPrice,
       overheadPercentage: normalizedOverhead,
       marginPercentage: normalizedMargin,
+      intermediateCostMode: normalizedIntermediateCostMode,
       yieldPercentage: normalizedYield,
       calculatedCostPerUnit: unitPrice,
       supplier,
@@ -859,6 +881,7 @@ app.put('/api/materials/:id', async (req, res) => {
     const purchaseCurrencyId = Number(req.body?.purchaseCurrencyId ?? existing.purchaseCurrencyId);
     const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage ?? 0);
     const marginPercentage = Number(req.body?.marginPercentage ?? existing.marginPercentage ?? 0);
+    const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
     const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
     const calculatedCostPerUnit = Number(req.body?.calculatedCostPerUnit ?? existing.calculatedCostPerUnit ?? existing.unitPrice ?? 0);
     const supplier = req.body?.supplier ?? existing.supplier;
@@ -912,6 +935,9 @@ app.put('/api/materials/:id', async (req, res) => {
       unitPrice,
       overheadPercentage,
       marginPercentage,
+      intermediateCostMode: materialType === 'intermediate'
+        ? (intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield')
+        : 'yield',
       yieldPercentage,
       calculatedCostPerUnit: unitPrice,
       supplier,
@@ -1495,6 +1521,28 @@ app.post('/api/intermediate-materials/import', async (req, res) => {
   }
 });
 
+app.delete('/api/intermediate-materials/bulk', async (req, res) => {
+  try {
+    const { ids } = req.body as { ids: number[] };
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'No IDs provided' });
+    }
+
+    await getActiveDb()
+      .delete(materials)
+      .where(
+        and(
+          inArray(materials.id, ids),
+          eq(materials.materialType, 'intermediate')
+        )
+      );
+
+    return res.json({ deleted: ids.length });
+  } catch {
+    return res.status(500).json({ error: 'Failed to delete' });
+  }
+});
+
 // ============================================
 // PRODUCTS ENDPOINTS
 // ============================================
@@ -1717,8 +1765,11 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
 
   const overheadMultiplier = 1 + (Number(intermediate.overheadPercentage || 0) / 100);
   const safeBulkQuantity = Math.max(0.0001, Number(intermediate.bulkQuantity || 1));
+  const intermediateCostMode = intermediate.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield';
   const yieldFraction = Math.max(0.01, Number(intermediate.yieldPercentage || 100) / 100);
-  const effectiveOutputQuantity = safeBulkQuantity * yieldFraction;
+  const effectiveOutputQuantity = intermediateCostMode === 'completed_output'
+    ? safeBulkQuantity
+    : safeBulkQuantity * yieldFraction;
 
   const totalBatchCost = roundToTwo(baseCost * overheadMultiplier);
   const calculatedUnitPrice = roundToTwo(totalBatchCost / effectiveOutputQuantity);

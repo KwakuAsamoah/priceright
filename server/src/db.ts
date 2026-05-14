@@ -277,6 +277,9 @@ function ensureSchemaTables() {
 	if (!materialColumns.some((column) => column.name === 'margin_percentage')) {
 		sqlite.exec('ALTER TABLE materials ADD COLUMN margin_percentage REAL NOT NULL DEFAULT 0');
 	}
+	if (!materialColumns.some((column) => column.name === 'intermediate_cost_mode')) {
+		sqlite.exec("ALTER TABLE materials ADD COLUMN intermediate_cost_mode TEXT NOT NULL DEFAULT 'yield'");
+	}
 	if (!materialColumns.some((column) => column.name === 'yield_percentage')) {
 		sqlite.exec('ALTER TABLE materials ADD COLUMN yield_percentage REAL NOT NULL DEFAULT 100');
 	}

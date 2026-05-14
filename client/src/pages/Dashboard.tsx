@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -7,16 +7,13 @@ import {
   FileText,
   LayoutDashboard,
   Package,
-  Plus,
   RefreshCw,
   ShieldCheck,
   Tag,
   TrendingUp,
-  Users,
   XCircle,
 } from 'lucide-react';
 import {
-  customersApi,
   exchangeRatesApi,
   materialsApi,
   priceLevelItemsApi,
@@ -58,12 +55,6 @@ interface Material {
   purchaseCurrencyId?: number | null;
   purchaseCurrencyCode?: string | null;
   purchaseCurrencySymbol?: string | null;
-}
-
-interface Customer {
-  id: number;
-  name: string;
-  priceLevelId?: number | null;
 }
 
 interface ExchangeRate {
@@ -155,7 +146,6 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [productionCostByProductId, setProductionCostByProductId] = useState<Record<number, number>>({});
   const [priceLevelsCount, setPriceLevelsCount] = useState(0);
@@ -188,10 +178,9 @@ export default function Dashboard() {
         // Ignore this background call and continue with dashboard load.
       }
 
-      const [productsData, materialsData, customersData, exchangeRatesData, settingsData, priceLevelsData] = await Promise.all([
+      const [productsData, materialsData, exchangeRatesData, settingsData, priceLevelsData] = await Promise.all([
         productsApi.getAll() as Promise<Product[]>,
         materialsApi.getAll() as Promise<Material[]>,
-        customersApi.getAll() as Promise<Customer[]>,
         exchangeRatesApi.getAll() as Promise<ExchangeRate[]>,
         settingsApi.getAll() as Promise<Array<{ settingKey: string; settingValue: string }>>,
         priceLevelRulesApi.getAll() as Promise<Array<{ id: number; isActive?: boolean }>>,
@@ -269,7 +258,6 @@ export default function Dashboard() {
 
       setProducts(productsData || []);
       setMaterials(materialsData || []);
-      setCustomers(customersData || []);
       setExchangeRates(exchangeRatesData || []);
       setProductionCostByProductId(productionCostMap);
       setPriceLevelsCount(Array.isArray(priceLevelsData) ? priceLevelsData.length : 0);
@@ -415,10 +403,7 @@ export default function Dashboard() {
     };
   }, [materials, baseCurrencyCode]);
 
-  const customersWithAssignedLevel = useMemo(
-    () => customers.filter((customer) => customer.priceLevelId != null).length,
-    [customers],
-  );
+
 
   const lowMarginTopTen = useMemo(() => {
     return lowMarginProducts
@@ -550,34 +535,11 @@ export default function Dashboard() {
       .slice(0, 10);
   }, [products, exchangeRates, currencyLookup]);
 
-  const isNewInstallation =
-    products.length === 0
-    && materials.length === 0
-    && customers.length === 0
-    && exchangeRates.length === 0;
 
-  const setupSteps = useMemo(() => {
-    const activeProducts = products.filter((product) => product.isActive !== false);
-    const hasActiveProducts = activeProducts.length > 0;
-    const allActiveProductsApproved = hasActiveProducts
-      && activeProducts.every((product) => getProductStatus(product) === 'approved');
-
-    return [
-      { key: 'materials', label: 'Materials', route: '/materials', complete: materials.length > 0 },
-      { key: 'products', label: 'Products', route: '/products', complete: products.length > 0 },
-      { key: 'approve', label: 'Approve Prices', route: '/products?approval=pending', complete: allActiveProductsApproved },
-      { key: 'levels', label: 'Price Levels', route: '/price-levels', complete: priceLevelsCount > 0 },
-      { key: 'customers', label: 'Customer Pricing', route: '/price-levels', complete: customers.length > 0 },
-      { key: 'lists', label: 'Price List Export', route: '/price-levels', complete: priceLevelSummary.exportReadyLevels > 0 },
-    ];
-  }, [materials.length, products, priceLevelsCount, customers.length, priceLevelSummary.exportReadyLevels]);
-
-  const firstIncompleteStepIndex = setupSteps.findIndex((step) => !step.complete);
-  const allSetupStepsComplete = firstIncompleteStepIndex === -1;
 
   const skeletonCards = (
     <div className="dashboard-stat-grid">
-      {Array.from({ length: 7 }).map((_, index) => (
+      {Array.from({ length: 5 }).map((_, index) => (
         <div key={`skeleton-card-${index}`} className="app-card dashboard-skeleton-block" style={{ height: '120px' }} />
       ))}
     </div>
@@ -732,97 +694,79 @@ export default function Dashboard() {
           </div>
         )}
 
-        {isNewInstallation && (
-          <div
-            className="app-card"
-            style={{
-              padding: '16px 20px',
-              borderColor: '#dbeafe',
-              backgroundColor: '#eff6ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '16px',
-              flexWrap: 'wrap',
+        <div className="app-card" style={{ padding: '16px 18px', border: '1px solid #dbeafe', backgroundColor: '#f8fbff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e3a8a' }}>Getting Started</div>
+            <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '4px' }}>Download our Quick Setup Guide to get started with PriceRight</div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              // Create and download a simple PDF guide
+              const pdfContent = `
+%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/Parent 2 0 R/Resources 4 0 R/MediaBox[0 0 612 792]/Contents 5 0 R>>endobj
+4 0 obj<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>endobj
+5 0 obj<</Length 800>>stream
+BT
+/F1 24 Tf
+50 750 Td
+(Welcome to PriceRight) Tj
+0 -40 Td
+/F1 12 Tf
+(Quick Setup Guide) Tj
+0 -30 Td
+(1. Add Your Materials) Tj
+0 -20 Td
+(Go to Materials and enter your raw materials with costs and currencies.) Tj
+0 -30 Td
+(2. Build Your Products) Tj
+0 -20 Td
+(Create products by selecting materials and setting production methods.) Tj
+0 -30 Td
+(3. Approve Prices) Tj
+0 -20 Td
+(Review and approve base prices for each product before selling.) Tj
+0 -30 Td
+(4. Set Up Price Levels) Tj
+0 -20 Td
+(Create pricing tiers for different customer groups or markets.) Tj
+0 -30 Td
+(5. Export Price Lists) Tj
+0 -20 Td
+(Generate final price lists for use in your sales system.) Tj
+ET
+endstream endobj
+xref
+0 6
+0000000000 65535 f
+0000000009 00000 n
+0000000058 00000 n
+0000000115 00000 n
+0000000217 00000 n
+0000000301 00000 n
+trailer<</Size 6/Root 1 0 R>>
+startxref
+1151
+%%EOF
+`;
+              const blob = new Blob([pdfContent], { type: 'application/pdf' });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'PriceRight_Quick_Setup_Guide.pdf';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
             }}
+            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}
           >
-            <div style={{ fontSize: '14px', color: '#1e3a8a' }}>
-              <strong>Welcome to PriceRight.</strong> Start by adding your materials and products.
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button className="btn btn-secondary btn-sem-rates" onClick={() => navigate('/materials')}>
-                <Plus size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                Add Material
-              </button>
-              <button className="btn btn-secondary btn-sem-products" onClick={() => navigate('/products')}>
-                <Plus size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                Add Product
-              </button>
-            </div>
-          </div>
-        )}
-
-        {!allSetupStepsComplete && (
-          <div className="app-card" style={{ padding: '16px 18px', border: '1px solid #dbeafe', backgroundColor: '#f8fbff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e3a8a' }}>Setup Progress</div>
-              {firstIncompleteStepIndex >= 0 && (
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => navigate(setupSteps[firstIncompleteStepIndex].route)}
-                  style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700 }}
-                >
-                  Go → {setupSteps[firstIncompleteStepIndex].label}
-                </button>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
-              {setupSteps.map((step, index) => {
-                const isCurrent = firstIncompleteStepIndex === index;
-                return (
-                  <Fragment key={step.key}>
-                    <button
-                      onClick={() => navigate(step.route)}
-                      style={{
-                        border: 'none',
-                        background: 'transparent',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        padding: '4px 0',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={`Open ${step.label}`}
-                    >
-                      <span
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '999px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          border: step.complete ? '1px solid #1f2937' : isCurrent ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          backgroundColor: step.complete ? '#1f2937' : isCurrent ? '#dbeafe' : '#fff',
-                          color: step.complete ? '#fff' : isCurrent ? '#1e40af' : '#64748b',
-                        }}
-                      >
-                        {step.complete ? '✓' : index + 1}
-                      </span>
-                      <span style={{ fontSize: '12px', fontWeight: isCurrent ? 700 : 600, color: isCurrent ? '#1e40af' : '#475569' }}>{step.label}</span>
-                    </button>
-                    {index < setupSteps.length - 1 && (
-                      <span style={{ color: '#94a3b8', fontSize: '12px' }}>→</span>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </div>
-          </div>
-        )}
+            Download PDF
+          </button>
+        </div>
 
         <div className="dashboard-stat-grid">
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
@@ -871,16 +815,6 @@ export default function Dashboard() {
             <div className="dashboard-stat-sub">Across approved products</div>
           </div>
 
-          <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><Users size={20} color="#ffffff" /></div>
-            </div>
-            <div className="dashboard-stat-title">Active Customers</div>
-            <div className="dashboard-stat-value">{customers.length}</div>
-            <div className="dashboard-stat-hint">Customer count retained for reference</div>
-            <div className="dashboard-stat-sub">{customersWithAssignedLevel} assigned to price levels</div>
-          </div>
-
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div className="dashboard-icon-box"><Tag size={20} color="#ffffff" /></div>
@@ -901,32 +835,7 @@ export default function Dashboard() {
             <div className="dashboard-stat-sub">{priceLevelSummary.fullyApprovedLevels} fully approved · {priceLevelSummary.pendingItems} pending items</div>
           </button>
 
-          <div className="app-card dashboard-quick-card">
-            <div className="dashboard-quick-actions">
-              <div className="dashboard-quick-actions-head">
-                <div className="dashboard-quick-actions-title">Quick actions</div>
-                <div className="dashboard-quick-actions-sub">Most-used shortcuts for daily pricing operations</div>
-              </div>
-              <div className="dashboard-quick-actions-buttons">
-                <button className="btn btn-secondary quick-action-products btn-sem-products" onClick={() => navigate('/products')}>
-                  <Plus size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                  Add Product
-                </button>
-                <button className="btn btn-secondary quick-action-pricelist btn-sem-pricelist" onClick={() => navigate('/price-levels')}>
-                  <FileText size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                  Open Price Levels
-                </button>
-                <button className="btn btn-secondary quick-action-approvals btn-sem-approvals" onClick={() => navigate('/products?approval=pending')}>
-                  <ShieldCheck size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                  Review Approvals
-                </button>
-                <button className="btn btn-secondary quick-action-rates btn-sem-rates" onClick={() => navigate('/settings')}>
-                  <RefreshCw size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                  Update Exchange Rates
-                </button>
-              </div>
-            </div>
-          </div>
+
         </div>
 
         <div className="dashboard-chart-grid">
@@ -1246,7 +1155,7 @@ export default function Dashboard() {
       <style>{`
         .dashboard-stat-grid {
           display: grid;
-          grid-template-columns: repeat(8, minmax(0, 1fr));
+          grid-template-columns: repeat(6, minmax(0, 1fr));
           gap: 16px;
         }
         .dashboard-stat-card {
@@ -1497,7 +1406,7 @@ export default function Dashboard() {
         }
         @media (max-width: 1200px) {
           .dashboard-stat-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
         }
         @media (max-width: 1200px) {

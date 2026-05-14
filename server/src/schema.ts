@@ -46,6 +46,7 @@ export const materials = sqliteTable('materials', {
   unitPrice: real('unit_price').notNull(),
   overheadPercentage: real('overhead_percentage').notNull().default(0),
   marginPercentage: real('margin_percentage').notNull().default(0),
+  intermediateCostMode: text('intermediate_cost_mode').notNull().default('yield'),
   yieldPercentage: real('yield_percentage').notNull().default(100),
   calculatedCostPerUnit: real('calculated_cost_per_unit').notNull().default(0),
   supplier: text('supplier').notNull(),

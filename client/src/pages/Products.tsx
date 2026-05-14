@@ -74,30 +74,24 @@ const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Rejected', 'Need
 
 type ProductColumnKey =
   | 'name'
-  | 'category'
-  | 'mode'
   | 'materialCost'
   | 'optimalPrice'
-  | 'approvedDate'
+  | 'priceExpires'
   | 'sellingPrice'
   | 'profitOnCost'
   | 'profitOnSales'
   | 'status'
-  | 'pricingStatus'
   | 'actions';
 
 const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = [
   { key: 'name', label: 'Product Name' },
-  { key: 'category', label: 'Category' },
-  { key: 'mode', label: 'Production Mode' },
   { key: 'materialCost', label: 'Total Production Cost' },
   { key: 'optimalPrice', label: 'Optimal Price' },
-  { key: 'approvedDate', label: 'Approved Date' },
+  { key: 'priceExpires', label: 'Valid until' },
   { key: 'sellingPrice', label: 'Approved base price' },
   { key: 'profitOnCost', label: 'Profit on cost' },
   { key: 'profitOnSales', label: 'Profit on sales' },
   { key: 'status', label: 'Status' },
-  { key: 'pricingStatus', label: 'Pricing' },
   { key: 'actions', label: 'Actions' },
 ];
 
@@ -755,15 +749,14 @@ export default function Products() {
     const exportData = selectedProdList.map((product) => {
       const profitOnCost = calculateProfitOnCost(product);
       const profitOnSales = calculateProfitOnSales(product);
+      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return ({
       'Product Name': product.name,
       'SKU': product.sku || '',
-      'Category': product.category || '',
-      'Production Mode': product.productionMode === 'batch' ? `Batch ${product.batchYield || 1}` : 'Single',
-      'Batch Yield': product.batchYield || 1,
       'Material Cost': product.materialCost.toFixed(2),
       'Overhead %': product.overheadPercentage.toFixed(2),
       'Total Cost': product.totalCost.toFixed(2),
+      'Valid until': normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
       'Profit on cost (%)': profitOnCost != null ? profitOnCost.toFixed(1) : '—',
       'Profit on sales (%)': profitOnSales != null ? profitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
@@ -774,10 +767,9 @@ export default function Products() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const columnWidths = [
-      { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 14 },
-      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 15 },
-      { wch: 12 },
+      { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 },
+      { wch: 12 }, { wch: 15 }, { wch: 12 },
     ];
     worksheet['!cols'] = columnWidths;
 
@@ -821,21 +813,6 @@ export default function Products() {
     const date = new Date();
     date.setDate(date.getDate() + 1);
     return date.toISOString().split('T')[0];
-  }
-
-  function getApprovalAgeDays(value?: string | number | null) {
-    if (!value) return null;
-    const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
-    if (Number.isNaN(date.getTime())) return null;
-    const diffMs = Date.now() - date.getTime();
-    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-  }
-
-  function getApprovalAgeColor(ageDays: number | null) {
-    if (ageDays === null) return '#94a3b8';
-    if (ageDays < 30) return '#2e7d32';
-    if (ageDays <= 90) return '#e65100';
-    return '#c62828';
   }
 
   function buildProductUndoSnapshot(ids: number[]) {
@@ -1207,10 +1184,9 @@ export default function Products() {
     const headers = [
       'Product Name',
       'SKU',
-      'Category',
-      'Production Mode',
       'Material Cost',
       'Optimal Price',
+      'Valid until',
       'Approved base price',
       'Profit on cost (%)',
       'Profit on sales (%)',
@@ -1224,14 +1200,14 @@ export default function Products() {
       const currentPrice = Number(product.currentSellingPrice || 0);
       const profitOnCost = calculateProfitOnCost(product);
       const profitOnSales = calculateProfitOnSales(product);
+      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return {
         values: [
           product.name,
           product.sku || '-',
-          product.category || '-',
-          product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single Unit',
           Number(product.materialCost || 0),
           Number(product.optimalPrice || 0),
+          normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
           currentPrice > 0 ? currentPrice : null,
           profitOnCost != null ? Number(profitOnCost.toFixed(1)) : null,
           profitOnSales != null ? Number(profitOnSales.toFixed(1)) : null,
@@ -1252,9 +1228,9 @@ export default function Products() {
       { wch: 30 },
       { wch: 15 },
       { wch: 15 },
-      { wch: 20 },
       { wch: 15 },
-      { wch: 15 },
+      { wch: 14 },
+      { wch: 14 },
       { wch: 20 },
       { wch: 18 },
       { wch: 18 },
@@ -1760,13 +1736,14 @@ export default function Products() {
       const currentPrice = Number(product.currentSellingPrice || 0);
       const profitOnCost = calculateProfitOnCost(product);
       const profitOnSales = calculateProfitOnSales(product);
+      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return [
         product.name,
         product.sku || '-',
-        product.category || '-',
-        product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single',
         product.totalCost.toFixed(2),
         product.optimalPrice.toFixed(2),
+        formatApprovalDate(product.approvedAt),
+        normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
         currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set',
         profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-',
         profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-',
@@ -1779,7 +1756,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Category', 'Production Mode', 'Total Cost', 'Optimal Price', 'Approved base price', 'Profit on cost %', 'Profit on sales %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Profit on cost %', 'Profit on sales %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1801,6 +1778,7 @@ export default function Products() {
         const currentPrice = Number(product.currentSellingPrice || 0);
         const profitOnCost = calculateProfitOnCost(product);
         const profitOnSales = calculateProfitOnSales(product);
+        const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
         const statusColor = analysis.status === 'below-optimal'
           ? '#b91c1c'
           : analysis.status === 'above-optimal'
@@ -1815,10 +1793,10 @@ export default function Products() {
           <tr>
             <td>${product.name}</td>
             <td>${product.sku || '-'}</td>
-            <td>${product.category || '-'}</td>
-            <td>${product.productionMode === 'batch' ? `Batch (${product.batchYield || 1})` : 'Single'}</td>
             <td style="text-align:right;">${product.totalCost.toFixed(2)}</td>
             <td style="text-align:right;">${product.optimalPrice.toFixed(2)}</td>
+            <td>${formatApprovalDate(product.approvedAt)}</td>
+            <td>${normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : ''}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set'}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-'}</td>
             <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-'}</td>
@@ -1850,7 +1828,7 @@ export default function Products() {
           <table>
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Category</th><th>Mode</th><th>Total Cost</th><th>Optimal Price</th><th>Approved base price</th><th>Profit on cost (%)</th><th>Profit on sales (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
+                <th>Product</th><th>SKU</th><th>Total Cost</th><th>Optimal Price</th><th>Valid until</th><th>Approved base price</th><th>Profit on cost (%)</th><th>Profit on sales (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -2267,6 +2245,9 @@ export default function Products() {
             alignItems: 'stretch',
             gap: '12px',
             flexWrap: 'wrap',
+            width: '100%',
+            maxWidth: '100%',
+            minWidth: 0,
             minHeight: 'calc(100vh - 240px)',
           }}
         >
@@ -2295,15 +2276,12 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>#</th>
                     {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
-                    {isProductColumnVisible('category') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '90px', whiteSpace: 'nowrap' }}>Category</th>}
-                    {isProductColumnVisible('mode') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '98px', whiteSpace: 'nowrap' }}>Mode</th>}
                     {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
                       <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
                     )}
-                    {isProductColumnVisible('approvedDate') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'nowrap' }}>Date</th>}
+                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
                     {isProductColumnVisible('sellingPrice') && (
                       <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
@@ -2342,38 +2320,17 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    {isProductColumnVisible('pricingStatus') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '84px', textAlign: 'center', whiteSpace: 'nowrap' }}>Pricing</th>}
                     {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product, idx) => {
-                    const analysis = calculatePricingAnalysis(product);
+                  {filteredProducts.map((product) => {
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
-                    const approvalAgeDays = getApprovalAgeDays(product.approvedAt as any);
-                    const approvalAgeColor = getApprovalAgeColor(approvalAgeDays);
-                    const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
-                    const daysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
-                    const shouldShowExpiryHint = product.approvalStatus === 'approved'
-                      && normalizedExpiryDate
-                      && daysUntilExpiry !== null
-                      && daysUntilExpiry > 0;
-
-                    let expiryHintColor = '#94a3b8';
-                    if (shouldShowExpiryHint && daysUntilExpiry <= 7) {
-                      expiryHintColor = '#b91c1c';
-                    } else if (shouldShowExpiryHint && daysUntilExpiry <= 30) {
-                      expiryHintColor = '#b45309';
-                    }
 
                     const hasSellingPrice = product.currentSellingPrice != null && product.currentSellingPrice > 0;
                     const profitOnCost = calculateProfitOnCost(product);
                     const profitOnSales = calculateProfitOnSales(product);
                     const sellingMismatch = !!product.priceMismatch;
-                    const batchLabel =
-                      product.productionMode === 'batch'
-                        ? `Batch x${product.batchYield || 1}`
-                        : 'Single';
 
                     const isNeedsReview = product.approvalStatus === 'needs_review';
                     const rowApprovedPrice = Number(product.approvedPrice ?? 0).toFixed(2);
@@ -2400,7 +2357,6 @@ export default function Products() {
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
-                          <td style={{ padding: '6px 6px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                           {isProductColumnVisible('name') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <span
@@ -2419,41 +2375,33 @@ export default function Products() {
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
                           </td>}
-                          {isProductColumnVisible('category') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.category || '-'}</td>}
-                          {isProductColumnVisible('mode') && <td style={{ padding: '4px 4px', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                            <AppBadge variant="active" size="sm">{batchLabel}</AppBadge>
-                          </td>}
                           {isProductColumnVisible('materialCost') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.totalCost.toFixed(2)}</span>
                           </td>}
                           {isProductColumnVisible('optimalPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.optimalPrice.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('approvedDate') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                            {approvalAgeDays === null ? (
-                              <span style={{ color: '#94a3b8' }}>—</span>
-                            ) : (
-                              <div style={{ display: 'grid', gap: '2px' }}>
-                                <span title={`Last approved ${approvalAgeDays} day${approvalAgeDays === 1 ? '' : 's'} ago`} style={{ color: approvalAgeColor, fontWeight: 700 }}>
-                                  {formatApprovalDate(product.approvedAt as any)}
-                                </span>
-                                {shouldShowExpiryHint && (
-                                  <span style={{ color: expiryHintColor, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    {daysUntilExpiry <= 30 && (
-                                      <span
-                                        style={{
-                                          width: '6px',
-                                          height: '6px',
-                                          borderRadius: '999px',
-                                          backgroundColor: expiryHintColor,
-                                          display: 'inline-block',
-                                        }}
-                                      />
-                                    )}
-                                    Exp: {formatExpiryDate(normalizedExpiryDate)}
+                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                            {product.approvedPriceExpiresAt ? (
+                              (() => {
+                                const expiryDate = new Date(product.approvedPriceExpiresAt);
+                                const today = new Date();
+                                const daysUntilExpiryLocal = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                const isExpired = daysUntilExpiryLocal < 0;
+                                const isExpiringSoon = daysUntilExpiryLocal >= 0 && daysUntilExpiryLocal <= 30;
+                                const cellColor = isExpired ? '#dc2626' : isExpiringSoon ? '#d97706' : '#374151';
+                                return (
+                                  <span style={{ color: cellColor, fontWeight: isExpired || isExpiringSoon ? 700 : 500 }}>
+                                    {expiryDate.toLocaleDateString('en-GB', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })}
                                   </span>
-                                )}
-                              </div>
+                                );
+                              })()
+                            ) : (
+                              <span style={{ color: '#94a3b8' }}>—</span>
                             )}
                           </td>}
                           {isProductColumnVisible('sellingPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -2527,24 +2475,6 @@ export default function Products() {
                                 <AppBadge variant="inactive" size="sm">Inactive</AppBadge>
                               )}
                             </div>
-                          </td>}
-                          {isProductColumnVisible('pricingStatus') && <td style={{ padding: '6px 6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            {analysis.status === 'not-set' ? (
-                              <AppBadge variant="muted" size="sm">Not Set</AppBadge>
-                            ) : (
-                              <span
-                                style={{
-                                  borderRadius: '4px',
-                                  padding: '2px 6px',
-                                  backgroundColor: analysis.background,
-                                  color: analysis.color,
-                                  fontWeight: 700,
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {analysis.label}
-                              </span>
-                            )}
                           </td>}
                           {isProductColumnVisible('actions') && <td style={{ padding: '6px 4px' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>

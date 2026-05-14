@@ -7,7 +7,7 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
-import { materialsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import { materialsApi, settingsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 
@@ -17,6 +17,7 @@ interface MaterialFormState {
   description: string;
   category: string;
   unit: string;
+  intermediateCostMode: 'yield' | 'completed_output';
   bulkQuantity: string;
   overheadPercentage: string;
   marginPercentage: string;
@@ -30,6 +31,7 @@ const emptyForm: MaterialFormState = {
   description: '',
   category: '',
   unit: 'kg',
+  intermediateCostMode: 'completed_output',
   bulkQuantity: '1',
   overheadPercentage: '0',
   marginPercentage: '0',
@@ -80,6 +82,38 @@ const INTERMEDIATE_COLUMN_OPTIONS: Array<{ key: IntermediateColumnKey; label: st
 ];
 
 const DEFAULT_INTERMEDIATE_COLUMNS: IntermediateColumnKey[] = INTERMEDIATE_COLUMN_OPTIONS.map((option) => option.key);
+
+function parseConfiguredList(rawValue: unknown): string[] {
+  if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
+    return [];
+  }
+
+  const text = rawValue.trim();
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((entry) => String(entry || '').trim())
+        .filter((entry) => entry.length > 0);
+    }
+  } catch {
+    // Ignore and fallback to delimited parsing
+  }
+
+  return text
+    .split(/[\n,;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
+function normalizeChoiceValue(selectedValue: string, customValue: string, fallback = '') {
+  const resolved = selectedValue === '__custom__' ? customValue : selectedValue;
+  const trimmed = resolved.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return fallback;
+}
 
 function parseCsvLine(line: string) {
   const values: string[] = [];
@@ -228,7 +262,8 @@ export default function IntermediateMaterials() {
     'priceright_columns_intermediate_materials',
     DEFAULT_INTERMEDIATE_COLUMNS,
   );
-  const [selectedMaterials, setSelectedMaterials] = useState<Set<number>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
   const [componentMaterialId, setComponentMaterialId] = useState<number>(0);
   const [componentQuantity, setComponentQuantity] = useState<string>('1');
@@ -242,6 +277,8 @@ export default function IntermediateMaterials() {
   const [importing, setImporting] = useState(false);
   const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
   const [importSuccessCount, setImportSuccessCount] = useState(0);
+  const [configuredMaterialCategories, setConfiguredMaterialCategories] = useState<string[]>([]);
+  const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
   const [showIntermediateImportModal, setShowIntermediateImportModal] = useState(false);
   const [intermediateImportFile, setIntermediateImportFile] = useState<File | null>(null);
   const [intermediateImportResult, setIntermediateImportResult] = useState<{
@@ -252,10 +289,42 @@ export default function IntermediateMaterials() {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const intermediatesTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
 
+  function toggleSelectAll(checked: boolean) {
+    if (checked) {
+      setSelectedIds(new Set(filteredMaterials.map((material) => material.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  }
+
+  function toggleSelectOne(id: number, checked: boolean) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [materialSearch, selectedStatus]);
+
   const selectedMaterial = useMemo(
     () => materials.find((m) => m.id === selectedId) ?? null,
     [materials, selectedId],
   );
+
+  const materialCategories = useMemo(() => {
+    const observed = materials
+      .map((material) => String(material.category || '').trim())
+      .filter((category) => category.length > 0);
+
+    return Array.from(new Set([...configuredMaterialCategories, ...observed])).sort((a, b) => a.localeCompare(b));
+  }, [configuredMaterialCategories, materials]);
 
   const filteredMaterials = useMemo(() => {
     const query = materialSearch.trim().toLowerCase();
@@ -349,16 +418,19 @@ export default function IntermediateMaterials() {
   }, [selectedId]);
 
   async function loadData() {
-    const [intermediateData, componentData] = await Promise.all([
+    const [intermediateData, componentData, settingsData] = await Promise.all([
       materialsApi.getAll('all', 'intermediate'),
       materialsApi.getAll('active', 'all'),
+      settingsApi.getAll(),
     ]);
 
     const safeIntermediate = Array.isArray(intermediateData) ? intermediateData : [];
     const safeComponents = Array.isArray(componentData) ? componentData : [];
+    const materialCategoriesSetting = (settingsData || []).find((entry: any) => entry.settingKey === 'materialCategories');
 
     setMaterials(safeIntermediate);
     setComponents(safeComponents);
+    setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
   }
 
   async function loadBom(materialId: number) {
@@ -367,13 +439,16 @@ export default function IntermediateMaterials() {
   }
 
   function selectMaterial(material: MaterialRecord) {
+    const knownCategory = materialCategories.includes(String(material.category || ''));
+    setMaterialCustomCategoryValue(knownCategory ? '' : String(material.category || ''));
     setSelectedId(material.id);
     setForm({
       name: String(material.name || ''),
       sku: String(material.sku || ''),
       description: String(material.description || ''),
-      category: String(material.category || ''),
+      category: knownCategory ? String(material.category || '') : '__custom__',
       unit: String(material.unit || 'kg'),
+      intermediateCostMode: material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield',
       bulkQuantity: String(material.bulkQuantity || '1'),
       overheadPercentage: String(material.overheadPercentage || '0'),
       marginPercentage: String(material.marginPercentage || '0'),
@@ -386,6 +461,7 @@ export default function IntermediateMaterials() {
   function openNewMaterialForm() {
     setSelectedId(null);
     setForm(emptyForm);
+    setMaterialCustomCategoryValue('');
     setBomItems([]);
     setComponentMaterialId(0);
     setComponentQuantity('1');
@@ -417,6 +493,7 @@ export default function IntermediateMaterials() {
       description: String(overrides?.description ?? material.description ?? ''),
       category: String(overrides?.category ?? material.category ?? ''),
       unit: String(overrides?.unit ?? material.unit ?? 'kg'),
+      intermediateCostMode: String(overrides?.intermediateCostMode ?? material.intermediateCostMode ?? 'yield'),
       bulkQuantity: Number(overrides?.bulkQuantity ?? material.bulkQuantity ?? 1),
       bulkPrice: Number(overrides?.bulkPrice ?? material.bulkPrice ?? 0),
       purchaseCurrencyId: Number(overrides?.purchaseCurrencyId ?? material.purchaseCurrencyId ?? 1),
@@ -433,6 +510,12 @@ export default function IntermediateMaterials() {
   async function saveMaterial() {
     setSaving(true);
     try {
+      const resolvedCategory = normalizeChoiceValue(form.category, materialCustomCategoryValue);
+      if (!resolvedCategory) {
+        showToastMessage('Please provide a category', 'error');
+        return;
+      }
+
       let createdId: number | null = null;
       const costSnapshot = calculateIntermediateLiveCost();
       const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
@@ -442,13 +525,15 @@ export default function IntermediateMaterials() {
 
       const payload = {
         ...form,
+        category: resolvedCategory,
         materialType: 'intermediate' as const,
+        intermediateCostMode: form.intermediateCostMode,
         bulkQuantity: resolvedBulkQuantity,
         bulkPrice: Number(selectedMaterial?.bulkPrice || 0),
         purchaseCurrencyId: Number(selectedMaterial?.purchaseCurrencyId || 1),
         overheadPercentage: Number(form.overheadPercentage || 0),
         marginPercentage: Number(form.marginPercentage || 0),
-        yieldPercentage: Number(form.yieldPercentage || 100),
+        yieldPercentage: form.intermediateCostMode === 'completed_output' ? 100 : Number(form.yieldPercentage || 100),
         calculatedCostPerUnit: costSnapshot.costPerUnit,
       };
 
@@ -555,13 +640,16 @@ export default function IntermediateMaterials() {
   }
 
   function handleDuplicateMaterial(material: MaterialRecord) {
+    const knownCategory = materialCategories.includes(String(material.category || ''));
+    setMaterialCustomCategoryValue(knownCategory ? '' : String(material.category || ''));
     setSelectedId(null);
     setForm({
       name: `${String(material.name || '').trim()} Copy`.trim(),
       sku: String(material.sku || '').trim() ? `${String(material.sku).trim()}-COPY` : '',
       description: String(material.description || ''),
-      category: String(material.category || ''),
+      category: knownCategory ? String(material.category || '') : '__custom__',
       unit: String(material.unit || 'kg'),
+      intermediateCostMode: material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield',
       bulkQuantity: String(material.bulkQuantity || '1'),
       overheadPercentage: String(material.overheadPercentage || '0'),
       marginPercentage: String(material.marginPercentage || '0'),
@@ -707,7 +795,7 @@ export default function IntermediateMaterials() {
   }
 
   async function handleBulkSetActiveState(nextIsActive: boolean) {
-    const targets = materials.filter((material) => selectedMaterials.has(material.id));
+    const targets = materials.filter((material) => selectedIds.has(material.id));
     if (targets.length === 0) {
       return;
     }
@@ -722,42 +810,32 @@ export default function IntermediateMaterials() {
   }
 
   async function handleBulkDelete() {
-    const targets = materials.filter((material) => selectedMaterials.has(material.id));
-    if (targets.length === 0) {
+    if (selectedIds.size === 0) {
       return;
     }
 
-    const confirmed = window.confirm(`Delete ${targets.length} selected intermediate material${targets.length !== 1 ? 's' : ''}?`);
+    const confirmed = window.confirm(
+      `Delete ${selectedIds.size} intermediate material${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`
+    );
     if (!confirmed) {
       return;
     }
 
-    const results = await Promise.all(targets.map(async (material) => {
-      try {
-        await materialsApi.delete(material.id);
-        return { ok: true as const, material };
-      } catch (error: any) {
-        return { ok: false as const, material, error: error?.message || 'Delete failed' };
-      }
-    }));
-
-    const failed = results.filter((result) => !result.ok);
-    const succeeded = results.filter((result) => result.ok);
-
-    if (succeeded.length > 0) {
-      setSelectedMaterials(new Set());
+    setBulkDeleting(true);
+    try {
+      await materialsApi.bulkDeleteIntermediates(Array.from(selectedIds));
+      setSelectedIds(new Set());
       await loadData();
-    }
-
-    if (failed.length > 0) {
-      showToastMessage(failed.slice(0, 3).map((result) => `${result.material.name}: ${result.error}`).join('\n'), 'error');
-    } else {
-      showToastMessage(`Deleted ${succeeded.length} intermediate material${succeeded.length !== 1 ? 's' : ''}`, 'success');
+      showToastMessage(`Deleted ${selectedIds.size} intermediate material${selectedIds.size !== 1 ? 's' : ''}`, 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to delete selected materials', 'error');
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
   function handleBulkExport() {
-    const targets = filteredMaterials.filter((material) => selectedMaterials.has(material.id));
+    const targets = filteredMaterials.filter((material) => selectedIds.has(material.id));
     if (targets.length === 0) {
       return;
     }
@@ -991,7 +1069,9 @@ export default function IntermediateMaterials() {
 
     const batchQuantity = Math.max(0.0001, Number(form.bulkQuantity || 1));
     const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
-    const effectiveOutputQuantity = batchQuantity * (yieldPercent / 100);
+    const effectiveOutputQuantity = form.intermediateCostMode === 'completed_output'
+      ? batchQuantity
+      : batchQuantity * (yieldPercent / 100);
     const costPerUnit = batchTotalCost / effectiveOutputQuantity;
 
     const marginPercentage = Number(form.marginPercentage || 0) / 100;
@@ -1011,6 +1091,7 @@ export default function IntermediateMaterials() {
   }
 
   const liveCost = calculateIntermediateLiveCost();
+  const resolvedCategoryForSubmit = normalizeChoiceValue(form.category, materialCustomCategoryValue);
   const currencySymbol = selectedMaterial?.baseCurrencySymbol || '';
   const formatMoney = (amount: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
 
@@ -1104,14 +1185,27 @@ export default function IntermediateMaterials() {
           </div>
         </div>
 
-        {selectedMaterials.size > 0 ? (
-          <div className="app-bulk-bar app-bulk-bar-sticky">
+        {selectedIds.size > 0 ? (
+          <div
+            className="app-bulk-bar app-bulk-bar-sticky"
+            style={{
+              backgroundColor: '#1a1a1a',
+              color: '#ffffff',
+              padding: '10px 16px',
+              borderRadius: '8px',
+            }}
+          >
             <div className="app-bulk-count-wrap">
-              <span className="app-bulk-count">{selectedMaterials.size} intermediate material{selectedMaterials.size !== 1 ? 's' : ''} selected</span>
+              <span className="app-bulk-count">{selectedIds.size} selected</span>
             </div>
-            <button onClick={handleBulkDelete} className="btn btn-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={handleBulkDelete}
+              className="btn btn-danger"
+              disabled={bulkDeleting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
               <Trash2 size={14} strokeWidth={2} />
-              Delete
+              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}
             </button>
             <button onClick={() => void handleBulkSetActiveState(true)} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#2e7d32' }}>
               <Eye size={14} strokeWidth={2} />
@@ -1125,7 +1219,7 @@ export default function IntermediateMaterials() {
               <FileSpreadsheet size={14} strokeWidth={2} />
               Export Excel
             </button>
-            <button onClick={() => setSelectedMaterials(new Set())} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => setSelectedIds(new Set())} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <X size={14} strokeWidth={2} />
               Clear
             </button>
@@ -1138,6 +1232,19 @@ export default function IntermediateMaterials() {
             <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                  <th style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredMaterials.length > 0 && filteredMaterials.every((material) => selectedIds.has(material.id))}
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate = selectedIds.size > 0 && selectedIds.size < filteredMaterials.length;
+                        }
+                      }}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
+                    />
+                  </th>
                   {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
                   {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
@@ -1150,6 +1257,15 @@ export default function IntermediateMaterials() {
               <tbody>
                 {filteredMaterials.map((material) => (
                   <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa' }}>
+                    <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(material.id)}
+                        onChange={(e) => toggleSelectOne(material.id, e.target.checked)}
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    </td>
                     {isIntermediateColumnVisible('material') && <td style={{ padding: '6px 6px', minWidth: '220px' }}>
                       <div style={{ fontWeight: '600', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                       <div style={{ fontSize: '11px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
@@ -1252,14 +1368,40 @@ export default function IntermediateMaterials() {
                     </div>
                     <div>
                       <label style={fieldLabelStyle}>Category *</label>
-                      <input
+                      <select
                         className="app-input"
-                        type="text"
                         required
                         value={form.category}
-                        onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setForm((prev) => ({ ...prev, category: value }));
+                          if (value !== '__custom__') {
+                            setMaterialCustomCategoryValue('');
+                          }
+                        }}
                         style={fieldInputStyle}
-                      />
+                      >
+                        <option value="" disabled>
+                          Select category
+                        </option>
+                        {materialCategories.map((category) => (
+                          <option key={category} value={category}>
+                            {category}
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Add new category...</option>
+                      </select>
+                      {form.category === '__custom__' ? (
+                        <input
+                          className="app-input"
+                          type="text"
+                          required
+                          value={materialCustomCategoryValue}
+                          onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
+                          placeholder="Enter new category"
+                          style={{ ...fieldInputStyle, marginTop: '8px' }}
+                        />
+                      ) : null}
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1300,9 +1442,33 @@ export default function IntermediateMaterials() {
               <div style={formSectionStyle}>
                 <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Production Settings</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
+                  <div>
+                    <label style={fieldLabelStyle}>Costing Method</label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        className={`btn btn-sm ${form.intermediateCostMode === 'completed_output' ? 'btn-primary' : 'btn-ghost'}`}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
+                      >
+                        Completed output
+                      </button>
+                      <button
+                        className={`btn btn-sm ${form.intermediateCostMode === 'yield' ? 'btn-primary' : 'btn-ghost'}`}
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
+                      >
+                        Yield-based
+                      </button>
+                    </div>
+                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
+                      {form.intermediateCostMode === 'completed_output'
+                        ? 'Enter final completed quantity directly. Unit cost = total batch cost / completed output quantity.'
+                        : 'Enter batch quantity and process yield %. Unit cost is adjusted by expected loss.'}
+                    </div>
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
-                      <label style={fieldLabelStyle}>Bulk Quantity *</label>
+                      <label style={fieldLabelStyle}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Quantity *' : 'Batch Quantity *'}</label>
                       <input
                         className="app-input"
                         type="text"
@@ -1329,18 +1495,20 @@ export default function IntermediateMaterials() {
                         style={fieldInputStyle}
                       />
                     </div>
-                    <div>
-                      <label style={fieldLabelStyle}>Yield % *</label>
-                      <input
-                        className="app-input"
-                        type="number"
-                        step="0.1"
-                        required
-                        value={form.yieldPercentage}
-                        onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
-                    </div>
+                    {form.intermediateCostMode === 'yield' ? (
+                      <div>
+                        <label style={fieldLabelStyle}>Yield % *</label>
+                        <input
+                          className="app-input"
+                          type="number"
+                          step="0.1"
+                          required
+                          value={form.yieldPercentage}
+                          onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
+                          style={fieldInputStyle}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div>
@@ -1390,7 +1558,7 @@ export default function IntermediateMaterials() {
                     <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                    <span>Effective Output Qty</span>
+                    <span>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
                     <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
@@ -1410,7 +1578,7 @@ export default function IntermediateMaterials() {
                   Current stored unit cost: {formatMoney(Number(selectedMaterial?.unitPrice || 0))}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !form.category.trim() || !form.unit.trim()}>
+                  <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}>
                     {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
                   </button>
                   {selectedMaterial ? <button className="btn btn-secondary btn-sm" type="button" onClick={() => handleDuplicateMaterial(selectedMaterial)}>Duplicate as New</button> : null}

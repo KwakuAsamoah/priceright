@@ -145,7 +145,7 @@ function formatListMessage(title: string, lines: string[]) {
 }
 
 function formatRateValue(value: number) {
-  return Number(value || 0).toFixed(4);
+  return Number(value || 0).toFixed(2);
 }
 
 function getCurrencyFlag(code: string) {
@@ -1163,10 +1163,11 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       showToastMessage('Please enter a valid exchange rate greater than zero', 'error');
       return;
     }
+    const roundedRate = Number(nextRate.toFixed(2));
 
     setSavingRateCurrencyId(currencyId);
     try {
-      const response = await exchangeRatesApi.update(currencyId, { rateToBase: nextRate }) as ExchangeRateUpdateResponse;
+      const response = await exchangeRatesApi.update(currencyId, { rateToBase: roundedRate }) as ExchangeRateUpdateResponse;
       const materialsUpdated = response.recalculation?.materialsUpdated ?? 0;
 
       setEditingRateCurrencyId(null);
@@ -1390,7 +1391,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                         <>
                           <input
                             type="number"
-                            step="0.0001"
+                            step="0.01"
                             value={editingRateValue}
                             onChange={(e) => setEditingRateValue(e.target.value)}
                             style={{ width: '94px', minHeight: '26px', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
@@ -1717,8 +1718,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     <select
                       className="app-control"
                       required
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                       style={{ width: '100%' }}
                     >
                       <option value="" disabled>
@@ -1764,8 +1765,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     <select
                       className="app-control"
                       required
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                       style={{ width: '100%' }}
                     >
                       <option value="" disabled>

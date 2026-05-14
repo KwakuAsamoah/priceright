@@ -122,8 +122,11 @@ textarea {
 }
 
 .app-page-content {
+  width: 100%;
+  max-width: 100%;
   padding: var(--space-page);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-section);
   min-width: 0;
 }
@@ -919,6 +922,8 @@ textarea {
   padding: 24px;
   width: 100%;
   max-width: 600px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
 }
 
 .app-modal-wide {

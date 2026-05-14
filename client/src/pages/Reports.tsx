@@ -738,7 +738,7 @@ export default function Reports() {
           category: material.category,
           currency: material.purchaseCurrency,
           unitPriceGhs: Number(material.unitPriceGhs.toFixed(2)),
-          exchangeRate: Number(material.exchangeRateUsed.toFixed(4)),
+          exchangeRate: Number(material.exchangeRateUsed.toFixed(2)),
         }))
       );
 

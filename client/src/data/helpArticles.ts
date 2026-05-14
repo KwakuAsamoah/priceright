@@ -950,4 +950,38 @@ export const helpArticles: HelpArticle[] = [
       <p>Demo and live data do not mix. Switching modes changes which database is active for reads and writes, so testing in demo mode does not modify your live dataset.</p>`,
   },
 
+  {
+    id: 'master-data',
+    section: 'Settings',
+    title: 'Configuring master data',
+    keywords: ['master data', 'categories', 'units', 'standard list', 'dropdown', 'configuration', 'settings'],
+    content: `
+      <p>Master Data settings define standard categories and units that appear as suggestions when you create products and materials. This helps keep your data consistent and makes forms faster to fill.</p>
+
+      <p>Open <strong>Settings</strong> and go to the <strong>Master Data</strong> tab. You will see three sections:</p>
+
+      <h3>Product Categories</h3>
+      <p>Enter the standard product categories your business uses. Examples: Beverages, Snacks, Frozen Goods, Sauces.</p>
+      <p>When you create or edit a product, these appear as suggested options in the category dropdown. Below the input, the current list shows usage count — how many products use each category. Categories with zero usage are marked as not used.</p>
+
+      <h3>Raw Material Categories</h3>
+      <p>Enter the standard material categories for your raw materials and components. Examples: Packaging, Spices, Oils & Fats, Grains.</p>
+      <p>When you create or edit a material on the Primary or Intermediate tab, these appear as suggested options in the category dropdown. Below the input, the current list shows usage count — how many materials use each category. Categories with zero usage are marked as not used.</p>
+
+      <h3>Units of Measure</h3>
+      <p>Enter the standard units you use when measuring materials. Examples: kg, liters, pieces, boxes, grams, tablespoons.</p>
+      <p>When you create or edit a material, these appear as suggested options in the unit dropdown. Below the input, the current list shows usage count — how many materials use each unit. Units with zero usage are marked as not used.</p>
+
+      <h3>What to do</h3>
+      <p><strong>First time setup:</strong> Think about the categories and units you actually use in your business. List them out and enter them here before you start adding products and materials. This gives you a consistent baseline.</p>
+
+      <p><strong>Ongoing use:</strong> When you see that new materials or products are using a category or unit that is not on your list, add it to Master Data so future entries get the suggestion. Keep the list current as your product range grows.</p>
+
+      <p><strong>Unused entries:</strong> If a category or unit is no longer used (all products or materials using it have been deleted), it can stay in Master Data or be removed. There is no harm in keeping it — it does not affect app performance or reports.</p>
+
+      <p><strong>Custom values:</strong> You are not limited to this list. When creating a product or material, you can type any custom category or unit value. The master data list is just a quick reference and starting point.</p>
+
+      <p>After editing Master Data, click <strong>Save Master Data</strong>. The new values are available across the app immediately.</p>`,
+  },
+
 ];

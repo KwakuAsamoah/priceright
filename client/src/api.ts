@@ -37,6 +37,7 @@ export interface MaterialRecord {
   unitPrice: number | string;
   overheadPercentage?: number | string;
   marginPercentage?: number | string;
+  intermediateCostMode?: 'yield' | 'completed_output';
   yieldPercentage?: number | string;
   calculatedCostPerUnit?: number | string;
   supplier: string;
@@ -98,6 +99,10 @@ export interface ImportResult {
 export interface DemoModeState {
   demoMode: boolean;
   message?: string;
+}
+
+export interface DemoResetResponse {
+  success: boolean;
 }
 
 export interface PriceLevelItemResponse {
@@ -280,6 +285,14 @@ export const materialsApi = {
   delete: async (id: number) => {
     const res = await fetch(`${API_BASE}/materials/${id}`, {
       method: 'DELETE',
+    });
+    return parseResponse(res);
+  },
+  bulkDeleteIntermediates: async (ids: number[]) => {
+    const res = await fetch(`${API_BASE}/intermediate-materials/bulk`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
     });
     return parseResponse(res);
   },
@@ -642,6 +655,13 @@ export const demoModeApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demoMode }),
+    });
+    return parseResponse(res);
+  },
+  reset: async (): Promise<DemoResetResponse> => {
+    const res = await fetch(`${API_BASE}/demo/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
     });
     return parseResponse(res);
   },

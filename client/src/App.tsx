@@ -280,7 +280,7 @@ function AppLayout({ children }: { children: ReactNode }) {
       {!isHelpPage && <HelpPanel isOpen={helpOpen} onClose={() => setHelpOpen(false)} />}
       {showWelcome && !isHelpPage && (
         <WelcomeModal
-          onGetStarted={() => dismissWelcome('/materials')}
+          onStartSetup={() => navigate('/materials')}
           onSkip={() => dismissWelcome()}
         />
       )}

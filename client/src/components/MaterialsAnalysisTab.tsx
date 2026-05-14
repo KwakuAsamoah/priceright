@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { materialsApi } from '../api';
+import { materialsApi, productsApi } from '../api';
 
 type MaterialRecord = {
   id: number;
@@ -27,6 +27,8 @@ type PriceHistoryEntry = {
   changedAt: string;
 };
 
+
+
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -36,18 +38,10 @@ function formatMoney(value: number): string {
   return `GHS ${value.toFixed(2)}`;
 }
 
-function currencyColor(code: string): string {
-  if (code === 'GHS') return '#1a1a1a';
-  if (code === 'USD') return '#2563eb';
-  if (code === 'EUR') return '#7c3aed';
-  if (code === 'GBP') return '#059669';
-  return '#e65100';
-}
+
 
 export default function MaterialsAnalysisTab({
   materials,
-  currencies,
-  exchangeRates,
   loading,
 }: {
   materials: MaterialRecord[];
@@ -58,6 +52,8 @@ export default function MaterialsAnalysisTab({
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
   const [history, setHistory] = useState<PriceHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
 
   const byCategory = useMemo(() => {
     const grouped = new Map<string, { total: number; count: number }>();
@@ -73,9 +69,24 @@ export default function MaterialsAnalysisTab({
     return Array.from(grouped.entries())
       .map(([category, value]) => ({
         category,
+        count: value.count,
         average: value.count > 0 ? value.total / value.count : 0,
       }))
       .sort((a, b) => b.average - a.average);
+  }, [materials]);
+
+  const categoryStats = useMemo(() => {
+    const stats = new Map<string, number>();
+    for (const material of materials) {
+      const key = (material.category || 'Uncategorized').trim() || 'Uncategorized';
+      stats.set(key, (stats.get(key) || 0) + 1);
+    }
+    return Array.from(stats.entries())
+      .map(([category, count]) => ({
+        category,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count);
   }, [materials]);
 
   const maxCategoryAverage = useMemo(() => {
@@ -83,32 +94,27 @@ export default function MaterialsAnalysisTab({
     return Math.max(...byCategory.map((entry) => entry.average), 1);
   }, [byCategory]);
 
-  const byCurrency = useMemo(() => {
-    const currencyById = new Map(currencies.map((currency) => [currency.id, currency]));
-    const grouped = new Map<string, { code: string; name: string; total: number }>();
+  const mostUsedMaterials = useMemo(() => {
+    const materialUsage = new Map<number, { name: string; count: number }>();
 
-    for (const material of materials) {
-      const currencyCode = (material.purchaseCurrencyCode || '').trim().toUpperCase();
-      const fallback = currencyById.get(Number(material.purchaseCurrencyId || 0));
-      const code = currencyCode || fallback?.code || 'OTHER';
-      const name = fallback?.name || code;
-      const entry = grouped.get(code) || { code, name, total: 0 };
-      entry.total += toNumber(material.unitPrice);
-      grouped.set(code, entry);
+    for (const product of products) {
+      const bom = product.bom || [];
+      for (const entry of bom) {
+        if (entry.materialId) {
+          const material = materials.find((m) => m.id === entry.materialId);
+          if (material) {
+            const existing = materialUsage.get(entry.materialId) || { name: material.name, count: 0 };
+            existing.count += 1;
+            materialUsage.set(entry.materialId, existing);
+          }
+        }
+      }
     }
 
-    const overallTotal = Array.from(grouped.values()).reduce((sum, value) => sum + value.total, 0);
-
-    return {
-      overallTotal,
-      rows: Array.from(grouped.values())
-        .map((row) => ({
-          ...row,
-          exposure: overallTotal > 0 ? (row.total / overallTotal) * 100 : 0,
-        }))
-        .sort((a, b) => b.exposure - a.exposure),
-    };
-  }, [materials, currencies]);
+    return Array.from(materialUsage.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [products, materials]);
 
   const topFive = useMemo(() => {
     return materials
@@ -117,25 +123,47 @@ export default function MaterialsAnalysisTab({
       .slice(0, 5);
   }, [materials]);
 
-  const exchangeRateRows = useMemo(() => {
-    const currencyById = new Map(currencies.map((currency) => [currency.id, currency]));
-    return exchangeRates
-      .map((rate) => {
-        const currency = currencyById.get(rate.currencyId);
-        return {
-          code: currency?.code || `ID ${rate.currencyId}`,
-          value: toNumber(rate.rateToBase),
-        };
-      })
-      .filter((row) => row.code !== 'GHS')
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }, [exchangeRates, currencies]);
+  // Load products and their BOMs for "most used materials" analysis
+  useEffect(() => {
+    let mounted = true;
+    setProductsLoading(true);
 
-  const materialOptions = useMemo(() => {
-    return materials
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [materials]);
+    Promise.resolve()
+      .then(() => productsApi.getAll('all'))
+      .then(async (allProducts) => {
+        if (!mounted) return;
+        if (!Array.isArray(allProducts)) {
+          setProducts([]);
+          return;
+        }
+
+        // Fetch BOM for each product
+        const productsWithBom = await Promise.all(
+          allProducts.map(async (product) => {
+            try {
+              const bom = await productsApi.getBOM(product.id);
+              return { ...product, bom: Array.isArray(bom) ? bom : [] };
+            } catch {
+              return { ...product, bom: [] };
+            }
+          })
+        );
+
+        if (!mounted) return;
+        setProducts(productsWithBom);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setProducts([]);
+      })
+      .finally(() => {
+        if (mounted) setProductsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedMaterialId) {
@@ -172,6 +200,29 @@ export default function MaterialsAnalysisTab({
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
       <div className="app-card">
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Material count by category</h2>
+        <div style={{ display: 'grid', gap: '10px' }}>
+          {categoryStats.length === 0 ? (
+            <div style={{ color: '#64748b' }}>No materials available</div>
+          ) : (
+            categoryStats.map((entry) => {
+              const maxCount = Math.max(...categoryStats.map((e) => e.count), 1);
+              const widthPercent = (entry.count / maxCount) * 100;
+              return (
+                <div key={entry.category} style={{ display: 'grid', gridTemplateColumns: '180px 1fr 80px', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.category}</div>
+                  <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px' }}>
+                    <div style={{ width: `${Math.max(2, widthPercent)}%`, height: '8px', borderRadius: '4px', backgroundColor: '#1a1a1a' }} />
+                  </div>
+                  <div style={{ textAlign: 'right', fontWeight: 500 }}>{entry.count} items</div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="app-card">
         <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Average unit cost by category</h2>
         <div style={{ display: 'grid', gap: '10px' }}>
           {byCategory.map((entry) => {
@@ -190,20 +241,20 @@ export default function MaterialsAnalysisTab({
       </div>
 
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Material cost by currency</h2>
-        <div style={{ display: 'grid', gap: '8px' }}>
-          {byCurrency.rows.map((row) => (
-            <div key={row.code} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: currencyColor(row.code), display: 'inline-block' }} />
-              <span>
-                {row.name} ({row.code}) - {row.exposure.toFixed(1)}% of total material value ({formatMoney(row.total)})
-              </span>
-            </div>
-          ))}
-        </div>
-        {exchangeRateRows.length > 0 && (
-          <div style={{ marginTop: '10px', color: '#64748b', fontSize: '12px' }}>
-            {exchangeRateRows.map((rate) => `${rate.code}: ${rate.value.toFixed(4)}`).join(' | ')}
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Most used materials</h2>
+        {productsLoading ? (
+          <div style={{ color: '#64748b' }}>Analyzing product BOMs...</div>
+        ) : mostUsedMaterials.length === 0 ? (
+          <div style={{ color: '#64748b' }}>No materials are used in any products yet.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: '8px' }}>
+            {mostUsedMaterials.map((material, index) => (
+              <div key={material.name} style={{ display: 'grid', gridTemplateColumns: '30px 1fr 80px', gap: '10px', alignItems: 'center' }}>
+                <span>{index + 1}.</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.name}</span>
+                <span style={{ textAlign: 'right', fontWeight: 500 }}>{material.count}× used</span>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -221,7 +272,7 @@ export default function MaterialsAnalysisTab({
           style={{ maxWidth: '360px', marginBottom: '12px' }}
         >
           <option value="">Select material</option>
-          {materialOptions.map((material) => (
+          {materials.slice().sort((a, b) => a.name.localeCompare(b.name)).map((material) => (
             <option key={material.id} value={material.id}>{material.name}</option>
           ))}
         </select>

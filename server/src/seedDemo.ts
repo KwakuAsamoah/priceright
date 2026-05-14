@@ -7,11 +7,6 @@ const __dirname = path.dirname(__filename);
 const serverRoot = path.resolve(__dirname, '..');
 const demoDbPath = path.resolve(serverRoot, 'demo.db');
 
-const db = new Database(demoDbPath);
-db.pragma('foreign_keys = ON');
-
-const now = Math.floor(Date.now() / 1000);
-
 const schemaSql = `
 DROP TABLE IF EXISTS price_list_items;
 DROP TABLE IF EXISTS price_lists;
@@ -80,6 +75,7 @@ CREATE TABLE materials (
   unit_price REAL NOT NULL,
   overhead_percentage REAL NOT NULL DEFAULT 0,
   margin_percentage REAL NOT NULL DEFAULT 0,
+  intermediate_cost_mode TEXT NOT NULL DEFAULT 'yield',
   yield_percentage REAL NOT NULL DEFAULT 100,
   calculated_cost_per_unit REAL NOT NULL DEFAULT 0,
   supplier TEXT NOT NULL,
@@ -210,6 +206,26 @@ CREATE TABLE price_list_items (
 );
 `;
 
+export async function seedDemoData(options?: { force?: boolean }) {
+  const db = new Database(demoDbPath);
+  db.pragma('foreign_keys = ON');
+
+  const forceSeed = Boolean(options?.force);
+  if (!forceSeed) {
+    try {
+      const existingLevels = db.prepare('SELECT COUNT(*) AS count FROM price_levels').get() as { count?: number } | undefined;
+      if (Number(existingLevels?.count || 0) > 0) {
+        console.log('[demo] Demo data already exists — skipping seed');
+        db.close();
+        return;
+      }
+    } catch {
+      // Table may not exist yet; continue with full seed.
+    }
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+
 db.exec(schemaSql);
 
 const insertCurrency = db.prepare(
@@ -226,9 +242,9 @@ const insertMaterial = db.prepare(`
     name, sku, description, material_type, category, unit,
     bulk_quantity, bulk_price, purchase_currency_id,
     price_in_purchase_currency, price_in_base_currency, unit_price,
-    overhead_percentage, margin_percentage, yield_percentage,
+    overhead_percentage, margin_percentage, intermediate_cost_mode, yield_percentage,
     calculated_cost_per_unit, supplier, is_active, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
 `);
 const insertIntermediateBom = db.prepare(
   'INSERT INTO intermediate_material_bom (intermediate_material_id, component_material_id, quantity, created_at) VALUES (?, ?, ?, ?)'
@@ -319,6 +335,7 @@ const txn = db.transaction(() => {
       unitPrice,
       0,
       0,
+      'yield',
       100,
       unitPrice,
       'Demo Supplier',
@@ -346,6 +363,7 @@ const txn = db.transaction(() => {
       intermediateUnitPrice,
       5,
       8,
+      'yield',
       98,
       intermediateUnitPrice,
       'Demo Kitchen',
@@ -601,3 +619,15 @@ console.log('price_lists:', counts.price_lists.count);
 console.log('activity_log:', counts.activity_log.count);
 
 db.close();
+}
+
+const isDirectExecution = process.argv[1]
+  ? path.resolve(process.argv[1]) === __filename
+  : false;
+
+if (isDirectExecution) {
+  seedDemoData({ force: true }).catch((error) => {
+    console.error('Failed to seed demo database:', error);
+    process.exitCode = 1;
+  });
+}

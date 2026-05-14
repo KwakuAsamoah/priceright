@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-type ToastType = 'success' | 'error';
+type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 export default function useAppToast() {
   const [showToast, setShowToast] = useState(false);

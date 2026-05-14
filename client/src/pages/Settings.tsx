@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calculator, CheckCircle2, Clock3, Database, HardDrive, Info, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi } from '../api';
+import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi } from '../api';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useDemoMode } from '../context/DemoModeContext';
@@ -397,7 +397,9 @@ async function loadData() {
     setRateSaveBanner(null);
 
     try {
-      const response = await exchangeRatesApi.update(currencyId, { rateToBase: parseFloat(rateValue) }) as ExchangeRateUpdateResponse;
+      const parsedRate = parseFloat(rateValue);
+      const roundedRate = Number(parsedRate.toFixed(2));
+      const response = await exchangeRatesApi.update(currencyId, { rateToBase: roundedRate }) as ExchangeRateUpdateResponse;
 
       const summary = response.recalculation;
       const reminder = 'Materials and Products pages will show updated values on next load.';
@@ -480,6 +482,20 @@ async function loadData() {
       showToastMessage('Failed to switch data mode', 'error');
     } finally {
       setIsSwitchingMode(false);
+    }
+  }
+
+  async function handleResetDemoData() {
+    if (!window.confirm('This will delete all changes in demo mode and restore the original sample data. Continue?')) {
+      return;
+    }
+
+    try {
+      await demoModeApi.reset();
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to reset demo data:', error);
+      showToastMessage('Failed to reset demo data', 'error');
     }
   }
 
@@ -724,6 +740,25 @@ async function loadData() {
             </>
             )}
 
+              {activeTab === 'general' && (
+              <div className="app-card app-settings-card">
+                <h2>Setup guide</h2>
+                <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                  Show the welcome guide again from the beginning
+                </p>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem('priceright_launched');
+                    } catch {}
+                    window.location.reload();
+                  }}
+                >
+                  Restart guide
+                </button>
+              </div>
+              )}
             {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2>Default Overhead Rate</h2>
@@ -769,26 +804,32 @@ async function loadData() {
             <div className="app-card app-settings-card">
               <h2>Master Data</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                Manage reusable options. Enter one value per line (or comma-separated).
+                Define standard categories and units that appear as suggestions when creating products and materials. Enter one value per line.
               </p>
 
-              <div style={{ display: 'grid', gap: '12px' }}>
+              <div style={{ display: 'grid', gap: '18px' }}>
                 <div>
-                  <label className="app-settings-label">Product Categories</label>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                    <label className="app-settings-label" style={{ margin: 0 }}>Product Categories</label>
+                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                      Suggested options when creating/editing products
+                    </div>
+                  </div>
                   <textarea
                     className="app-control"
                     value={productCategoriesInput}
                     onChange={(e) => setProductCategoriesInput(e.target.value)}
-                    placeholder="e.g. Beverages"
+                    placeholder="Beverages&#10;Snacks&#10;Frozen Goods"
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredProductCategories.length > 0 && (
                     <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredProductCategories.length}):</div>
                       {configuredProductCategories.map((value) => {
                         const count = productCategoryCounts[value.toLowerCase()] || 0;
                         return (
                           <div key={value} style={{ marginBottom: '2px' }}>
-                            {value}: Used in {count} product{count === 1 ? '' : 's'}
+                            • {value}{count > 0 ? ` (${count} product${count === 1 ? '' : 's'})` : ' (not used)'}
                           </div>
                         );
                       })}
@@ -797,21 +838,27 @@ async function loadData() {
                 </div>
 
                 <div>
-                  <label className="app-settings-label">Raw Material Categories</label>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                    <label className="app-settings-label" style={{ margin: 0 }}>Raw Material Categories</label>
+                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                      Suggested options when creating/editing materials
+                    </div>
+                  </div>
                   <textarea
                     className="app-control"
                     value={materialCategoriesInput}
                     onChange={(e) => setMaterialCategoriesInput(e.target.value)}
-                    placeholder="e.g. Packaging"
+                    placeholder="Packaging&#10;Spices&#10;Oils & Fats"
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredMaterialCategories.length > 0 && (
                     <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialCategories.length}):</div>
                       {configuredMaterialCategories.map((value) => {
                         const count = materialCategoryCounts[value.toLowerCase()] || 0;
                         return (
                           <div key={value} style={{ marginBottom: '2px' }}>
-                            {value}: Used in {count} material{count === 1 ? '' : 's'}
+                            • {value}{count > 0 ? ` (${count} material${count === 1 ? '' : 's'})` : ' (not used)'}
                           </div>
                         );
                       })}
@@ -820,21 +867,27 @@ async function loadData() {
                 </div>
 
                 <div>
-                  <label className="app-settings-label">Units of Measure</label>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+                    <label className="app-settings-label" style={{ margin: 0 }}>Units of Measure</label>
+                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                      Suggested options when specifying material quantities
+                    </div>
+                  </div>
                   <textarea
                     className="app-control"
                     value={materialUnitsInput}
                     onChange={(e) => setMaterialUnitsInput(e.target.value)}
-                    placeholder="e.g. kg"
+                    placeholder="kg&#10;liters&#10;pieces&#10;boxes"
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredMaterialUnits.length > 0 && (
                     <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialUnits.length}):</div>
                       {configuredMaterialUnits.map((value) => {
                         const count = materialUnitCounts[value.toLowerCase()] || 0;
                         return (
                           <div key={value} style={{ marginBottom: '2px' }}>
-                            {value}: Used in {count} material{count === 1 ? '' : 's'}
+                            • {value}{count > 0 ? ` (${count} material${count === 1 ? '' : 's'})` : ' (not used)'}
                           </div>
                         );
                       })}
@@ -966,6 +1019,22 @@ async function loadData() {
             </label>
             {isSwitchingMode && <span style={{ fontSize: '12px', color: '#64748b' }}>Switching data mode...</span>}
           </div>
+          {isDemoMode && (
+            <div style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  void handleResetDemoData();
+                }}
+              >
+                Reset demo data
+              </button>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                Restores the original Savanna Foods sample data
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="app-card app-settings-card">
@@ -1055,7 +1124,7 @@ async function loadData() {
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
                           type="number"
-                          step="0.000001"
+                          step="0.01"
                           value={rateValue}
                           onChange={(e) => setRateValue(e.target.value)}
                           style={{
@@ -1098,11 +1167,11 @@ async function loadData() {
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span>{getExchangeRate(currency.id).toFixed(6)}</span>
+                        <span>{getExchangeRate(currency.id).toFixed(2)}</span>
                         <button
                           onClick={() => {
                             setEditingRate(currency.id);
-                            setRateValue(getExchangeRate(currency.id).toString());
+                            setRateValue(getExchangeRate(currency.id).toFixed(2));
                           }}
                           style={{
                             padding: '4px 8px',
