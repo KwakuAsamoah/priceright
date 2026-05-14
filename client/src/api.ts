@@ -105,6 +105,22 @@ export interface DemoResetResponse {
   success: boolean;
 }
 
+export interface PinStatusResponse {
+  hasPIN: boolean;
+}
+
+export interface PinSetResponse {
+  success: boolean;
+}
+
+export interface PinVerifyResponse {
+  valid: boolean;
+}
+
+export interface PinResetResponse {
+  message: string;
+}
+
 export interface PriceLevelItemResponse {
   id: number;
   priceLevelId: number;
@@ -182,6 +198,35 @@ export const settingsApi = {
       body: JSON.stringify(data),
     });
     return res.json();
+  },
+};
+
+export const pinApi = {
+  getStatus: async (): Promise<PinStatusResponse> => {
+    const res = await fetch(`${API_BASE}/pin/status`);
+    return parseResponse(res);
+  },
+  set: async (pin: string, currentPin?: string): Promise<PinSetResponse> => {
+    const res = await fetch(`${API_BASE}/pin/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, currentPin }),
+    });
+    return parseResponse(res);
+  },
+  verify: async (pin: string): Promise<PinVerifyResponse> => {
+    const res = await fetch(`${API_BASE}/pin/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    return parseResponse(res);
+  },
+  reset: async (): Promise<PinResetResponse> => {
+    const res = await fetch(`${API_BASE}/pin/reset`, {
+      method: 'POST',
+    });
+    return parseResponse(res);
   },
 };
 

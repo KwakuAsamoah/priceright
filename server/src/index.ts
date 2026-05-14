@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -76,6 +77,38 @@ async function logActivity(params: {
 
 let lastBackupTime: Date | null = null;
 let backupIntervalHandle: NodeJS.Timeout | null = null;
+
+const PIN_SETTING_KEY = 'pin_hash';
+
+function isValidPin(pin: string): boolean {
+  return /^\d{4,6}$/.test(pin);
+}
+
+async function getStoredPinHash(): Promise<string | null> {
+  const result = await liveDb
+    .select({ settingValue: settings.settingValue })
+    .from(settings)
+    .where(eq(settings.settingKey, PIN_SETTING_KEY));
+
+  return result[0]?.settingValue ?? null;
+}
+
+async function saveSettingValue(settingKey: string, settingValue: string): Promise<void> {
+  const existing = await liveDb
+    .select({ id: settings.id })
+    .from(settings)
+    .where(eq(settings.settingKey, settingKey));
+
+  if (existing.length > 0) {
+    await liveDb
+      .update(settings)
+      .set({ settingValue, updatedAt: new Date() })
+      .where(eq(settings.settingKey, settingKey));
+    return;
+  }
+
+  await liveDb.insert(settings).values({ settingKey, settingValue });
+}
 
 type RecalculationSummary = {
   materialsUpdated: number;
@@ -447,6 +480,69 @@ app.get('/api/backup/status', (req, res) => {
 // ============================================
 // SETTINGS ENDPOINTS
 // ============================================
+
+app.get('/api/pin/status', async (_req, res) => {
+  try {
+    const pinHash = await getStoredPinHash();
+    res.json({ hasPIN: Boolean(pinHash) });
+  } catch {
+    res.status(500).json({ error: 'Failed to check PIN status' });
+  }
+});
+
+app.post('/api/pin/set', async (req, res) => {
+  try {
+    const { pin, currentPin } = req.body as { pin?: string; currentPin?: string };
+
+    if (typeof pin !== 'string' || !isValidPin(pin)) {
+      return res.status(400).json({ error: 'PIN must be 4 to 6 digits' });
+    }
+
+    const existingHash = await getStoredPinHash();
+    if (existingHash) {
+      if (typeof currentPin !== 'string' || !isValidPin(currentPin)) {
+        return res.status(400).json({ error: 'Current PIN is required' });
+      }
+
+      const currentPinMatches = await bcrypt.compare(currentPin, existingHash);
+      if (!currentPinMatches) {
+        return res.status(400).json({ error: 'Current PIN is incorrect' });
+      }
+    }
+
+    const pinHash = await bcrypt.hash(pin, 12);
+    await saveSettingValue(PIN_SETTING_KEY, pinHash);
+
+    return res.json({ success: true });
+  } catch {
+    return res.status(500).json({ error: 'Failed to set PIN' });
+  }
+});
+
+app.post('/api/pin/verify', async (req, res) => {
+  try {
+    const { pin } = req.body as { pin?: string };
+    if (typeof pin !== 'string' || !isValidPin(pin)) {
+      return res.json({ valid: false });
+    }
+
+    const pinHash = await getStoredPinHash();
+    if (!pinHash) {
+      return res.json({ valid: false });
+    }
+
+    const valid = await bcrypt.compare(pin, pinHash);
+    return res.json({ valid });
+  } catch {
+    return res.json({ valid: false });
+  }
+});
+
+app.post('/api/pin/reset', async (_req, res) => {
+  res.json({
+    message: 'To reset your PIN contact support@priceright.app with your licence key',
+  });
+});
 
 app.get('/api/settings', async (req, res) => {
   try {

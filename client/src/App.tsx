@@ -19,6 +19,8 @@ import WelcomeModal from './components/WelcomeModal';
 import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import { DemoModeProvider } from './context/DemoModeContext';
+import PINScreen from './components/PINScreen';
+import { pinApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -192,6 +194,7 @@ function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const isHelpPage = location.pathname.startsWith('/help');
+  const skipPIN = import.meta.env.VITE_SKIP_PIN === 'true';
   const [showWelcome, setShowWelcome] = useState(() => {
     try {
       return !window.localStorage.getItem('priceright_launched');
@@ -200,6 +203,43 @@ function AppLayout({ children }: { children: ReactNode }) {
     }
   });
   const [helpOpen, setHelpOpen] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(skipPIN);
+  const [isCheckingPin, setIsCheckingPin] = useState(!skipPIN);
+  const [pinServerError, setPinServerError] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (skipPIN) {
+      setIsUnlocked(true);
+      setIsCheckingPin(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsCheckingPin(true);
+    setPinServerError('');
+
+    pinApi.getStatus()
+      .then(() => {
+        if (!isMounted) {
+          return;
+        }
+        setIsCheckingPin(false);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setPinServerError('Could not connect to the app server. Please restart PriceRight.');
+        setIsCheckingPin(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [skipPIN]);
 
   function dismissWelcome(nextRoute?: string) {
     try {
@@ -211,6 +251,34 @@ function AppLayout({ children }: { children: ReactNode }) {
     if (nextRoute) {
       navigate(nextRoute);
     }
+  }
+
+  if (!isUnlocked) {
+    if (isCheckingPin) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0f172a', display: 'grid', placeItems: 'center', padding: '24px' }}>
+          <div style={{ width: '100%', maxWidth: '360px', background: '#ffffff', borderRadius: '16px', padding: '32px', textAlign: 'center', boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>PriceRight</div>
+            <div style={{ marginTop: '6px', fontSize: '13px', color: '#64748b' }}>Pricing management</div>
+            <div style={{ marginTop: '24px', fontSize: '14px', color: '#334155' }}>Checking security settings...</div>
+          </div>
+        </div>
+      );
+    }
+
+    if (pinServerError) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0f172a', display: 'grid', placeItems: 'center', padding: '24px' }}>
+          <div style={{ width: '100%', maxWidth: '360px', background: '#ffffff', borderRadius: '16px', padding: '32px', textAlign: 'center', boxShadow: '0 24px 60px rgba(15, 23, 42, 0.35)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>PriceRight</div>
+            <div style={{ marginTop: '6px', fontSize: '13px', color: '#64748b' }}>Pricing management</div>
+            <div style={{ marginTop: '24px', fontSize: '14px', lineHeight: 1.5, color: '#334155' }}>{pinServerError}</div>
+          </div>
+        </div>
+      );
+    }
+
+    return <PINScreen onUnlock={() => setIsUnlocked(true)} />;
   }
 
   return (

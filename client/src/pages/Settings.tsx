@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calculator, CheckCircle2, Clock3, Database, HardDrive, Info, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi } from '../api';
+import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi } from '../api';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useDemoMode } from '../context/DemoModeContext';
@@ -105,6 +105,10 @@ function countByNormalized(values: string[]): Record<string, number> {
   }, {});
 }
 
+function sanitizePinInput(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 6);
+}
+
 export default function Settings() {
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
@@ -147,6 +151,10 @@ export default function Settings() {
   const [materialCategoryCounts, setMaterialCategoryCounts] = useState<Record<string, number>>({});
   const [materialUnitCounts, setMaterialUnitCounts] = useState<Record<string, number>>({});
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
+  const [currentPin, setCurrentPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [isChangingPin, setIsChangingPin] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     try {
       const saved = window.localStorage.getItem('priceright_settings_active_tab');
@@ -459,6 +467,37 @@ async function loadData() {
     setDefaultOverhead(calculatedRate.toString());
   }
 
+  async function handleChangePin() {
+    if (!/^\d{4,6}$/.test(currentPin)) {
+      showToastMessage('Enter your current 4-6 digit PIN', 'error');
+      return;
+    }
+
+    if (!/^\d{4,6}$/.test(newPin)) {
+      showToastMessage('New PIN must be 4 to 6 digits', 'error');
+      return;
+    }
+
+    if (newPin !== confirmNewPin) {
+      showToastMessage('New PIN and confirmation do not match', 'error');
+      return;
+    }
+
+    setIsChangingPin(true);
+    try {
+      await pinApi.set(newPin, currentPin);
+      setCurrentPin('');
+      setNewPin('');
+      setConfirmNewPin('');
+      showToastMessage('PIN changed successfully', 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to change PIN';
+      showToastMessage(message, 'error');
+    } finally {
+      setIsChangingPin(false);
+    }
+  }
+
   async function handleDemoModeToggle() {
     if (demoModeLoading || isSwitchingMode) {
       return;
@@ -666,6 +705,69 @@ async function loadData() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="app-card app-settings-card">
+              <h2>Security</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Change your PIN to protect access to PriceRight.
+              </p>
+
+              <div style={{ display: 'grid', gap: '12px' }}>
+                <div>
+                  <label className="app-settings-label">Current PIN</label>
+                  <input
+                    className="app-control"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={currentPin}
+                    onChange={(event) => setCurrentPin(sanitizePinInput(event.target.value))}
+                    placeholder="Enter current PIN"
+                    disabled={isChangingPin}
+                  />
+                </div>
+
+                <div>
+                  <label className="app-settings-label">New PIN</label>
+                  <input
+                    className="app-control"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={newPin}
+                    onChange={(event) => setNewPin(sanitizePinInput(event.target.value))}
+                    placeholder="Enter new PIN"
+                    disabled={isChangingPin}
+                  />
+                </div>
+
+                <div>
+                  <label className="app-settings-label">Confirm new PIN</label>
+                  <input
+                    className="app-control"
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={confirmNewPin}
+                    onChange={(event) => setConfirmNewPin(sanitizePinInput(event.target.value))}
+                    placeholder="Re-enter new PIN"
+                    disabled={isChangingPin}
+                  />
+                </div>
+
+                <div>
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={handleChangePin}
+                    disabled={isChangingPin}
+                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                  >
+                    {isChangingPin ? '...' : 'Change PIN'}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="app-card app-settings-card">
