@@ -1,0 +1,43 @@
+appId: app.priceright
+productName: PriceRight
+copyright: Copyright 2026 PriceRight
+
+directories:
+  output: dist-electron
+
+files:
+  - electron/main.js
+  - electron/preload.js
+  - electron/icons/**
+  - client-dist/**
+  - package.json
+
+extraResources:
+  - from: server-dist
+    to: server-dist
+  - from: server/node_modules
+    to: node_modules
+    filter:
+      - "**"
+      - "!.cache"
+  - from: node_modules/electron-updater
+    to: node_modules/electron-updater
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+  icon: electron/icons/icon.ico
+  artifactName: "PriceRight-Setup-${version}.exe"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PriceRight
+
+publish:
+  provider: github
+  owner: KwakuAsamoah
+  repo: priceright

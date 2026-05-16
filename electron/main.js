@@ -1,0 +1,221 @@
+const { app, BrowserWindow, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
+const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
+const http = require('http');
+
+const SERVER_PORT = 3000;
+const isProd = app.isPackaged;
+
+let serverProcess = null;
+let mainWindow = null;
+
+function startServer() {
+  const serverEntry = isProd
+    ? path.join(process.resourcesPath, 'server-dist', 'index.js')
+    : path.join(__dirname, '..', 'server', 'src', 'index.ts');
+
+  const devTsxCli = path.join(__dirname, '..', 'server', 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const executable = process.execPath;
+  const args = isProd ? [serverEntry] : [devTsxCli, serverEntry];
+
+  const serverEnv = {
+    ...process.env,
+    PORT: String(SERVER_PORT),
+    ELECTRON: 'true',
+    USER_DATA_PATH: app.getPath('userData'),
+    NODE_ENV: isProd ? 'production' : 'development',
+  };
+
+  if (isProd) {
+    serverEnv.ELECTRON_RUN_AS_NODE = '1';
+  }
+
+  serverProcess = spawn(executable, args, {
+    env: serverEnv,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+
+  serverProcess.stdout.on('data', (d) => {
+    console.log('[server]', d.toString().trim());
+  });
+
+  serverProcess.stderr.on('data', (d) => {
+    console.error('[server]', d.toString().trim());
+  });
+
+  serverProcess.on('exit', (code, signal) => {
+    console.log(`[server] exited with code=${code} signal=${signal || 'none'}`);
+  });
+}
+
+function waitForServer(maxAttempts = 40) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+
+    const check = () => {
+      const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
+        if (res.statusCode === 200) {
+          res.resume();
+          return resolve(true);
+        }
+        res.resume();
+        schedule();
+      });
+
+      req.on('error', schedule);
+      req.setTimeout(1000, () => {
+        req.destroy();
+        schedule();
+      });
+    };
+
+    const schedule = () => {
+      attempts += 1;
+      if (attempts >= maxAttempts) {
+        reject(new Error('Server did not start in time'));
+        return;
+      }
+      setTimeout(check, 500);
+    };
+
+    check();
+  });
+}
+
+function checkServerOnce() {
+  return new Promise((resolve) => {
+    const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
+      const healthy = res.statusCode === 200;
+      res.resume();
+      resolve(healthy);
+    });
+
+    req.on('error', () => resolve(false));
+    req.setTimeout(1000, () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'PriceRight',
+    icon: path.join(__dirname, 'icons', 'icon.ico'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    show: false,
+    backgroundColor: '#0f172a',
+  });
+
+  const localBuiltIndex = path.join(__dirname, '..', 'client-dist', 'index.html');
+
+  if (isProd) {
+    const prodIndex = path.join(process.resourcesPath, 'client-dist', 'index.html');
+    mainWindow.loadFile(prodIndex);
+  } else if (fs.existsSync(localBuiltIndex)) {
+    mainWindow.loadFile(localBuiltIndex);
+  } else {
+    mainWindow.loadURL('http://localhost:5173');
+  }
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  if (!isProd) {
+    mainWindow.webContents.openDevTools();
+  }
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+
+  autoUpdater.on('update-available', (info) => {
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update Available',
+        message: `PriceRight ${info.version} is available.`,
+        detail: 'Download and install the update now?',
+        buttons: ['Download update', 'Remind me later'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          autoUpdater.downloadUpdate();
+        }
+      });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update Ready',
+        message: 'PriceRight will restart to install the update.',
+        buttons: ['Restart now', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          autoUpdater.quitAndInstall(false, true);
+        }
+      });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] error:', err && err.message ? err.message : err);
+  });
+
+  setTimeout(() => autoUpdater.checkForUpdates(), 10000);
+}
+
+app.whenReady().then(async () => {
+  const serverAlreadyRunning = await checkServerOnce();
+  if (!serverAlreadyRunning) {
+    startServer();
+  }
+
+  try {
+    await waitForServer();
+  } catch (_err) {
+    dialog.showErrorBox(
+      'PriceRight - Startup Error',
+      'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.'
+    );
+    app.quit();
+    return;
+  }
+
+  createWindow();
+
+  if (isProd) {
+    setupAutoUpdater();
+  }
+});
+
+app.on('window-all-closed', () => {
+  if (serverProcess) {
+    serverProcess.kill('SIGTERM');
+    serverProcess = null;
+  }
+
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});

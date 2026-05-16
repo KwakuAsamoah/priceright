@@ -1,0 +1,9 @@
+# Primary Materials Import Template
+# Column headers: Material Name, Category, Unit, Purchase Currency, Bulk Price, Bulk Quantity, Supplier Type
+# Currency Code must match a currency configured in PriceRight Settings (GHS, USD, EUR, etc.)
+# Leave Purchase Currency blank to use the base currency (GHS)
+# Supplier Type: Local or Foreign
+Material Name,Category,Unit,Purchase Currency,Bulk Price,Bulk Quantity,Supplier Type
+Palm Oil,Oils & Fats,L,GHS,45.00,20,Local
+Cacao Beans,Cocoa,Kg,GHS,85.00,25,Foreign
+Cassava Flour,Flours & Starches,Kg,GHS,12.50,50,Local

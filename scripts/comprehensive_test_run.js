@@ -142,7 +142,7 @@ async function ensureApprovedProduct(preferredProductId, phaseLabel) {
 
 (async () => {
   const health = await api('GET', '/health');
-  if (health.ok && health.data?.status === 'healthy') {
+  if (health.ok && (health.data?.status === 'healthy' || health.data?.status === 'ok')) {
     addResult('PASS', 'PH1 Server startup & health', 'Server responded healthy on /api/health');
   } else {
     addResult('FAIL', 'PH1 Server startup & health', `Health failed: status=${health.status} err=${health.error}`);
@@ -228,8 +228,8 @@ async function ensureApprovedProduct(preferredProductId, phaseLabel) {
 
   if (ctx.productId) {
     const approve = await api('POST', `/products/${ctx.productId}/approve`, {});
-    if (approve.ok && approve.data?.approvalStatus === 'approved') {
-      addResult('PASS', 'PH2 Approve product', `approved_price=${approve.data.approvedPrice}`);
+    if (approve.ok && approve.data?.product?.approvalStatus === 'approved') {
+      addResult('PASS', 'PH2 Approve product', `approved_price=${approve.data.product.approvedPrice}`);
     } else addResult('FAIL', 'PH2 Approve product', detailOr(approve.error, 'Approval status not approved'));
   }
 
@@ -381,7 +381,15 @@ async function ensureApprovedProduct(preferredProductId, phaseLabel) {
     if (!belowCost.ok) addResult('PASS', 'PH7 Below-cost special pricing blocked', `Blocked with status ${belowCost.status}`);
     else addResult('FAIL', 'PH7 Below-cost special pricing blocked', 'API accepted below-cost special price (no server-side margin protection)');
 
-    const lowMargin = await api('POST', `/customers/${ctx.customerId}/custom-prices`, { productId: ctx.productId, customPrice: 10, overrideType: 'custom', justification: 'Promo pricing with strategic intent' });
+    const lowMarginPrice = exactOverride.ok && Number.isFinite(Number(exactOverride.data?.productionCost))
+      ? Math.round((Number(exactOverride.data.productionCost) * 1.01) * 100) / 100
+      : 10;
+    const lowMargin = await api('POST', `/customers/${ctx.customerId}/custom-prices`, {
+      productId: ctx.productId,
+      customPrice: lowMarginPrice,
+      overrideType: 'custom',
+      justification: 'Promo pricing with strategic intent',
+    });
     if (lowMargin.ok && lowMargin.data?.status === 'pending') {
       addResult('PASS', 'PH7 Low-margin with justification sets pending', 'Status=pending');
     } else if (!lowMargin.ok && String(lowMargin.error || '').toLowerCase().includes('below production cost')) {
@@ -573,11 +581,11 @@ async function ensureApprovedProduct(preferredProductId, phaseLabel) {
     }
 
     const appr = await api('POST', `/products/${pendingId}/approve`, {});
-    if (appr.ok && appr.data?.approvalStatus === 'approved') addResult('PASS', 'PH12 Product approve workflow', 'Product approved successfully');
+    if (appr.ok && appr.data?.product?.approvalStatus === 'approved') addResult('PASS', 'PH12 Product approve workflow', 'Product approved successfully');
     else addResult('FAIL', 'PH12 Product approve workflow', detailOr(appr.error, 'Approve failed'));
 
     const reapprove = await api('POST', `/products/${pendingId}/approve`, {});
-    if (reapprove.ok && reapprove.data?.approvalStatus === 'approved') addResult('PASS', 'PH12 Product re-approve workflow', 'Re-approval succeeded');
+    if (reapprove.ok && reapprove.data?.product?.approvalStatus === 'approved') addResult('PASS', 'PH12 Product re-approve workflow', 'Re-approval succeeded');
     else addResult('FAIL', 'PH12 Product re-approve workflow', detailOr(reapprove.error, 'Re-approve failed'));
 
     const noBom = await api('POST', '/products', {

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db';
 import { seedDemoData } from './seedDemo';
-import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema';
+import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
@@ -223,6 +223,37 @@ function roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+async function resolveBaseCurrency(): Promise<{ id: number; code: string; symbol: string }> {
+  const configuredCode = String(
+    (
+      await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'))
+    )[0]?.settingValue || 'GHS',
+  )
+    .trim()
+    .toUpperCase();
+
+  const availableCurrencies = await getActiveDb().select().from(currencies);
+  if (availableCurrencies.length === 0) {
+    throw new Error('No currencies configured');
+  }
+
+  const normalizedCurrencies = availableCurrencies.map((currency) => ({
+    ...currency,
+    normalizedCode: String(currency.code || '').trim().toUpperCase(),
+  }));
+
+  const resolvedCurrency =
+    normalizedCurrencies.find((currency) => currency.normalizedCode === configuredCode)
+    || normalizedCurrencies.find((currency) => currency.normalizedCode === 'GHS')
+    || normalizedCurrencies[0];
+
+  return {
+    id: resolvedCurrency.id,
+    code: resolvedCurrency.code,
+    symbol: resolvedCurrency.symbol,
+  };
+}
+
 async function calculateProductionCostForProduct(selectedProduct: typeof products.$inferSelect, productId: number): Promise<number> {
   const productionCostResponse = await db
     .select({
@@ -258,8 +289,14 @@ function toOptionalNumber(value: unknown): number | null {
 }
 
 function parsePriceLevelItemOverrideType(value: unknown): PriceLevelItemOverrideType | null {
-  if (value === 'rule_discount' || value === 'rule_markup' || value === 'custom_price') {
-    return value;
+  if (value === 'rule_discount' || value === 'discount') {
+    return 'rule_discount';
+  }
+  if (value === 'rule_markup' || value === 'markup') {
+    return 'rule_markup';
+  }
+  if (value === 'custom_price' || value === 'custom') {
+    return 'custom_price';
   }
   return null;
 }
@@ -783,16 +820,7 @@ app.get('/api/materials', async (req, res) => {
   try {
     const status = parseStatusFilter(req.query.status);
     const materialType = parseMaterialTypeFilter(req.query.type);
-    // Get base currency
-    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
-    let baseCurrencySymbol = '';
-    
-    if (baseCurrencySetting.length > 0) {
-      const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
-      if (baseCurrency.length > 0) {
-        baseCurrencySymbol = baseCurrency[0].symbol;
-      }
-    }
+    const { symbol: baseCurrencySymbol } = await resolveBaseCurrency();
 
     const allMaterials = await db
       .select({
@@ -858,6 +886,7 @@ app.post('/api/materials', async (req, res) => {
       bulkPrice,
       purchaseCurrencyId,
       supplier,
+      supplierType,
       materialType,
       overheadPercentage,
       marginPercentage,
@@ -866,19 +895,14 @@ app.post('/api/materials', async (req, res) => {
       calculatedCostPerUnit,
     } = req.body;
     const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
-    
-    // Get base currency
-    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
-    if (baseCurrencySetting.length === 0) {
-      return res.status(400).json({ error: 'Base currency not set' });
-    }
-    
-    const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
+    const baseCurrency = await resolveBaseCurrency();
     
     // Get exchange rate
-    const resolvedPurchaseCurrencyId = resolvedMaterialType === 'intermediate' ? baseCurrency[0].id : purchaseCurrencyId;
+    const resolvedPurchaseCurrencyId = resolvedMaterialType === 'intermediate'
+      ? baseCurrency.id
+      : Number(purchaseCurrencyId || baseCurrency.id);
     let exchangeRate = 1;
-    if (resolvedPurchaseCurrencyId !== baseCurrency[0].id) {
+    if (resolvedPurchaseCurrencyId !== baseCurrency.id) {
       const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
       if (rate.length > 0) {
         exchangeRate = parseFloat(rate[0].rateToBase.toString());
@@ -926,7 +950,7 @@ app.post('/api/materials', async (req, res) => {
       intermediateCostMode: normalizedIntermediateCostMode,
       yieldPercentage: normalizedYield,
       calculatedCostPerUnit: unitPrice,
-      supplier,
+      supplier: supplier ?? supplierType ?? '',
     }).returning();
     
     // Save price history
@@ -980,7 +1004,7 @@ app.put('/api/materials/:id', async (req, res) => {
     const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
     const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
     const calculatedCostPerUnit = Number(req.body?.calculatedCostPerUnit ?? existing.calculatedCostPerUnit ?? existing.unitPrice ?? 0);
-    const supplier = req.body?.supplier ?? existing.supplier;
+    const supplier = req.body?.supplier ?? req.body?.supplierType ?? existing.supplier;
     const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
 
     const shouldRecalculatePrice =
@@ -988,14 +1012,12 @@ app.put('/api/materials/:id', async (req, res) => {
       || req.body?.bulkPrice !== undefined
       || req.body?.purchaseCurrencyId !== undefined;
     
-    // Get base currency
-    const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
-    const baseCurrency = await getActiveDb().select().from(currencies).where(eq(currencies.code, baseCurrencySetting[0].settingValue));
+    const baseCurrency = await resolveBaseCurrency();
     
     // Get exchange rate
-    const resolvedPurchaseCurrencyId = materialType === 'intermediate' ? baseCurrency[0].id : purchaseCurrencyId;
+    const resolvedPurchaseCurrencyId = materialType === 'intermediate' ? baseCurrency.id : purchaseCurrencyId;
     let exchangeRate = 1;
-    if (resolvedPurchaseCurrencyId !== baseCurrency[0].id) {
+    if (resolvedPurchaseCurrencyId !== baseCurrency.id) {
       const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
       if (rate.length > 0) {
         exchangeRate = parseFloat(rate[0].rateToBase.toString());
@@ -1084,6 +1106,7 @@ app.put('/api/materials/:id', async (req, res) => {
     const updated = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
     res.json(updated[0]);
   } catch (error) {
+    console.error('Error updating material:', error);
     res.status(500).json({ error: 'Failed to update material' });
   }
 });
@@ -2066,6 +2089,17 @@ function normalizePriceExpiryDate(value: unknown): string | null {
   return dateOnly;
 }
 
+function normalizeExpiryDays(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+  return Math.floor(parsed);
+}
+
 function daysUntilDate(dateString: string): number | null {
   const normalized = normalizePriceExpiryDate(dateString);
   if (!normalized) {
@@ -2301,7 +2335,7 @@ app.put('/api/products/:id', async (req, res) => {
 app.post('/api/products/:id/approve', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
-    const { approvedPrice, priceExpiryDate } = req.body;
+    const { approvedPrice, priceExpiryDate, expiryDays } = req.body;
 
     const existingRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
     if (existingRows.length === 0) {
@@ -2327,10 +2361,23 @@ app.post('/api/products/:id/approve', async (req, res) => {
     }
 
     const normalizedPriceExpiryDate = normalizePriceExpiryDate(priceExpiryDate);
-    const hasExplicitExpiryInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
-    if (hasExplicitExpiryInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
+    const normalizedExpiryDays = normalizeExpiryDays(expiryDays);
+    const hasPriceExpiryDateInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
+    const hasExpiryDaysInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'expiryDays');
+    if (hasPriceExpiryDateInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
       return res.status(400).json({ error: 'priceExpiryDate must be an ISO date string (YYYY-MM-DD) or null' });
     }
+
+    const resolvedExpiryDate = normalizedExpiryDays !== null
+      ? (() => {
+          const date = new Date();
+          date.setDate(date.getDate() + normalizedExpiryDays);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })()
+      : normalizedPriceExpiryDate;
 
     const updatePayload: Record<string, any> = {
       approvalStatus: 'approved',
@@ -2338,7 +2385,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
       currentSellingPrice: approvedPriceNumber,
       approvedBy: 'user',
       approvedAt: new Date(),
-      approvedPriceExpiresAt: hasExplicitExpiryInput ? normalizedPriceExpiryDate : existing.approvedPriceExpiresAt,
+      approvedPriceExpiresAt: hasPriceExpiryDateInput || hasExpiryDaysInput ? resolvedExpiryDate : existing.approvedPriceExpiresAt,
       priceExpiryNotifiedAt: null,
       needsReviewReason: null,
       updatedAt: new Date(),
@@ -2404,6 +2451,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
       staleCustomPrices,
     });
   } catch (error) {
+    console.error('Error approving product:', error);
     res.status(500).json({ error: 'Failed to approve price' });
   }
 });
@@ -2447,11 +2495,12 @@ app.post('/api/products/:id/reject', async (req, res) => {
 
 app.post('/api/products/bulk-approve', async (req, res) => {
   try {
-    const { productIds, priceMethod, markupPercentage, priceExpiryDate } = req.body as {
+    const { productIds, priceMethod, markupPercentage, priceExpiryDate, expiryDays } = req.body as {
       productIds?: number[];
       priceMethod?: 'optimal' | 'selling' | 'markup';
       markupPercentage?: number;
       priceExpiryDate?: string | null;
+      expiryDays?: number | null;
     };
     if (!productIds || productIds.length === 0) {
       return res.status(400).json({ error: 'No products provided' });
@@ -2472,10 +2521,23 @@ app.post('/api/products/bulk-approve', async (req, res) => {
     }
 
     const normalizedPriceExpiryDate = normalizePriceExpiryDate(priceExpiryDate);
-    const hasExplicitExpiryInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
-    if (hasExplicitExpiryInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
+    const normalizedExpiryDays = normalizeExpiryDays(expiryDays);
+    const hasPriceExpiryDateInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'priceExpiryDate');
+    const hasExpiryDaysInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'expiryDays');
+    if (hasPriceExpiryDateInput && priceExpiryDate !== null && priceExpiryDate !== '' && normalizedPriceExpiryDate === null) {
       return res.status(400).json({ error: 'priceExpiryDate must be an ISO date string (YYYY-MM-DD) or null' });
     }
+
+    const resolvedExpiryDate = normalizedExpiryDays !== null
+      ? (() => {
+          const date = new Date();
+          date.setDate(date.getDate() + normalizedExpiryDays);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })()
+      : normalizedPriceExpiryDate;
 
     let approved = 0;
     let skipped = 0;
@@ -2519,7 +2581,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         currentSellingPrice: priceToApprove,
         approvedBy: 'user',
         approvedAt: new Date(),
-        approvedPriceExpiresAt: hasExplicitExpiryInput ? normalizedPriceExpiryDate : current.approvedPriceExpiresAt,
+        approvedPriceExpiresAt: hasPriceExpiryDateInput || hasExpiryDaysInput ? resolvedExpiryDate : current.approvedPriceExpiresAt,
         priceExpiryNotifiedAt: null,
         needsReviewReason: null,
         updatedAt: new Date(),
@@ -2558,6 +2620,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       ...(normalizedMethod === 'markup' ? { markupPercentage: normalizedMarkupPercentage } : {}),
     });
   } catch (error) {
+    console.error('Error bulk approving products:', error);
     res.status(500).json({ error: 'Failed to bulk approve products' });
   }
 });
@@ -2687,6 +2750,29 @@ app.post('/api/products/:id/bom', async (req, res) => {
   }
 });
 
+app.put('/api/products/:id/bom/:bomId', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    const bomId = parseInt(req.params.bomId);
+    const quantity = Number(req.body?.quantity);
+
+    if (!Number.isInteger(productId) || !Number.isInteger(bomId) || !Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    await getActiveDb()
+      .update(billOfMaterials)
+      .set({ quantity })
+      .where(and(eq(billOfMaterials.id, bomId), eq(billOfMaterials.productId, productId)));
+
+    await setNeedsReviewIfOutdated(productId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating product BOM item:', error);
+    res.status(500).json({ error: 'Failed to update material in BOM' });
+  }
+});
+
 // Remove material from BOM
 app.delete('/api/products/:id/bom/:bomId', async (req, res) => {
   try {
@@ -2756,6 +2842,55 @@ app.get('/api/products/:id/calculate', async (req, res) => {
 // START SERVER
 // ============================================
 // Price Level Rules endpoints
+app.get('/api/price-levels', async (_req, res) => {
+  try {
+    const levels = await getActiveDb().select().from(priceLevels);
+    res.json(levels);
+  } catch (error) {
+    console.error('Error fetching price levels:', error);
+    res.status(500).json({ error: 'Failed to fetch price levels' });
+  }
+});
+
+app.post('/api/price-levels', async (req, res) => {
+  try {
+    const { name, description, adjustmentType, adjustmentPercentage } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'name is required' });
+    }
+
+    const normalizedAdjustmentType = adjustmentType === 'markup' ? 'markup' : 'discount';
+    const numericPercentage = Number(adjustmentPercentage ?? 0);
+    const safePercentage = Number.isFinite(numericPercentage) && numericPercentage >= 0 ? numericPercentage : 0;
+    const multiplier = normalizedAdjustmentType === 'markup'
+      ? 1 + (safePercentage / 100)
+      : 1 - (safePercentage / 100);
+
+    const result = await getActiveDb().insert(priceLevels).values({
+      name: name.trim(),
+      multiplier,
+      adjustmentType: normalizedAdjustmentType,
+      adjustmentPercentage: safePercentage,
+      description: typeof description === 'string' ? description.trim() : null,
+    }).returning();
+
+    await logActivity({
+      entityType: 'price_level',
+      entityId: result[0].id,
+      entityName: result[0].name,
+      action: 'price_level.created',
+      details: null,
+      performedBy: await getCurrentUserName(),
+    });
+
+    res.json(result[0]);
+  } catch (error) {
+    console.error('Error creating price level:', error);
+    res.status(500).json({ error: 'Failed to create price level' });
+  }
+});
+
 app.get('/api/price-level-rules', async (req, res) => {
   try {
     const rules = await getActiveDb().select().from(priceLevels);
@@ -2954,7 +3089,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
       return res.status(400).json({ error: 'productId is required' });
     }
 
-    const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType);
+    const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType);
     if (!overrideType) {
       return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
     }
@@ -2969,7 +3104,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
       return res.status(400).json({ error: 'Product must be approved before adding level pricing' });
     }
 
-    const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage);
+    const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage ?? req.body?.discountPercentage);
     const customPrice = toOptionalNumber(req.body?.customPrice);
     const justification = typeof req.body?.justification === 'string' && req.body.justification.trim().length > 0
       ? req.body.justification.trim()
@@ -3070,6 +3205,94 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
   } catch (error) {
     console.error('Error upserting price level item:', error);
     res.status(500).json({ error: 'Failed to save price level item' });
+  }
+});
+
+app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
+  try {
+    const priceLevelId = parseInt(req.params.id);
+    const itemId = parseInt(req.params.itemId);
+    if (!Number.isInteger(priceLevelId) || !Number.isInteger(itemId)) {
+      return res.status(400).json({ error: 'Invalid price level id or item id' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(priceLevelItems)
+      .where(and(eq(priceLevelItems.id, itemId), eq(priceLevelItems.priceLevelId, priceLevelId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    const existing = existingRows[0];
+    const productRows = await getActiveDb().select().from(products).where(eq(products.id, existing.productId));
+    if (productRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const selectedProduct = productRows[0];
+    const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType ?? existing.overrideType);
+    if (!overrideType) {
+      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+    }
+
+    const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage ?? req.body?.discountPercentage ?? existing.adjustmentPercentage);
+    const customPrice = toOptionalNumber(req.body?.customPrice ?? existing.customPrice);
+    const justification = typeof req.body?.justification === 'string' && req.body.justification.trim().length > 0
+      ? req.body.justification.trim()
+      : existing.justification ?? null;
+
+    let resolvedAdjustment: number | null = null;
+    let resolvedCustomPrice: number | null = null;
+
+    if (overrideType === 'rule_discount') {
+      if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
+        return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 100 for rule_discount' });
+      }
+      resolvedAdjustment = adjustmentPercentage;
+    } else if (overrideType === 'rule_markup') {
+      if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 1000) {
+        return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 1000 for rule_markup' });
+      }
+      resolvedAdjustment = adjustmentPercentage;
+    } else {
+      if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
+        return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+      }
+      const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
+      if (customPrice <= productionCost) {
+        return res.status(400).json({
+          error: 'customPrice must be above production cost',
+          code: 'PRICE_BELOW_COST',
+          details: {
+            productionCost: roundToTwo(productionCost),
+            proposedPrice: roundToTwo(customPrice),
+          },
+        });
+      }
+      resolvedCustomPrice = roundToFour(customPrice);
+    }
+
+    await getActiveDb().update(priceLevelItems)
+      .set({
+        overrideType,
+        adjustmentPercentage: resolvedAdjustment,
+        customPrice: resolvedCustomPrice,
+        status: 'pending',
+        approvedBy: null,
+        approvedAt: null,
+        justification,
+        updatedAt: new Date(),
+      })
+      .where(eq(priceLevelItems.id, itemId));
+
+    const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, itemId));
+    const response = await toPriceLevelItemResponse(updatedRows[0], selectedProduct);
+    res.json(response);
+  } catch (error) {
+    console.error('Error updating price level item:', error);
+    res.status(500).json({ error: 'Failed to update price level item' });
   }
 });
 
@@ -3366,6 +3589,646 @@ app.get('/api/customers', async (req, res) => {
   }
 });
 
+
+app.post('/api/customers', async (req, res) => {
+  try {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const priceLevelId = Number(req.body?.priceLevelId);
+    const allowSpecialPricing = req.body?.allowSpecialPricing === true;
+
+    if (!name || !Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'name and priceLevelId are required' });
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    if (levelRows.length === 0) {
+      return res.status(400).json({ error: 'Invalid priceLevelId' });
+    }
+
+    const inserted = await getActiveDb().insert(customers).values({
+      name,
+      priceLevelId,
+      allowSpecialPricing,
+    }).returning();
+
+    const created = await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        priceLevelId: customers.priceLevelId,
+        priceLevelName: priceLevels.name,
+        allowSpecialPricing: customers.allowSpecialPricing,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+      })
+      .from(customers)
+      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id))
+      .where(eq(customers.id, inserted[0].id));
+
+    res.status(201).json(created[0]);
+  } catch (error) {
+    console.error('Error creating customer:', error);
+    res.status(500).json({ error: 'Failed to create customer' });
+  }
+});
+
+app.put('/api/customers/:id', async (req, res) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const priceLevelId = Number(req.body?.priceLevelId);
+    const allowSpecialPricing = req.body?.allowSpecialPricing === true;
+
+    if (!Number.isInteger(customerId)) {
+      return res.status(400).json({ error: 'Invalid customer id' });
+    }
+
+    if (!name || !Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'name and priceLevelId are required' });
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    if (levelRows.length === 0) {
+      return res.status(400).json({ error: 'Invalid priceLevelId' });
+    }
+
+    const existing = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
+    if (existing.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    await getActiveDb().update(customers).set({
+      name,
+      priceLevelId,
+      allowSpecialPricing,
+      updatedAt: new Date(),
+    }).where(eq(customers.id, customerId));
+
+    const updated = await db
+      .select({
+        id: customers.id,
+        name: customers.name,
+        priceLevelId: customers.priceLevelId,
+        priceLevelName: priceLevels.name,
+        allowSpecialPricing: customers.allowSpecialPricing,
+        createdAt: customers.createdAt,
+        updatedAt: customers.updatedAt,
+      })
+      .from(customers)
+      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id))
+      .where(eq(customers.id, customerId));
+
+    res.json(updated[0]);
+  } catch (error) {
+    console.error('Error updating customer:', error);
+    res.status(500).json({ error: 'Failed to update customer' });
+  }
+});
+
+app.delete('/api/customers/:id', async (req, res) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    if (!Number.isInteger(customerId)) {
+      return res.status(400).json({ error: 'Invalid customer id' });
+    }
+
+    await getActiveDb().delete(specialPricing).where(eq(specialPricing.customerId, customerId));
+    await getActiveDb().delete(priceLists).where(eq(priceLists.customerId, customerId));
+    await getActiveDb().delete(customers).where(eq(customers.id, customerId));
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    res.status(500).json({ error: 'Failed to delete customer' });
+  }
+});
+
+function parseSpecialPricingOverrideType(value: unknown): 'custom' | 'discount' | 'markup' {
+  const normalized = String(value || 'custom').trim().toLowerCase();
+  if (normalized === 'discount' || normalized === 'markup' || normalized === 'custom') {
+    return normalized;
+  }
+  return 'custom';
+}
+
+async function buildSpecialPricingResponse(row: typeof specialPricing.$inferSelect) {
+  const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, row.customerId));
+  const productRows = await getActiveDb().select().from(products).where(eq(products.id, row.productId));
+  const productRow = productRows[0];
+  const productionCost = productRow ? await calculateProductionCostForProduct(productRow, row.productId) : 0;
+  const customPrice = Number(row.customPrice);
+  const marginImpactPercentage = customPrice > 0 ? ((customPrice - productionCost) / customPrice) * 100 : null;
+
+  return {
+    id: row.id,
+    customerId: row.customerId,
+    customerName: customerRows[0]?.name || null,
+    productId: row.productId,
+    productName: productRow?.name || null,
+    customPrice: roundToFour(customPrice),
+    productionCost: roundToFour(productionCost),
+    marginImpactPercentage: marginImpactPercentage == null ? null : roundToFour(marginImpactPercentage),
+    overrideType: parseSpecialPricingOverrideType(row.overrideType),
+    discountPercentage: row.discountPercentage == null ? null : Number(row.discountPercentage),
+    markupPercentage: row.markupPercentage == null ? null : Number(row.markupPercentage),
+    status: row.status,
+    approvedBy: row.approvedBy ?? null,
+    approvedAt: row.approvedAt ?? null,
+    justification: row.justification ?? null,
+    createdBy: row.createdBy ?? null,
+    createdAt: row.createdAt,
+  };
+}
+
+app.get('/api/customers/:id/custom-prices', async (req, res) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    if (!Number.isInteger(customerId)) {
+      return res.status(400).json({ error: 'Invalid customer id' });
+    }
+
+    const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
+    if (customerRows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const rows = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.customerId, customerId));
+    const response = await Promise.all(rows.map((row) => buildSpecialPricingResponse(row)));
+    res.json(response);
+  } catch (error) {
+    console.error('Error fetching customer special prices:', error);
+    res.status(500).json({ error: 'Failed to fetch customer special prices' });
+  }
+});
+
+async function saveCustomerSpecialPricing(req: any, res: any) {
+  const customerId = parseInt(req.params.id);
+  if (!Number.isInteger(customerId)) {
+    return res.status(400).json({ error: 'Invalid customer id' });
+  }
+
+  const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
+  if (customerRows.length === 0) {
+    return res.status(404).json({ error: 'Customer not found' });
+  }
+
+  if (!customerRows[0].allowSpecialPricing) {
+    return res.status(400).json({ error: 'Customer does not allow special pricing' });
+  }
+
+  const productId = Number(req.body?.productId);
+  const customPrice = Number(req.body?.customPrice);
+  const overrideType = parseSpecialPricingOverrideType(req.body?.overrideType);
+  const justification = typeof req.body?.justification === 'string' && req.body.justification.trim().length > 0
+    ? req.body.justification.trim()
+    : null;
+  const discountPercentage = toOptionalNumber(req.body?.discountPercentage);
+  const markupPercentage = toOptionalNumber(req.body?.markupPercentage);
+
+  if (!Number.isInteger(productId) || !Number.isFinite(customPrice) || customPrice <= 0) {
+    return res.status(400).json({ error: 'productId and customPrice are required' });
+  }
+
+  const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+  if (productRows.length === 0) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  const product = productRows[0];
+  if (product.approvalStatus !== 'approved' || product.approvedPrice == null) {
+    return res.status(400).json({ error: 'Product must be approved before adding special pricing' });
+  }
+
+  const productionCost = await calculateProductionCostForProduct(product, productId);
+  if (customPrice <= productionCost) {
+    return res.status(400).json({
+      error: 'customPrice must be above production cost',
+      code: 'PRICE_BELOW_COST',
+      details: {
+        productionCost: roundToTwo(productionCost),
+        proposedPrice: roundToTwo(customPrice),
+      },
+    });
+  }
+
+  const existingRows = await getActiveDb()
+    .select()
+    .from(specialPricing)
+    .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
+
+  const values = {
+    customPrice: roundToFour(customPrice),
+    productionCost: roundToFour(productionCost),
+    marginImpactPercentage: roundToFour(((customPrice - productionCost) / customPrice) * 100),
+    overrideType,
+    discountPercentage,
+    markupPercentage,
+    status: 'pending' as const,
+    approvedBy: null as string | null,
+    approvedAt: null as Date | null,
+    justification,
+    createdBy: await getCurrentUserName(),
+  };
+
+  if (existingRows.length > 0) {
+    await getActiveDb().update(specialPricing).set({
+      ...values,
+    }).where(eq(specialPricing.id, existingRows[0].id));
+    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
+    return res.status(200).json(await buildSpecialPricingResponse(updated[0]));
+  }
+
+  const inserted = await getActiveDb().insert(specialPricing).values({
+    customerId,
+    productId,
+    ...values,
+    createdAt: new Date(),
+  }).returning();
+
+  res.status(201).json(await buildSpecialPricingResponse(inserted[0]));
+}
+
+app.post('/api/customers/:id/custom-prices', saveCustomerSpecialPricing);
+app.post('/api/customers/:id/special-pricing', saveCustomerSpecialPricing);
+
+app.put('/api/customers/:id/custom-prices/:productId/approve', async (req, res) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const productId = parseInt(req.params.productId);
+    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid customer id or product id' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(specialPricing)
+      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Special pricing not found' });
+    }
+
+    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
+      ? req.body.approvedBy.trim()
+      : 'user';
+
+    await getActiveDb().update(specialPricing).set({
+      status: 'approved',
+      approvedBy,
+      approvedAt: new Date(),
+    }).where(eq(specialPricing.id, existingRows[0].id));
+
+    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
+    res.json(await buildSpecialPricingResponse(updated[0]));
+  } catch (error) {
+    console.error('Error approving special pricing:', error);
+    res.status(500).json({ error: 'Failed to approve special pricing' });
+  }
+});
+
+app.put('/api/customers/:id/custom-prices/:productId/reject', async (req, res) => {
+  try {
+    const customerId = parseInt(req.params.id);
+    const productId = parseInt(req.params.productId);
+    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid customer id or product id' });
+    }
+
+    const rejectionJustification = typeof req.body?.justification === 'string' ? req.body.justification.trim() : '';
+    if (!rejectionJustification) {
+      return res.status(400).json({ error: 'justification is required for rejection' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select()
+      .from(specialPricing)
+      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
+
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Special pricing not found' });
+    }
+
+    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
+      ? req.body.approvedBy.trim()
+      : 'user';
+
+    await getActiveDb().update(specialPricing).set({
+      status: 'rejected',
+      approvedBy,
+      approvedAt: new Date(),
+      justification: rejectionJustification,
+    }).where(eq(specialPricing.id, existingRows[0].id));
+
+    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
+    res.json(await buildSpecialPricingResponse(updated[0]));
+  } catch (error) {
+    console.error('Error rejecting special pricing:', error);
+    res.status(500).json({ error: 'Failed to reject special pricing' });
+  }
+});
+
+function resolvePriceSourceForItem(input: {
+  customerSpecial?: typeof specialPricing.$inferSelect | null;
+  levelItem?: typeof priceLevelItems.$inferSelect | null;
+  approvedPrice: number;
+  levelRule: typeof priceLevels.$inferSelect;
+}) {
+  if (input.customerSpecial) {
+    return {
+      priceSource: 'special',
+      finalPrice: Number(input.customerSpecial.customPrice),
+      discountPercentage: 0,
+    };
+  }
+
+  if (input.levelItem) {
+    const overrideType = parsePriceLevelItemOverrideType(input.levelItem.overrideType);
+    const approvedPrice = Number.isFinite(input.approvedPrice) ? input.approvedPrice : 0;
+    if (overrideType === 'custom_price' && input.levelItem.customPrice != null) {
+      return {
+        priceSource: 'level_custom',
+        finalPrice: Number(input.levelItem.customPrice),
+        discountPercentage: 0,
+      };
+    }
+
+    const adjustment = Number(input.levelItem.adjustmentPercentage ?? 0);
+    const finalPrice = approvedPrice > 0 ? computePriceLevelItemFinalPrice({
+      overrideType,
+      adjustmentPercentage: adjustment,
+      customPrice: null,
+      approvedPrice,
+    }) : 0;
+
+    return {
+      priceSource: 'level_rule',
+      finalPrice,
+      discountPercentage: adjustment,
+    };
+  }
+
+  const approvedPrice = Number.isFinite(input.approvedPrice) ? input.approvedPrice : 0;
+  const adjustmentType = input.levelRule.adjustmentType === 'markup' ? 'markup' : 'discount';
+  const adjustmentPercentage = Number(input.levelRule.adjustmentPercentage ?? 0);
+  const finalPrice = approvedPrice > 0
+    ? (adjustmentType === 'markup'
+      ? roundToFour(approvedPrice * (1 + (adjustmentPercentage / 100)))
+      : roundToFour(approvedPrice * (1 - (adjustmentPercentage / 100))))
+    : 0;
+
+  return {
+    priceSource: 'level_rule',
+    finalPrice,
+    discountPercentage: adjustmentType === 'discount' ? adjustmentPercentage : 0,
+  };
+}
+
+async function buildPriceListItems(priceListId: number, customerId: number | null, priceLevelId: number, productIds: number[]) {
+  const productsRows = await getActiveDb().select().from(products).where(inArray(products.id, productIds));
+  const approvedProducts = productsRows.filter((product) => product.approvalStatus === 'approved' && product.approvedPrice != null);
+  if (approvedProducts.length !== productIds.length) {
+    return { error: 'All products must be approved before generating a price list' } as const;
+  }
+
+  const levelItems = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.priceLevelId, priceLevelId));
+  const levelItemByProduct = new Map(levelItems.map((item) => [item.productId, item]));
+  const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+  if (levelRows.length === 0) {
+    return { error: 'Price level not found' } as const;
+  }
+  const levelRule = levelRows[0];
+
+  const specialRows = customerId == null
+    ? []
+    : await getActiveDb().select().from(specialPricing).where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.status, 'approved')));
+  const specialByProduct = new Map(specialRows.map((item) => [item.productId, item]));
+
+  const now = new Date();
+  const insertRows = approvedProducts.map((product) => {
+    const special = specialByProduct.get(product.id) ?? null;
+    const levelItem = levelItemByProduct.get(product.id) ?? null;
+    const resolved = resolvePriceSourceForItem({
+      customerSpecial: special,
+      levelItem,
+      approvedPrice: Number(product.approvedPrice),
+      levelRule,
+    });
+    return {
+      priceListId,
+      productId: product.id,
+      basePrice: Number(product.approvedPrice),
+      discountPercentage: resolved.discountPercentage,
+      finalPrice: resolved.finalPrice > 0 ? resolved.finalPrice : Number(product.approvedPrice),
+      priceSource: resolved.priceSource,
+      notes: null,
+      createdAt: now,
+    };
+  });
+
+  await getActiveDb().insert(priceListItems).values(insertRows);
+  return { items: insertRows } as const;
+}
+
+app.post('/api/price-lists', async (req, res) => {
+  try {
+    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+    const priceLevelId = Number(req.body?.priceLevelId);
+    const customerId = req.body?.customerId === null || req.body?.customerId === undefined || req.body?.customerId === ''
+      ? null
+      : Number(req.body.customerId);
+    const validFrom = typeof req.body?.validFrom === 'string' ? req.body.validFrom : getTodayDateString();
+    const validUntil = typeof req.body?.validUntil === 'string' && req.body.validUntil.trim() ? req.body.validUntil.trim() : null;
+    const generationMode = typeof req.body?.generationMode === 'string' ? req.body.generationMode : 'byPriceLevel';
+    const productIds = Array.isArray(req.body?.products) ? req.body.products.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value)) : [];
+    const selectedPriceLevelIds = Array.isArray(req.body?.selectedPriceLevelIds)
+      ? req.body.selectedPriceLevelIds.map((value: unknown) => Number(value)).filter((value: number) => Number.isInteger(value))
+      : [];
+
+    if (!name || !Number.isInteger(priceLevelId)) {
+      return res.status(400).json({ error: 'name and priceLevelId are required' });
+    }
+
+    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+    if (levelRows.length === 0) {
+      return res.status(400).json({ error: 'Invalid priceLevelId' });
+    }
+
+    if (customerId !== null) {
+      const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
+      if (customerRows.length === 0) {
+        return res.status(400).json({ error: 'Invalid customerId' });
+      }
+      if (customerRows[0].priceLevelId !== priceLevelId) {
+        return res.status(400).json({ error: 'Selected price level must match the customer price level' });
+      }
+    }
+
+    const resolvedProductIds = productIds.length > 0 ? productIds : [];
+    if (resolvedProductIds.length === 0) {
+      return res.status(400).json({ error: 'products are required' });
+    }
+
+    const normalizedGenerationMode = generationMode === 'byCustomer'
+      ? 'byCustomer'
+      : generationMode === 'byLevel' || generationMode === 'byPriceLevel'
+        ? 'byPriceLevel'
+        : 'byPriceLevel';
+
+    const created = await getActiveDb().insert(priceLists).values({
+      name,
+      customerId,
+      priceLevelId,
+      validFrom: new Date(`${validFrom}T00:00:00`),
+      validUntil: validUntil ? new Date(`${validUntil}T00:00:00`) : null,
+      status: 'active',
+      createdBy: normalizedGenerationMode === 'byCustomer' ? 'byCustomer' : 'byPriceLevel',
+      updatedAt: new Date(),
+    }).returning();
+
+    const itemsResult = await buildPriceListItems(created[0].id, customerId, priceLevelId, resolvedProductIds);
+    if ('error' in itemsResult) {
+      await getActiveDb().delete(priceLists).where(eq(priceLists.id, created[0].id));
+      return res.status(400).json({ error: itemsResult.error });
+    }
+
+    const result = await db
+      .select({
+        id: priceLists.id,
+        name: priceLists.name,
+        customerId: priceLists.customerId,
+        priceLevelId: priceLists.priceLevelId,
+        priceLevelName: priceLevels.name,
+        validFrom: priceLists.validFrom,
+        validUntil: priceLists.validUntil,
+        status: priceLists.status,
+        createdBy: priceLists.createdBy,
+        createdAt: priceLists.createdAt,
+        updatedAt: priceLists.updatedAt,
+      })
+      .from(priceLists)
+      .leftJoin(priceLevels, eq(priceLists.priceLevelId, priceLevels.id))
+      .where(eq(priceLists.id, created[0].id));
+
+    res.status(201).json({
+      ...result[0],
+      priceLevelName: getPriceLevelNameDisplay(result[0].createdBy, result[0].priceLevelName),
+      items: itemsResult.items,
+    });
+  } catch (error) {
+    console.error('Error creating price list:', error);
+    res.status(500).json({ error: 'Failed to create price list' });
+  }
+});
+
+app.get('/api/price-lists/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'Invalid price list id' });
+    }
+
+    const list = await db
+      .select({
+        id: priceLists.id,
+        name: priceLists.name,
+        customerId: priceLists.customerId,
+        customerName: customers.name,
+        priceLevelId: priceLists.priceLevelId,
+        priceLevelName: priceLevels.name,
+        validFrom: priceLists.validFrom,
+        validUntil: priceLists.validUntil,
+        status: priceLists.status,
+        createdBy: priceLists.createdBy,
+        createdAt: priceLists.createdAt,
+        updatedAt: priceLists.updatedAt,
+      })
+      .from(priceLists)
+      .leftJoin(priceLevels, eq(priceLists.priceLevelId, priceLevels.id))
+      .leftJoin(customers, eq(priceLists.customerId, customers.id))
+      .where(eq(priceLists.id, id));
+
+    if (list.length === 0) {
+      return res.status(404).json({ error: 'Price list not found' });
+    }
+
+    const items = await db
+      .select({
+        id: priceListItems.id,
+        productId: priceListItems.productId,
+        productName: products.name,
+        productIsActive: products.isActive,
+        basePrice: priceListItems.basePrice,
+        discountPercentage: priceListItems.discountPercentage,
+        finalPrice: priceListItems.finalPrice,
+        priceSource: priceListItems.priceSource,
+        notes: priceListItems.notes,
+      })
+      .from(priceListItems)
+      .innerJoin(products, eq(priceListItems.productId, products.id))
+      .where(eq(priceListItems.priceListId, id));
+
+    res.json({
+      ...list[0],
+      priceLevelName: getPriceLevelNameDisplay(list[0].createdBy, list[0].priceLevelName),
+      items,
+    });
+  } catch (error) {
+    console.error('Error fetching price list:', error);
+    res.status(500).json({ error: 'Failed to fetch price list' });
+  }
+});
+
+app.post('/api/materials-requirement', async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'items are required' });
+    }
+
+    const requirementsByMaterial = new Map<number, { materialId: number; materialName: string; quantity: number; unit: string }>();
+
+    for (const item of items) {
+      const productId = Number(item?.productId);
+      const quantity = Number(item?.quantity ?? 1);
+      if (!Number.isInteger(productId) || !Number.isFinite(quantity) || quantity <= 0) {
+        return res.status(400).json({ error: 'Invalid item payload' });
+      }
+
+      const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+      if (productRows.length === 0) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      const bomRows = await getActiveDb().select().from(billOfMaterials).where(eq(billOfMaterials.productId, productId));
+      for (const bom of bomRows) {
+        const materialRows = await getActiveDb().select().from(materials).where(eq(materials.id, bom.materialId));
+        if (materialRows.length === 0) {
+          continue;
+        }
+
+        const material = materialRows[0];
+        const totalQuantity = Number(bom.quantity) * quantity;
+        const existing = requirementsByMaterial.get(material.id);
+        if (existing) {
+          existing.quantity += totalQuantity;
+        } else {
+          requirementsByMaterial.set(material.id, {
+            materialId: material.id,
+            materialName: material.name,
+            quantity: totalQuantity,
+            unit: material.unit,
+          });
+        }
+      }
+    }
+
+    res.json({
+      items: Array.from(requirementsByMaterial.values()),
+    });
+  } catch (error) {
+    console.error('Error calculating materials requirement:', error);
+    res.status(500).json({ error: 'Failed to calculate materials requirement' });
+  }
+});
 // ============================================
 // PRODUCT PACKS ENDPOINTS
 // ============================================

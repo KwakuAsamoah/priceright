@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, X } from 'lucide-react';
 import { productsApi, materialsApi, activityLogApi, type ActivityEntry } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -133,6 +133,7 @@ export default function ProductDetail() {
   const [approvalReason, setApprovalReason] = useState('');
   const [approvalExpiryDate, setApprovalExpiryDate] = useState('');
   const [approvalLoading, setApprovalLoading] = useState(false);
+  const [showPriceForm, setShowPriceForm] = useState(false);
   const [staleCustomPrices, setStaleCustomPrices] = useState<Array<{ priceLevelId: number; priceLevelName: string; customPrice: number; newApprovedBasePrice: number }>>([]);
   const [staleAlertDismissed, setStaleAlertDismissed] = useState(false);
 
@@ -336,6 +337,7 @@ export default function ProductDetail() {
     try {
       const result = await productsApi.approve(productId, { approvedPrice: keepPrice });
       showToastMessage(`Kept current price: GHS ${keepPrice.toFixed(2)}`, 'success');
+      setShowPriceForm(false);
       setStaleAlertDismissed(false);
       setStaleCustomPrices(result?.staleCustomPrices ?? []);
       await loadData();
@@ -356,6 +358,7 @@ export default function ProductDetail() {
         priceExpiryDate: expiryDate,
       });
       showToastMessage(`Price approved: GHS ${toNum(product.optimalPrice).toFixed(2)}`, 'success');
+      setShowPriceForm(false);
       setApprovalExpiryDate('');
       setStaleAlertDismissed(false);
       setStaleCustomPrices(result?.staleCustomPrices ?? []);
@@ -387,6 +390,7 @@ export default function ProductDetail() {
         priceExpiryDate: expiryDate,
       });
       showToastMessage(`Custom price approved: GHS ${customPrice.toFixed(2)}`, 'success');
+      setShowPriceForm(false);
       setApprovalCustomPrice('');
       setApprovalReason('');
       setApprovalExpiryDate('');
@@ -457,6 +461,9 @@ export default function ProductDetail() {
   const panelColors = getApprovalPanelColors(product.approvalStatus);
   const optimalPrice = toNum(product.optimalPrice);
   const productionCost = toNum(product.productionCost || product.totalCost);
+  const needsPriceAction = product.approvalStatus === 'pending' || product.approvalStatus === 'needs_review';
+  const showApprovalForm = needsPriceAction || showPriceForm;
+  const showReadOnlyApprovedSummary = product.approvalStatus === 'approved' && !showPriceForm;
   const profitOnCostAmount = productionCost * (toNum(product.profitMargin) / 100);
   const grossMarginAtOptimal = optimalPrice > 0 && productionCost > 0
     ? ((optimalPrice - productionCost) / optimalPrice) * 100
@@ -747,106 +754,266 @@ export default function ProductDetail() {
             </div>
           )}
 
-          {/* Price approval card */}
-          <div className="app-card" style={{ border: `1px solid ${panelColors.border}`, backgroundColor: panelColors.background }}>
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>Price approval</div>
-            <div style={{ fontSize: '11px', color: '#475569', marginBottom: '12px' }}>
-              Approve a price to include this product in official price lists.
-            </div>
-
-            {product.approvalStatus === 'needs_review' && (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9a3412', fontWeight: 600, marginBottom: '12px' }}>
-                <AlertTriangle size={12} strokeWidth={2} />
-                Costs changed. Approved base price may be outdated.
+          {showReadOnlyApprovedSummary && (
+            <div className="app-card" style={{ border: '1px solid #bbf7d0', backgroundColor: '#f0fdf4' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontWeight: 700, color: '#166534', fontSize: '13px' }}>
+                  <CheckCircle size={14} strokeWidth={2.2} />
+                  Price approved
+                </div>
+                <AppButton variant="secondary" size="sm" onClick={() => setShowPriceForm(true)}>
+                  Update price
+                </AppButton>
               </div>
-            )}
 
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {/* Approve optimal */}
-              <button
-                type="button"
-                onClick={handleApproveOptimal}
-                disabled={approvalLoading}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: '#16a34a',
-                  color: 'white',
-                  fontWeight: 700,
-                  cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                  fontSize: '12px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  opacity: approvalLoading ? 0.7 : 1,
-                }}
-              >
-                <Check size={13} strokeWidth={2.2} />
-                Approve Optimal Price (GHS {optimalPrice.toFixed(2)})
-              </button>
+              <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Approved base price</span>
+                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {Number(product.approvedPrice).toFixed(2)}</span>
+                </div>
 
-              {/* Keep current price — shown only for needs_review when there is an existing approved price */}
-              {product.approvalStatus === 'needs_review' && product.approvedPrice != null && (() => {
-                const keepPrice = toNum(product.approvedPrice);
-                const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
-                const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
-                const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
-                return (
-                  <div style={{ display: 'grid', gap: '4px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Production cost</span>
+                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {Number(product.totalCost || 0).toFixed(2)}</span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Profit on cost</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {product.approvedPrice && product.totalCost
+                      ? (((Number(product.approvedPrice) - Number(product.totalCost))
+                          / Number(product.totalCost)) * 100).toFixed(1)
+                      : '—'}%
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Profit on sales</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {product.approvedPrice && product.totalCost
+                      ? (((Number(product.approvedPrice) - Number(product.totalCost))
+                          / Number(product.approvedPrice)) * 100).toFixed(1)
+                      : '—'}%
+                  </span>
+                </div>
+
+                {product.approvedBy && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Approved by</span>
+                    <span style={{ fontWeight: 700 }}>{product.approvedBy}</span>
+                  </div>
+                )}
+
+                {product.approvedPriceExpiresAt && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Valid until</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {new Date(product.approvedPriceExpiresAt)
+                        .toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {showApprovalForm && product.approvalStatus === 'needs_review' && (
+            <div className="app-card" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#9a3412', fontWeight: 600 }}>
+                <AlertTriangle size={12} strokeWidth={2} />
+                This product's cost has changed since the last approval. Review and approve a new price below.
+              </div>
+            </div>
+          )}
+
+          {showApprovalForm && product.approvalStatus === 'pending' && (
+            <div className="app-card" style={{ border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+              <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                This product has not been priced yet. Set and approve a base price below.
+              </div>
+            </div>
+          )}
+
+          {showApprovalForm && (
+            <div className="app-card" style={{ border: `1px solid ${panelColors.border}`, backgroundColor: panelColors.background }}>
+              <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>Price approval</div>
+              <div style={{ fontSize: '11px', color: '#475569', marginBottom: '12px' }}>
+                Approve a price to include this product in official price lists.
+              </div>
+
+              {product.approvalStatus === 'needs_review' && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9a3412', fontWeight: 600, marginBottom: '12px' }}>
+                  <AlertTriangle size={12} strokeWidth={2} />
+                  Costs changed. Approved base price may be outdated.
+                </div>
+              )}
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {/* Approve optimal */}
+                <button
+                  type="button"
+                  onClick={handleApproveOptimal}
+                  disabled={approvalLoading}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    backgroundColor: '#16a34a',
+                    color: 'white',
+                    fontWeight: 700,
+                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: approvalLoading ? 0.7 : 1,
+                  }}
+                >
+                  <Check size={13} strokeWidth={2.2} />
+                  Approve Optimal Price (GHS {optimalPrice.toFixed(2)})
+                </button>
+
+                {/* Keep current price — shown only for needs_review when there is an existing approved price */}
+                {product.approvalStatus === 'needs_review' && product.approvedPrice != null && (() => {
+                  const keepPrice = toNum(product.approvedPrice);
+                  const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
+                  const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
+                  const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
+                  return (
+                    <div style={{ display: 'grid', gap: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={handleKeepCurrentPrice}
+                        disabled={approvalLoading || belowCost}
+                        title={belowCost ? 'Cannot keep: price is now below production cost' : undefined}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          backgroundColor: 'white',
+                          color: belowCost ? '#94a3b8' : '#334155',
+                          fontWeight: 600,
+                          cursor: (approvalLoading || belowCost) ? 'not-allowed' : 'pointer',
+                          fontSize: '12px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          opacity: (approvalLoading || belowCost) ? 0.6 : 1,
+                        }}
+                      >
+                        <Check size={13} strokeWidth={2.2} />
+                        Keep current price (GHS {keepPrice.toFixed(2)})
+                      </button>
+                      {belowCost ? (
+                        <div style={{ fontSize: '11px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={11} />
+                          Cannot keep: price is now below production cost
+                        </div>
+                      ) : keepMargin !== null ? (
+                        <div style={{ fontSize: '11px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {keepMargin < 15 && <AlertTriangle size={11} />}
+                          New margin at this price: {keepMargin.toFixed(1)}%
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
+
+                {/* Custom price */}
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Custom Price (GHS)</label>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <input
+                      type="number"
+                      value={approvalCustomPrice}
+                      onChange={(e) => setApprovalCustomPrice(e.target.value)}
+                      placeholder={optimalPrice.toFixed(2)}
+                      style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                    />
                     <button
                       type="button"
-                      onClick={handleKeepCurrentPrice}
-                      disabled={approvalLoading || belowCost}
-                      title={belowCost ? 'Cannot keep: price is now below production cost' : undefined}
+                      onClick={handleApproveCustom}
+                      disabled={approvalLoading}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        backgroundColor: 'white',
-                        color: belowCost ? '#94a3b8' : '#334155',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        backgroundColor: '#ffffff',
+                        color: '#334155',
                         fontWeight: 600,
-                        cursor: (approvalLoading || belowCost) ? 'not-allowed' : 'pointer',
+                        cursor: approvalLoading ? 'not-allowed' : 'pointer',
                         fontSize: '12px',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '6px',
-                        opacity: (approvalLoading || belowCost) ? 0.6 : 1,
+                        gap: '5px',
+                        opacity: approvalLoading ? 0.7 : 1,
                       }}
                     >
-                      <Check size={13} strokeWidth={2.2} />
-                      Keep current price (GHS {keepPrice.toFixed(2)})
+                      <Check size={12} strokeWidth={2.2} />
+                      Approve Custom
                     </button>
-                    {belowCost ? (
-                      <div style={{ fontSize: '11px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <AlertTriangle size={11} />
-                        Cannot keep: price is now below production cost
-                      </div>
-                    ) : keepMargin !== null ? (
-                      <div style={{ fontSize: '11px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        {keepMargin < 15 && <AlertTriangle size={11} />}
-                        New margin at this price: {keepMargin.toFixed(1)}%
-                      </div>
-                    ) : null}
                   </div>
-                );
-              })()}
+                </div>
 
-              {/* Custom price */}
-              <div style={{ display: 'grid', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Custom Price (GHS)</label>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {/* Reason */}
+                <div style={{ display: 'grid', gap: '4px' }}>
+                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
                   <input
-                    type="number"
-                    value={approvalCustomPrice}
-                    onChange={(e) => setApprovalCustomPrice(e.target.value)}
-                    placeholder={optimalPrice.toFixed(2)}
-                    style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                    type="text"
+                    value={approvalReason}
+                    onChange={(e) => setApprovalReason(e.target.value)}
+                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
                   />
+                </div>
+
+                {/* Price valid until */}
+                <div style={{ display: 'grid', gap: '4px' }}>
+                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
+                  <input
+                    type="date"
+                    min={getTomorrowDateInputValue()}
+                    value={approvalExpiryDate}
+                    onChange={(e) => setApprovalExpiryDate(e.target.value)}
+                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
+                  />
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                    If set, this product will be flagged for review on this date.
+                  </div>
+                </div>
+
+                {/* Reject */}
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  disabled={approvalLoading}
+                  style={{
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #fecaca',
+                    backgroundColor: '#fef2f2',
+                    color: '#b91c1c',
+                    fontWeight: 700,
+                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    alignSelf: 'flex-start',
+                    opacity: approvalLoading ? 0.7 : 1,
+                  }}
+                >
+                  <X size={12} strokeWidth={2.2} />
+                  Reject
+                </button>
+
+                {showPriceForm && !needsPriceAction && (
                   <button
                     type="button"
-                    onClick={handleApproveCustom}
-                    disabled={approvalLoading}
+                    onClick={() => setShowPriceForm(false)}
                     style={{
                       padding: '6px 10px',
                       borderRadius: '6px',
@@ -854,72 +1021,17 @@ export default function ProductDetail() {
                       backgroundColor: '#ffffff',
                       color: '#334155',
                       fontWeight: 600,
-                      cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
                       fontSize: '12px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      opacity: approvalLoading ? 0.7 : 1,
+                      alignSelf: 'flex-start',
                     }}
                   >
-                    <Check size={12} strokeWidth={2.2} />
-                    Approve Custom
+                    Cancel
                   </button>
-                </div>
+                )}
               </div>
-
-              {/* Reason */}
-              <div style={{ display: 'grid', gap: '4px' }}>
-                <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
-                <input
-                  type="text"
-                  value={approvalReason}
-                  onChange={(e) => setApprovalReason(e.target.value)}
-                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              {/* Price valid until */}
-              <div style={{ display: 'grid', gap: '4px' }}>
-                <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
-                <input
-                  type="date"
-                  min={getTomorrowDateInputValue()}
-                  value={approvalExpiryDate}
-                  onChange={(e) => setApprovalExpiryDate(e.target.value)}
-                  style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
-                />
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
-                  If set, this product will be flagged for review on this date.
-                </div>
-              </div>
-
-              {/* Reject */}
-              <button
-                type="button"
-                onClick={handleReject}
-                disabled={approvalLoading}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: '1px solid #fecaca',
-                  backgroundColor: '#fef2f2',
-                  color: '#b91c1c',
-                  fontWeight: 700,
-                  cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                  fontSize: '12px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  alignSelf: 'flex-start',
-                  opacity: approvalLoading ? 0.7 : 1,
-                }}
-              >
-                <X size={12} strokeWidth={2.2} />
-                Reject
-              </button>
             </div>
-          </div>
+          )}
 
           {staleCustomPrices.length > 0 && !staleAlertDismissed && (
             <div className="app-card" style={{ border: '1px solid #ffcc80', backgroundColor: '#fff3e0', padding: '14px 16px' }}>
