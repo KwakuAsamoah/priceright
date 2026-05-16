@@ -3012,8 +3012,25 @@ app.delete('/api/price-level-rules/:id', async (req, res) => {
     const existingRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, levelId));
     const deletedLevel = existingRows[0];
 
-    await getActiveDb().delete(priceLevels)
-      .where(eq(priceLevels.id, levelId));
+    // Cascade delete: child records must be deleted before parent
+    // 1. Delete price_list_items (children of price_lists)
+    const priceListsToDelete = await getActiveDb()
+      .select({ id: priceLists.id })
+      .from(priceLists)
+      .where(eq(priceLists.priceLevelId, levelId));
+    
+    for (const pl of priceListsToDelete) {
+      await getActiveDb().delete(priceListItems).where(eq(priceListItems.priceListId, pl.id));
+    }
+
+    // 2. Delete price_lists for this price_level
+    await getActiveDb().delete(priceLists).where(eq(priceLists.priceLevelId, levelId));
+
+    // 3. Delete price_level_items for this price_level
+    await getActiveDb().delete(priceLevelItems).where(eq(priceLevelItems.priceLevelId, levelId));
+
+    // 4. Finally delete the price_level itself
+    await getActiveDb().delete(priceLevels).where(eq(priceLevels.id, levelId));
 
     await logActivity({
       entityType: 'price_level',
@@ -3941,7 +3958,7 @@ function resolvePriceSourceForItem(input: {
   }
 
   if (input.levelItem) {
-    const overrideType = parsePriceLevelItemOverrideType(input.levelItem.overrideType);
+    const overrideType = parsePriceLevelItemOverrideType(input.levelItem.overrideType) ?? 'rule_discount';
     const approvedPrice = Number.isFinite(input.approvedPrice) ? input.approvedPrice : 0;
     if (overrideType === 'custom_price' && input.levelItem.customPrice != null) {
       return {

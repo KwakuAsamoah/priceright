@@ -20,8 +20,6 @@ extraResources:
     filter:
       - "**"
       - "!.cache"
-  - from: node_modules/electron-updater
-    to: node_modules/electron-updater
 
 win:
   target:

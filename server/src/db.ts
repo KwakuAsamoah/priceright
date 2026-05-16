@@ -4,13 +4,26 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema';
+import { seedDemoData } from './seedDemo';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const SERVER_ROOT_DIR = path.resolve(__dirname, '..');
-export const DATABASE_FILE_PATH = path.resolve(SERVER_ROOT_DIR, 'priceright.db');
-export const DEMO_DATABASE_FILE_PATH = path.resolve(SERVER_ROOT_DIR, 'demo.db');
-export const DEMO_MODE_FILE_PATH = path.resolve(SERVER_ROOT_DIR, 'demo-mode.json');
+const isElectron = process.env.ELECTRON === 'true';
+const userDataPath = process.env.USER_DATA_PATH;
+
+// In Electron: use AppData folder (writable after install).
+// In dev: keep database files under the server root directory.
+const dbRootDir = isElectron && userDataPath
+	? userDataPath
+	: path.resolve(__dirname, '..');
+
+if (!fs.existsSync(dbRootDir)) {
+	fs.mkdirSync(dbRootDir, { recursive: true });
+}
+
+export const DATABASE_FILE_PATH = path.resolve(dbRootDir, 'priceright.db');
+export const DEMO_DATABASE_FILE_PATH = path.resolve(dbRootDir, 'demo.db');
+export const DEMO_MODE_FILE_PATH = path.resolve(dbRootDir, 'demo-mode.json');
 
 const sqlite = new Database(DATABASE_FILE_PATH);
 const demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
@@ -663,6 +676,11 @@ ensureSchemaTables();
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });
+
+// Seed demo data on startup; seedDemoData skips automatically when data already exists.
+seedDemoData().catch((err) => {
+	console.error('[demo] Failed to seed demo data:', err);
+});
 
 export function getActiveDb() {
 	return readDemoModeState() ? demoDb : liveDb;

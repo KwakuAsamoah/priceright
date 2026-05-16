@@ -846,7 +846,7 @@ async function loadData() {
               <div className="app-card app-settings-card">
                 <h2>Setup guide</h2>
                 <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                  Show the welcome guide again from the beginning
+                  Show the welcome screen again
                 </p>
                 <button
                   className="btn btn-secondary"
@@ -857,7 +857,7 @@ async function loadData() {
                     window.location.reload();
                   }}
                 >
-                  Restart guide
+                  Show welcome screen again
                 </button>
               </div>
               )}

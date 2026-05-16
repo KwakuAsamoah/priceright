@@ -554,7 +554,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         || rawMessage.toLowerCase().includes('networkerror')
         || rawMessage.toLowerCase().includes('load failed');
       const message = isNetworkError
-        ? 'Cannot reach the server. Make sure the API is running on http://localhost:3000, then try import again.'
+        ? 'Cannot reach the server. Make sure the PriceRight server is running, then try import again.'
         : (error?.message || 'Failed to import materials');
       setImportRuntimeError(message);
       showToastMessage(message, 'error');

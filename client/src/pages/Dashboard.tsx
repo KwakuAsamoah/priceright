@@ -161,6 +161,8 @@ export default function Dashboard() {
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
 
+  const isNewInstallation = products.length === 0 && materials.length === 0;
+
   useEffect(() => {
     let isMounted = true;
     loadDashboardData(isMounted);
@@ -268,6 +270,19 @@ export default function Dashboard() {
       console.error(fetchError);
     } finally {
       if (isMounted) setLoading(false);
+    }
+  }
+
+  async function handleSwitchToDemo() {
+    try {
+      await fetch('/api/demo-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ demoMode: true }),
+      });
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to switch to demo mode', err);
     }
   }
 
@@ -694,79 +709,34 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="app-card" style={{ padding: '16px 18px', border: '1px solid #dbeafe', backgroundColor: '#f8fbff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e3a8a' }}>Getting Started</div>
-            <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '4px' }}>Download our Quick Setup Guide to get started with PriceRight</div>
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => {
-              // Create and download a simple PDF guide
-              const pdfContent = `
-%PDF-1.4
-1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-3 0 obj<</Type/Page/Parent 2 0 R/Resources 4 0 R/MediaBox[0 0 612 792]/Contents 5 0 R>>endobj
-4 0 obj<</Font<</F1<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>>>>>endobj
-5 0 obj<</Length 800>>stream
-BT
-/F1 24 Tf
-50 750 Td
-(Welcome to PriceRight) Tj
-0 -40 Td
-/F1 12 Tf
-(Quick Setup Guide) Tj
-0 -30 Td
-(1. Add Your Materials) Tj
-0 -20 Td
-(Go to Materials and enter your raw materials with costs and currencies.) Tj
-0 -30 Td
-(2. Build Your Products) Tj
-0 -20 Td
-(Create products by selecting materials and setting production methods.) Tj
-0 -30 Td
-(3. Approve Prices) Tj
-0 -20 Td
-(Review and approve base prices for each product before selling.) Tj
-0 -30 Td
-(4. Set Up Price Levels) Tj
-0 -20 Td
-(Create pricing tiers for different customer groups or markets.) Tj
-0 -30 Td
-(5. Export Price Lists) Tj
-0 -20 Td
-(Generate final price lists for use in your sales system.) Tj
-ET
-endstream endobj
-xref
-0 6
-0000000000 65535 f
-0000000009 00000 n
-0000000058 00000 n
-0000000115 00000 n
-0000000217 00000 n
-0000000301 00000 n
-trailer<</Size 6/Root 1 0 R>>
-startxref
-1151
-%%EOF
-`;
-              const blob = new Blob([pdfContent], { type: 'application/pdf' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = 'PriceRight_Quick_Setup_Guide.pdf';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
+        {isNewInstallation && (
+          <div
+            className="app-card"
+            style={{
+              background: '#0f172a',
+              color: '#e2e8f0',
+              border: '1px solid #1e293b',
+              borderRadius: '12px',
+              padding: '20px',
+              display: 'grid',
+              gap: '12px',
             }}
-            style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap' }}
           >
-            Download PDF
-          </button>
-        </div>
+            <h2 style={{ margin: 0, fontSize: '22px', color: '#f8fafc' }}>Welcome to PriceRight</h2>
+            <p style={{ margin: 0, color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6 }}>
+              Build accurate costs, set profitable prices, and manage customer pricing in one place. Start by adding your
+              materials and products.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={() => navigate('/materials')}>
+                Start setup
+              </button>
+              <button className="btn btn-secondary" onClick={() => { void handleSwitchToDemo(); }}>
+                Try with sample data →
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="dashboard-stat-grid">
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>

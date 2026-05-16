@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import './App.css';
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Settings as SettingsIcon, Tag } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
@@ -348,8 +348,7 @@ function AppLayout({ children }: { children: ReactNode }) {
       {!isHelpPage && <HelpPanel isOpen={helpOpen} onClose={() => setHelpOpen(false)} />}
       {showWelcome && !isHelpPage && (
         <WelcomeModal
-          onStartSetup={() => navigate('/materials')}
-          onSkip={() => dismissWelcome()}
+          onGetStarted={() => dismissWelcome()}
         />
       )}
     </>
@@ -360,7 +359,7 @@ function AuthenticatedApp() {
   return (
     <UndoActionProvider>
       <DemoModeProvider>
-        <BrowserRouter>
+        <HashRouter>
           <AppLayout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
@@ -385,7 +384,7 @@ function AuthenticatedApp() {
               <Route path="*" element={<Navigate to="/products" replace />} />
             </Routes>
           </AppLayout>
-        </BrowserRouter>
+        </HashRouter>
       </DemoModeProvider>
     </UndoActionProvider>
   );

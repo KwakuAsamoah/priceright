@@ -1,8 +1,7 @@
 import { LayoutDashboard } from 'lucide-react';
 
 type WelcomeModalProps = {
-  onStartSetup: () => void;
-  onSkip: () => void;
+  onGetStarted: () => void;
 };
 
 const GUIDE_POINTS = [
@@ -61,7 +60,7 @@ function openPrintableGuide() {
   window.setTimeout(() => printWindow.print(), 250);
 }
 
-export default function WelcomeModal({ onStartSetup, onSkip }: WelcomeModalProps) {
+export default function WelcomeModal({ onGetStarted }: WelcomeModalProps) {
   return (
     <div className="welcome-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
       <div className="welcome-modal-card welcome-modal-card-simple">
@@ -69,29 +68,20 @@ export default function WelcomeModal({ onStartSetup, onSkip }: WelcomeModalProps
           <LayoutDashboard size={48} strokeWidth={2} />
         </div>
         <h2 id="welcome-modal-title" className="welcome-modal-title">Welcome to PriceRight</h2>
-        <p className="welcome-modal-subtitle">Your complete pricing management system</p>
+        <p className="welcome-modal-subtitle">Pricing management for food manufacturers</p>
 
         <p className="welcome-modal-body">
-          Use this simple guide to get set up quickly. You can also download the instructions as a PDF and keep them for later.
+          PriceRight helps you build accurate product costs from your raw materials, set profitable prices, and manage what
+          you charge different customer groups - all in one place. Start by adding your materials and products, or explore
+          first using our built-in sample data.
         </p>
-
-        <ol className="welcome-modal-steps welcome-modal-steps-simple">
-          {GUIDE_POINTS.map((point) => (
-            <li key={point}>{point}</li>
-          ))}
-        </ol>
 
         <div className="welcome-modal-actions welcome-modal-actions-simple">
           <button type="button" className="welcome-modal-secondary" onClick={openPrintableGuide}>
-            Download PDF
+            Download starter guide
           </button>
-          <button type="button" className="welcome-modal-primary" onClick={onStartSetup}>
-            Start setup →
-          </button>
-        </div>
-        <div style={{ marginTop: '12px' }}>
-          <button type="button" className="welcome-modal-skip" onClick={onSkip}>
-            Skip for now
+          <button type="button" className="welcome-modal-primary" onClick={onGetStarted}>
+            Get started →
           </button>
         </div>
       </div>

@@ -119,10 +119,14 @@ function createWindow() {
   });
 
   const localBuiltIndex = path.join(__dirname, '..', 'client-dist', 'index.html');
+  const externalProdIndex = path.join(process.resourcesPath, 'client-dist', 'index.html');
 
   if (isProd) {
-    const prodIndex = path.join(process.resourcesPath, 'client-dist', 'index.html');
-    mainWindow.loadFile(prodIndex);
+    if (fs.existsSync(externalProdIndex)) {
+      mainWindow.loadFile(externalProdIndex);
+    } else {
+      mainWindow.loadFile(localBuiltIndex);
+    }
   } else if (fs.existsSync(localBuiltIndex)) {
     mainWindow.loadFile(localBuiltIndex);
   } else {

@@ -11,7 +11,18 @@ export default function DemoModeBanner() {
 
   return (
     <div
-      className="demo-pill"
+      className="app-card"
+      style={{
+        marginBottom: '12px',
+        padding: '10px 14px',
+        backgroundColor: '#fff7ed',
+        border: '1px solid #fdba74',
+        borderLeft: '4px solid #f59e0b',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '10px',
+      }}
       role="button"
       aria-live="polite"
       aria-label="Demo mode active. Click to open settings"
@@ -25,9 +36,16 @@ export default function DemoModeBanner() {
       }}
       tabIndex={0}
     >
-      <span className="demo-dot" aria-hidden="true" />
-      <span className="demo-pill-text">Demo</span>
-      <span className="demo-tooltip" role="tooltip">Demo mode active - click to switch to live data</span>
+      <div style={{ display: 'grid', gap: '2px' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <span className="demo-dot" aria-hidden="true" />
+          <span className="demo-pill-text" style={{ color: '#9a3412', fontWeight: 700 }}>Demo mode is ON</span>
+        </div>
+        <div style={{ fontSize: '12px', color: '#9a3412' }}>
+          Exploring sample data. To switch to your own data, go to Settings and open Data and Backups.
+        </div>
+      </div>
+      <span style={{ fontSize: '12px', fontWeight: 600, color: '#9a3412' }}>Open Settings</span>
     </div>
   );
 }
