@@ -9,7 +9,7 @@
     "dev:server": "npm --prefix server run dev",
     "build": "npm run build:client",
     "build:client": "cd client && npm run build",
-    "build:server": "cd server && npx tsc -p tsconfig.json",
+    "build:server": "cd server && npx tsc -p tsconfig.json && node -e \"require('fs').writeFileSync('../server-dist/package.json', JSON.stringify({type:'module'}))\"",
     "electron:dev": "electron electron/main.js",
     "electron:build": "npm run build:client && npm run build:server && electron-builder"
   },
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "electron": "^42.1.0",
+    "electron": "^32.3.3",
     "electron-builder": "^26.8.1",
     "png-to-ico": "^3.0.1",
     "sharp": "^0.34.5",

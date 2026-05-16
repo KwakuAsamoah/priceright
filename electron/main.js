@@ -4,21 +4,19 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
+const { pathToFileURL } = require('url');
 
 const SERVER_PORT = 3000;
 const isProd = app.isPackaged;
 
 let serverProcess = null;
 let mainWindow = null;
+let serverModulePromise = null;
 
-function startServer() {
+async function startServer() {
   const serverEntry = isProd
     ? path.join(process.resourcesPath, 'server-dist', 'index.js')
     : path.join(__dirname, '..', 'server', 'src', 'index.ts');
-
-  const devTsxCli = path.join(__dirname, '..', 'server', 'node_modules', 'tsx', 'dist', 'cli.mjs');
-  const executable = process.execPath;
-  const args = isProd ? [serverEntry] : [devTsxCli, serverEntry];
 
   const serverEnv = {
     ...process.env,
@@ -29,8 +27,17 @@ function startServer() {
   };
 
   if (isProd) {
-    serverEnv.ELECTRON_RUN_AS_NODE = '1';
+    Object.assign(process.env, serverEnv);
+    if (!serverModulePromise) {
+      serverModulePromise = import(pathToFileURL(serverEntry).href);
+    }
+    await serverModulePromise;
+    return;
   }
+
+  const devTsxCli = path.join(__dirname, '..', 'server', 'node_modules', 'tsx', 'dist', 'cli.mjs');
+  const executable = process.execPath;
+  const args = [devTsxCli, serverEntry];
 
   serverProcess = spawn(executable, args, {
     env: serverEnv,
@@ -192,7 +199,17 @@ function setupAutoUpdater() {
 app.whenReady().then(async () => {
   const serverAlreadyRunning = await checkServerOnce();
   if (!serverAlreadyRunning) {
-    startServer();
+    try {
+      await startServer();
+    } catch (error) {
+      console.error('[server] failed to start:', error);
+      dialog.showErrorBox(
+        'PriceRight - Startup Error',
+        'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.'
+      );
+      app.quit();
+      return;
+    }
   }
 
   try {
