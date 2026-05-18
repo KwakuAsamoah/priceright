@@ -8,7 +8,6 @@ import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
 import PriceLevels from './pages/PriceLevels';
 import ProductDetail from './pages/ProductDetail';
-import Catalog from './pages/Catalog';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
@@ -97,6 +96,20 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
 }
 
 function enableSpreadsheetStyleNumberInputs() {
+  // Capture the prototype descriptor once so we can build a per-element override
+  // that blocks React's reconciler from reverting type="text" back to type="number"
+  // while the user is actively editing a math expression.
+  const typePropDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'type');
+
+  /**
+   * Remove the per-element type override so the prototype setter is restored.
+   * Must be called before we intentionally change the type back to 'number'.
+   */
+  function releaseTextMode(input: HTMLInputElement) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (input as any).type;
+  }
+
   const handleFocusIn = (event: FocusEvent) => {
     const target = event.target;
     if (!(target instanceof HTMLInputElement)) {
@@ -110,10 +123,35 @@ function enableSpreadsheetStyleNumberInputs() {
     target.dataset.originalInputType = 'number';
     target.inputMode = 'decimal';
 
+    // Install a per-element property override so React's controlled-input
+    // reconciler cannot revert type="text" back to type="number" on re-renders.
+    if (typePropDesc?.get && typePropDesc?.set) {
+      const protoGet = typePropDesc.get as (this: HTMLInputElement) => string;
+      const protoSet = typePropDesc.set as (this: HTMLInputElement, v: string) => void;
+      Object.defineProperty(target, 'type', {
+        configurable: true,
+        enumerable: true,
+        get() { return protoGet.call(this); },
+        set(value: string) {
+          // Block React from switching back to 'number' while in math mode.
+          if (value === 'number' && (this as HTMLInputElement).dataset.originalInputType === 'number') return;
+          protoSet.call(this, value);
+        },
+      });
+    }
+
     try {
       target.type = 'text';
     } catch {
       // Ignore browsers that do not allow changing the type dynamically.
+    }
+
+    // Select the entire current value so the first keystroke replaces it
+    // rather than appending (prevents "05" from typing "5" into a field showing "0").
+    try {
+      target.select();
+    } catch {
+      // Ignore
     }
   };
 
@@ -124,13 +162,15 @@ function enableSpreadsheetStyleNumberInputs() {
 
     const resolvedValue = evaluateNumericExpression(input.value);
 
+    // Restore the prototype setter before changing type back to 'number'.
+    releaseTextMode(input);
+    delete input.dataset.originalInputType;
+
     try {
       input.type = 'number';
     } catch {
       // Ignore browsers that do not allow changing the type dynamically.
     }
-
-    delete input.dataset.originalInputType;
 
     if (resolvedValue !== null && resolvedValue !== input.value) {
       setNativeInputValue(input, resolvedValue);
@@ -155,26 +195,30 @@ function enableSpreadsheetStyleNumberInputs() {
       if (resolvedValue !== null) {
         event.preventDefault();
 
+        releaseTextMode(target);
+        delete target.dataset.originalInputType;
+
         try {
           target.type = 'number';
         } catch {
           // Ignore browsers that do not allow changing the type dynamically.
         }
 
-        delete target.dataset.originalInputType;
         setNativeInputValue(target, resolvedValue);
         target.blur();
       }
     }
 
     if (event.key === 'Escape') {
+      releaseTextMode(target);
+      delete target.dataset.originalInputType;
+
       try {
         target.type = 'number';
       } catch {
         // Ignore browsers that do not allow changing the type dynamically.
       }
 
-      delete target.dataset.originalInputType;
       target.blur();
     }
   };
@@ -203,8 +247,28 @@ function AppLayout({ children }: { children: ReactNode }) {
     }
   });
   const [helpOpen, setHelpOpen] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(skipPIN);
-  const [isCheckingPin, setIsCheckingPin] = useState(!skipPIN);
+  const [isUnlocked, setIsUnlocked] = useState(() => {
+    if (skipPIN) return true;
+    try {
+      // Don't remove the key here — isCheckingPin initializer clears it below.
+      return sessionStorage.getItem('priceright_skip_pin_once') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const [isCheckingPin, setIsCheckingPin] = useState(() => {
+    if (skipPIN) return false;
+    try {
+      const skipOnce = sessionStorage.getItem('priceright_skip_pin_once') === '1';
+      if (skipOnce) {
+        sessionStorage.removeItem('priceright_skip_pin_once');
+        return false; // no server check needed — already authenticated
+      }
+    } catch {
+      // sessionStorage unavailable
+    }
+    return true;
+  });
   const [pinServerError, setPinServerError] = useState('');
 
   useEffect(() => {
@@ -370,12 +434,7 @@ function AuthenticatedApp() {
               <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/products/*" element={<Products />} />
               <Route path="/price-levels" element={<PriceLevels />} />
-              <Route path="/price-lists" element={<Navigate to="/price-levels" replace />} />
-              <Route path="/catalog" element={<Catalog />} />
-              <Route path="/pricing-console" element={<Navigate to="/price-levels" replace />} />
-              <Route path="/pricing-console/:section" element={<Navigate to="/price-levels" replace />} />
-              <Route path="/pricing-console/:section/:customerId" element={<Navigate to="/price-levels" replace />} />
-              <Route path="/customers" element={<Navigate to="/price-levels" replace />} />
+
               <Route path="/reports" element={<Reports />} />
               <Route path="/activity" element={<Activity />} />
               <Route path="/settings" element={<Settings />} />

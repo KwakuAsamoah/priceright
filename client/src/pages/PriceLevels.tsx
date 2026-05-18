@@ -250,6 +250,7 @@ export default function PriceLevels() {
   });
 
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [selectedLevelIds, setSelectedLevelIds] = useState<Set<number>>(new Set());
 
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [addProductsSearch, setAddProductsSearch] = useState('');
@@ -676,10 +677,61 @@ export default function PriceLevels() {
       });
       const remaining = levels.filter((level) => level.id !== selectedLevel.id);
       setSelectedLevelId(remaining.length > 0 ? remaining[0].id : null);
+      setSelectedLevelIds((prev) => { const next = new Set(prev); next.delete(selectedLevel.id); return next; });
       showToastMessage('Price level deleted.', 'success');
     } catch (error) {
       console.error('Failed to delete level:', error);
       showToastMessage((error as Error).message || 'Failed to delete level.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleSelectAllLevels() {
+    if (selectedLevelIds.size === filteredLevels.length && filteredLevels.length > 0) {
+      setSelectedLevelIds(new Set());
+    } else {
+      setSelectedLevelIds(new Set(filteredLevels.map((l) => l.id)));
+    }
+  }
+
+  function handleToggleLevelSelection(id: number) {
+    setSelectedLevelIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function handleBulkDeleteLevels() {
+    if (selectedLevelIds.size === 0) return;
+    const count = selectedLevelIds.size;
+    if (!window.confirm(`Delete ${count} price level${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+    setSaving(true);
+    try {
+      await Promise.all([...selectedLevelIds].map((id) => priceLevelRulesApi.delete(id)));
+      setLevels((prev) => prev.filter((l) => !selectedLevelIds.has(l.id)));
+      setItemsByLevel((prev) => {
+        const next = { ...prev };
+        for (const id of selectedLevelIds) {
+          delete next[id];
+        }
+        return next;
+      });
+      if (selectedLevelId !== null && selectedLevelIds.has(selectedLevelId)) {
+        const remaining = levels.filter((l) => !selectedLevelIds.has(l.id));
+        setSelectedLevelId(remaining.length > 0 ? remaining[0].id : null);
+      }
+      setSelectedLevelIds(new Set());
+      showToastMessage(`Deleted ${count} price level${count !== 1 ? 's' : ''}.`, 'success');
+    } catch (error) {
+      console.error('Failed to bulk delete levels:', error);
+      showToastMessage((error as Error).message || 'Failed to delete selected price levels.', 'error');
     } finally {
       setSaving(false);
     }
@@ -1175,12 +1227,46 @@ export default function PriceLevels() {
         <div style={{ display: 'grid', gridTemplateColumns: '340px minmax(0, 1fr)', gap: '16px', minHeight: '540px', alignItems: 'start' }}>
           <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
-              <input
-                value={searchLevels}
-                onChange={(e) => setSearchLevels(e.target.value)}
-                placeholder="Search price levels..."
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
-              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={selectedLevelIds.size === filteredLevels.length && filteredLevels.length > 0}
+                  ref={(el) => { if (el) el.indeterminate = selectedLevelIds.size > 0 && selectedLevelIds.size < filteredLevels.length; }}
+                  onChange={handleSelectAllLevels}
+                  style={{ cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 }}
+                  title="Select all"
+                />
+                <input
+                  value={searchLevels}
+                  onChange={(e) => setSearchLevels(e.target.value)}
+                  placeholder="Search price levels..."
+                  style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+                />
+              </div>
+              {selectedLevelIds.size > 0 && (
+                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#1a1a1a', borderRadius: '8px', padding: '8px 12px' }}>
+                  <span style={{ fontSize: '13px', color: '#cbd5e1', flex: 1 }}>
+                    {selectedLevelIds.size} level{selectedLevelIds.size !== 1 ? 's' : ''} selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleBulkDeleteLevels}
+                    disabled={saving}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLevelIds(new Set())}
+                    style={{ display: 'inline-flex', alignItems: 'center', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
+                    title="Clear selection"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div style={{ maxHeight: '680px', overflowY: 'auto' }}>
@@ -1188,32 +1274,53 @@ export default function PriceLevels() {
                 const items = itemsByLevel[level.id] || [];
                 const status = levelStatus(items);
                 const isSelected = selectedLevelId === level.id;
+                const isChecked = selectedLevelIds.has(level.id);
                 return (
-                  <button
+                  <div
                     key={level.id}
-                    type="button"
-                    onClick={() => setSelectedLevelId(level.id)}
                     style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: '12px 14px',
-                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'stretch',
                       borderBottom: '1px solid #f1f5f9',
                       borderLeft: isSelected ? '3px solid #1a1a1a' : '3px solid transparent',
-                      backgroundColor: isSelected ? '#f8f8f8' : '#ffffff',
-                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#f8f8f8' : isChecked ? '#f0f4ff' : '#ffffff',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '14px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {level.name}
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', padding: '0 6px 0 12px', flexShrink: 0 }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleLevelSelection(level.id)}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLevelId(level.id)}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        textAlign: 'left',
+                        padding: '12px 14px 12px 6px',
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '14px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {level.name}
+                        </div>
+                        <AppBadge variant={status.variant} size="sm">{status.label}</AppBadge>
                       </div>
-                      <AppBadge variant={status.variant} size="sm">{status.label}</AppBadge>
-                    </div>
-                    <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
-                      {items.length} products
-                    </div>
-                  </button>
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                        {items.length} products
+                      </div>
+                    </button>
+                  </div>
                 );
               })}
 

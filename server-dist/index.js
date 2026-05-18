@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getActiveDb, liveDb, DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
+import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -377,7 +377,7 @@ app.post('/api/demo/reset', async (_req, res) => {
         if (!readDemoModeState()) {
             return res.status(400).json({ error: 'Demo reset is only available when demo mode is enabled' });
         }
-        await seedDemoData({ force: true });
+        await seedDemoData({ force: true, dbPath: DEMO_DATABASE_FILE_PATH });
         return res.json({ success: true });
     }
     catch (error) {
@@ -1313,6 +1313,8 @@ app.post('/api/materials/import', async (req, res) => {
     }
 });
 // Intermediate Materials Import Endpoint
+// Supports grouped BOM rows: one row per component, repeat intermediate fields on each row.
+// Old single-row format (Intermediate Name, Category, Unit, Notes) is also accepted.
 app.post('/api/intermediate-materials/import', async (req, res) => {
     try {
         const payload = req.body;
@@ -1320,93 +1322,147 @@ app.post('/api/intermediate-materials/import', async (req, res) => {
         if (!rows) {
             return res.status(400).json({ error: 'Request body must include a materials array' });
         }
-        // Get existing intermediate materials by name (case-insensitive)
-        const existingIntermediates = await db
-            .select({
-            id: materials.id,
-            name: materials.name,
-        })
-            .from(materials)
-            .where(eq(materials.materialType, 'intermediate'));
-        const existingMaterialByName = new Map(existingIntermediates.map((material) => [String(material.name || '').trim().toLowerCase(), material]));
-        // Get the base currency ID for default value
+        // Get base currency
         const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
         const baseCurrencyCode = (baseCurrencySetting[0]?.settingValue || 'GHS').trim().toUpperCase();
         const allCurrencies = await db.select({ id: currencies.id, code: currencies.code }).from(currencies);
         const baseCurrency = allCurrencies.find((c) => c.code === baseCurrencyCode);
         const defaultCurrencyId = baseCurrency?.id || 1;
-        const normalizeString = (value) => String(value ?? '').trim();
+        // Get existing intermediate materials by name (case-insensitive) for duplicate check
+        const existingIntermediates = await db
+            .select({ id: materials.id, name: materials.name })
+            .from(materials)
+            .where(eq(materials.materialType, 'intermediate'));
+        const existingByName = new Map(existingIntermediates.map((m) => [String(m.name || '').trim().toLowerCase(), m]));
+        // Read all raw materials (for BOM component validation)
+        const allRawMaterials = await db
+            .select({ id: materials.id, name: materials.name })
+            .from(materials)
+            .where(eq(materials.materialType, 'raw'));
+        const rawMaterialByName = new Map(allRawMaterials.map((m) => [String(m.name || '').trim().toLowerCase(), m]));
+        const getField = (row, keys) => {
+            for (const k of keys) {
+                const v = row[k];
+                if (v !== undefined && v !== null && String(v).trim() !== '')
+                    return String(v).trim();
+            }
+            return '';
+        };
+        // Group rows by intermediate name (preserving order)
+        const groups = new Map();
+        for (let i = 0; i < rows.length; i++) {
+            const raw = rows[i] || {};
+            const rawName = getField(raw, ['Intermediate Name', 'name']);
+            if (!rawName)
+                continue;
+            const key = rawName.trim();
+            if (!groups.has(key))
+                groups.set(key, []);
+            groups.get(key).push({ row: raw, rowNumber: i + 1 });
+        }
         const errors = [];
         let imported = 0;
         let skipped = 0;
-        for (let index = 0; index < rows.length; index += 1) {
-            const row = rows[index] || {};
-            const rowNumber = index + 1;
-            const name = normalizeString(row['Intermediate Name'] || row.name || '');
-            const category = normalizeString(row.Category || row.category || '');
-            const unit = normalizeString(row.Unit || row.unit || 'Kg');
-            const notes = normalizeString(row.Notes || row.notes || '');
-            // Skip empty rows
-            if (!name) {
+        for (const [intermediateName, entries] of groups.entries()) {
+            const first = entries[0].row;
+            const firstRowNumber = entries[0].rowNumber;
+            // Read intermediate-level fields from the first row of the group
+            const category = getField(first, ['Category', 'category']);
+            const unit = getField(first, ['Unit', 'unit']) || 'Kg';
+            const notes = getField(first, ['Notes', 'Description', 'notes', 'description']);
+            const overheadPct = parseFloat(getField(first, ['Overhead %', 'Overhead', 'overhead']) || '0');
+            const yieldPct = parseFloat(getField(first, ['Yield %', 'Yield', 'yield']) || '100');
+            const marginPct = parseFloat(getField(first, ['Margin %', 'Margin', 'margin']) || '0');
+            const bulkQty = parseFloat(getField(first, ['Bulk Quantity', 'Batch Size', 'bulkQuantity']) || '1');
+            // Duplicate check
+            if (existingByName.has(intermediateName.toLowerCase())) {
+                errors.push({ row: firstRowNumber, name: intermediateName, reason: 'Intermediate material with this name already exists' });
+                skipped += 1;
                 continue;
             }
-            // Check for duplicates
-            const normalizedName = name.toLowerCase();
-            if (existingMaterialByName.has(normalizedName)) {
-                errors.push({
-                    row: rowNumber,
-                    name,
-                    reason: 'Intermediate material with this name already exists',
-                });
+            // Validate numeric fields
+            if (isNaN(overheadPct) || overheadPct < 0) {
+                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Overhead %: "${getField(first, ['Overhead %'])}"` });
+                skipped += 1;
+                continue;
+            }
+            if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) {
+                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Yield % (must be 1–100): "${getField(first, ['Yield %'])}"` });
+                skipped += 1;
+                continue;
+            }
+            if (isNaN(bulkQty) || bulkQty <= 0) {
+                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Bulk Quantity: "${getField(first, ['Bulk Quantity'])}"` });
+                skipped += 1;
+                continue;
+            }
+            // Collect and validate BOM rows
+            const validatedBom = [];
+            let bomFailed = false;
+            for (const entry of entries) {
+                const componentName = getField(entry.row, ['Component Name', 'Component', 'Material Name', 'componentName']);
+                if (!componentName)
+                    continue; // rows without a component name are just header-repeats
+                const qtyStr = getField(entry.row, ['Component Quantity', 'Quantity', 'quantity', 'componentQuantity']);
+                const qty = parseFloat(qtyStr || '0');
+                if (isNaN(qty) || qty <= 0) {
+                    errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Invalid Component Quantity for "${componentName}": "${qtyStr}"` });
+                    bomFailed = true;
+                    break;
+                }
+                const foundMat = rawMaterialByName.get(componentName.toLowerCase());
+                if (!foundMat) {
+                    errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Component material "${componentName}" not found — import raw materials first` });
+                    bomFailed = true;
+                    break;
+                }
+                validatedBom.push({ materialId: foundMat.id, quantity: qty });
+            }
+            if (bomFailed) {
                 skipped += 1;
                 continue;
             }
             try {
-                // Insert new intermediate material
                 const created = await getActiveDb()
                     .insert(materials)
                     .values({
-                    name,
+                    name: intermediateName,
                     sku: null,
                     description: notes || null,
                     materialType: 'intermediate',
                     category: category || '',
-                    unit: unit || 'Kg',
-                    bulkQuantity: 1,
+                    unit,
+                    bulkQuantity: bulkQty,
                     bulkPrice: 0,
                     purchaseCurrencyId: defaultCurrencyId,
                     priceInPurchaseCurrency: 0,
                     priceInBaseCurrency: 0,
                     unitPrice: 0,
-                    overheadPercentage: 0,
-                    marginPercentage: 0,
-                    yieldPercentage: 100,
+                    overheadPercentage: overheadPct,
+                    marginPercentage: marginPct,
+                    yieldPercentage: yieldPct,
                     calculatedCostPerUnit: 0,
                     supplier: '',
                     isActive: true,
                 })
                     .returning();
-                // Add to map to prevent duplicates in this batch
-                existingMaterialByName.set(normalizedName, {
-                    id: created[0].id,
-                    name,
-                });
+                const intermediateId = created[0].id;
+                existingByName.set(intermediateName.toLowerCase(), { id: intermediateId, name: intermediateName });
+                for (const bom of validatedBom) {
+                    await getActiveDb().insert(intermediateMaterialBom).values({
+                        intermediateMaterialId: intermediateId,
+                        componentMaterialId: bom.materialId,
+                        quantity: bom.quantity,
+                    });
+                }
                 imported += 1;
             }
             catch (error) {
-                errors.push({
-                    row: rowNumber,
-                    name,
-                    reason: error?.message || 'Failed to import row',
-                });
+                errors.push({ row: firstRowNumber, name: intermediateName, reason: error?.message || 'Failed to create intermediate material' });
                 skipped += 1;
             }
         }
-        return res.json({
-            imported,
-            skipped,
-            errors,
-        });
+        return res.json({ imported, skipped, errors });
     }
     catch (error) {
         console.error('Error importing intermediate materials:', error);
@@ -4041,3 +4097,11 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
         res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });
     }
 });
+// Serve client static files and SPA fallback when running in Electron
+const clientDistPath = process.env.CLIENT_DIST_PATH || '';
+if (clientDistPath && fs.existsSync(clientDistPath)) {
+    app.use(express.static(clientDistPath));
+    app.get('*', (_req, res) => {
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+}

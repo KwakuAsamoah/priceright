@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -24,6 +24,9 @@ async function startServer() {
     ELECTRON: 'true',
     USER_DATA_PATH: app.getPath('userData'),
     NODE_ENV: isProd ? 'production' : 'development',
+    CLIENT_DIST_PATH: isProd
+      ? path.join(process.resourcesPath, 'client-dist')
+      : path.join(__dirname, '..', 'client-dist'),
   };
 
   if (isProd) {
@@ -195,6 +198,33 @@ function setupAutoUpdater() {
 
   setTimeout(() => autoUpdater.checkForUpdates(), 10000);
 }
+
+ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultFilename,
+    filters: [
+      { name: 'CSV Files', extensions: ['csv'] },
+      { name: 'Excel Files', extensions: ['xlsx', 'xls'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  });
+
+  if (canceled || !filePath) return { success: false, canceled: true };
+
+  return new Promise((resolve) => {
+    const file = fs.createWriteStream(filePath);
+    http.get(url, (response) => {
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close();
+        resolve({ success: true, filePath });
+      });
+    }).on('error', (err) => {
+      fs.unlink(filePath, () => {});
+      resolve({ success: false, error: err.message });
+    });
+  });
+});
 
 app.whenReady().then(async () => {
   const serverAlreadyRunning = await checkServerOnce();

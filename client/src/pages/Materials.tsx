@@ -4,7 +4,7 @@ import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi } from '../api';
+import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl, downloadTemplate } from '../api';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -1895,9 +1895,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               <div>
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <a
-                    href="/templates/PriceRight_Materials_Import_Template.xlsx"
-                    download
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                    href={templateUrl('PriceRight_Materials_Import_Template.xlsx')}
+                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Materials_Import_Template.xlsx'); }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                     Download import template

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Calculator, CheckCircle2, Clock3, Database, HardDrive, Info, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi } from '../api';
+import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl, downloadTemplate } from '../api';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useDemoMode } from '../context/DemoModeContext';
@@ -515,6 +515,7 @@ async function loadData() {
     setIsSwitchingMode(true);
     try {
       await setDemoMode(nextMode);
+      try { sessionStorage.setItem('priceright_skip_pin_once', '1'); } catch {}
       window.location.reload();
     } catch (error) {
       console.error('Failed to switch data mode:', error);
@@ -531,6 +532,7 @@ async function loadData() {
 
     try {
       await demoModeApi.reset();
+      try { sessionStorage.setItem('priceright_skip_pin_once', '1'); } catch {}
       window.location.reload();
     } catch (error) {
       console.error('Failed to reset demo data:', error);
@@ -786,10 +788,10 @@ async function loadData() {
                     <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
                   </div>
                   <a
-                    href="/templates/PriceRight_Sample_Materials.csv"
-                    download="PriceRight_Sample_Materials.csv"
+                    href={templateUrl('PriceRight_Sample_Materials.csv')}
+                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Materials.csv'); }}
                     className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px' }}
+                    style={{ padding: '6px 12px', cursor: 'pointer' }}
                   >
                     Download
                   </a>
@@ -804,10 +806,10 @@ async function loadData() {
                     <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
                   </div>
                   <a
-                    href="/templates/PriceRight_Sample_Intermediates.csv"
-                    download="PriceRight_Sample_Intermediates.csv"
+                    href={templateUrl('PriceRight_Sample_Intermediates.csv')}
+                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Intermediates.csv'); }}
                     className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px' }}
+                    style={{ padding: '6px 12px', cursor: 'pointer' }}
                   >
                     Download
                   </a>
@@ -822,10 +824,10 @@ async function loadData() {
                     <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
                   </div>
                   <a
-                    href="/templates/PriceRight_Sample_Products.csv"
-                    download="PriceRight_Sample_Products.csv"
+                    href={templateUrl('PriceRight_Sample_Products.csv')}
+                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Products.csv'); }}
                     className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px' }}
+                    style={{ padding: '6px 12px', cursor: 'pointer' }}
                   >
                     Download
                   </a>

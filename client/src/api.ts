@@ -1,5 +1,22 @@
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 
+import { downloadFile } from './utils/download';
+
+// When loaded via file:// (Electron), relative /templates/ URLs don't resolve.
+// Use an absolute HTTP URL derived from the API base instead.
+export function templateUrl(filename: string): string {
+  if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+    return `${API_BASE.replace(/\/api$/, '')}/templates/${filename}`;
+  }
+  return `/templates/${filename}`;
+}
+
+// Download a template file. In Electron uses native save dialog via IPC;
+// in browser uses fetch + blob URL.
+export async function downloadTemplate(filename: string): Promise<void> {
+  await downloadFile(templateUrl(filename), filename);
+}
+
 async function parseResponse(res: Response) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -400,7 +417,7 @@ export const materialsApi = {
     errors: Array<{ row: number; name: string; reason: string }>;
   }> => {
     const text = await file.text();
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0);
+    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith('#'));
     
     if (lines.length < 1) {
       throw new Error('CSV file is empty');
@@ -646,13 +663,6 @@ export const priceLevelItemsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
     });
-    return parseResponse(res);
-  },
-};
-
-export const customersApi = {
-  getAll: async () => {
-    const res = await fetch(`${API_BASE}/customers`);
     return parseResponse(res);
   },
 };

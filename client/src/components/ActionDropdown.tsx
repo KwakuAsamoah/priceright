@@ -1,6 +1,6 @@
-import { useCallback, useState, type ReactNode } from 'react';
+﻿import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
-import { useOutsideClick } from '../hooks/useOutsideClick';
 
 type ActionDropdownItem = {
   type?: 'item';
@@ -35,9 +35,49 @@ export default function ActionDropdown({
   menuMinWidth = 190,
 }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const handleClose = useCallback(() => setOpen(false), []);
-  const containerRef = useOutsideClick(open, handleClose);
+  // Close when clicking outside both the trigger and the portal menu
+  useEffect(() => {
+    if (!open) return;
+    function handleMouseDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [open]);
+
+  const calcPosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const menuH = Math.min(items.length * 40 + 20, 360);
+
+    let top = rect.bottom + 6;
+    if (top + menuH > vh - 8) top = rect.top - menuH - 6;
+
+    const rightAligned = rect.right - menuMinWidth >= 0;
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      top: `${top}px`,
+      zIndex: 9999,
+    };
+    if (rightAligned) {
+      style.right = `${vw - rect.right}px`;
+    } else {
+      style.left = `${rect.left}px`;
+    }
+    setMenuStyle(style);
+  }, [items.length, menuMinWidth]);
+
+  useEffect(() => {
+    if (open) calcPosition();
+  }, [open, calcPosition]);
 
   function handleActionClick(action: () => void) {
     setOpen(false);
@@ -45,8 +85,9 @@ export default function ActionDropdown({
   }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', display: 'inline-flex' }}>
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
+        ref={triggerRef}
         type="button"
         className={buttonClassName}
         onClick={() => setOpen((prev) => !prev)}
@@ -59,20 +100,17 @@ export default function ActionDropdown({
         <ChevronDown size={14} strokeWidth={2} />
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={menuRef}
           role="menu"
           style={{
-            position: 'absolute',
-            top: '100%',
-            right: 0,
-            marginTop: '6px',
-            zIndex: 60,
+            ...menuStyle,
+            minWidth: `${menuMinWidth}px`,
             backgroundColor: '#fff',
             border: '1px solid #e2e8f0',
             borderRadius: '8px',
             padding: '6px',
-            minWidth: `${menuMinWidth}px`,
             boxShadow: '0 10px 24px rgba(15, 23, 42, 0.12)',
           }}
         >
@@ -114,13 +152,22 @@ export default function ActionDropdown({
                   opacity: menuItem.disabled ? 0.5 : 1,
                   color: menuItem.destructive ? '#b91c1c' : '#0f172a',
                 }}
+                onMouseEnter={(e) => {
+                  if (!menuItem.disabled) {
+                    (e.currentTarget as HTMLButtonElement).style.backgroundColor = menuItem.destructive ? '#fef2f2' : '#f1f5f9';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                }}
               >
                 {menuItem.icon}
                 {menuItem.label}
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

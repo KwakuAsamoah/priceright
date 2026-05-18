@@ -5,7 +5,7 @@ import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, productsApi, settingsApi } from '../api';
+import { materialsApi, productsApi, settingsApi, templateUrl, downloadTemplate } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
@@ -274,7 +274,7 @@ function parseCsvText(text: string) {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
 
   if (lines.length === 0) {
     return [];
@@ -3152,9 +3152,9 @@ export default function Products() {
               <div>
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <a
-                    href="/templates/PriceRight_Products_Import_Template.csv"
-                    download
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                    href={templateUrl('PriceRight_Products_Import_Template.csv')}
+                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Products_Import_Template.csv'); }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                     Download CSV template

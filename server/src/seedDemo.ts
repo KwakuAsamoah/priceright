@@ -1,3 +1,16 @@
+/**
+ * seedDemo.ts
+ * -----------
+ * Populates the DEMO SQLite database (demo.db) with a fictitious bakery dataset.
+ * This file is completely self-contained and NEVER touches the live priceright.db.
+ *
+ * Demo dataset â€” "Savanna Bakes":
+ *   â€¢ 20 raw materials  (GHS base + USD imports)
+ *   â€¢  5 intermediate materials (sub-assemblies with BOM)
+ *   â€¢ 10 products (full BOM referencing materials + intermediates)
+ *   â€¢  3 price levels (Standard Retail, Wholesale Clients, Export Partners)
+ */
+
 import Database from 'better-sqlite3';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -5,15 +18,22 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const serverRoot = path.resolve(__dirname, '..');
-const demoDbPath = path.resolve(serverRoot, 'demo.db');
+// Fallback used only when running the dev server directly.
+// In production Electron, db.ts always passes DEMO_DATABASE_FILE_PATH.
+const defaultDemoDbPath = path.resolve(serverRoot, 'demo.db');
 
-const schemaSql = `
+const USD_TO_GHS = 14.25;
+
+
+// ─── Full schema for demo.db (always rebuilt fresh on seed) ─────────────────
+const DEMO_SCHEMA_SQL = `
 DROP TABLE IF EXISTS price_list_items;
 DROP TABLE IF EXISTS price_lists;
 DROP TABLE IF EXISTS price_level_items;
 DROP TABLE IF EXISTS special_pricing;
 DROP TABLE IF EXISTS bill_of_materials;
 DROP TABLE IF EXISTS intermediate_material_bom;
+DROP TABLE IF EXISTS material_price_history;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS materials;
 DROP TABLE IF EXISTS customers;
@@ -84,6 +104,15 @@ CREATE TABLE materials (
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE TABLE material_price_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+  purchase_currency_id INTEGER NOT NULL REFERENCES currencies(id),
+  price_in_purchase_currency REAL NOT NULL,
+  price_in_base_currency REAL NOT NULL,
+  changed_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 CREATE TABLE intermediate_material_bom (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   intermediate_material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
@@ -114,6 +143,14 @@ CREATE TABLE products (
   is_active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE TABLE bill_of_materials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
+  quantity REAL NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
 CREATE TABLE price_levels (
@@ -172,14 +209,6 @@ CREATE TABLE special_pricing (
   UNIQUE(customer_id, product_id)
 );
 
-CREATE TABLE bill_of_materials (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-  quantity REAL NOT NULL,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
-
 CREATE TABLE price_lists (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -206,428 +235,408 @@ CREATE TABLE price_list_items (
 );
 `;
 
-export async function seedDemoData(options?: { force?: boolean }) {
-  const db = new Database(demoDbPath);
-  db.pragma('foreign_keys = ON');
+// ─── Public API ──────────────────────────────────────────────────────────────
 
-  const forceSeed = Boolean(options?.force);
-  if (!forceSeed) {
+export async function seedDemoData(options?: { force?: boolean; dbPath?: string }) {
+  const resolvedDbPath = options?.dbPath ?? defaultDemoDbPath;
+  const db = new Database(resolvedDbPath);
+  db.pragma('foreign_keys = OFF'); // disabled during DROP/CREATE sequence
+
+  if (!options?.force) {
     try {
-      const existingLevels = db.prepare('SELECT COUNT(*) AS count FROM price_levels').get() as { count?: number } | undefined;
-      if (Number(existingLevels?.count || 0) > 0) {
-        console.log('[demo] Demo data already exists — skipping seed');
+      const row = db.prepare('SELECT COUNT(*) AS cnt FROM price_levels').get() as { cnt: number } | undefined;
+      if (Number(row?.cnt ?? 0) > 0) {
+        console.log('[demo] Demo data already present — skipping seed');
         db.close();
         return;
       }
     } catch {
-      // Table may not exist yet; continue with full seed.
+      // Tables may not exist yet; proceed to full seed.
     }
   }
+
+  console.log('[demo] Seeding demo database ->', resolvedDbPath);
+
+  db.exec(DEMO_SCHEMA_SQL);
+  db.pragma('foreign_keys = ON');
 
   const now = Math.floor(Date.now() / 1000);
 
-db.exec(schemaSql);
+  // ── Prepared statements ──────────────────────────────────────────────────
+  const insC = db.prepare('INSERT INTO currencies (code,name,symbol,is_active,created_at) VALUES (?,?,?,1,?)');
+  const insR = db.prepare('INSERT INTO exchange_rates (currency_id,rate_to_base,effective_date,source,created_at) VALUES (?,?,?,?,?)');
+  const insS = db.prepare('INSERT INTO settings (setting_key,setting_value,updated_at) VALUES (?,?,?)');
+  const insMat = db.prepare(`
+    INSERT INTO materials
+      (name,sku,description,material_type,category,unit,
+       bulk_quantity,bulk_price,purchase_currency_id,
+       price_in_purchase_currency,price_in_base_currency,unit_price,
+       overhead_percentage,margin_percentage,intermediate_cost_mode,yield_percentage,
+       calculated_cost_per_unit,supplier,is_active,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
+  `);
+  const insIBom = db.prepare('INSERT INTO intermediate_material_bom (intermediate_material_id,component_material_id,quantity,created_at) VALUES (?,?,?,?)');
+  const insProd = db.prepare(`
+    INSERT INTO products
+      (name,sku,description,category,overhead_percentage,profit_margin,
+       other_direct_costs,production_mode,batch_yield,current_selling_price,
+       approval_status,approved_price,approved_by,approved_at,
+       approved_price_expires_at,is_active,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
+  `);
+  const insBom = db.prepare('INSERT INTO bill_of_materials (product_id,material_id,quantity,created_at) VALUES (?,?,?,?)');
+  const insLevel = db.prepare('INSERT INTO price_levels (name,multiplier,adjustment_type,adjustment_percentage,description,is_active,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?)');
+  const insLvlItem = db.prepare(`
+    INSERT INTO price_level_items
+      (price_level_id,product_id,override_type,adjustment_percentage,
+       custom_price,status,approved_by,approved_at,justification,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+  `);
+  const insLog = db.prepare('INSERT INTO activity_log (action,entity_type,entity_id,entity_name,performed_by,details,created_at) VALUES (?,?,?,?,?,?,?)');
 
-const insertCurrency = db.prepare(
-  'INSERT INTO currencies (code, name, symbol, is_active, created_at) VALUES (?, ?, ?, 1, ?)'
-);
-const insertRate = db.prepare(
-  'INSERT INTO exchange_rates (currency_id, rate_to_base, effective_date, source, created_at) VALUES (?, ?, ?, ?, ?)'
-);
-const insertSetting = db.prepare(
-  'INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, ?)'
-);
-const insertMaterial = db.prepare(`
-  INSERT INTO materials (
-    name, sku, description, material_type, category, unit,
-    bulk_quantity, bulk_price, purchase_currency_id,
-    price_in_purchase_currency, price_in_base_currency, unit_price,
-    overhead_percentage, margin_percentage, intermediate_cost_mode, yield_percentage,
-    calculated_cost_per_unit, supplier, is_active, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-`);
-const insertIntermediateBom = db.prepare(
-  'INSERT INTO intermediate_material_bom (intermediate_material_id, component_material_id, quantity, created_at) VALUES (?, ?, ?, ?)'
-);
-const insertProduct = db.prepare(`
-  INSERT INTO products (
-    name, sku, description, category, overhead_percentage, profit_margin,
-    other_direct_costs, production_mode, batch_yield, current_selling_price,
-    approval_status, approved_price, approved_by, approved_at,
-    approved_price_expires_at, is_active, created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-`);
-const insertBom = db.prepare(
-  'INSERT INTO bill_of_materials (product_id, material_id, quantity, created_at) VALUES (?, ?, ?, ?)'
-);
-const insertPriceLevel = db.prepare(
-  'INSERT INTO price_levels (name, multiplier, adjustment_type, adjustment_percentage, description, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)'
-);
-const insertCustomer = db.prepare(
-  'INSERT INTO customers (name, price_level_id, created_at, updated_at) VALUES (?, ?, ?, ?)'
-);
-const insertPriceLevelItem = db.prepare(`
-  INSERT INTO price_level_items (
-    price_level_id, product_id, override_type, adjustment_percentage,
-    custom_price, status, approved_by, approved_at, justification,
-    created_at, updated_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-const insertPriceList = db.prepare(
-  'INSERT INTO price_lists (name, customer_id, price_level_id, valid_from, valid_until, status, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-);
-const insertPriceListItem = db.prepare(
-  'INSERT INTO price_list_items (price_list_id, product_id, base_price, discount_percentage, final_price, price_source, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-);
-const insertActivity = db.prepare(
-  'INSERT INTO activity_log (action, entity_type, entity_id, entity_name, performed_by, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-);
+  const txn = db.transaction(() => {
+    // ── Currencies ──────────────────────────────────────────────────────────
+    const ghsId = Number(insC.run('GHS', 'Ghana Cedi', 'GH\u20B5', now).lastInsertRowid);
+    const usdId = Number(insC.run('USD', 'US Dollar',  '$',       now).lastInsertRowid);
 
-const txn = db.transaction(() => {
-  insertCurrency.run('GHS', 'Ghana Cedi', 'GH₵', now);
-  insertCurrency.run('USD', 'US Dollar', '$', now);
-  insertCurrency.run('EUR', 'Euro', '€', now);
+    insR.run(ghsId, 1.0,        now, 'seed', now);
+    insR.run(usdId, USD_TO_GHS, now, 'seed', now);
 
-  insertRate.run(1, 1, now, 'seed', now);
-  insertRate.run(2, 14.25, now, 'seed', now);
-  insertRate.run(3, 15.4, now, 'seed', now);
+    // ── Settings ────────────────────────────────────────────────────────────
+    insS.run('base_currency',               'GHS',                now);
+    insS.run('default_overhead_percentage', '25',                 now);
+    insS.run('companyName',                 'Savanna Bakes Demo', now);
 
-  insertSetting.run('base_currency', 'GHS', now);
-  insertSetting.run('default_overhead_percentage', '25', now);
+    // ────────────────────────────────────────────────────────────────────────
+    // 20 RAW MATERIALS
+    // Columns: name | sku | description | category | unit | bulkQty
+    //          | bulkPrice(purchase currency) | currencyId | supplier
+    // ────────────────────────────────────────────────────────────────────────
+    type RawDef = readonly [string, string, string, string, string, number, number, number, string];
+    const rawDefs: RawDef[] = [
+      // ── Dry Goods ─────────────────────────────────────────────────────────
+      ['All-Purpose Flour',       'MAT-001', 'Premium wheat flour, suitable for all baking',          'Dry Goods',     'kg',     50,  380, ghsId, 'Accra Millers Ltd'],
+      ['Granulated Sugar',        'MAT-002', 'Fine white refined sugar',                              'Dry Goods',     'kg',     50,  540, ghsId, 'Ghana Sugar Co.'],
+      ['Fine Salt',               'MAT-003', 'Iodised table salt',                                   'Dry Goods',     'kg',      5,   28, ghsId, 'Local Supplier GH'],
+      ['Cornstarch',              'MAT-004', 'Food-grade cornflour, thickening agent',                'Dry Goods',     'kg',      5,   96, ghsId, 'Local Supplier GH'],
+      // ── Additives ─────────────────────────────────────────────────────────
+      ['Instant Dry Yeast',       'MAT-005', 'Fast-action baking yeast',                             'Additives',     'kg',      2,  180, ghsId, 'Bakers Corner GH'],
+      ['Baking Powder',           'MAT-006', 'Double-acting baking powder',                          'Additives',     'kg',      5,  142, ghsId, 'Bakers Corner GH'],
+      ['Food Grade Colours',      'MAT-007', 'Gel paste colours, assorted set',                      'Additives',     'kg',    0.5,   65, ghsId, 'Bakers Corner GH'],
+      // ── Dairy ─────────────────────────────────────────────────────────────
+      ['Unsalted Butter',         'MAT-008', 'Dairy butter blocks, 82% fat',                         'Dairy',         'kg',     25,  890, ghsId, 'Farm Fresh Dairy'],
+      ['Full Cream Milk',         'MAT-009', 'Whole pasteurised milk',                               'Dairy',         'L',      20,  480, ghsId, 'Farm Fresh Dairy'],
+      ['Heavy Cream',             'MAT-010', '36% fat cooking and whipping cream',                   'Dairy',         'L',      10,  560, ghsId, 'Farm Fresh Dairy'],
+      ['Cream Cheese',            'MAT-011', 'Full-fat spreadable cream cheese',                     'Dairy',         'kg',      5,  420, ghsId, 'Farm Fresh Dairy'],
+      // ── Protein ───────────────────────────────────────────────────────────
+      ['Free-Range Eggs',         'MAT-012', 'Large graded eggs, 30-piece tray',                     'Protein',       'tray',    1,   55, ghsId, 'Poultry Plus GH'],
+      // ── Flavoring ─────────────────────────────────────────────────────────
+      ['Cocoa Powder',            'MAT-013', 'Dark unsweetened baking cocoa',                        'Flavoring',     'kg',     10,  650, ghsId, 'Cocoa Board GH'],
+      ['Pure Vanilla Extract',    'MAT-014', 'Natural vanilla extract, imported',                    'Flavoring',     'L',       2,   28, usdId, 'Import Direct Ltd'],
+      // ── Natural ───────────────────────────────────────────────────────────
+      ['Raw Honey',               'MAT-015', 'Unprocessed forest honey, single-origin',              'Natural',       'kg',     10,  780, ghsId, 'Beekeepers Coop GH'],
+      // ── Confectionery ─────────────────────────────────────────────────────
+      ['Dark Chocolate Chips',    'MAT-016', '72% cacao baking chips, imported',                     'Confectionery', 'kg',      5,   42, usdId, 'Import Direct Ltd'],
+      // ── Nuts ──────────────────────────────────────────────────────────────
+      ['Blanched Almonds',        'MAT-017', 'Peeled whole almonds, imported',                       'Nuts',          'kg',      5,   35, usdId, 'Import Direct Ltd'],
+      // ── Oils ──────────────────────────────────────────────────────────────
+      ['Vegetable Oil',           'MAT-018', 'Refined sunflower oil',                                'Oils',          'L',      20,  460, ghsId, 'Nkulenu Oil Co.'],
+      // ── Packaging ─────────────────────────────────────────────────────────
+      ['Foil Bag 500g',           'MAT-019', 'Resealable foil-lined packaging bag',                  'Packaging',     'piece', 500,  280, ghsId, 'PackPro Ghana'],
+      ['Printed Labels A-Series', 'MAT-020', 'Pre-printed adhesive product labels',                  'Packaging',     'piece',1000,  180, ghsId, 'PrintFast GH'],
+    ];
 
-  const primaryMaterials = [
-    ['Flour', 'MAT-001', 'Wheat flour', 'Dry Goods', 'kg', 25, 385],
-    ['Sugar', 'MAT-002', 'Granulated sugar', 'Dry Goods', 'kg', 50, 520],
-    ['Salt', 'MAT-003', 'Iodized salt', 'Dry Goods', 'kg', 10, 42],
-    ['Yeast', 'MAT-004', 'Baker yeast', 'Additives', 'kg', 5, 220],
-    ['Butter', 'MAT-005', 'Unsalted butter', 'Dairy', 'kg', 10, 710],
-    ['Milk Powder', 'MAT-006', 'Full cream milk powder', 'Dairy', 'kg', 25, 1850],
-    ['Cocoa Powder', 'MAT-007', 'Baking cocoa', 'Flavoring', 'kg', 8, 640],
-    ['Vanilla Essence', 'MAT-008', 'Vanilla extract', 'Flavoring', 'L', 1, 120],
-    ['Baking Powder', 'MAT-009', 'Double action baking powder', 'Additives', 'kg', 5, 175],
-    ['Eggs', 'MAT-010', 'Fresh eggs', 'Protein', 'tray', 1, 55],
-    ['Vegetable Oil', 'MAT-011', 'Refined oil', 'Oils', 'L', 20, 490],
-    ['Palm Oil', 'MAT-012', 'Red palm oil', 'Oils', 'L', 20, 420],
-    ['Tomato Paste', 'MAT-013', 'Concentrated paste', 'Canned', 'kg', 12, 360],
-    ['Seasoning Mix', 'MAT-014', 'Mixed spices', 'Spices', 'kg', 4, 210],
-    ['Onion Powder', 'MAT-015', 'Powdered onion', 'Spices', 'kg', 3, 156],
-    ['Garlic Powder', 'MAT-016', 'Powdered garlic', 'Spices', 'kg', 3, 174],
-    ['Plastic Bottle 500ml', 'MAT-017', 'PET bottle', 'Packaging', 'piece', 1000, 780],
-    ['Label Sticker', 'MAT-018', 'Printed labels', 'Packaging', 'piece', 2000, 320],
-    ['Carton Box', 'MAT-019', 'Shipping carton', 'Packaging', 'piece', 500, 950],
-    ['Shrink Wrap', 'MAT-020', 'Clear shrink film', 'Packaging', 'roll', 10, 430],
-  ] as const;
+    const rawIds: number[] = [];
+    for (const [name, sku, desc, cat, unit, bulkQty, bulkPrice, curId, supplier] of rawDefs) {
+      const priceGHS  = curId === usdId ? bulkPrice * USD_TO_GHS : bulkPrice;
+      const unitPrice = priceGHS / bulkQty;
+      rawIds.push(Number(insMat.run(
+        name, sku, desc, 'primary', cat, unit,
+        bulkQty, bulkPrice, curId,
+        bulkPrice, priceGHS, unitPrice,
+        0, 0, 'yield', 100,
+        unitPrice, supplier, now, now,
+      ).lastInsertRowid));
+    }
 
-  for (const [name, sku, description, category, unit, bulkQuantity, bulkPrice] of primaryMaterials) {
-    const unitPrice = bulkPrice / bulkQuantity;
-    insertMaterial.run(
-      name,
-      sku,
-      description,
-      'primary',
-      category,
-      unit,
-      bulkQuantity,
-      bulkPrice,
-      1,
-      bulkPrice,
-      bulkPrice,
-      unitPrice,
-      0,
-      0,
-      'yield',
-      100,
-      unitPrice,
-      'Demo Supplier',
-      now,
-      now
+    // Helper: raw material DB id by 0-based index into rawDefs
+    const rId = (i: number) => rawIds[i];
+
+    // Helper: unit price (GHS) for a raw material by index
+    const rawUP = (i: number): number => {
+      const [,,,,, bulkQty, bulkPrice, curId] = rawDefs[i] as RawDef;
+      const g = (curId as number) === usdId
+        ? (bulkPrice as number) * USD_TO_GHS
+        : (bulkPrice as number);
+      return g / (bulkQty as number);
+    };
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 5 INTERMEDIATE MATERIALS
+    // ────────────────────────────────────────────────────────────────────────
+    type IntDef = {
+      name: string; sku: string; desc: string;
+      yieldPct: number; overhead: number;
+      bom: Array<[number, number]>; // [rawIndex, qty]
+    };
+
+    const intDefs: IntDef[] = [
+      {
+        name: 'Chocolate Ganache', sku: 'INT-001',
+        desc: 'Rich chocolate ganache for fillings, drip coating and truffle centres',
+        yieldPct: 95, overhead: 5,
+        // dark choc chips (15) + heavy cream (9) + butter (7)
+        bom: [[15, 4.0], [9, 3.0], [7, 1.5]],
+      },
+      {
+        name: 'Cream Cheese Frosting', sku: 'INT-002',
+        desc: 'Smooth cream cheese frosting for layered cakes and Danish pastries',
+        yieldPct: 95, overhead: 5,
+        // cream cheese (10) + sugar (1) + butter (7) + vanilla (13)
+        bom: [[10, 3.0], [1, 2.0], [7, 1.0], [13, 0.5]],
+      },
+      {
+        name: 'Almond Paste', sku: 'INT-003',
+        desc: 'Ground almond paste for croissant fillings and marzipan work',
+        yieldPct: 94, overhead: 6,
+        // almonds (16) + sugar (1) + eggs (11)
+        bom: [[16, 2.0], [1, 1.5], [11, 0.5]],
+      },
+      {
+        name: 'Caramel Glaze', sku: 'INT-004',
+        desc: 'Amber wet caramel for cake drips, tart fillings and decoration',
+        yieldPct: 92, overhead: 5,
+        // sugar (1) + heavy cream (9) + butter (7)
+        bom: [[1, 3.0], [9, 1.0], [7, 0.5]],
+      },
+      {
+        name: 'Enriched Bread Dough', sku: 'INT-005',
+        desc: 'Pre-mixed enriched dough base for loaves, rolls and laminated pastries',
+        yieldPct: 96, overhead: 4,
+        // flour (0) + milk (8) + butter (7) + yeast (4) + salt (2) + sugar (1)
+        bom: [[0, 10.0], [8, 5.0], [7, 2.0], [4, 0.1], [2, 0.05], [1, 0.5]],
+      },
+    ];
+
+    const intIds: number[] = [];
+    for (const def of intDefs) {
+      let totalCost = 0;
+      let totalInput = 0;
+      for (const [rawIdx, qty] of def.bom) {
+        totalCost  += rawUP(rawIdx) * qty;
+        totalInput += qty;
+      }
+      const outputKg  = totalInput * (def.yieldPct / 100);
+      const calcCost  = outputKg > 0 ? (totalCost * (1 + def.overhead / 100)) / outputKg : 0;
+
+      const intDbId = Number(insMat.run(
+        def.name, def.sku, def.desc, 'intermediate', 'Intermediate', 'kg',
+        totalInput, totalCost, ghsId,
+        totalCost, totalCost, calcCost,
+        def.overhead, 0, 'yield', def.yieldPct,
+        calcCost, 'Demo Kitchen', now, now,
+      ).lastInsertRowid);
+      intIds.push(intDbId);
+
+      for (const [rawIdx, qty] of def.bom) {
+        insIBom.run(intDbId, rId(rawIdx), qty, now);
+      }
+    }
+
+    // Helper: intermediate DB id by 0-based index
+    const iId = (i: number) => intIds[i];
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 10 PRODUCTS
+    // ────────────────────────────────────────────────────────────────────────
+    type BomEntry = { r?: number; i?: number; qty: number };
+    type ProdDef = {
+      name: string; sku: string; desc: string; cat: string;
+      overhead: number; profit: number; otherDirect: number;
+      mode: 'single' | 'batch'; batchYield: number;
+      approved: boolean; approvedPrice: number | null;
+      bom: BomEntry[];
+    };
+
+    const prodDefs: ProdDef[] = [
+      // ── Bakery ──────────────────────────────────────────────────────────
+      {
+        name: 'Classic White Loaf', sku: 'PRD-001',
+        desc: 'Soft sandwich loaf, 500g, sliced', cat: 'Bakery',
+        overhead: 25, profit: 30, otherDirect: 2.50, mode: 'single', batchYield: 1,
+        approved: true, approvedPrice: 12.50,
+        bom: [{ i: 4, qty: 0.35 }, { r: 18, qty: 1 }],
+      },
+      {
+        name: 'Honey Oat Loaf', sku: 'PRD-002',
+        desc: 'Wholegrain honey-sweetened loaf, 500g', cat: 'Bakery',
+        overhead: 24, profit: 29, otherDirect: 2.00, mode: 'single', batchYield: 1,
+        approved: true, approvedPrice: 11.80,
+        bom: [{ r: 0, qty: 0.30 }, { r: 14, qty: 0.08 }, { r: 4, qty: 0.01 }, { r: 5, qty: 0.01 }, { r: 18, qty: 1 }],
+      },
+      {
+        name: 'Artisan Sourdough', sku: 'PRD-003',
+        desc: 'Long-ferment sourdough loaf, 750g', cat: 'Bakery',
+        overhead: 24, profit: 30, otherDirect: 3.00, mode: 'single', batchYield: 1,
+        approved: true, approvedPrice: 18.00,
+        bom: [{ r: 0, qty: 0.60 }, { r: 2, qty: 0.015 }, { r: 17, qty: 0.02 }, { r: 18, qty: 1 }, { r: 19, qty: 1 }],
+      },
+      // ── Cakes ───────────────────────────────────────────────────────────
+      {
+        name: 'Chocolate Fudge Cake', sku: 'PRD-004',
+        desc: 'Rich chocolate layer cake, serves 12', cat: 'Cakes',
+        overhead: 28, profit: 35, otherDirect: 3.00, mode: 'batch', batchYield: 12,
+        approved: true, approvedPrice: 9.90,
+        bom: [
+          { r: 0, qty: 0.5 }, { r: 12, qty: 0.2 }, { i: 0, qty: 0.3 },
+          { r: 11, qty: 4 }, { r: 1, qty: 0.4 }, { r: 18, qty: 1 },
+        ],
+      },
+      {
+        name: 'Caramel Drip Cake', sku: 'PRD-005',
+        desc: 'Sponge cake with caramel glaze and ganache topping, serves 10', cat: 'Cakes',
+        overhead: 27, profit: 34, otherDirect: 3.00, mode: 'batch', batchYield: 10,
+        approved: true, approvedPrice: 11.50,
+        bom: [
+          { r: 0, qty: 0.4 }, { r: 11, qty: 3 }, { r: 1, qty: 0.3 },
+          { r: 7, qty: 0.2 }, { i: 3, qty: 0.15 }, { i: 0, qty: 0.1 }, { r: 18, qty: 1 },
+        ],
+      },
+      {
+        name: 'Vanilla Pound Cake', sku: 'PRD-006',
+        desc: 'Classic pound cake with vanilla bean, serves 8', cat: 'Cakes',
+        overhead: 26, profit: 32, otherDirect: 2.50, mode: 'batch', batchYield: 8,
+        approved: false, approvedPrice: null,
+        bom: [
+          { r: 0, qty: 0.35 }, { r: 7, qty: 0.25 }, { r: 13, qty: 0.05 },
+          { r: 11, qty: 4 }, { r: 1, qty: 0.3 }, { r: 18, qty: 1 },
+        ],
+      },
+      {
+        name: 'Fruit & Honey Cake', sku: 'PRD-007',
+        desc: 'Traditional fruit cake with raw honey, 250g', cat: 'Cakes',
+        overhead: 25, profit: 31, otherDirect: 2.50, mode: 'single', batchYield: 1,
+        approved: false, approvedPrice: null,
+        bom: [
+          { r: 0, qty: 0.20 }, { r: 14, qty: 0.05 }, { r: 11, qty: 2 },
+          { r: 7, qty: 0.10 }, { r: 6, qty: 0.005 }, { r: 18, qty: 1 },
+        ],
+      },
+      // ── Pastry ──────────────────────────────────────────────────────────
+      {
+        name: 'Cream Cheese Danish', sku: 'PRD-008',
+        desc: 'Flaky pastry with cream cheese and vanilla filling', cat: 'Pastry',
+        overhead: 26, profit: 32, otherDirect: 2.00, mode: 'single', batchYield: 1,
+        approved: true, approvedPrice: 8.50,
+        bom: [{ i: 4, qty: 0.25 }, { i: 1, qty: 0.08 }, { r: 18, qty: 1 }],
+      },
+      {
+        name: 'Almond Croissant', sku: 'PRD-009',
+        desc: 'Buttery croissant with almond paste centre, dusted icing sugar', cat: 'Pastry',
+        overhead: 26, profit: 33, otherDirect: 1.50, mode: 'single', batchYield: 1,
+        approved: true, approvedPrice: 7.80,
+        bom: [{ i: 4, qty: 0.22 }, { i: 2, qty: 0.06 }, { r: 18, qty: 1 }],
+      },
+      // ── Biscuits ────────────────────────────────────────────────────────
+      {
+        name: 'Choco-Almond Biscotti', sku: 'PRD-010',
+        desc: 'Twice-baked almond and chocolate biscotti, pack of 10', cat: 'Biscuits',
+        overhead: 28, profit: 36, otherDirect: 1.50, mode: 'batch', batchYield: 10,
+        approved: true, approvedPrice: 14.80,
+        bom: [
+          { r: 0, qty: 0.25 }, { i: 0, qty: 0.12 }, { i: 2, qty: 0.10 },
+          { r: 11, qty: 2 }, { r: 18, qty: 1 }, { r: 19, qty: 10 },
+        ],
+      },
+    ];
+
+    const productIds: number[] = [];
+    for (let idx = 0; idx < prodDefs.length; idx++) {
+      const pd = prodDefs[idx];
+      const approvedAt = pd.approved ? now - idx * 86_400 : null;
+      const prodId = Number(insProd.run(
+        pd.name, pd.sku, pd.desc, pd.cat,
+        pd.overhead, pd.profit, pd.otherDirect,
+        pd.mode, pd.batchYield,
+        pd.approvedPrice ?? 0,
+        pd.approved ? 'approved' : 'pending',
+        pd.approvedPrice,
+        pd.approved ? 'Admin' : null,
+        approvedAt,
+        null, now, now,
+      ).lastInsertRowid);
+      productIds.push(prodId);
+
+      for (const entry of pd.bom) {
+        const matDbId = entry.i !== undefined ? iId(entry.i) : rId(entry.r!);
+        insBom.run(prodId, matDbId, entry.qty, now);
+      }
+
+      if (pd.approved) {
+        insLog.run(
+          'product.approved', 'product', prodId, pd.name, 'Admin',
+          JSON.stringify({ approvedPrice: pd.approvedPrice, note: 'Demo seed' }),
+          approvedAt,
+        );
+      }
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // 3 PRICE LEVELS
+    // ────────────────────────────────────────────────────────────────────────
+    const levelDefs = [
+      { name: 'Standard Retail',   multiplier: 1.00, adjType: 'discount' as const, adjPct:  0, desc: 'Base retail prices for direct and walk-in customers' },
+      { name: 'Wholesale Clients', multiplier: 0.85, adjType: 'discount' as const, adjPct: 15, desc: 'Volume buyers — 15% discount on approved base prices' },
+      { name: 'Export Partners',   multiplier: 0.80, adjType: 'discount' as const, adjPct: 20, desc: 'International distribution — 20% export discount' },
+    ];
+
+    const levelIds: number[] = [];
+    for (const ld of levelDefs) {
+      levelIds.push(Number(
+        insLevel.run(ld.name, ld.multiplier, ld.adjType, ld.adjPct, ld.desc, now, now).lastInsertRowid,
+      ));
+    }
+
+    // Add every approved product to all 3 price levels
+    const approvedEntries = prodDefs
+      .map((pd, i) => ({ pd, prodId: productIds[i] }))
+      .filter(e => e.pd.approved);
+
+    for (let li = 0; li < levelIds.length; li++) {
+      const levelId = levelIds[li];
+      const adjPct  = levelDefs[li].adjPct;
+      for (const { pd, prodId } of approvedEntries) {
+        insLvlItem.run(
+          levelId, prodId, 'rule_discount', adjPct,
+          null, 'approved', 'Admin', now,
+          'Demo seed — auto-approved', now, now,
+        );
+        insLog.run(
+          'price_level_item.approved', 'price_level_item', prodId, pd.name, 'Admin',
+          JSON.stringify({ levelName: levelDefs[li].name, adjPct }),
+          now,
+        );
+      }
+    }
+
+    console.log(
+      `[demo] Seed complete — ${rawDefs.length} materials, ${intDefs.length} intermediates, ` +
+      `${prodDefs.length} products, ${levelDefs.length} price levels`,
     );
-  }
+  });
 
-  const intermediateBulkQty = 50;
-  const intermediateBulkPrice = 980;
-  const intermediateUnitPrice = intermediateBulkPrice / intermediateBulkQty;
-  const intermediateId = Number(
-    insertMaterial.run(
-      'Chocolate Syrup Base',
-      'INT-001',
-      'Intermediate blend for toppings and fillings',
-      'intermediate',
-      'Intermediate',
-      'kg',
-      intermediateBulkQty,
-      intermediateBulkPrice,
-      1,
-      intermediateBulkPrice,
-      intermediateBulkPrice,
-      intermediateUnitPrice,
-      5,
-      8,
-      'yield',
-      98,
-      intermediateUnitPrice,
-      'Demo Kitchen',
-      now,
-      now
-    ).lastInsertRowid
-  );
-
-  insertIntermediateBom.run(intermediateId, 2, 12, now);
-  insertIntermediateBom.run(intermediateId, 7, 6, now);
-  insertIntermediateBom.run(intermediateId, 5, 4, now);
-
-  const productRows = [
-    ['Classic Bread', 'PRD-001', 'Soft sandwich bread', 'Bakery', 24, 22, 6, 'single', 1, 23.5],
-    ['Milk Bread', 'PRD-002', 'Enriched milk bread', 'Bakery', 26, 24, 7, 'single', 1, 26.8],
-    ['Chocolate Muffin', 'PRD-003', 'Muffin with cocoa', 'Bakery', 28, 27, 8, 'batch', 24, 18.5],
-    ['Vanilla Muffin', 'PRD-004', 'Muffin with vanilla', 'Bakery', 27, 25, 8, 'batch', 24, 17.9],
-    ['Tomato Sauce 500ml', 'PRD-005', 'Cooking sauce', 'Sauces', 22, 20, 10, 'batch', 50, 15.4],
-    ['Spice Mix Paste', 'PRD-006', 'Ready spice paste', 'Sauces', 21, 21, 9, 'batch', 40, 14.9],
-    ['Palm Oil 500ml', 'PRD-007', 'Fortified palm oil bottle', 'Oils', 18, 18, 9, 'batch', 35, 21.2],
-    ['Pure Honey 250g Jar', 'PRD-008', 'Premium honey jar', 'Confectionery', 18, 19, 8, 'batch', 35, 22.1],
-    ['White Rice 1kg Sachet', 'PRD-009', 'Retail rice pack', 'Dry Mixes', 25, 26, 7, 'batch', 20, 28.7],
-    ['Peanut Butter 250g Jar', 'PRD-010', 'Smooth peanut butter jar', 'Confectionery', 25, 24, 7, 'batch', 20, 26.3],
-    ['Choco Topping', 'PRD-011', 'Topping using intermediate syrup', 'Confectionery', 30, 30, 6, 'batch', 30, 31.5],
-    ['Deluxe Choco Spread', 'PRD-012', 'Premium spread', 'Confectionery', 32, 33, 6, 'batch', 20, 36.4],
-  ] as const;
-
-  const productIds: number[] = [];
-  const insertedProducts: Array<{ id: number; name: string; approvedPrice: number }> = [];
-  for (const [name, sku, description, category, overhead, margin, otherCosts, productionMode, batchYield, approvedPrice] of productRows) {
-    const result = insertProduct.run(
-      name,
-      sku,
-      description,
-      category,
-      overhead,
-      margin,
-      otherCosts,
-      productionMode,
-      batchYield,
-      approvedPrice,
-      'approved',
-      approvedPrice,
-      'demo-admin',
-      now,
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      now,
-      now
-    );
-    const productId = Number(result.lastInsertRowid);
-    productIds.push(productId);
-    insertedProducts.push({
-      id: productId,
-      name,
-      approvedPrice,
-    });
-  }
-
-  const bomMap: Array<[number, number, number]> = [
-    [productIds[0], 1, 1.2],
-    [productIds[0], 4, 0.03],
-    [productIds[1], 1, 1.1],
-    [productIds[1], 6, 0.2],
-    [productIds[2], 1, 0.9],
-    [productIds[2], 7, 0.15],
-    [productIds[3], 1, 0.9],
-    [productIds[3], 8, 0.03],
-    [productIds[4], 13, 0.5],
-    [productIds[4], 14, 0.08],
-    [productIds[5], 13, 0.4],
-    [productIds[5], 15, 0.05],
-    [productIds[6], 12, 0.7],
-    [productIds[7], 11, 0.7],
-    [productIds[8], 1, 1.2],
-    [productIds[8], 9, 0.06],
-    [productIds[9], 1, 1.1],
-    [productIds[9], 2, 0.3],
-    [productIds[10], intermediateId, 0.4],
-    [productIds[10], 17, 1],
-    [productIds[11], intermediateId, 0.55],
-    [productIds[11], 18, 1],
-  ];
-
-  for (const [productId, materialId, quantity] of bomMap) {
-    insertBom.run(productId, materialId, quantity, now);
-  }
-
-  const priceLevelRows = [
-    ['Retail', 1, 'discount', 0, 'Standard retail pricing'],
-    ['Wholesale', 0.88, 'discount', 12, 'Wholesale discount profile'],
-    ['Export', 0.82, 'discount', 18, 'Export discount profile'],
-    ['Distributor', 0.92, 'discount', 8, 'Distributor discount profile'],
-    ['Accra Supermart Ltd', 1, 'discount', 0, 'Customer-specific negotiated level'],
-  ] as const;
-
-  const priceLevelIdByName = new Map<string, number>();
-  for (const [name, multiplier, adjustmentType, adjustmentPercentage, description] of priceLevelRows) {
-    const result = insertPriceLevel.run(name, multiplier, adjustmentType, adjustmentPercentage, description, now, now);
-    priceLevelIdByName.set(name, Number(result.lastInsertRowid));
-  }
-
-  const customerRows = [
-    ['Accra Supermart Ltd', 'Accra Supermart Ltd'],
-    ['West Coast Distributors', 'Wholesale'],
-    ['Golden Gate Exports Ltd', 'Export'],
-    ['Fresh & Fast Stores', 'Retail'],
-    ['Northern Supply Co.', 'Distributor'],
-    ['Sunshine Retailers', 'Retail'],
-  ] as const;
-
-  const customerIds: number[] = [];
-  for (const [name, priceLevelName] of customerRows) {
-    const priceLevelId = priceLevelIdByName.get(priceLevelName);
-    if (!priceLevelId) {
-      throw new Error(`Missing seeded price level: ${priceLevelName}`);
-    }
-    const result = insertCustomer.run(name, priceLevelId, now, now);
-    customerIds.push(Number(result.lastInsertRowid));
-  }
-
-  const ruleLevelAdjustments = [
-    ['Retail', 0],
-    ['Wholesale', 12],
-    ['Export', 18],
-    ['Distributor', 8],
-  ] as const;
-
-  for (const [levelName, adjustmentPercentage] of ruleLevelAdjustments) {
-    const levelId = priceLevelIdByName.get(levelName);
-    if (!levelId) {
-      throw new Error(`Missing rule level: ${levelName}`);
-    }
-
-    for (const product of insertedProducts) {
-      insertPriceLevelItem.run(
-        levelId,
-        product.id,
-        'rule_discount',
-        adjustmentPercentage,
-        null,
-        'approved',
-        'Admin',
-        now,
-        'Seeded level rule',
-        now,
-        now
-      );
-    }
-  }
-
-  const accraLevelId = priceLevelIdByName.get('Accra Supermart Ltd');
-  if (!accraLevelId) {
-    throw new Error('Missing price level: Accra Supermart Ltd');
-  }
-
-  const palmOil500 = insertedProducts.find((product) => product.name === 'Palm Oil 500ml');
-  if (palmOil500 && palmOil500.approvedPrice) {
-    insertPriceLevelItem.run(accraLevelId, palmOil500.id, 'custom_price', null, Number((palmOil500.approvedPrice * 0.92).toFixed(2)), 'approved', 'Admin', now, 'Negotiated account price', now, now);
-  }
-
-  const pureHoney250 = insertedProducts.find((product) => product.name === 'Pure Honey 250g Jar');
-  if (pureHoney250 && pureHoney250.approvedPrice) {
-    insertPriceLevelItem.run(accraLevelId, pureHoney250.id, 'custom_price', null, Number((pureHoney250.approvedPrice * 0.94).toFixed(2)), 'approved', 'Admin', now, 'Preferred customer discount', now, now);
-  }
-
-  const whiteRice1kg = insertedProducts.find((product) => product.name === 'White Rice 1kg Sachet');
-  if (whiteRice1kg && whiteRice1kg.approvedPrice) {
-    insertPriceLevelItem.run(accraLevelId, whiteRice1kg.id, 'rule_discount', 10, null, 'approved', 'Admin', now, 'Contractual rice discount', now, now);
-  }
-
-  const peanutButter250 = insertedProducts.find((product) => product.name === 'Peanut Butter 250g Jar');
-  if (peanutButter250 && peanutButter250.approvedPrice) {
-    insertPriceLevelItem.run(accraLevelId, peanutButter250.id, 'custom_price', null, Number((peanutButter250.approvedPrice * 0.90).toFixed(2)), 'approved', 'Admin', now, 'Quarterly promo support', now, now);
-  }
-
-  const validFrom = now;
-  const validUntil = now + 90 * 24 * 60 * 60;
-
-  const wholesaleLevelId = priceLevelIdByName.get('Wholesale');
-  const retailLevelId = priceLevelIdByName.get('Retail');
-  const exportLevelId = priceLevelIdByName.get('Export');
-  if (!wholesaleLevelId || !retailLevelId || !exportLevelId) {
-    throw new Error('Missing price levels for seeded price lists');
-  }
-
-  const wholesaleListId = Number(insertPriceList.run('Q3 Wholesale 2026', null, wholesaleLevelId, validFrom, validUntil, 'active', 'demo-admin', now, now).lastInsertRowid);
-  const retailListId = Number(insertPriceList.run('Q3 Retail 2026', null, retailLevelId, validFrom, validUntil, 'active', 'demo-admin', now, now).lastInsertRowid);
-  const exportListId = Number(insertPriceList.run('Q3 Export 2026', null, exportLevelId, validFrom, validUntil, 'active', 'demo-admin', now, now).lastInsertRowid);
-
-  for (const productId of productIds) {
-    const basePrice = productRows[productIds.indexOf(productId)][9];
-    insertPriceListItem.run(wholesaleListId, productId, basePrice, 12, Number((basePrice * 0.88).toFixed(2)), 'rule', 'Auto discount', now);
-    insertPriceListItem.run(retailListId, productId, basePrice, 0, basePrice, 'base', 'Standard retail', now);
-    insertPriceListItem.run(exportListId, productId, basePrice, 18, Number((basePrice * 0.82).toFixed(2)), 'rule', 'Export discount', now);
-  }
-
-  const palmOilMaterialId = 12;
-  const sugarMaterialId = 2;
-  const palmOil500Product = insertedProducts.find((product) => product.name === 'Palm Oil 500ml');
-  const peanutButter250Product = insertedProducts.find((product) => product.name === 'Peanut Butter 250g Jar');
-
-  const activityRows: Array<[
-    string,
-    string,
-    number | null,
-    string | null,
-    string,
-    Record<string, unknown>,
-    number,
-  ]> = [
-    ['material.cost_updated', 'material', palmOilMaterialId, 'Palm Oil', 'Admin', { oldGhsPrice: 18.2, newGhsPrice: 19.0 }, now - (9 * 24 * 60 * 60)],
-    ['material.cost_updated', 'material', sugarMaterialId, 'Sugar', 'Admin', { oldGhsPrice: 10.4, newGhsPrice: 11.0 }, now - (8 * 24 * 60 * 60)],
-    ['product.needs_review', 'product', palmOil500Product?.id ?? null, palmOil500Product?.name ?? 'Palm Oil 500ml', 'Admin', { reason: 'Material costs increased' }, now - (7 * 24 * 60 * 60)],
-    ['product.approved', 'product', palmOil500Product?.id ?? null, palmOil500Product?.name ?? 'Palm Oil 500ml', 'Admin', { oldPrice: 20.9, newPrice: 21.2, margin: 18.0, productionCost: 17.38 }, now - (6 * 24 * 60 * 60)],
-    ['product.approved', 'product', peanutButter250Product?.id ?? null, peanutButter250Product?.name ?? 'Peanut Butter 250g Jar', 'Admin', { oldPrice: null, newPrice: 24.50, margin: 29.8, productionCost: 17.20 }, now - (60 * 24 * 60 * 60)],
-    ['product.approved', 'product', peanutButter250Product?.id ?? null, peanutButter250Product?.name ?? 'Peanut Butter 250g Jar', 'Admin', { oldPrice: 24.50, newPrice: 26.80, margin: 29.5, productionCost: 18.90 }, now - (30 * 24 * 60 * 60)],
-    ['product.approved', 'product', peanutButter250Product?.id ?? null, peanutButter250Product?.name ?? 'Peanut Butter 250g Jar', 'Admin', { oldPrice: 25.6, newPrice: 26.3, margin: 24.0, productionCost: 20.0 }, now - (5 * 24 * 60 * 60)],
-    ['price_level_item.approved', 'price_level_item', peanutButter250Product?.id ?? null, peanutButter250Product?.name ?? 'Peanut Butter 250g Jar', 'Admin', { levelName: 'Wholesale', productName: peanutButter250Product?.name ?? 'Peanut Butter 250g Jar', overrideType: 'rule_discount', value: 12, finalPrice: 23.14 }, now - (4 * 24 * 60 * 60)],
-    ['price_level_item.rejected', 'price_level_item', palmOil500Product?.id ?? null, palmOil500Product?.name ?? 'Palm Oil 500ml', 'Admin', { levelName: 'Wholesale', productName: palmOil500Product?.name ?? 'Palm Oil 500ml', reason: 'Margin below target' }, now - (3 * 24 * 60 * 60)],
-    ['price_level_item.bulk_approved', 'price_level_item', wholesaleLevelId, 'Wholesale', 'Admin', { levelName: 'Wholesale', count: 8 }, now - (2 * 24 * 60 * 60)],
-    ['price_level.created', 'price_level', accraLevelId, 'Accra Supermart Ltd', 'Admin', { levelName: 'Accra Supermart Ltd' }, now - (36 * 60 * 60)],
-    ['exchange_rate.updated', 'exchange_rate', 2, 'USD', 'Admin', { currencyCode: 'USD', oldRate: 13.9, newRate: 14.25, productsAffected: 6 }, now - (12 * 60 * 60)],
-  ];
-
-  for (const [action, entityType, entityId, entityName, performedBy, details, createdAt] of activityRows) {
-    insertActivity.run(action, entityType, entityId, entityName, performedBy, JSON.stringify(details), createdAt);
-  }
-});
-
-txn();
-
-const counts = {
-  currencies: db.prepare('SELECT COUNT(*) AS count FROM currencies').get() as { count: number },
-  materials: db.prepare('SELECT COUNT(*) AS count FROM materials').get() as { count: number },
-  products: db.prepare('SELECT COUNT(*) AS count FROM products').get() as { count: number },
-  price_levels: db.prepare('SELECT COUNT(*) AS count FROM price_levels').get() as { count: number },
-  price_level_items: db.prepare('SELECT COUNT(*) AS count FROM price_level_items').get() as { count: number },
-  customers: db.prepare('SELECT COUNT(*) AS count FROM customers').get() as { count: number },
-  special_pricing: db.prepare('SELECT COUNT(*) AS count FROM special_pricing').get() as { count: number },
-  price_lists: db.prepare('SELECT COUNT(*) AS count FROM price_lists').get() as { count: number },
-  activity_log: db.prepare('SELECT COUNT(*) AS count FROM activity_log').get() as { count: number },
-};
-
-console.log('Demo seed complete at', demoDbPath);
-console.log('currencies:', counts.currencies.count);
-console.log('materials:', counts.materials.count);
-console.log('products:', counts.products.count);
-console.log('price_levels:', counts.price_levels.count);
-console.log('price_level_items:', counts.price_level_items.count);
-console.log('customers:', counts.customers.count);
-console.log('special_pricing:', counts.special_pricing.count);
-console.log('price_lists:', counts.price_lists.count);
-console.log('activity_log:', counts.activity_log.count);
-
-db.close();
+  txn();
+  db.close();
 }
 
+// ─── Direct execution support (dev / manual reset) ──────────────────────────
 const isDirectExecution = process.argv[1]
   ? path.resolve(process.argv[1]) === __filename
   : false;
 
 if (isDirectExecution) {
-  seedDemoData({ force: true }).catch((error) => {
-    console.error('Failed to seed demo database:', error);
+  seedDemoData({ force: true }).catch((err) => {
+    console.error('[demo] Seed failed:', err);
     process.exitCode = 1;
   });
 }

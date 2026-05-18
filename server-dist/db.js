@@ -57,27 +57,7 @@ function ensureSchemaTables() {
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS currencies (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			code TEXT NOT NULL UNIQUE,
-			name TEXT NOT NULL,
-			symbol TEXT NOT NULL,
-			is_active INTEGER NOT NULL DEFAULT 1,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS exchange_rates (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			currency_id INTEGER NOT NULL REFERENCES currencies(id) ON DELETE CASCADE,
-			rate_to_base REAL NOT NULL,
-			effective_date INTEGER NOT NULL DEFAULT (unixepoch()),
-			source TEXT NOT NULL DEFAULT 'manual',
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS exchange_rates (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			currency_id INTEGER NOT NULL REFERENCES currencies(id) ON DELETE CASCADE,
@@ -95,41 +75,7 @@ function ensureSchemaTables() {
 			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS settings (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			setting_key TEXT NOT NULL UNIQUE,
-			setting_value TEXT NOT NULL,
-			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS materials (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			sku TEXT,
-			description TEXT,
-			material_type TEXT NOT NULL DEFAULT 'primary',
-			category TEXT NOT NULL,
-			unit TEXT NOT NULL,
-			bulk_quantity REAL NOT NULL,
-			bulk_price REAL NOT NULL,
-			purchase_currency_id INTEGER NOT NULL REFERENCES currencies(id),
-			price_in_purchase_currency REAL NOT NULL,
-			price_in_base_currency REAL NOT NULL,
-			unit_price REAL NOT NULL,
-			overhead_percentage REAL NOT NULL DEFAULT 0,
-			margin_percentage REAL NOT NULL DEFAULT 0,
-			intermediate_cost_mode TEXT NOT NULL DEFAULT 'yield',
-			yield_percentage REAL NOT NULL DEFAULT 100,
-			calculated_cost_per_unit REAL NOT NULL DEFAULT 0,
-			supplier TEXT NOT NULL,
-			is_active INTEGER NOT NULL DEFAULT 1,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS materials (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -164,41 +110,7 @@ function ensureSchemaTables() {
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS intermediate_material_bom (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			intermediate_material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-			component_material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-			quantity REAL NOT NULL,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS products (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			sku TEXT,
-			description TEXT,
-			category TEXT,
-			overhead_percentage REAL NOT NULL,
-			profit_margin REAL NOT NULL,
-			other_direct_costs REAL NOT NULL DEFAULT 0,
-			production_mode TEXT DEFAULT 'single',
-			batch_yield INTEGER DEFAULT 1,
-			current_selling_price REAL DEFAULT 0,
-			approval_status TEXT NOT NULL DEFAULT 'pending',
-			approved_price REAL,
-			approved_by TEXT,
-			approved_at INTEGER,
-			approved_price_expires_at TEXT,
-			price_expiry_notified_at TEXT,
-			needs_review_reason TEXT,
-			is_active INTEGER NOT NULL DEFAULT 1,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS products (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT NOT NULL,
@@ -232,26 +144,7 @@ function ensureSchemaTables() {
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS bill_of_materials (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-			material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-			quantity REAL NOT NULL,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS material_price_history (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
-			purchase_currency_id INTEGER NOT NULL REFERENCES currencies(id),
-			price_in_purchase_currency REAL NOT NULL,
-			price_in_base_currency REAL NOT NULL,
-			changed_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS material_price_history (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			material_id INTEGER NOT NULL REFERENCES materials(id) ON DELETE CASCADE,
@@ -274,19 +167,6 @@ function ensureSchemaTables() {
 			updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS price_levels (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			multiplier REAL NOT NULL DEFAULT 1,
-			adjustment_type TEXT NOT NULL DEFAULT 'discount',
-			adjustment_percentage REAL NOT NULL DEFAULT 0,
-			description TEXT,
-			is_active INTEGER DEFAULT 1,
-			created_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP
-		)
-	`);
     sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS customers (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,40 +177,7 @@ function ensureSchemaTables() {
 			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS customers (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			allow_special_pricing INTEGER NOT NULL DEFAULT 0,
-			price_level_id INTEGER NOT NULL REFERENCES price_levels(id),
-			created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS special_pricing (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			customer_id INTEGER NOT NULL,
-			product_id INTEGER NOT NULL,
-			custom_price REAL NOT NULL,
-			production_cost REAL,
-			margin_impact_percentage REAL,
-			old_margin_percentage REAL,
-			override_type TEXT NOT NULL DEFAULT 'custom',
-			discount_percentage REAL,
-			markup_percentage REAL,
-			status TEXT NOT NULL DEFAULT 'pending',
-			approved_by TEXT,
-			approved_at INTEGER,
-			justification TEXT,
-			created_by TEXT,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-			UNIQUE(customer_id, product_id),
-			FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-			FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS special_pricing (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			customer_id INTEGER NOT NULL,
@@ -367,20 +214,6 @@ function ensureSchemaTables() {
 			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS price_lists (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			customer_id INTEGER REFERENCES customers(id),
-			price_level_id INTEGER NOT NULL REFERENCES price_levels(id),
-			valid_from INTEGER NOT NULL,
-			valid_until INTEGER,
-			status TEXT NOT NULL DEFAULT 'draft',
-			created_by TEXT,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-			updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS price_list_items (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -394,32 +227,7 @@ function ensureSchemaTables() {
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
-    demoSqlite.exec(`
-		CREATE TABLE IF NOT EXISTS price_list_items (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			price_list_id INTEGER NOT NULL REFERENCES price_lists(id) ON DELETE CASCADE,
-			product_id INTEGER NOT NULL REFERENCES products(id),
-			base_price REAL NOT NULL,
-			discount_percentage REAL NOT NULL DEFAULT 0,
-			final_price REAL NOT NULL,
-			price_source TEXT NOT NULL DEFAULT 'base',
-			notes TEXT,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
     sqlite.exec(`
-		CREATE TABLE IF NOT EXISTS activity_log (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			entity_type TEXT NOT NULL,
-			entity_id INTEGER,
-			entity_name TEXT,
-			action TEXT NOT NULL,
-			details TEXT,
-			performed_by TEXT,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		)
-	`);
-    demoSqlite.exec(`
 		CREATE TABLE IF NOT EXISTS activity_log (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			entity_type TEXT NOT NULL,
@@ -448,7 +256,6 @@ function ensureSchemaTables() {
 		)
 	`;
     sqlite.exec(createPriceLevelItemsSql);
-    demoSqlite.exec(createPriceLevelItemsSql);
     const createActivityLogSql = `
 		CREATE TABLE IF NOT EXISTS activity_log (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -462,7 +269,6 @@ function ensureSchemaTables() {
 		)
 	`;
     sqlite.exec(createActivityLogSql);
-    demoSqlite.exec(createActivityLogSql);
     const createMaterialPriceHistorySql = `
 		CREATE TABLE IF NOT EXISTS material_price_history (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -476,7 +282,6 @@ function ensureSchemaTables() {
 		)
 	`;
     sqlite.exec(createMaterialPriceHistorySql);
-    demoSqlite.exec(createMaterialPriceHistorySql);
     const priceListItemColumns = sqlite
         .prepare("SELECT name FROM pragma_table_info('price_list_items')")
         .all();
@@ -637,7 +442,8 @@ export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });
 // Seed demo data on startup; seedDemoData skips automatically when data already exists.
-seedDemoData().catch((err) => {
+// Pass DEMO_DATABASE_FILE_PATH so the seed writes to the same file the app reads from.
+seedDemoData({ dbPath: DEMO_DATABASE_FILE_PATH }).catch((err) => {
     console.error('[demo] Failed to seed demo data:', err);
 });
 export function getActiveDb() {

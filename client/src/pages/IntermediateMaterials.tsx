@@ -7,7 +7,7 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
-import { materialsApi, settingsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import { materialsApi, settingsApi, templateUrl, downloadTemplate, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 
@@ -1722,9 +1722,9 @@ export default function IntermediateMaterials() {
                 <div>
                   <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <a
-                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
-                      download
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                      href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
+                      onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                       Download CSV template
@@ -1820,9 +1820,9 @@ export default function IntermediateMaterials() {
                 <div>
                   <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <a
-                      href="/templates/PriceRight_Intermediates_Import_Template.csv"
-                      download
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none' }}
+                      href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
+                      onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                       Download CSV template

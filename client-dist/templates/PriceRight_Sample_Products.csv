@@ -1,65 +1,65 @@
-Product Name,Category,Production Mode,Batch Yield,Profit on Cost %,SKU,Material Name,Quantity,Unit
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,Raw Peanuts,200,Kg
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,Palm Oil (Crude),8,L
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,Salt (Iodised),1,Kg
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,Sugar (Refined),5,Kg
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,PET Jar 250g (with lid),500,Ea
-Peanut Butter 250g,Spreads,batch,500,25,PB-250,Label (Printed),500,Ea
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,Raw Peanuts,200,Kg
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,Palm Oil (Crude),8,L
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,Salt (Iodised),1,Kg
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,Sugar (Refined),5,Kg
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,PET Jar 400g (with lid),300,Ea
-Peanut Butter 400g,Spreads,batch,300,25,PB-400,Label (Printed),300,Ea
-Cocoa Powder 200g,Beverages,batch,400,22,CP-200,Cocoa Beans (Dried),80,Kg
-Cocoa Powder 200g,Beverages,batch,400,22,CP-200,Sugar (Refined),20,Kg
-Cocoa Powder 200g,Beverages,batch,400,22,CP-200,Milk Powder (Full Fat),16,Kg
-Cocoa Powder 200g,Beverages,batch,400,22,CP-200,Sachet Film 100g,400,Ea
-Cocoa Powder 200g,Beverages,batch,400,22,CP-200,Label (Printed),400,Ea
-Corn Flour 500g,Grains & Flours,batch,600,20,CF-500,Corn (Dried),300,Kg
-Corn Flour 500g,Grains & Flours,batch,600,20,CF-500,Packaging Film (Roll),6,m
-Corn Flour 500g,Grains & Flours,batch,600,20,CF-500,Label (Printed),600,Ea
-Corn Flour 500g,Grains & Flours,batch,600,20,CF-500,Water (Treated),20,L
-Gari 1kg,Cassava Products,batch,400,20,GA-1KG,Cassava (Dried Chips),480,Kg
-Gari 1kg,Cassava Products,batch,400,20,GA-1KG,Salt (Iodised),2,Kg
-Gari 1kg,Cassava Products,batch,400,20,GA-1KG,Packaging Film (Roll),8,m
-Gari 1kg,Cassava Products,batch,400,20,GA-1KG,Label (Printed),400,Ea
-Cassava Flour 500g,Cassava Products,batch,500,20,CASSF-500,Cassava (Dried Chips),260,Kg
-Cassava Flour 500g,Cassava Products,batch,500,20,CASSF-500,Packaging Film (Roll),5,m
-Cassava Flour 500g,Cassava Products,batch,500,20,CASSF-500,Label (Printed),500,Ea
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Pepper (Ground Chilli),30,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Tomato Paste (Concentrate),24,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Onion Powder,6,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Garlic Powder,3,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Citric Acid,1,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Sodium Benzoate,0.5,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Vegetable Oil (Refined),12,L
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Salt (Iodised),2,Kg
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,PET Jar 250g (with lid),600,Ea
-Pepper Sauce 200ml,Condiments,batch,600,28,PS-200,Label (Printed),600,Ea
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Tomato Paste (Concentrate),160,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Onion Powder,8,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Pepper (Ground Chilli),4,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Garlic Powder,4,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Salt (Iodised),2,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Citric Acid,0.8,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Sodium Benzoate,0.4,Kg
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,PET Jar 400g (with lid),400,Ea
-Tomato Mix 400g,Condiments,batch,400,25,TM-400,Label (Printed),400,Ea
-Rice Flour 500g,Grains & Flours,batch,500,20,RF-500,Rice (Local Milled),260,Kg
-Rice Flour 500g,Grains & Flours,batch,500,20,RF-500,Packaging Film (Roll),5,m
-Rice Flour 500g,Grains & Flours,batch,500,20,RF-500,Label (Printed),500,Ea
-Rice Flour 500g,Grains & Flours,batch,500,20,RF-500,Water (Treated),15,L
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Pepper (Ground Chilli),20,Kg
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Ginger (Ground),15,Kg
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Garlic Powder,10,Kg
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Onion Powder,10,Kg
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Salt (Iodised),5,Kg
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Sachet Film 100g,800,Ea
-Blended Spice Mix 100g,Seasonings,batch,800,30,BSM-100,Label (Printed),800,Ea
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Wheat Flour,200,Kg
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Sugar (Refined),10,Kg
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Salt (Iodised),2,Kg
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Milk Powder (Full Fat),8,Kg
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Packaging Film (Roll),4,m
-Wheat Bread Mix 500g,Baking,batch,400,22,WBM-500,Label (Printed),400,Ea
+Product Name,Category,Production Mode,Batch Yield,Overhead %,Profit on Cost %,SKU,Material Name,Quantity,Unit
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Raw Peanuts,200,Kg
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Palm Oil (Crude),8,L
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Salt (Iodised),1,Kg
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Sugar (Refined),5,Kg
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,PET Jar 250g (with lid),500,Ea
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Label (Printed),500,Ea
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Raw Peanuts,200,Kg
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Palm Oil (Crude),8,L
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Salt (Iodised),1,Kg
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Sugar (Refined),5,Kg
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,PET Jar 400g (with lid),300,Ea
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Label (Printed),300,Ea
+Cocoa Powder 200g,Beverages,batch,400,20,22,CP-200,Cocoa Beans (Dried),80,Kg
+Cocoa Powder 200g,Beverages,batch,400,20,22,CP-200,Sugar (Refined),20,Kg
+Cocoa Powder 200g,Beverages,batch,400,20,22,CP-200,Milk Powder (Full Fat),16,Kg
+Cocoa Powder 200g,Beverages,batch,400,20,22,CP-200,Sachet Film 100g,400,Ea
+Cocoa Powder 200g,Beverages,batch,400,20,22,CP-200,Label (Printed),400,Ea
+Corn Flour 500g,Grains & Flours,batch,600,20,20,CF-500,Corn (Dried),300,Kg
+Corn Flour 500g,Grains & Flours,batch,600,20,20,CF-500,Packaging Film (Roll),6,m
+Corn Flour 500g,Grains & Flours,batch,600,20,20,CF-500,Label (Printed),600,Ea
+Corn Flour 500g,Grains & Flours,batch,600,20,20,CF-500,Water (Treated),20,L
+Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Cassava (Dried Chips),480,Kg
+Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Salt (Iodised),2,Kg
+Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Packaging Film (Roll),8,m
+Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Label (Printed),400,Ea
+Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Cassava (Dried Chips),260,Kg
+Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Packaging Film (Roll),5,m
+Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Label (Printed),500,Ea
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Pepper (Ground Chilli),30,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Tomato Paste (Concentrate),24,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Onion Powder,6,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Garlic Powder,3,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Citric Acid,1,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Sodium Benzoate,0.5,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Vegetable Oil (Refined),12,L
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Salt (Iodised),2,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,PET Jar 250g (with lid),600,Ea
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Label (Printed),600,Ea
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Tomato Paste (Concentrate),160,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Onion Powder,8,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Pepper (Ground Chilli),4,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Garlic Powder,4,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Salt (Iodised),2,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Citric Acid,0.8,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Sodium Benzoate,0.4,Kg
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,PET Jar 400g (with lid),400,Ea
+Tomato Mix 400g,Condiments,batch,400,20,25,TM-400,Label (Printed),400,Ea
+Rice Flour 500g,Grains & Flours,batch,500,20,20,RF-500,Rice (Local Milled),260,Kg
+Rice Flour 500g,Grains & Flours,batch,500,20,20,RF-500,Packaging Film (Roll),5,m
+Rice Flour 500g,Grains & Flours,batch,500,20,20,RF-500,Label (Printed),500,Ea
+Rice Flour 500g,Grains & Flours,batch,500,20,20,RF-500,Water (Treated),15,L
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Pepper (Ground Chilli),20,Kg
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Ginger (Ground),15,Kg
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Garlic Powder,10,Kg
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Onion Powder,10,Kg
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Salt (Iodised),5,Kg
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Sachet Film 100g,800,Ea
+Blended Spice Mix 100g,Seasonings,batch,800,20,30,BSM-100,Label (Printed),800,Ea
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Wheat Flour,200,Kg
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Sugar (Refined),10,Kg
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Salt (Iodised),2,Kg
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Milk Powder (Full Fat),8,Kg
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Packaging Film (Roll),4,m
+Wheat Bread Mix 500g,Baking,batch,400,20,22,WBM-500,Label (Printed),400,Ea

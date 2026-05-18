@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getActiveDb, liveDb, DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
+import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -462,7 +462,7 @@ app.post('/api/demo/reset', async (_req, res) => {
       return res.status(400).json({ error: 'Demo reset is only available when demo mode is enabled' });
     }
 
-    await seedDemoData({ force: true });
+    await seedDemoData({ force: true, dbPath: DEMO_DATABASE_FILE_PATH });
     return res.json({ success: true });
   } catch (error) {
     console.error('Error resetting demo data:', error);
@@ -1525,6 +1525,8 @@ app.post('/api/materials/import', async (req, res) => {
 });
 
 // Intermediate Materials Import Endpoint
+// Supports grouped BOM rows: one row per component, repeat intermediate fields on each row.
+// Old single-row format (Intermediate Name, Category, Unit, Notes) is also accepted.
 app.post('/api/intermediate-materials/import', async (req, res) => {
   try {
     const payload = req.body as { materials?: Array<Record<string, unknown>> };
@@ -1534,106 +1536,169 @@ app.post('/api/intermediate-materials/import', async (req, res) => {
       return res.status(400).json({ error: 'Request body must include a materials array' });
     }
 
-    // Get existing intermediate materials by name (case-insensitive)
-    const existingIntermediates = await db
-      .select({
-        id: materials.id,
-        name: materials.name,
-      })
-      .from(materials)
-      .where(eq(materials.materialType, 'intermediate'));
-
-    const existingMaterialByName = new Map(
-      existingIntermediates.map((material) => [String(material.name || '').trim().toLowerCase(), material]),
-    );
-
-    // Get the base currency ID for default value
+    // Get base currency
     const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
     const baseCurrencyCode = (baseCurrencySetting[0]?.settingValue || 'GHS').trim().toUpperCase();
     const allCurrencies = await db.select({ id: currencies.id, code: currencies.code }).from(currencies);
     const baseCurrency = allCurrencies.find((c) => c.code === baseCurrencyCode);
     const defaultCurrencyId = baseCurrency?.id || 1;
 
-    const normalizeString = (value: unknown) => String(value ?? '').trim();
+    // Get existing intermediate materials by name (case-insensitive) for duplicate check
+    const existingIntermediates = await db
+      .select({ id: materials.id, name: materials.name })
+      .from(materials)
+      .where(eq(materials.materialType, 'intermediate'));
+
+    const existingByName = new Map(
+      existingIntermediates.map((m) => [String(m.name || '').trim().toLowerCase(), m]),
+    );
+
+    // Read all raw materials (for BOM component validation)
+    const allRawMaterials = await db
+      .select({ id: materials.id, name: materials.name })
+      .from(materials)
+      .where(eq(materials.materialType, 'raw'));
+
+    const rawMaterialByName = new Map(
+      allRawMaterials.map((m) => [String(m.name || '').trim().toLowerCase(), m]),
+    );
+
+    const getField = (row: Record<string, unknown>, keys: string[]): string => {
+      for (const k of keys) {
+        const v = row[k];
+        if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+      }
+      return '';
+    };
+
+    // Group rows by intermediate name (preserving order)
+    const groups = new Map<string, Array<{ row: Record<string, unknown>; rowNumber: number }>>();
+    for (let i = 0; i < rows.length; i++) {
+      const raw = rows[i] || {};
+      const rawName = getField(raw, ['Intermediate Name', 'name']);
+      if (!rawName) continue;
+      const key = rawName.trim();
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push({ row: raw, rowNumber: i + 1 });
+    }
 
     const errors: Array<{ row: number; name: string; reason: string }> = [];
     let imported = 0;
     let skipped = 0;
 
-    for (let index = 0; index < rows.length; index += 1) {
-      const row = rows[index] || {};
-      const rowNumber = index + 1;
+    for (const [intermediateName, entries] of groups.entries()) {
+      const first = entries[0].row;
+      const firstRowNumber = entries[0].rowNumber;
 
-      const name = normalizeString(row['Intermediate Name'] || row.name || '');
-      const category = normalizeString(row.Category || row.category || '');
-      const unit = normalizeString(row.Unit || row.unit || 'Kg');
-      const notes = normalizeString(row.Notes || row.notes || '');
+      // Read intermediate-level fields from the first row of the group
+      const category = getField(first, ['Category', 'category']);
+      const unit = getField(first, ['Unit', 'unit']) || 'Kg';
+      const notes = getField(first, ['Notes', 'Description', 'notes', 'description']);
+      const overheadPct = parseFloat(getField(first, ['Overhead %', 'Overhead', 'overhead']) || '0');
+      const yieldPct = parseFloat(getField(first, ['Yield %', 'Yield', 'yield']) || '100');
+      const marginPct = parseFloat(getField(first, ['Margin %', 'Margin', 'margin']) || '0');
+      const bulkQty = parseFloat(getField(first, ['Bulk Quantity', 'Batch Size', 'bulkQuantity']) || '1');
 
-      // Skip empty rows
-      if (!name) {
+      // Duplicate check
+      if (existingByName.has(intermediateName.toLowerCase())) {
+        errors.push({ row: firstRowNumber, name: intermediateName, reason: 'Intermediate material with this name already exists' });
+        skipped += 1;
         continue;
       }
 
-      // Check for duplicates
-      const normalizedName = name.toLowerCase();
-      if (existingMaterialByName.has(normalizedName)) {
-        errors.push({
-          row: rowNumber,
-          name,
-          reason: 'Intermediate material with this name already exists',
-        });
+      // Validate numeric fields
+      if (isNaN(overheadPct) || overheadPct < 0) {
+        errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Overhead %: "${getField(first, ['Overhead %'])}"` });
+        skipped += 1;
+        continue;
+      }
+      if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) {
+        errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Yield % (must be 1–100): "${getField(first, ['Yield %'])}"` });
+        skipped += 1;
+        continue;
+      }
+      if (isNaN(bulkQty) || bulkQty <= 0) {
+        errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Bulk Quantity: "${getField(first, ['Bulk Quantity'])}"` });
+        skipped += 1;
+        continue;
+      }
+
+      // Collect and validate BOM rows
+      const validatedBom: Array<{ materialId: number; quantity: number }> = [];
+      let bomFailed = false;
+
+      for (const entry of entries) {
+        const componentName = getField(entry.row, ['Component Name', 'Component', 'Material Name', 'componentName']);
+        if (!componentName) continue; // rows without a component name are just header-repeats
+
+        const qtyStr = getField(entry.row, ['Component Quantity', 'Quantity', 'quantity', 'componentQuantity']);
+        const qty = parseFloat(qtyStr || '0');
+
+        if (isNaN(qty) || qty <= 0) {
+          errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Invalid Component Quantity for "${componentName}": "${qtyStr}"` });
+          bomFailed = true;
+          break;
+        }
+
+        const foundMat = rawMaterialByName.get(componentName.toLowerCase());
+        if (!foundMat) {
+          errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Component material "${componentName}" not found — import raw materials first` });
+          bomFailed = true;
+          break;
+        }
+
+        validatedBom.push({ materialId: foundMat.id, quantity: qty });
+      }
+
+      if (bomFailed) {
         skipped += 1;
         continue;
       }
 
       try {
-        // Insert new intermediate material
         const created = await getActiveDb()
           .insert(materials)
           .values({
-            name,
+            name: intermediateName,
             sku: null,
             description: notes || null,
             materialType: 'intermediate',
             category: category || '',
-            unit: unit || 'Kg',
-            bulkQuantity: 1,
+            unit,
+            bulkQuantity: bulkQty,
             bulkPrice: 0,
             purchaseCurrencyId: defaultCurrencyId,
             priceInPurchaseCurrency: 0,
             priceInBaseCurrency: 0,
             unitPrice: 0,
-            overheadPercentage: 0,
-            marginPercentage: 0,
-            yieldPercentage: 100,
+            overheadPercentage: overheadPct,
+            marginPercentage: marginPct,
+            yieldPercentage: yieldPct,
             calculatedCostPerUnit: 0,
             supplier: '',
             isActive: true,
           })
           .returning();
 
-        // Add to map to prevent duplicates in this batch
-        existingMaterialByName.set(normalizedName, {
-          id: created[0].id,
-          name,
-        });
+        const intermediateId = created[0].id;
+        existingByName.set(intermediateName.toLowerCase(), { id: intermediateId, name: intermediateName });
+
+        for (const bom of validatedBom) {
+          await getActiveDb().insert(intermediateMaterialBom).values({
+            intermediateMaterialId: intermediateId,
+            componentMaterialId: bom.materialId,
+            quantity: bom.quantity,
+          });
+        }
 
         imported += 1;
       } catch (error: any) {
-        errors.push({
-          row: rowNumber,
-          name,
-          reason: error?.message || 'Failed to import row',
-        });
+        errors.push({ row: firstRowNumber, name: intermediateName, reason: error?.message || 'Failed to create intermediate material' });
         skipped += 1;
       }
     }
 
-    return res.json({
-      imported,
-      skipped,
-      errors,
-    });
+    return res.json({ imported, skipped, errors });
   } catch (error) {
     console.error('Error importing intermediate materials:', error);
     return res.status(500).json({ error: 'Failed to import intermediate materials' });
@@ -3585,364 +3650,6 @@ app.get('/api/activity', async (req, res) => {
   }
 });
 
-app.get('/api/customers', async (req, res) => {
-  try {
-    const allCustomers = await db
-      .select({
-        id: customers.id,
-        name: customers.name,
-        priceLevelId: customers.priceLevelId,
-        priceLevelName: priceLevels.name,
-        createdAt: customers.createdAt,
-        updatedAt: customers.updatedAt,
-      })
-      .from(customers)
-      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id));
-
-    res.json(allCustomers);
-  } catch (error) {
-    console.error('Error fetching customers:', error);
-    res.status(500).json({ error: 'Failed to fetch customers' });
-  }
-});
-
-
-app.post('/api/customers', async (req, res) => {
-  try {
-    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-    const priceLevelId = Number(req.body?.priceLevelId);
-    const allowSpecialPricing = req.body?.allowSpecialPricing === true;
-
-    if (!name || !Number.isInteger(priceLevelId)) {
-      return res.status(400).json({ error: 'name and priceLevelId are required' });
-    }
-
-    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
-    if (levelRows.length === 0) {
-      return res.status(400).json({ error: 'Invalid priceLevelId' });
-    }
-
-    const inserted = await getActiveDb().insert(customers).values({
-      name,
-      priceLevelId,
-      allowSpecialPricing,
-    }).returning();
-
-    const created = await db
-      .select({
-        id: customers.id,
-        name: customers.name,
-        priceLevelId: customers.priceLevelId,
-        priceLevelName: priceLevels.name,
-        allowSpecialPricing: customers.allowSpecialPricing,
-        createdAt: customers.createdAt,
-        updatedAt: customers.updatedAt,
-      })
-      .from(customers)
-      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id))
-      .where(eq(customers.id, inserted[0].id));
-
-    res.status(201).json(created[0]);
-  } catch (error) {
-    console.error('Error creating customer:', error);
-    res.status(500).json({ error: 'Failed to create customer' });
-  }
-});
-
-app.put('/api/customers/:id', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
-    const priceLevelId = Number(req.body?.priceLevelId);
-    const allowSpecialPricing = req.body?.allowSpecialPricing === true;
-
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    if (!name || !Number.isInteger(priceLevelId)) {
-      return res.status(400).json({ error: 'name and priceLevelId are required' });
-    }
-
-    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
-    if (levelRows.length === 0) {
-      return res.status(400).json({ error: 'Invalid priceLevelId' });
-    }
-
-    const existing = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
-    if (existing.length === 0) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    await getActiveDb().update(customers).set({
-      name,
-      priceLevelId,
-      allowSpecialPricing,
-      updatedAt: new Date(),
-    }).where(eq(customers.id, customerId));
-
-    const updated = await db
-      .select({
-        id: customers.id,
-        name: customers.name,
-        priceLevelId: customers.priceLevelId,
-        priceLevelName: priceLevels.name,
-        allowSpecialPricing: customers.allowSpecialPricing,
-        createdAt: customers.createdAt,
-        updatedAt: customers.updatedAt,
-      })
-      .from(customers)
-      .leftJoin(priceLevels, eq(customers.priceLevelId, priceLevels.id))
-      .where(eq(customers.id, customerId));
-
-    res.json(updated[0]);
-  } catch (error) {
-    console.error('Error updating customer:', error);
-    res.status(500).json({ error: 'Failed to update customer' });
-  }
-});
-
-app.delete('/api/customers/:id', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    await getActiveDb().delete(specialPricing).where(eq(specialPricing.customerId, customerId));
-    await getActiveDb().delete(priceLists).where(eq(priceLists.customerId, customerId));
-    await getActiveDb().delete(customers).where(eq(customers.id, customerId));
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error deleting customer:', error);
-    res.status(500).json({ error: 'Failed to delete customer' });
-  }
-});
-
-function parseSpecialPricingOverrideType(value: unknown): 'custom' | 'discount' | 'markup' {
-  const normalized = String(value || 'custom').trim().toLowerCase();
-  if (normalized === 'discount' || normalized === 'markup' || normalized === 'custom') {
-    return normalized;
-  }
-  return 'custom';
-}
-
-async function buildSpecialPricingResponse(row: typeof specialPricing.$inferSelect) {
-  const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, row.customerId));
-  const productRows = await getActiveDb().select().from(products).where(eq(products.id, row.productId));
-  const productRow = productRows[0];
-  const productionCost = productRow ? await calculateProductionCostForProduct(productRow, row.productId) : 0;
-  const customPrice = Number(row.customPrice);
-  const marginImpactPercentage = customPrice > 0 ? ((customPrice - productionCost) / customPrice) * 100 : null;
-
-  return {
-    id: row.id,
-    customerId: row.customerId,
-    customerName: customerRows[0]?.name || null,
-    productId: row.productId,
-    productName: productRow?.name || null,
-    customPrice: roundToFour(customPrice),
-    productionCost: roundToFour(productionCost),
-    marginImpactPercentage: marginImpactPercentage == null ? null : roundToFour(marginImpactPercentage),
-    overrideType: parseSpecialPricingOverrideType(row.overrideType),
-    discountPercentage: row.discountPercentage == null ? null : Number(row.discountPercentage),
-    markupPercentage: row.markupPercentage == null ? null : Number(row.markupPercentage),
-    status: row.status,
-    approvedBy: row.approvedBy ?? null,
-    approvedAt: row.approvedAt ?? null,
-    justification: row.justification ?? null,
-    createdBy: row.createdBy ?? null,
-    createdAt: row.createdAt,
-  };
-}
-
-app.get('/api/customers/:id/custom-prices', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    if (!Number.isInteger(customerId)) {
-      return res.status(400).json({ error: 'Invalid customer id' });
-    }
-
-    const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
-    if (customerRows.length === 0) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    const rows = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.customerId, customerId));
-    const response = await Promise.all(rows.map((row) => buildSpecialPricingResponse(row)));
-    res.json(response);
-  } catch (error) {
-    console.error('Error fetching customer special prices:', error);
-    res.status(500).json({ error: 'Failed to fetch customer special prices' });
-  }
-});
-
-async function saveCustomerSpecialPricing(req: any, res: any) {
-  const customerId = parseInt(req.params.id);
-  if (!Number.isInteger(customerId)) {
-    return res.status(400).json({ error: 'Invalid customer id' });
-  }
-
-  const customerRows = await getActiveDb().select().from(customers).where(eq(customers.id, customerId));
-  if (customerRows.length === 0) {
-    return res.status(404).json({ error: 'Customer not found' });
-  }
-
-  if (!customerRows[0].allowSpecialPricing) {
-    return res.status(400).json({ error: 'Customer does not allow special pricing' });
-  }
-
-  const productId = Number(req.body?.productId);
-  const customPrice = Number(req.body?.customPrice);
-  const overrideType = parseSpecialPricingOverrideType(req.body?.overrideType);
-  const justification = typeof req.body?.justification === 'string' && req.body.justification.trim().length > 0
-    ? req.body.justification.trim()
-    : null;
-  const discountPercentage = toOptionalNumber(req.body?.discountPercentage);
-  const markupPercentage = toOptionalNumber(req.body?.markupPercentage);
-
-  if (!Number.isInteger(productId) || !Number.isFinite(customPrice) || customPrice <= 0) {
-    return res.status(400).json({ error: 'productId and customPrice are required' });
-  }
-
-  const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-  if (productRows.length === 0) {
-    return res.status(404).json({ error: 'Product not found' });
-  }
-
-  const product = productRows[0];
-  if (product.approvalStatus !== 'approved' || product.approvedPrice == null) {
-    return res.status(400).json({ error: 'Product must be approved before adding special pricing' });
-  }
-
-  const productionCost = await calculateProductionCostForProduct(product, productId);
-  if (customPrice <= productionCost) {
-    return res.status(400).json({
-      error: 'customPrice must be above production cost',
-      code: 'PRICE_BELOW_COST',
-      details: {
-        productionCost: roundToTwo(productionCost),
-        proposedPrice: roundToTwo(customPrice),
-      },
-    });
-  }
-
-  const existingRows = await getActiveDb()
-    .select()
-    .from(specialPricing)
-    .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-  const values = {
-    customPrice: roundToFour(customPrice),
-    productionCost: roundToFour(productionCost),
-    marginImpactPercentage: roundToFour(((customPrice - productionCost) / customPrice) * 100),
-    overrideType,
-    discountPercentage,
-    markupPercentage,
-    status: 'pending' as const,
-    approvedBy: null as string | null,
-    approvedAt: null as Date | null,
-    justification,
-    createdBy: await getCurrentUserName(),
-  };
-
-  if (existingRows.length > 0) {
-    await getActiveDb().update(specialPricing).set({
-      ...values,
-    }).where(eq(specialPricing.id, existingRows[0].id));
-    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
-    return res.status(200).json(await buildSpecialPricingResponse(updated[0]));
-  }
-
-  const inserted = await getActiveDb().insert(specialPricing).values({
-    customerId,
-    productId,
-    ...values,
-    createdAt: new Date(),
-  }).returning();
-
-  res.status(201).json(await buildSpecialPricingResponse(inserted[0]));
-}
-
-app.post('/api/customers/:id/custom-prices', saveCustomerSpecialPricing);
-app.post('/api/customers/:id/special-pricing', saveCustomerSpecialPricing);
-
-app.put('/api/customers/:id/custom-prices/:productId/approve', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const existingRows = await getActiveDb()
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    if (existingRows.length === 0) {
-      return res.status(404).json({ error: 'Special pricing not found' });
-    }
-
-    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
-      ? req.body.approvedBy.trim()
-      : 'user';
-
-    await getActiveDb().update(specialPricing).set({
-      status: 'approved',
-      approvedBy,
-      approvedAt: new Date(),
-    }).where(eq(specialPricing.id, existingRows[0].id));
-
-    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
-    res.json(await buildSpecialPricingResponse(updated[0]));
-  } catch (error) {
-    console.error('Error approving special pricing:', error);
-    res.status(500).json({ error: 'Failed to approve special pricing' });
-  }
-});
-
-app.put('/api/customers/:id/custom-prices/:productId/reject', async (req, res) => {
-  try {
-    const customerId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    if (!Number.isInteger(customerId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid customer id or product id' });
-    }
-
-    const rejectionJustification = typeof req.body?.justification === 'string' ? req.body.justification.trim() : '';
-    if (!rejectionJustification) {
-      return res.status(400).json({ error: 'justification is required for rejection' });
-    }
-
-    const existingRows = await getActiveDb()
-      .select()
-      .from(specialPricing)
-      .where(and(eq(specialPricing.customerId, customerId), eq(specialPricing.productId, productId)));
-
-    if (existingRows.length === 0) {
-      return res.status(404).json({ error: 'Special pricing not found' });
-    }
-
-    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
-      ? req.body.approvedBy.trim()
-      : 'user';
-
-    await getActiveDb().update(specialPricing).set({
-      status: 'rejected',
-      approvedBy,
-      approvedAt: new Date(),
-      justification: rejectionJustification,
-    }).where(eq(specialPricing.id, existingRows[0].id));
-
-    const updated = await getActiveDb().select().from(specialPricing).where(eq(specialPricing.id, existingRows[0].id));
-    res.json(await buildSpecialPricingResponse(updated[0]));
-  } catch (error) {
-    console.error('Error rejecting special pricing:', error);
-    res.status(500).json({ error: 'Failed to reject special pricing' });
-  }
-});
-
 function resolvePriceSourceForItem(input: {
   customerSpecial?: typeof specialPricing.$inferSelect | null;
   levelItem?: typeof priceLevelItems.$inferSelect | null;
@@ -4667,3 +4374,12 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
     res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });
   }
 });
+
+// Serve client static files and SPA fallback when running in Electron
+const clientDistPath = process.env.CLIENT_DIST_PATH || '';
+if (clientDistPath && fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}

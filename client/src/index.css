@@ -729,6 +729,11 @@ textarea {
   overflow-y: hidden;
   background: var(--color-bg);
   max-width: 100%;
+  scrollbar-width: none; /* Firefox */
+}
+
+.app-table-wrap::-webkit-scrollbar {
+  display: none; /* Chromium / Electron */
 }
 
 .app-table-wrap.app-table-sticky {

@@ -1,10 +1,16 @@
 # Products + BOM Import Template
-# One row per BOM line. Keep Product Name, Category, Production Mode identical for all rows of the same product.
-# Product Name (required), Category, Production Mode (single or batch), Batch Yield, Overhead %, Profit on Cost %, Material Name (required), Quantity
-Product Name,Category,Production Mode,Batch Yield,Overhead %,Profit on Cost %,Material Name,Quantity
-Palm Butter,Spreads,single,1,15,25,Palm Oil,1.2
-Palm Butter,Spreads,single,1,15,25,Cacao Beans,0.3
-Palm Butter,Spreads,single,1,15,25,Cassava Flour,0.5
-Cocoa Powder Mix,Beverages,single,1,20,30,Cacao Beans,2.0
-Cocoa Powder Mix,Beverages,single,1,20,30,Cassava Flour,0.8
-Cocoa Powder Mix,Beverages,single,1,20,30,Palm Oil,0.2
+# One row per BOM line. Keep Product Name, Category, Production Mode, Batch Yield, Overhead %, Profit on Cost %, SKU identical for every row of the same product.
+# Product Name (required), Category, Production Mode (single or batch), Batch Yield, Overhead %, Profit on Cost %, SKU, Material Name (required), Quantity, Unit
+# Production Mode: single = 1 unit per run | batch = Batch Yield units per run
+# Overhead %: overhead applied to material cost (e.g. 15 = 15%). Defaults to 0 if blank.
+# Profit on Cost %: profit margin on total cost, 0-99 (e.g. 25 = 25%). Required.
+# SKU: optional product code.
+# Unit column is informational only — the material unit is determined by the material record.
+# Material Name must exactly match a raw material or intermediate already saved in PriceRight.
+Product Name,Category,Production Mode,Batch Yield,Overhead %,Profit on Cost %,SKU,Material Name,Quantity,Unit
+Palm Butter,Spreads,single,1,15,25,,Palm Oil,1.2,L
+Palm Butter,Spreads,single,1,15,25,,Cacao Beans,0.3,Kg
+Palm Butter,Spreads,single,1,15,25,,Cassava Flour,0.5,Kg
+Cocoa Powder Mix,Beverages,single,1,20,30,,Cacao Beans,2.0,Kg
+Cocoa Powder Mix,Beverages,single,1,20,30,,Cassava Flour,0.8,Kg
+Cocoa Powder Mix,Beverages,single,1,20,30,,Palm Oil,0.2,L
