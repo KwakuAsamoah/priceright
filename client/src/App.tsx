@@ -17,9 +17,9 @@ import { UndoActionProvider } from './hooks/useUndoAction';
 import WelcomeModal from './components/WelcomeModal';
 import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
-import { DemoModeProvider } from './context/DemoModeContext';
+import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
 import PINScreen from './components/PINScreen';
-import { pinApi } from './api';
+import { pinApi, materialsApi, productsApi, priceLevelRulesApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -247,6 +247,33 @@ function AppLayout({ children }: { children: ReactNode }) {
     }
   });
   const [helpOpen, setHelpOpen] = useState(false);
+
+  const { isDemoMode } = useDemoMode();
+  const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCounts() {
+      try {
+        const [mats, prods, levels] = await Promise.all([
+          materialsApi.getAll('active'),
+          productsApi.getAll(),
+          priceLevelRulesApi.getAll(),
+        ]);
+        if (!cancelled) {
+          setNavCounts({
+            materials: Array.isArray(mats) ? mats.length : 0,
+            products: Array.isArray(prods) ? prods.length : 0,
+            priceLevels: Array.isArray(levels) ? levels.length : 0,
+          });
+        }
+      } catch {
+        // fail silently — counts are non-critical
+      }
+    }
+    void fetchCounts();
+    return () => { cancelled = true; };
+  }, [location.pathname, isDemoMode]);
   const [isUnlocked, setIsUnlocked] = useState(() => {
     if (skipPIN) return true;
     try {
@@ -370,16 +397,39 @@ function AppLayout({ children }: { children: ReactNode }) {
           {NAV_SECTIONS.map((section, sectionIndex) => (
             <section key={`section-${sectionIndex}`} className="app-nav-section">
               {section.title ? <div className="app-nav-title">{section.title}</div> : null}
-              {section.items.map((item) => (
-                <Link
+              {section.items.map((item) => {
+                const count =
+                  item.to === '/materials' ? navCounts.materials :
+                  item.to === '/products' ? navCounts.products :
+                  item.to === '/price-levels' ? navCounts.priceLevels :
+                  0;
+                return (
+                  <Link
                     key={item.to}
                     to={item.to}
                     className={`app-nav-link ${item.isActive(location.pathname) ? 'is-active' : ''}`}
                   >
                     <span className="app-nav-icon" aria-hidden="true"><item.icon size={16} strokeWidth={2} /></span>
                     {item.label}
+                    {count > 0 && (
+                      <span style={{
+                        marginLeft: 'auto',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        backgroundColor: 'rgba(255,255,255,0.15)',
+                        color: 'rgba(241,245,249,0.85)',
+                        minWidth: '20px',
+                        textAlign: 'center',
+                      }}>
+                        {count}
+                      </span>
+                    )}
                   </Link>
-              ))}
+                );
+              })}
             </section>
           ))}
         </nav>
