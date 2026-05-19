@@ -1441,14 +1441,14 @@ export default function PriceLevels() {
                     const staleCount = selectedLevelItems.filter((item) => item.isCustomPriceStale).length;
                     if (staleCount === 0 || staleBannerDismissed) return null;
                     return (
-                      <div style={{ margin: '12px 16px 0', padding: '10px 14px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderLeft: '3px solid #e65100', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <div style={{ position: 'relative', margin: '12px 16px 0', padding: '10px 44px 10px 14px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderLeft: '3px solid #e65100', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <button className="btn-close-x" type="button" onClick={() => setStaleBannerDismissed(true)} aria-label="Dismiss">
+                          &times;
+                        </button>
                         <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
                         <div style={{ flex: 1, fontSize: '14px', color: '#bf360c' }}>
                           <strong>{staleCount} custom {staleCount === 1 ? 'price' : 'prices'} may need review.</strong> The approved base price changed after these prices were set.
                         </div>
-                        <button type="button" onClick={() => setStaleBannerDismissed(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#e65100', padding: 0, lineHeight: 1 }} title="Dismiss">
-                          <X size={13} />
-                        </button>
                       </div>
                     );
                   })()}
@@ -1726,8 +1726,11 @@ export default function PriceLevels() {
       </div>
 
       {showAddProductsModal && selectedLevel && (
-        <div className="app-modal-overlay" onClick={() => setShowAddProductsModal(false)}>
+        <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowAddProductsModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">Add products to {selectedLevel.name}</h2>
 
             <div style={{ marginBottom: '10px' }}>
@@ -1807,16 +1810,16 @@ export default function PriceLevels() {
       )}
 
       {showExportModal && selectedLevel && createPortal(
-        <div className="app-modal-overlay" onClick={() => setShowExportModal(false)}>
+        <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '920px', width: '100%', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
               <div>
                 <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>Export price list</h2>
                 <div className="app-modal-subtitle">{selectedLevel.name} · {approvedSelectedLevelItems.length} approved product{approvedSelectedLevelItems.length === 1 ? '' : 's'} available</div>
               </div>
-              <AppButton variant="ghost" size="sm" onClick={() => setShowExportModal(false)} ariaLabel="Close export modal" title="Close export modal">
-                <X size={14} />
-              </AppButton>
+              <button className="btn-close-x" onClick={() => setShowExportModal(false)} aria-label="Close export modal">
+                &times;
+              </button>
             </div>
 
             <div style={{ maxHeight: '72vh', overflowY: 'auto', padding: '18px 20px', display: 'grid', gap: '18px' }}>
@@ -1963,13 +1966,13 @@ export default function PriceLevels() {
       )}
 
       {showWizard && createPortal(
-        <div className="app-modal-overlay" onClick={cancelWizard}>
+        <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '680px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ fontSize: '14px', color: '#64748b' }}>Step {wizardStep} of 4</div>
-              <AppButton variant="ghost" size="sm" onClick={cancelWizard} ariaLabel="Close wizard" title="Close wizard">
-                <X size={14} />
-              </AppButton>
+              <button className="btn-close-x" onClick={cancelWizard} aria-label="Close wizard">
+                &times;
+              </button>
             </div>
 
             {wizardStep === 1 && (

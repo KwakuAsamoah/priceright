@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calculator, CheckCircle2, Clock3, Database, HardDrive, Info, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl, downloadTemplate } from '../api';
 import AppToast from '../components/AppToast';
@@ -158,6 +158,17 @@ export default function Settings() {
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     try {
+      const urlTab = new URLSearchParams(window.location.search).get('tab');
+      if (
+        urlTab === 'general'
+        || urlTab === 'pricing'
+        || urlTab === 'currencies'
+        || urlTab === 'master-data'
+        || urlTab === 'data-backups'
+        || urlTab === 'advanced'
+      ) {
+        return urlTab;
+      }
       const saved = window.localStorage.getItem('priceright_settings_active_tab');
       if (
         saved === 'general'
@@ -578,42 +589,29 @@ async function loadData() {
         {rateSaveBanner && (
           <div
             style={{
+              position: 'relative',
               marginBottom: '16px',
               border: '1px solid #cbd5e1',
               backgroundColor: '#f8fafc',
               borderRadius: '8px',
-              padding: '12px 14px',
+              padding: '12px 44px 12px 14px',
               color: '#0f172a',
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: '12px',
             }}
             role="status"
             aria-live="polite"
           >
-            <div>
-              <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
-              {rateSaveBanner.reminder && (
-                <div style={{ marginTop: '6px', fontSize: '14px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
-              )}
-            </div>
             <button
+              className="btn-close-x"
               type="button"
               onClick={() => setRateSaveBanner(null)}
               aria-label="Dismiss message"
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: '#334155',
-                cursor: 'pointer',
-                fontSize: '18px',
-                lineHeight: 1,
-                padding: 0,
-              }}
             >
-              ×
+              &times;
             </button>
+            <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
+            {rateSaveBanner.reminder && (
+              <div style={{ marginTop: '6px', fontSize: '14px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
+            )}
           </div>
         )}
 
@@ -1266,6 +1264,16 @@ async function loadData() {
             </button>
           </div>
 
+          {currencies.length === 0 && (
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '14px', color: '#78350f' }}>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>No currencies configured yet.</strong>
+                Start by adding your base currency (e.g. GHS — Ghana Cedi). You can add foreign currencies for imported materials after.
+              </div>
+            </div>
+          )}
+
           <div className="app-table-wrap">
           <table className="app-table">
             <thead>
@@ -1441,6 +1449,9 @@ async function loadData() {
             style={{ maxWidth: '500px' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => setShowAddModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">Add New Currency</h2>
             <form onSubmit={handleAddCurrency}>
               <div style={{ marginBottom: '16px' }}>

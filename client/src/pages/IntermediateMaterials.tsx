@@ -1714,8 +1714,11 @@ export default function IntermediateMaterials() {
         ) : null}
 
         {showImportModal ? (
-          <div className="app-modal-overlay" onClick={() => { setShowImportModal(false); resetImportState(); }}>
+          <div className="app-modal-overlay">
             <div className="app-modal app-modal-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+              <button className="btn-close-x" onClick={() => { setShowImportModal(false); resetImportState(); }} aria-label="Close">
+                &times;
+              </button>
               <h2 className="app-modal-title">Import Intermediate Materials</h2>
 
               {!importFile ? (
@@ -1808,12 +1811,15 @@ export default function IntermediateMaterials() {
 
         {/* Intermediate Materials Import Modal */}
         {showIntermediateImportModal && (
-          <div className="app-modal-overlay" onClick={() => setShowIntermediateImportModal(false)}>
+          <div className="app-modal-overlay">
             <div
               className="app-modal"
               style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
+              <button className="btn-close-x" onClick={() => { setShowIntermediateImportModal(false); setIntermediateImportFile(null); setIntermediateImportResult(null); }} aria-label="Close">
+                &times;
+              </button>
               <h2 className="app-modal-title">Import Intermediate Materials</h2>
 
               {!intermediateImportFile ? (

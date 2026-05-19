@@ -25,6 +25,8 @@ interface ActionDropdownProps {
   buttonIcon?: ReactNode;
   buttonClassName?: string;
   menuMinWidth?: number;
+  disabled?: boolean;
+  disabledTitle?: string;
 }
 
 export default function ActionDropdown({
@@ -33,6 +35,8 @@ export default function ActionDropdown({
   buttonIcon,
   buttonClassName = 'btn btn-secondary btn-sm',
   menuMinWidth = 190,
+  disabled = false,
+  disabledTitle,
 }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
@@ -91,6 +95,8 @@ export default function ActionDropdown({
         type="button"
         className={buttonClassName}
         onClick={() => setOpen((prev) => !prev)}
+        disabled={disabled}
+        title={disabled ? disabledTitle : undefined}
         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         aria-haspopup="true"
         aria-expanded={open}

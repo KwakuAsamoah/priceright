@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { HelpCircle, Search, X } from 'lucide-react';
+import { HelpCircle, Search } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { helpArticles } from '../data/helpArticles';
 
@@ -43,11 +43,9 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <div
         className={`app-help-backdrop ${isOpen ? 'is-open' : ''}`}
-        aria-label="Close help panel"
-        onClick={onClose}
+        aria-hidden="true"
       />
       <aside className={`app-help-panel ${isOpen ? 'is-open' : ''}`} aria-hidden={!isOpen}>
         <div className="app-help-panel-header">
@@ -55,8 +53,8 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
             <div>
               <div className="app-help-panel-title">Help &amp; Guide</div>
             </div>
-            <button type="button" className="app-help-close" onClick={onClose} aria-label="Close help panel">
-              <X size={18} strokeWidth={2} />
+            <button type="button" className="btn-close-x" onClick={onClose} aria-label="Close help panel">
+              ×
             </button>
           </div>
           <label className="app-help-search-wrap">

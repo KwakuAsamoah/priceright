@@ -1034,13 +1034,13 @@ export default function ProductDetail() {
           )}
 
           {staleCustomPrices.length > 0 && !staleAlertDismissed && (
-            <div className="app-card" style={{ border: '1px solid #ffcc80', backgroundColor: '#fff3e0', padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-                  <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0 }} />
-                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#bf360c' }}>Custom prices may need review</span>
-                </div>
-                <button type="button" onClick={() => setStaleAlertDismissed(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#e65100', padding: 0 }} title="Dismiss"><X size={13} /></button>
+            <div className="app-card" style={{ position: 'relative', border: '1px solid #ffcc80', backgroundColor: '#fff3e0', padding: '14px 44px 14px 16px' }}>
+              <button className="btn-close-x" type="button" onClick={() => setStaleAlertDismissed(true)} aria-label="Dismiss">
+                &times;
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '8px' }}>
+                <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0 }} />
+                <span style={{ fontSize: '15px', fontWeight: 700, color: '#bf360c' }}>Custom prices may need review</span>
               </div>
               <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>
                 {staleCustomPrices.length} price level{staleCustomPrices.length === 1 ? '' : 's'} have custom prices for this product that were set before this approval. Review them to make sure they are still appropriate.
@@ -1071,6 +1071,7 @@ export default function ProductDetail() {
         materials={materials}
         categoryOptions={product.category ? [product.category] : []}
         defaultOverhead={String(product.overheadPercentage)}
+        defaultProfitMargin={String(product.profitMargin ?? 0)}
         onSaved={async () => {
           setShowDrawer(false);
           await loadData();

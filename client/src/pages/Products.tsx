@@ -5,7 +5,7 @@ import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, productsApi, settingsApi, templateUrl, downloadTemplate } from '../api';
+import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl, downloadTemplate } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
@@ -333,6 +333,8 @@ export default function Products() {
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
   const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
+  const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+
   const [showPriceReviewPanel, setShowPriceReviewPanel] = useState(false);
   const [priceReviewMode, setPriceReviewMode] = useState<'standard' | 'setup'>('standard');
   const [priceReviewSearch, setPriceReviewSearch] = useState('');
@@ -474,13 +476,20 @@ export default function Products() {
   async function loadData() {
     try {
       setLoading(true);
-      const [productsData, materialsData] = await Promise.all([
+      const [productsData, materialsData, currenciesData, settingsData] = await Promise.all([
         productsApi.getAll('all'),
         materialsApi.getAll(),
+        currenciesApi.getAll(),
+        settingsApi.getAll(),
       ]);
 
       const safeProducts = Array.isArray(productsData) ? productsData : [];
       const safeMaterials = Array.isArray(materialsData) ? materialsData : [];
+      const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
+      const safeSettings = Array.isArray(settingsData) ? settingsData : [];
+
+      const baseCurrencySetting = safeSettings.find((s: any) => s.settingKey === 'baseCurrency');
+      setBaseCurrencyMissing(safeCurrencies.length === 0 || !baseCurrencySetting?.settingValue);
 
       const costEntries = await Promise.all(
         safeProducts.map(async (product: Product) => {
@@ -1940,6 +1949,27 @@ export default function Products() {
         </div>
       </div>
 
+      {/* Base currency warning */}
+      {baseCurrencyMissing && (
+        <div className="app-page-content" style={{ paddingBottom: 0, paddingTop: 0 }}>
+          <div style={{ position: 'relative', backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>Base currency not set</div>
+                <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>You must set a base currency before adding materials or products. Cost calculations depend on it.</div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => navigate('/settings?tab=currencies')}
+                >
+                  Go to Settings &rarr; Currencies and Rates
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="app-page-content app-page-content-tight" style={{ paddingBottom: '0' }}>
       <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
         <button
@@ -1997,6 +2027,8 @@ export default function Products() {
               <ActionDropdown
                 label="+ Add"
                 buttonClassName="btn btn-primary btn-sm"
+                disabled={baseCurrencyMissing}
+                disabledTitle="Set a base currency first in Settings"
                 items={[
                   {
                     key: 'add-single',
@@ -2086,24 +2118,23 @@ export default function Products() {
         {shouldShowNeedsReviewBanner && (
           <div
             style={{
+              position: 'relative',
               backgroundColor: '#fff3e0',
               border: '1px solid #ffcc80',
               borderRadius: '8px',
-              padding: '12px 16px',
+              padding: '12px 44px 12px 16px',
               marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
             }}
           >
+            <button className="btn-close-x" onClick={() => setIsNeedsReviewBannerDismissed(true)} aria-label="Dismiss">
+              &times;
+            </button>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#e65100', fontSize: '15px', fontWeight: 400 }}>
               <AlertTriangle size={16} color="#e65100" />
               <span>{statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.</span>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
               <button className="btn btn-primary btn-sm" onClick={handleReviewNow}>Review now</button>
-              <button className="btn btn-secondary btn-sm" onClick={() => setIsNeedsReviewBannerDismissed(true)}>Dismiss</button>
             </div>
           </div>
         )}
@@ -2871,6 +2902,9 @@ export default function Products() {
             style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => setShowBulkDeleteModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Delete {selectedProducts.size} Product{selectedProducts.size !== 1 ? 's' : ''}?
             </h2>
@@ -2919,6 +2953,9 @@ export default function Products() {
       {showBulkApproveModal && (
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '680px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowBulkApproveModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">Bulk Approve Products</h2>
             <p style={{ color: '#475569', marginBottom: '16px' }}>
               You are about to approve {selectedProducts.size} selected products.
@@ -3031,6 +3068,9 @@ export default function Products() {
       {showBulkRejectModal && (
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowBulkRejectModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">Reject Selected Prices</h2>
             <p style={{ color: '#475569', marginBottom: '10px' }}>
               Reject Approved base prices for {selectedProducts.size} selected products? Products will be moved to Rejected status and removed from price lists until re-approved.
@@ -3080,6 +3120,9 @@ export default function Products() {
             style={{ maxWidth: '500px' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowCategoryModal(false); setBulkCategoryValue(''); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">
               Change Category for {selectedProducts.size} Product{selectedProducts.size !== 1 ? 's' : ''}
             </h2>
@@ -3134,30 +3177,27 @@ export default function Products() {
       {showImportModal && (
         <div
           className="app-modal-overlay"
-          onClick={() => setShowImportModal(false)}
         >
           <div
             className="app-modal app-modal-wide"
             style={{ maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Import Products (Standard CSV)</h2>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportFile(null);
-                  setImportPreview([]);
-                  setImportFailures([]);
-                  setImportSuccessCount(0);
-                  setImportRuntimeError('');
-                }}
-                style={{ padding: '6px 10px' }}
-              >
-                Close
-              </button>
-            </div>
+            <button
+              className="btn-close-x"
+              onClick={() => {
+                setShowImportModal(false);
+                setImportFile(null);
+                setImportPreview([]);
+                setImportFailures([]);
+                setImportSuccessCount(0);
+                setImportRuntimeError('');
+              }}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="app-modal-title">Import Products (Standard CSV)</h2>
 
             {!importFile ? (
               <div>

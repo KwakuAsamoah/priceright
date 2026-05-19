@@ -929,6 +929,7 @@ textarea {
   max-width: 600px;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
+  position: relative;
 }
 
 .app-modal-wide {
@@ -960,6 +961,43 @@ textarea {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+/* Standard close button — used on all modals, drawers, alerts, toasts, and banners */
+.btn-close-x {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.btn-close-x:hover {
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+}
+
+/* Dark variant for dark backgrounds */
+.btn-close-x--dark {
+  color: rgba(255,255,255,0.7);
+}
+
+.btn-close-x--dark:hover {
+  background: rgba(255,255,255,0.15);
+  color: white;
 }
 
 /* ── Utility typography classes ── */

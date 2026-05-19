@@ -66,21 +66,10 @@ export default function AppToast({ open, message, type, onClose, autoHideMs }: A
         position: 'relative',
       }}
       >
-        <div style={{ whiteSpace: 'pre-line', paddingRight: '18px' }}>{message}</div>
+        <div style={{ whiteSpace: 'pre-line', paddingRight: '36px' }}>{message}</div>
         <button
+          className="btn-close-x"
           onClick={onClose}
-          style={{
-            position: 'absolute',
-            top: '8px',
-            right: '8px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            color: '#64748b',
-            fontSize: '18px',
-            lineHeight: 1,
-            padding: '2px 6px',
-          }}
           aria-label="Dismiss"
         >
           ×

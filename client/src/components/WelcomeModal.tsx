@@ -63,7 +63,10 @@ function openPrintableGuide() {
 export default function WelcomeModal({ onGetStarted }: WelcomeModalProps) {
   return (
     <div className="welcome-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
-      <div className="welcome-modal-card welcome-modal-card-simple">
+      <div className="welcome-modal-card welcome-modal-card-simple" style={{ position: 'relative' }}>
+        <button className="btn-close-x" onClick={onGetStarted} aria-label="Close">
+          &times;
+        </button>
         <div className="welcome-modal-icon" aria-hidden="true">
           <LayoutDashboard size={48} strokeWidth={2} />
         </div>

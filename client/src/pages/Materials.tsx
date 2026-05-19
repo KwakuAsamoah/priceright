@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
@@ -239,6 +240,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
+  const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+  const navigate = useNavigate();
   const [editingRateCurrencyId, setEditingRateCurrencyId] = useState<number | null>(null);
   const [editingRateValue, setEditingRateValue] = useState('');
   const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
@@ -339,6 +342,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
       setConfiguredMaterialUnits(parseConfiguredList(materialUnitsSetting?.settingValue));
       setBaseCurrencyCode(baseCurrencySetting?.settingValue || 'GHS');
+      setBaseCurrencyMissing(safeCurrencies.length === 0 || !baseCurrencySetting?.settingValue);
 
       if (safeCurrencies.length > 0) {
         setFormData((prev) => ({ ...prev, purchaseCurrencyId: safeCurrencies[0].id }));
@@ -1252,6 +1256,27 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     <div className="app-page">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
 
+      {/* Base currency warning */}
+      {baseCurrencyMissing && (
+        <div className="app-page-content" style={{ paddingBottom: 0 }}>
+          <div style={{ position: 'relative', backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>Base currency not set</div>
+                <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>You must set a base currency before adding materials or products. Cost calculations depend on it.</div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => navigate('/settings?tab=currencies')}
+                >
+                  Go to Settings → Currencies and Rates
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filters */}
       <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
         <div className="app-card app-filter-card" style={{ padding: '8px 10px' }}>
@@ -1283,6 +1308,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               <ActionDropdown
                 label="+ Add"
                 buttonClassName="btn btn-primary btn-sm"
+                disabled={baseCurrencyMissing}
+                disabledTitle="Set a base currency first in Settings"
                 items={[
                   {
                     key: 'add-single',
@@ -1679,6 +1706,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowAddModal(false); setEditingMaterial(null); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">
               {editingMaterial ? 'Edit Material' : 'Add New Material'}
             </h2>
@@ -1889,6 +1919,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowImportModal(false); resetImportState(); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">Import Primary Materials (CSV)</h2>
 
             {!importFile ? (
@@ -2184,6 +2217,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxWidth: '560px', maxHeight: '85vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowUsageModal(false); setSelectedMaterialForUsage(null); setSelectedMaterialUsage(null); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Products Using {selectedMaterialForUsage.name}
             </h2>
@@ -2249,6 +2285,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => setShowDeleteModal(false)} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Delete {selectedMaterials.size} Material{selectedMaterials.size !== 1 ? 's' : ''}?
             </h2>
@@ -2321,6 +2360,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxWidth: '500px' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowCategoryModal(false); setBulkCategoryValue(''); setBulkCustomCategoryValue(''); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title">
               Change Category for {selectedMaterials.size} Material{selectedMaterials.size !== 1 ? 's' : ''}
             </h2>
@@ -2393,6 +2435,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             style={{ maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button className="btn-close-x" onClick={() => { setShowPriceHistory(false); setSelectedMaterialForHistory(null); setPriceHistory([]); }} aria-label="Close">
+              &times;
+            </button>
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Price History: {selectedMaterialForHistory.name}
             </h2>

@@ -334,27 +334,16 @@ export default function ProductFormDrawer({
           overflowY: 'auto',
           padding: '24px',
           boxShadow: '-12px 0 24px rgba(15, 23, 42, 0.12)',
+          position: 'relative',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
-            <div style={{ color: '#64748b', fontSize: '15px' }}>Update product details and BOM inline</div>
-          </div>
-          <button
-            onClick={onClose}
-            style={{
-              border: 'none',
-              backgroundColor: '#f1f5f9',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              cursor: 'pointer',
-              fontWeight: '600',
-            }}
-          >
-            Close
-          </button>
+        <button className="btn-close-x" onClick={onClose} aria-label="Close">
+          &times;
+        </button>
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
+          <div style={{ color: '#64748b', fontSize: '15px' }}>Update product details and BOM inline</div>
         </div>
 
         <form onSubmit={handleSubmit}>
