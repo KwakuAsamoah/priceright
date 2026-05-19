@@ -75,9 +75,18 @@ export default function WelcomeModal({ onGetStarted }: WelcomeModalProps) {
 
         <p className="welcome-modal-body">
           PriceRight helps you build accurate product costs from your raw materials, set profitable prices, and manage what
-          you charge different customer groups - all in one place. Start by adding your materials and products, or explore
-          first using our built-in sample data.
+          you charge different customer groups — all in one place.
         </p>
+
+        <p className="welcome-modal-body" style={{ marginTop: '12px' }}>
+          To get started:
+        </p>
+        <ul className="welcome-modal-body" style={{ marginTop: '4px', paddingLeft: '20px', lineHeight: 1.8 }}>
+          <li>Add your base currency in <strong>Settings → Currencies and Rates</strong></li>
+          <li>Add your raw materials under <strong>Materials</strong></li>
+          <li>Build your products under <strong>Products</strong></li>
+          <li>Or explore first with sample data from the <strong>Dashboard</strong></li>
+        </ul>
 
         <div className="welcome-modal-actions welcome-modal-actions-simple">
           <button type="button" className="welcome-modal-secondary" onClick={openPrintableGuide}>

@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -3231,6 +3231,7 @@ export default function Products() {
                     backgroundColor: '#f8fafc',
                   }}
                 >
+                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
                   <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
                   <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
                   <input id="product-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleProductFileUpload} style={{ display: 'none' }} />

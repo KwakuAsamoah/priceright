@@ -163,6 +163,14 @@ export default function Dashboard() {
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
 
   const isNewInstallation = products.length === 0 && materials.length === 0;
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => localStorage.getItem('priceright_banner_dismissed') === 'true'
+  );
+
+  function dismissBanner() {
+    localStorage.setItem('priceright_banner_dismissed', 'true');
+    setBannerDismissed(true);
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -334,6 +342,7 @@ export default function Dashboard() {
     try {
       await demoModeApi.set(true);
       await new Promise(resolve => setTimeout(resolve, 200));
+      window.location.hash = '#/materials';
       window.location.reload();
     } catch (err) {
       console.error('Failed to switch to demo mode', err);
@@ -763,7 +772,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {isNewInstallation && (
+        {isNewInstallation && !bannerDismissed && (
           <div
             className="app-card"
             style={{
@@ -774,8 +783,12 @@ export default function Dashboard() {
               padding: '20px',
               display: 'grid',
               gap: '12px',
+              position: 'relative',
             }}
           >
+            <button className="btn-close-x" onClick={dismissBanner} aria-label="Close">
+              &times;
+            </button>
             <h2 style={{ margin: 0, fontSize: '24px', color: '#f8fafc' }}>Welcome to PriceRight</h2>
             <p style={{ margin: 0, color: '#cbd5e1', fontSize: '16px', lineHeight: 1.6 }}>
               Build accurate costs, set profitable prices, and manage customer pricing in one place. Start by adding your

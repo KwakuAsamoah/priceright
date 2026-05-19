@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
 import AppBadge from '../components/AppBadge';
@@ -1735,6 +1735,7 @@ export default function IntermediateMaterials() {
                     <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                   </div>
                   <label htmlFor="intermediate-file-upload" style={{ display: 'block', padding: '40px', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' }}>
+                    <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
                     <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
                     <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
                     <input id="intermediate-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} style={{ display: 'none' }} />

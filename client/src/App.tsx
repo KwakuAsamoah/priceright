@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import './App.css';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Settings as SettingsIcon, Tag } from 'lucide-react';
+import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
@@ -298,6 +298,19 @@ function AppLayout({ children }: { children: ReactNode }) {
   });
   const [pinServerError, setPinServerError] = useState('');
 
+  function handleExit() {
+    // Clear all PIN unlock state so PIN screen shows on next launch
+    sessionStorage.removeItem('priceright_skip_pin_once');
+    // Immediately show PIN screen in current session
+    setIsUnlocked(false);
+    // Close or reload
+    if (window.electronAPI?.isElectron) {
+      window.close();
+    } else {
+      window.location.reload();
+    }
+  }
+
   useEffect(() => {
     let isMounted = true;
 
@@ -442,6 +455,14 @@ function AppLayout({ children }: { children: ReactNode }) {
           >
             <span className="app-nav-icon" aria-hidden="true"><HelpCircle size={16} strokeWidth={2} /></span>
             Help
+          </button>
+          <button
+            type="button"
+            className="app-nav-link"
+            onClick={handleExit}
+          >
+            <span className="app-nav-icon" aria-hidden="true"><LogOut size={16} strokeWidth={2} /></span>
+            Exit
           </button>
         </div>
 

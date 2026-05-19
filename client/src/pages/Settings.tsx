@@ -860,25 +860,6 @@ async function loadData() {
             </>
             )}
 
-              {activeTab === 'general' && (
-              <div className="app-card app-settings-card">
-                <h2>Setup guide</h2>
-                <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                  Show the welcome screen again
-                </p>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    try {
-                      localStorage.removeItem('priceright_launched');
-                    } catch {}
-                    window.location.reload();
-                  }}
-                >
-                  Show welcome screen again
-                </button>
-              </div>
-              )}
             {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2>Default Profit on Cost</h2>
@@ -1164,24 +1145,29 @@ async function loadData() {
         {activeTab === 'data-backups' && (
         <>
         <div className="app-card app-settings-card" style={{ marginBottom: '16px' }}>
-          <h2 title="Toggle between demo data and your live business data. Demo mode uses a separate SQLite file.">
-            Data Mode
-          </h2>
-          <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
-            Current mode: <strong>{demoModeLoading ? 'Loading...' : isDemoMode ? 'Demo Data (demo.db)' : 'Live Data (priceright.db)'}</strong>
+          <h2>Data mode</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+            Switch between your real data and the built-in Savanna Bakes sample data.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={isDemoMode}
-                disabled={demoModeLoading || isSwitchingMode}
-                onChange={handleDemoModeToggle}
-              />
-              <span>{isDemoMode ? 'Demo Mode ON' : 'Demo Mode OFF'}</span>
-            </label>
-            {isSwitchingMode && <span style={{ fontSize: '14px', color: '#64748b' }}>Switching data mode...</span>}
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className={`btn ${!isDemoMode ? 'btn-primary' : 'btn-secondary'}`}
+              disabled={!isDemoMode}
+              onClick={() => !isDemoMode ? null : handleDemoModeToggle()}
+            >
+              Use my real data
+            </button>
+            <button
+              type="button"
+              className={`btn ${isDemoMode ? 'btn-primary' : 'btn-secondary'}`}
+              disabled={isDemoMode}
+              onClick={() => isDemoMode ? null : handleDemoModeToggle()}
+            >
+              Try sample data
+            </button>
           </div>
+          {isSwitchingMode && <span style={{ fontSize: '14px', color: '#64748b', display: 'block', marginTop: '8px' }}>Switching data mode...</span>}
           {isDemoMode && (
             <div style={{ marginTop: '12px' }}>
               <button
