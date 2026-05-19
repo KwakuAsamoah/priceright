@@ -35,7 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .app-brand-title {
@@ -76,7 +76,7 @@
   font-family: 'Open Sans', sans-serif;
   padding: 16px 12px 4px 12px;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: #888;
@@ -145,7 +145,7 @@
 .app-nav-sublink {
   color: rgba(241, 245, 249, 0.72);
   text-decoration: none;
-  font-size: 12px;
+  font-size: 14px;
   padding: 6px 10px;
   border-radius: 8px;
 }
@@ -238,7 +238,7 @@
 .demo-pill-text {
   font-family: 'Open Sans', sans-serif;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 13px;
   color: #e65100;
 }
 
@@ -254,7 +254,7 @@
   right: 0;
   background: #1a1a1a;
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   padding: 4px 8px;
   border-radius: 4px;
   white-space: nowrap;
@@ -304,14 +304,14 @@
 .welcome-modal-title {
   margin: 0;
   font-family: 'Open Sans', sans-serif;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .welcome-modal-subtitle {
   margin: 6px 0 0;
-  font-size: 14px;
+  font-size: 16px;
   color: #64748b;
 }
 
@@ -339,7 +339,7 @@
 
 .welcome-modal-step-count {
   margin-bottom: 12px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: #475569;
   text-align: left;
@@ -350,7 +350,7 @@
   padding-left: 20px;
   text-align: left;
   color: #0f172a;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
 }
 
@@ -361,7 +361,7 @@
   background: #111111;
   color: #ffffff;
   padding: 14px 18px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -372,7 +372,7 @@
   background: #ffffff;
   color: #0f172a;
   padding: 14px 18px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -400,7 +400,7 @@
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -408,7 +408,7 @@
   border: none;
   background: transparent;
   color: #94a3b8;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -462,7 +462,7 @@
 
 .app-help-panel-title {
   font-family: 'Open Sans', sans-serif;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #0f172a;
 }
@@ -490,7 +490,7 @@
   border: 0;
   outline: none;
   padding: 10px 0;
-  font-size: 13px;
+  font-size: 15px;
   color: #0f172a;
   background: transparent;
 }
@@ -514,7 +514,7 @@
   background: transparent;
   padding: 0 0 8px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 15px;
   color: #0f172a;
   cursor: pointer;
 }
@@ -530,7 +530,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   text-align: left;
-  font-size: 13px;
+  font-size: 15px;
   color: #334155;
   cursor: pointer;
 }
@@ -545,7 +545,7 @@
   background: transparent;
   padding: 0;
   color: #2563eb;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -553,14 +553,14 @@
 .app-help-article-title {
   margin: 14px 0 12px;
   font-family: 'Open Sans', sans-serif;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .app-help-article-content {
   color: #334155;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -573,7 +573,7 @@
 .app-help-panel-footer {
   border-top: 1px solid #e2e8f0;
   padding: 14px 18px;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748b;
   line-height: 1.5;
 }
@@ -590,7 +590,7 @@
   color: #1d4ed8;
   font-family: 'Open Sans', sans-serif;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -599,7 +599,7 @@
   align-items: center;
   gap: 8px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .pricing-console-shell {
@@ -639,13 +639,13 @@
 }
 
 .pricing-console-tab-label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
 }
 
 .pricing-console-tab-description {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   color: #64748b;
 }

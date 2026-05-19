@@ -148,7 +148,7 @@ export default function ActionDropdown({
                   borderRadius: '6px',
                   cursor: menuItem.disabled ? 'not-allowed' : 'pointer',
                   textAlign: 'left',
-                  fontSize: '12px',
+                  fontSize: '13px',
                   opacity: menuItem.disabled ? 0.5 : 1,
                   color: menuItem.destructive ? '#b91c1c' : '#0f172a',
                 }}

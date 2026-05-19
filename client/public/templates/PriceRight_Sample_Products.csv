@@ -1,12 +1,10 @@
 Product Name,Category,Production Mode,Batch Yield,Overhead %,Profit on Cost %,SKU,Material Name,Quantity,Unit
-Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Raw Peanuts,200,Kg
-Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Palm Oil (Crude),8,L
+Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Refined Peanut Paste,200,Kg
 Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Salt (Iodised),1,Kg
 Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Sugar (Refined),5,Kg
 Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,PET Jar 250g (with lid),500,Ea
 Peanut Butter 250g,Spreads,batch,500,15,25,PB-250,Label (Printed),500,Ea
-Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Raw Peanuts,200,Kg
-Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Palm Oil (Crude),8,L
+Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Refined Peanut Paste,200,Kg
 Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Salt (Iodised),1,Kg
 Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,Sugar (Refined),5,Kg
 Peanut Butter 400g,Spreads,batch,300,15,25,PB-400,PET Jar 400g (with lid),300,Ea
@@ -24,13 +22,11 @@ Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Cassava (Dried Chips),480,Kg
 Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Salt (Iodised),2,Kg
 Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Packaging Film (Roll),8,m
 Gari 1kg,Cassava Products,batch,400,20,20,GA-1KG,Label (Printed),400,Ea
-Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Cassava (Dried Chips),260,Kg
+Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Cassava Flour,260,Kg
 Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Packaging Film (Roll),5,m
 Cassava Flour 500g,Cassava Products,batch,500,20,20,CASSF-500,Label (Printed),500,Ea
-Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Pepper (Ground Chilli),30,Kg
+Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Blended Pepper Mix,35,Kg
 Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Tomato Paste (Concentrate),24,Kg
-Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Onion Powder,6,Kg
-Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Garlic Powder,3,Kg
 Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Citric Acid,1,Kg
 Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Sodium Benzoate,0.5,Kg
 Pepper Sauce 200ml,Condiments,batch,600,20,28,PS-200,Vegetable Oil (Refined),12,L

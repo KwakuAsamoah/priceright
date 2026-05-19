@@ -200,7 +200,7 @@ export default function MaterialsAnalysisTab({
   return (
     <div style={{ display: 'grid', gap: '16px' }}>
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Material count by category</h2>
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Material count by category</h2>
         <div style={{ display: 'grid', gap: '10px' }}>
           {categoryStats.length === 0 ? (
             <div style={{ color: '#64748b' }}>No materials available</div>
@@ -223,7 +223,7 @@ export default function MaterialsAnalysisTab({
       </div>
 
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Average unit cost by category</h2>
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Average unit cost by category</h2>
         <div style={{ display: 'grid', gap: '10px' }}>
           {byCategory.map((entry) => {
             const widthPercent = (entry.average / maxCategoryAverage) * 100;
@@ -241,7 +241,7 @@ export default function MaterialsAnalysisTab({
       </div>
 
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Most used materials</h2>
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Most used materials</h2>
         {productsLoading ? (
           <div style={{ color: '#64748b' }}>Analyzing product BOMs...</div>
         ) : mostUsedMaterials.length === 0 ? (
@@ -260,7 +260,7 @@ export default function MaterialsAnalysisTab({
       </div>
 
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Price history</h2>
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Price history</h2>
         <label className="app-settings-label">Select a material to view price history</label>
         <select
           className="app-control"
@@ -302,7 +302,7 @@ export default function MaterialsAnalysisTab({
       </div>
 
       <div className="app-card">
-        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '16px', fontWeight: 700 }}>Top 5 highest unit costs</h2>
+        <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>Top 5 highest unit costs</h2>
         <div style={{ display: 'grid', gap: '8px' }}>
           {topFive.map((material, index) => (
             <div key={material.id} style={{ display: 'grid', gridTemplateColumns: '30px 1fr 180px 150px', gap: '10px' }}>

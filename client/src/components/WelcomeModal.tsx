@@ -29,11 +29,11 @@ function openPrintableGuide() {
           .page { max-width: 720px; margin: 0 auto; }
           .header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
           .icon { width: 52px; height: 52px; border-radius: 16px; background: #111111; color: #ffffff; display: flex; align-items: center; justify-content: center; }
-          h1 { margin: 0; font-size: 28px; }
-          .subtitle { margin: 4px 0 0; color: #475569; font-size: 14px; }
-          p { line-height: 1.7; font-size: 14px; color: #334155; }
+          h1 { margin: 0; font-size: 29px; }
+          .subtitle { margin: 4px 0 0; color: #475569; font-size: 15px; }
+          p { line-height: 1.7; font-size: 15px; color: #334155; }
           ol { margin: 18px 0 0 20px; padding: 0; }
-          li { margin: 0 0 10px; line-height: 1.6; font-size: 14px; }
+          li { margin: 0 0 10px; line-height: 1.6; font-size: 15px; }
           .note { margin-top: 18px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
         </style>
       </head>

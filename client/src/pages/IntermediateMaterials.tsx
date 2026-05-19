@@ -49,7 +49,7 @@ const formSectionStyle = {
 const fieldLabelStyle = {
   display: 'block',
   marginBottom: '6px',
-  fontSize: '13px',
+  fontSize: '15px',
   fontWeight: '600',
 } as const;
 
@@ -63,7 +63,7 @@ const fieldInputStyle = {
 const compactControlStyle = {
   minHeight: '32px',
   padding: '6px 10px',
-  fontSize: '12px',
+  fontSize: '14px',
 } as const;
 
 type SortField = 'name' | 'category' | 'unitPrice' | 'supplier';
@@ -766,7 +766,7 @@ export default function IntermediateMaterials() {
           <style>
             body { font-family: Arial, sans-serif; padding: 24px; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 12px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
             th { background: #f8fafc; }
           </style>
         </head>
@@ -1245,13 +1245,13 @@ export default function IntermediateMaterials() {
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
-                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
-                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
-                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
-                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '13px', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
-                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
+                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
+                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
+                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
+                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1267,12 +1267,12 @@ export default function IntermediateMaterials() {
                       />
                     </td>
                     {isIntermediateColumnVisible('material') && <td style={{ padding: '6px 6px', minWidth: '220px' }}>
-                      <div style={{ fontWeight: '600', fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
+                      <div style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                      <div style={{ fontSize: '13px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
                     </td>}
-                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '11px' }}>{material.unit}</td>}
-                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '11px' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
-                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '11px' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
+                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '13px' }}>{material.unit}</td>}
+                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '13px' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
+                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '13px' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
                     {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '6px 6px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
                       {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
                     </td>}
@@ -1330,19 +1330,19 @@ export default function IntermediateMaterials() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
-                  <div style={{ color: '#64748b', fontSize: '13px', marginTop: 4 }}>Update material details and cost settings inline</div>
+                  <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                  <div style={{ color: '#64748b', fontSize: '15px', marginTop: 4 }}>Update material details and cost settings inline</div>
                 </div>
                 <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
               </div>
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>Material Details</h3>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Material Details</h3>
             </div>
             <form onSubmit={handleMaterialSubmit}>
               <div style={formSectionStyle}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Basic Info</h3>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
                     <label style={fieldLabelStyle}>Material Name *</label>
@@ -1440,7 +1440,7 @@ export default function IntermediateMaterials() {
               </div>
 
               <div style={formSectionStyle}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Production Settings</h3>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
                     <label style={fieldLabelStyle}>Costing Method</label>
@@ -1460,7 +1460,7 @@ export default function IntermediateMaterials() {
                         Yield-based
                       </button>
                     </div>
-                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
+                    <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>
                       {form.intermediateCostMode === 'completed_output'
                         ? 'Enter final completed quantity directly. Unit cost = total batch cost / completed output quantity.'
                         : 'Enter batch quantity and process yield %. Unit cost is adjusted by expected loss.'}
@@ -1540,11 +1540,11 @@ export default function IntermediateMaterials() {
               </div>
 
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
-                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '13px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
-                <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+                <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
                   Calculated unit cost updates from the intermediate BOM and current component prices.
                 </div>
-                <div style={{ display: 'grid', gap: '6px', fontSize: '13px', marginBottom: '12px' }}>
+                <div style={{ display: 'grid', gap: '6px', fontSize: '15px', marginBottom: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                     <span>Material Cost (batch)</span>
                     <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
@@ -1571,10 +1571,10 @@ export default function IntermediateMaterials() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                     <span style={{ fontWeight: '700' }}>Optimal Price</span>
-                    <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
+                    <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>{formatMoney(liveCost.optimalPrice)}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
+                <div style={{ fontSize: '14px', color: '#475569', marginBottom: '12px' }}>
                   Current stored unit cost: {formatMoney(Number(selectedMaterial?.unitPrice || 0))}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1724,22 +1724,22 @@ export default function IntermediateMaterials() {
                     <a
                       href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
                       onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                       Download CSV template
                     </a>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                    <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                   </div>
                   <label htmlFor="intermediate-file-upload" style={{ display: 'block', padding: '40px', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
-                    <div style={{ fontSize: '14px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
+                    <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
                     <input id="intermediate-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} style={{ display: 'none' }} />
                   </label>
 
                   <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                     <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                    <div style={{ fontSize: '13px', color: '#475569' }}>Required fields: Material Name, Category, Unit, Bulk Quantity, Yield %, Overhead %, Margin %.</div>
+                    <div style={{ fontSize: '15px', color: '#475569' }}>Required fields: Material Name, Category, Unit, Bulk Quantity, Yield %, Overhead %, Margin %.</div>
                   </div>
                 </div>
               ) : (
@@ -1747,7 +1747,7 @@ export default function IntermediateMaterials() {
                   <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><strong>File:</strong> {importFile.name} ({importPreview.length} rows)</div>
                   {importPreview.length > 0 ? (
                     <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                         <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                           <tr>
                             <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
@@ -1822,14 +1822,14 @@ export default function IntermediateMaterials() {
                     <a
                       href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
                       onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                       Download CSV template
                     </a>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                    <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                   </div>
-                  <p style={{ fontSize: '14px', color: '#475569', marginBottom: '16px' }}>
+                  <p style={{ fontSize: '16px', color: '#475569', marginBottom: '16px' }}>
                     Upload a CSV file to add multiple intermediate materials at once.
                   </p>
 
@@ -1848,10 +1848,10 @@ export default function IntermediateMaterials() {
                     <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
                       <Upload size={40} strokeWidth={1.8} />
                     </div>
-                    <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '6px' }}>
                       Select CSV file
                     </div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>
+                    <div style={{ fontSize: '15px', color: '#64748b' }}>
                       Columns: Intermediate Name, Category, Unit, Notes
                     </div>
                     <input
@@ -1882,7 +1882,7 @@ export default function IntermediateMaterials() {
                             {intermediateImportResult.errors.length} error{intermediateImportResult.errors.length !== 1 ? 's' : ''}
                           </div>
                           <div style={{ border: '1px solid #fecaca', borderRadius: '8px', overflow: 'hidden', maxHeight: '200px', overflowY: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                               <thead style={{ backgroundColor: '#fef2f2' }}>
                                 <tr>
                                   <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca', whiteSpace: 'nowrap' }}>Row</th>

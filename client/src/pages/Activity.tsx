@@ -390,20 +390,20 @@ export default function Activity() {
             </div>
 
             <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontSize: '14px', color: '#64748b' }}>
                 Showing {entries.length} of {total} entries
               </div>
 
               {loading ? (
                 <div style={{ padding: '22px 16px', textAlign: 'center', color: '#64748b' }}>Loading activity...</div>
               ) : error ? (
-                <div style={{ padding: '16px', color: '#b91c1c', fontSize: '13px' }}>{error}</div>
+                <div style={{ padding: '16px', color: '#b91c1c', fontSize: '15px' }}>{error}</div>
               ) : entries.length === 0 ? (
                 <div style={{ minHeight: '260px', display: 'grid', placeItems: 'center' }}>
                   <div style={{ textAlign: 'center', color: '#64748b' }}>
                     <Clock3 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '12px' }} />
-                    <div style={{ fontSize: '18px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>No activity recorded yet.</div>
-                    <div style={{ fontSize: '13px' }}>Actions across the app will appear here.</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>No activity recorded yet.</div>
+                    <div style={{ fontSize: '15px' }}>Actions across the app will appear here.</div>
                   </div>
                 </div>
               ) : (
@@ -435,15 +435,15 @@ export default function Activity() {
                         <visual.Icon size={16} style={{ color: visual.color }} />
 
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '13px', color: '#0f172a' }}>{description.title}</div>
+                          <div style={{ fontSize: '15px', color: '#0f172a' }}>{description.title}</div>
                           {description.subline && (
-                            <div style={{ marginTop: '3px', fontSize: '12px', color: '#64748b' }}>{description.subline}</div>
+                            <div style={{ marginTop: '3px', fontSize: '14px', color: '#64748b' }}>{description.subline}</div>
                           )}
                         </div>
 
                         <div style={{ textAlign: 'right', minWidth: '140px' }}>
-                          <div title={absoluteTime} style={{ fontSize: '12px', color: '#334155' }}>{relativeTime}</div>
-                          <div style={{ marginTop: '2px', fontSize: '12px', color: '#94a3b8' }}>{entry.performedBy || currentUserName || 'Admin'}</div>
+                          <div title={absoluteTime} style={{ fontSize: '14px', color: '#334155' }}>{relativeTime}</div>
+                          <div style={{ marginTop: '2px', fontSize: '14px', color: '#94a3b8' }}>{entry.performedBy || currentUserName || 'Admin'}</div>
                         </div>
                       </div>
                     );

@@ -182,7 +182,7 @@ export default function ProductTabs({
               border: 'none',
               borderBottom: activeTab === tab.id ? '2px solid #1e40af' : '2px solid transparent',
               color: activeTab === tab.id ? '#1e40af' : '#64748b',
-              fontSize: '13px',
+              fontSize: '14px',
               fontWeight: activeTab === tab.id ? '700' : '600',
               cursor: 'pointer',
               transition: 'all 0.2s',
@@ -210,7 +210,7 @@ export default function ProductTabs({
       <div style={{ backgroundColor: 'white' }}>
         {activeTab === 'bom' && (
           <div style={{ padding: '16px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
               Bill of Materials {product.productionMode === 'batch' ? `(per unit from batch of ${product.batchYield || 1})` : ''}
             </div>
             {bomLoading ? (
@@ -222,11 +222,11 @@ export default function ProductTabs({
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#e2e8f0' }}>
-                      <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px' }}>Material Name</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Quantity</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Unit</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Unit Price</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Total</th>
+                      <th style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>Material Name</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Quantity</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Unit</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Unit Price</th>
+                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -234,11 +234,11 @@ export default function ProductTabs({
                       const totalCost = toNumber(item.unitPrice) * item.quantity;
                       return (
                         <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '8px', fontSize: '12px' }}>{item.materialName}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>{item.quantity.toFixed(3)}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>{item.unit}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>GHS {toNumber(item.unitPrice).toFixed(2)}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '12px', fontWeight: '600' }}>GHS {totalCost.toFixed(2)}</td>
+                          <td style={{ padding: '8px', fontSize: '13px' }}>{item.materialName}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.unit}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>GHS {toNumber(item.unitPrice).toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>GHS {totalCost.toFixed(2)}</td>
                         </tr>
                       );
                     })}
@@ -247,8 +247,8 @@ export default function ProductTabs({
 
                 {/* Cost Breakdown */}
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px' }}>Cost breakdown (per unit)</div>
-                  <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Cost breakdown (per unit)</div>
+                  <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>Total Material Cost:</span>
                       <span style={{ fontWeight: '600' }}>GHS {(displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)).toFixed(2)}</span>
@@ -275,16 +275,16 @@ export default function ProductTabs({
         {activeTab === 'activity' && (
           <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 700 }}>Recent activity</div>
-              <Link to={activityViewAllHref} style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>Recent activity</div>
+              <Link to={activityViewAllHref} style={{ fontSize: '13px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
                 View all activity
               </Link>
             </div>
 
             {activityLoading ? (
-              <div style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>Loading activity...</div>
+              <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>Loading activity...</div>
             ) : activityEntries.length === 0 ? (
-              <div style={{ padding: '8px', color: '#64748b', fontSize: '12px' }}>No recent activity yet.</div>
+              <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>No recent activity yet.</div>
             ) : (
               <div style={{ display: 'grid', gap: '8px' }}>
                 {activityEntries.map((entry) => {
@@ -292,10 +292,10 @@ export default function ProductTabs({
                   return (
                     <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
                       <visual.Icon size={14} style={{ color: visual.color }} />
-                      <div style={{ fontSize: '12px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
+                      <div style={{ fontSize: '13px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
                         {describeProductActivity(entry.action, entry.details)}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right' }}>
+                      <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>
                         {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
                       </div>
                     </div>
@@ -309,18 +309,18 @@ export default function ProductTabs({
         {activeTab === 'history' && (
           <div style={{ padding: '16px' }}>
             {historyLoading ? (
-              <div style={{ padding: '12px', color: '#64748b', fontSize: '12px' }}>Loading price history...</div>
+              <div style={{ padding: '12px', color: '#64748b', fontSize: '13px' }}>Loading price history...</div>
             ) : historyError ? (
-              <div style={{ padding: '12px', color: '#dc2626', fontSize: '12px' }}>{historyError}</div>
+              <div style={{ padding: '12px', color: '#dc2626', fontSize: '13px' }}>{historyError}</div>
             ) : priceHistory.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '32px 16px', color: '#94a3b8' }}>
                 <History size={28} />
-                <span style={{ fontSize: '13px' }}>No approved prices yet</span>
-                <span style={{ fontSize: '12px' }}>Approve a price to start tracking history.</span>
+                <span style={{ fontSize: '14px' }}>No approved prices yet</span>
+                <span style={{ fontSize: '13px' }}>Approve a price to start tracking history.</span>
               </div>
             ) : (
               <Fragment>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#e2e8f0' }}>
                       <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Date</th>
@@ -349,7 +349,7 @@ export default function ProductTabs({
                         <Fragment key={entry.id}>
                           {index === 1 && (
                             <tr>
-                              <td colSpan={6} style={{ padding: '8px 8px 4px', color: '#94a3b8', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid #e2e8f0' }}>
+                              <td colSpan={6} style={{ padding: '8px 8px 4px', color: '#94a3b8', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', borderTop: '1px solid #e2e8f0' }}>
                                 Previous approvals
                               </td>
                             </tr>
@@ -357,7 +357,7 @@ export default function ProductTabs({
                           <tr style={{ backgroundColor: isMostRecent ? '#f0f9ff' : undefined, borderTop: index > 1 ? '1px solid #f1f5f9' : undefined }}>
                             <td style={{ padding: '8px' }}>
                               <div style={{ fontWeight: 500 }}>{formatAbsoluteDate(entry.createdAt)}</div>
-                              <div style={{ color: '#94a3b8', fontSize: '11px' }}>{formatRelativeTime(entry.createdAt)}</div>
+                              <div style={{ color: '#94a3b8', fontSize: '13px' }}>{formatRelativeTime(entry.createdAt)}</div>
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
                               {newPrice !== null ? `GHS ${newPrice.toFixed(2)}` : '—'}
@@ -386,7 +386,7 @@ export default function ProductTabs({
                     })}
                   </tbody>
                 </table>
-                <div style={{ padding: '8px', color: '#94a3b8', fontSize: '11px', textAlign: 'right' }}>
+                <div style={{ padding: '8px', color: '#94a3b8', fontSize: '13px', textAlign: 'right' }}>
                   Showing {priceHistory.length} approval{priceHistory.length !== 1 ? 's' : ''}
                 </div>
               </Fragment>

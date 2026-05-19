@@ -429,7 +429,7 @@ export default function ProductDetail() {
         <div className="app-page-header">
           <button
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
@@ -445,7 +445,7 @@ export default function ProductDetail() {
         <div className="app-page-header">
           <button
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
@@ -492,7 +492,7 @@ export default function ProductDetail() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <button
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
@@ -531,7 +531,7 @@ export default function ProductDetail() {
               color: previousProduct ? '#334155' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: previousProduct ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
@@ -543,7 +543,7 @@ export default function ProductDetail() {
             Previous
           </button>
 
-          <div style={{ fontSize: '12px', color: '#888', fontWeight: 400 }}>
+          <div style={{ fontSize: '14px', color: '#888', fontWeight: 400 }}>
             {productCounterCurrent} of {productCounterTotal} products
           </div>
 
@@ -558,7 +558,7 @@ export default function ProductDetail() {
               color: nextProduct ? '#334155' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: nextProduct ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
@@ -592,8 +592,8 @@ export default function ProductDetail() {
 
           {/* Product summary card */}
           <div className="app-card">
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '12px' }}>Product summary</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Product summary</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '14px' }}>
               <div>
                 <span style={{ color: '#64748b' }}>SKU: </span>
                 <span style={{ fontWeight: 600 }}>{product.sku || '—'}</span>
@@ -640,8 +640,8 @@ export default function ProductDetail() {
 
           {/* Cost breakdown card */}
           <div className="app-card">
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '12px' }}>Cost parameters</div>
-            <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Cost parameters</div>
+            <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Production cost (calc):</span>
                 <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
@@ -669,7 +669,7 @@ export default function ProductDetail() {
                 <span className="money-value" style={{ fontWeight: 700, color: '#16a34a' }}>GHS {optimalPrice.toFixed(2)}</span>
               </div>
               {grossMarginAtOptimal !== null && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
                   <span>Profit on sales at this price:</span>
                   <span style={{ fontWeight: 600 }}>{grossMarginAtOptimal.toFixed(1)}%</span>
                 </div>
@@ -683,8 +683,8 @@ export default function ProductDetail() {
 
           {/* Pricing card */}
           <div className="app-card">
-            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '12px' }}>Pricing</div>
-            <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Pricing</div>
+            <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Optimal Price:</span>
                 <span className="money-value" style={{ fontWeight: 700 }}>GHS {optimalPrice.toFixed(2)}</span>
@@ -725,9 +725,9 @@ export default function ProductDetail() {
           {/* Needs review context */}
           {product.approvalStatus === 'needs_review' && (
             <div className="app-card" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed' }}>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: '#9a3412', marginBottom: '4px' }}>Costs have changed for this product</div>
-              <div style={{ fontSize: '11px', color: '#9a3412', marginBottom: '8px' }}>Review below and choose how to update the approved price.</div>
-              <div style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#9a3412', marginBottom: '4px' }}>Costs have changed for this product</div>
+              <div style={{ fontSize: '13px', color: '#9a3412', marginBottom: '8px' }}>Review below and choose how to update the approved price.</div>
+              <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#7c2d12' }}>Current production cost:</span>
                   <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>GHS {productionCost.toFixed(2)}</span>
@@ -757,7 +757,7 @@ export default function ProductDetail() {
           {showReadOnlyApprovedSummary && (
             <div className="app-card" style={{ border: '1px solid #bbf7d0', backgroundColor: '#f0fdf4' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontWeight: 700, color: '#166534', fontSize: '13px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontWeight: 700, color: '#166534', fontSize: '15px' }}>
                   <CheckCircle size={14} strokeWidth={2.2} />
                   Price approved
                 </div>
@@ -766,7 +766,7 @@ export default function ProductDetail() {
                 </AppButton>
               </div>
 
-              <div style={{ display: 'grid', gap: '8px', fontSize: '12px' }}>
+              <div style={{ display: 'grid', gap: '8px', fontSize: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Approved base price</span>
                   <span className="money-value" style={{ fontWeight: 700 }}>GHS {Number(product.approvedPrice).toFixed(2)}</span>
@@ -823,7 +823,7 @@ export default function ProductDetail() {
 
           {showApprovalForm && product.approvalStatus === 'needs_review' && (
             <div className="app-card" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#9a3412', fontWeight: 600 }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#9a3412', fontWeight: 600 }}>
                 <AlertTriangle size={12} strokeWidth={2} />
                 This product's cost has changed since the last approval. Review and approve a new price below.
               </div>
@@ -832,7 +832,7 @@ export default function ProductDetail() {
 
           {showApprovalForm && product.approvalStatus === 'pending' && (
             <div className="app-card" style={{ border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
-              <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+              <div style={{ fontSize: '14px', color: '#475569', fontWeight: 600 }}>
                 This product has not been priced yet. Set and approve a base price below.
               </div>
             </div>
@@ -840,13 +840,13 @@ export default function ProductDetail() {
 
           {showApprovalForm && (
             <div className="app-card" style={{ border: `1px solid ${panelColors.border}`, backgroundColor: panelColors.background }}>
-              <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '4px' }}>Price approval</div>
-              <div style={{ fontSize: '11px', color: '#475569', marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '4px' }}>Price approval</div>
+              <div style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
                 Approve a price to include this product in official price lists.
               </div>
 
               {product.approvalStatus === 'needs_review' && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#9a3412', fontWeight: 600, marginBottom: '12px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#9a3412', fontWeight: 600, marginBottom: '12px' }}>
                   <AlertTriangle size={12} strokeWidth={2} />
                   Costs changed. Approved base price may be outdated.
                 </div>
@@ -866,7 +866,7 @@ export default function ProductDetail() {
                     color: 'white',
                     fontWeight: 700,
                     cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
+                    fontSize: '14px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
@@ -898,7 +898,7 @@ export default function ProductDetail() {
                           color: belowCost ? '#94a3b8' : '#334155',
                           fontWeight: 600,
                           cursor: (approvalLoading || belowCost) ? 'not-allowed' : 'pointer',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '6px',
@@ -909,12 +909,12 @@ export default function ProductDetail() {
                         Keep current price (GHS {keepPrice.toFixed(2)})
                       </button>
                       {belowCost ? (
-                        <div style={{ fontSize: '11px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ fontSize: '13px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <AlertTriangle size={11} />
                           Cannot keep: price is now below production cost
                         </div>
                       ) : keepMargin !== null ? (
-                        <div style={{ fontSize: '11px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ fontSize: '13px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {keepMargin < 15 && <AlertTriangle size={11} />}
                           New margin at this price: {keepMargin.toFixed(1)}%
                         </div>
@@ -925,14 +925,14 @@ export default function ProductDetail() {
 
                 {/* Custom price */}
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Custom Price (GHS)</label>
+                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Custom Price (GHS)</label>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <input
                       type="number"
                       value={approvalCustomPrice}
                       onChange={(e) => setApprovalCustomPrice(e.target.value)}
                       placeholder={optimalPrice.toFixed(2)}
-                      style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px' }}
+                      style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px' }}
                     />
                     <button
                       type="button"
@@ -946,7 +946,7 @@ export default function ProductDetail() {
                         color: '#334155',
                         fontWeight: 600,
                         cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '5px',
@@ -961,26 +961,26 @@ export default function ProductDetail() {
 
                 {/* Reason */}
                 <div style={{ display: 'grid', gap: '4px' }}>
-                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
+                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
                   <input
                     type="text"
                     value={approvalReason}
                     onChange={(e) => setApprovalReason(e.target.value)}
-                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
                   />
                 </div>
 
                 {/* Price valid until */}
                 <div style={{ display: 'grid', gap: '4px' }}>
-                  <label style={{ fontSize: '11px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
+                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
                   <input
                     type="date"
                     min={getTomorrowDateInputValue()}
                     value={approvalExpiryDate}
                     onChange={(e) => setApprovalExpiryDate(e.target.value)}
-                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
                   />
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>
                     If set, this product will be flagged for review on this date.
                   </div>
                 </div>
@@ -998,7 +998,7 @@ export default function ProductDetail() {
                     color: '#b91c1c',
                     fontWeight: 700,
                     cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                    fontSize: '12px',
+                    fontSize: '14px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '5px',
@@ -1022,7 +1022,7 @@ export default function ProductDetail() {
                       color: '#334155',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      fontSize: '12px',
+                      fontSize: '14px',
                       alignSelf: 'flex-start',
                     }}
                   >
@@ -1038,23 +1038,23 @@ export default function ProductDetail() {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                   <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0 }} />
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#bf360c' }}>Custom prices may need review</span>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#bf360c' }}>Custom prices may need review</span>
                 </div>
                 <button type="button" onClick={() => setStaleAlertDismissed(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#e65100', padding: 0 }} title="Dismiss"><X size={13} /></button>
               </div>
-              <div style={{ fontSize: '12px', color: '#78350f', marginBottom: '10px' }}>
+              <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>
                 {staleCustomPrices.length} price level{staleCustomPrices.length === 1 ? '' : 's'} have custom prices for this product that were set before this approval. Review them to make sure they are still appropriate.
               </div>
               <div style={{ display: 'grid', gap: '6px', marginBottom: '12px' }}>
                 {staleCustomPrices.map((sc) => (
-                  <div key={sc.priceLevelId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#7c2d12', padding: '4px 0', borderBottom: '1px solid #ffcc80' }}>
+                  <div key={sc.priceLevelId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#7c2d12', padding: '4px 0', borderBottom: '1px solid #ffcc80' }}>
                     <span style={{ fontWeight: 600 }}>{sc.priceLevelName}</span>
                     <span>Custom: GHS {sc.customPrice.toFixed(2)} → New base: GHS {sc.newApprovedBasePrice.toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button type="button" onClick={() => { setStaleAlertDismissed(true); }} style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #ffcc80', backgroundColor: 'transparent', color: '#bf360c', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>Dismiss</button>
+                <button type="button" onClick={() => { setStaleAlertDismissed(true); }} style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #ffcc80', backgroundColor: 'transparent', color: '#bf360c', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>Dismiss</button>
               </div>
             </div>
           )}

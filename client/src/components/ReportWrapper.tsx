@@ -28,10 +28,10 @@ export default function ReportWrapper({
     <div className="app-card" style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{title}</h3>
-          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>{subtitle}</p>
-          <div style={{ marginTop: '6px', color: '#94a3b8', fontSize: '11px' }}>Oxy Industries · PriceRight</div>
-          <div style={{ marginTop: '2px', color: '#94a3b8', fontSize: '11px' }}>
+          <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 700 }}>{title}</h3>
+          <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{subtitle}</p>
+          <div style={{ marginTop: '6px', color: '#94a3b8', fontSize: '13px' }}>Oxy Industries · PriceRight</div>
+          <div style={{ marginTop: '2px', color: '#94a3b8', fontSize: '13px' }}>
             Generated: {generatedAt ? generatedAt.toLocaleString() : 'Not generated yet'}
           </div>
         </div>

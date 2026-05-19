@@ -65,7 +65,7 @@ export default function ExportDropdown({ onExportCSV, onExportExcel, onPrint }: 
               borderRadius: '6px',
               cursor: 'pointer',
               textAlign: 'left',
-              fontSize: '12px',
+              fontSize: '14px',
             }}
           >
             <FileText size={14} strokeWidth={2} />
@@ -86,7 +86,7 @@ export default function ExportDropdown({ onExportCSV, onExportExcel, onPrint }: 
               borderRadius: '6px',
               cursor: 'pointer',
               textAlign: 'left',
-              fontSize: '12px',
+              fontSize: '14px',
             }}
           >
             <Table size={14} strokeWidth={2} />
@@ -107,7 +107,7 @@ export default function ExportDropdown({ onExportCSV, onExportExcel, onPrint }: 
               borderRadius: '6px',
               cursor: 'pointer',
               textAlign: 'left',
-              fontSize: '12px',
+              fontSize: '14px',
             }}
           >
             <Printer size={14} strokeWidth={2} />

@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import {
+  demoModeApi,
   exchangeRatesApi,
   materialsApi,
   priceLevelItemsApi,
@@ -298,11 +299,11 @@ export default function Dashboard() {
             .page { max-width: 720px; margin: 0 auto; }
             .header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
             .icon { width: 52px; height: 52px; border-radius: 16px; background: #111111; color: #ffffff; display: flex; align-items: center; justify-content: center; }
-            h1 { margin: 0; font-size: 28px; }
-            .subtitle { margin: 4px 0 0; color: #475569; font-size: 14px; }
-            p { line-height: 1.7; font-size: 14px; color: #334155; }
+            h1 { margin: 0; font-size: 29px; }
+            .subtitle { margin: 4px 0 0; color: #475569; font-size: 15px; }
+            p { line-height: 1.7; font-size: 15px; color: #334155; }
             ol { margin: 18px 0 0 20px; padding: 0; }
-            li { margin: 0 0 10px; line-height: 1.6; font-size: 14px; }
+            li { margin: 0 0 10px; line-height: 1.6; font-size: 15px; }
             .note { margin-top: 18px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
           </style>
         </head>
@@ -331,11 +332,8 @@ export default function Dashboard() {
 
   async function handleSwitchToDemo() {
     try {
-      await fetch('/api/demo-mode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ demoMode: true }),
-      });
+      await demoModeApi.set(true);
+      await new Promise(resolve => setTimeout(resolve, 200));
       window.location.reload();
     } catch (err) {
       console.error('Failed to switch to demo mode', err);
@@ -644,11 +642,11 @@ export default function Dashboard() {
                 <LayoutDashboard size={20} color="#f8fafc" />
               )}
               <div>
-                {companyName && <div className="app-page-subtitle" style={{ fontSize: '12px' }}>{companyName}</div>}
+                {companyName && <div className="app-page-subtitle" style={{ fontSize: '14px' }}>{companyName}</div>}
                 <h1 className="app-page-title">Dashboard</h1>
               </div>
             </div>
-            <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{currentDateLabel}</div>
+            <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
           </div>
         </div>
 
@@ -706,7 +704,7 @@ export default function Dashboard() {
         <div className="app-page-content" style={{ minHeight: '65vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="app-card" style={{ maxWidth: '520px', width: '100%', textAlign: 'center', padding: '24px' }}>
             <AlertTriangle size={24} color="#dc2626" style={{ marginBottom: '12px' }} />
-            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px' }}>{error}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>{error}</div>
             <button className="btn btn-secondary" onClick={() => { void loadDashboardData(); }}>
               <RefreshCw size={14} strokeWidth={2} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
               Refresh
@@ -732,11 +730,11 @@ export default function Dashboard() {
               <LayoutDashboard size={20} color="#f8fafc" />
             )}
             <div>
-              {companyName && <div className="app-page-subtitle" style={{ fontSize: '12px' }}>{companyName}</div>}
+              {companyName && <div className="app-page-subtitle" style={{ fontSize: '14px' }}>{companyName}</div>}
               <h1 className="app-page-title">Dashboard</h1>
             </div>
           </div>
-          <div className="app-page-subtitle" style={{ fontSize: '13px' }}>{currentDateLabel}</div>
+          <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
         </div>
       </div>
 
@@ -754,10 +752,10 @@ export default function Dashboard() {
               alignItems: 'center',
             }}
           >
-            <span style={{ fontSize: '13px', fontWeight: 600 }}>{banner.message}</span>
+            <span style={{ fontSize: '15px', fontWeight: 600 }}>{banner.message}</span>
             <button
               className="btn btn-secondary"
-              style={{ padding: '6px 10px', fontSize: '12px' }}
+              style={{ padding: '6px 10px', fontSize: '14px' }}
               onClick={() => setBanner(null)}
             >
               Dismiss
@@ -778,8 +776,8 @@ export default function Dashboard() {
               gap: '12px',
             }}
           >
-            <h2 style={{ margin: 0, fontSize: '22px', color: '#f8fafc' }}>Welcome to PriceRight</h2>
-            <p style={{ margin: 0, color: '#cbd5e1', fontSize: '14px', lineHeight: 1.6 }}>
+            <h2 style={{ margin: 0, fontSize: '24px', color: '#f8fafc' }}>Welcome to PriceRight</h2>
+            <p style={{ margin: 0, color: '#cbd5e1', fontSize: '16px', lineHeight: 1.6 }}>
               Build accurate costs, set profitable prices, and manage customer pricing in one place. Start by adding your
               materials and products.
             </p>
@@ -870,7 +868,7 @@ export default function Dashboard() {
         <div className="dashboard-chart-grid">
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Low-Margin Top 10</h3>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Low-Margin Top 10</h3>
             </div>
             <p className="dashboard-help-text">Products with the weakest margins first. Click a row to open low-margin product view.</p>
             {lowMarginTopTen.length === 0 ? (
@@ -891,14 +889,14 @@ export default function Dashboard() {
                         cursor: 'pointer',
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '3px', gap: '8px' }}>
                         <span className="dashboard-chart-label" style={{ color: '#475569' }}>{product.name}</span>
                         <span className="dashboard-number-sm" style={{ color: '#e65100' }}>{realisedMargin.toFixed(1)}%</span>
                       </div>
                       <div
                         style={{
                           fontWeight: 400,
-                          fontSize: '11px',
+                          fontSize: '13px',
                           color: '#888',
                           marginBottom: '4px',
                         }}
@@ -917,7 +915,7 @@ export default function Dashboard() {
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Currency Exposure</h3>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Currency Exposure</h3>
             </div>
             <p className="dashboard-help-text">Shows how many materials are purchased in each currency. Click legend items to open Materials.</p>
             {currencyExposureData.total === 0 ? (
@@ -970,7 +968,7 @@ export default function Dashboard() {
                         cursor: 'pointer',
                       }}
                     >
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#475569' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#475569' }}>
                         <span style={{ width: '8px', height: '8px', borderRadius: '999px', backgroundColor: segment.color }} />
                         {segment.label}
                       </span>
@@ -984,7 +982,7 @@ export default function Dashboard() {
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Price Level Approval Status</h3>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Price Level Approval Status</h3>
             </div>
             <p className="dashboard-help-text">Shows which levels are ready to export and which still need approval work.</p>
             {(priceLevelSummary.exportReadyLevels + priceLevelSummary.fullyApprovedLevels + priceLevelSummary.levelsWithPendingItems) === 0 ? (
@@ -1000,7 +998,7 @@ export default function Dashboard() {
                       onClick={() => navigate('/price-levels')}
                       style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px', fontSize: '14px' }}>
                         <span style={{ color: '#475569' }}>{item.label}</span>
                         <span className="dashboard-number-xs" style={{ color: '#0f172a' }}>{item.value}</span>
                       </div>
@@ -1020,7 +1018,7 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <ShieldCheck size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Approval Workload</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Approval Workload</h3>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
@@ -1039,9 +1037,9 @@ export default function Dashboard() {
                       gap: '6px',
                     }}
                   >
-                    <div style={{ color: '#9a3412', fontSize: '12px', fontWeight: 700 }}>Prices need review</div>
-                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#e65100', lineHeight: 1 }}>{productCounts.needsReview}</div>
-                    <div style={{ fontSize: '12px', color: '#9a3412' }}>products affected by cost changes</div>
+                    <div style={{ color: '#9a3412', fontSize: '14px', fontWeight: 700 }}>Prices need review</div>
+                    <div style={{ fontSize: '26px', fontWeight: 700, color: '#e65100', lineHeight: 1 }}>{productCounts.needsReview}</div>
+                    <div style={{ fontSize: '14px', color: '#9a3412' }}>products affected by cost changes</div>
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }}
@@ -1052,11 +1050,11 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', color: '#166534', fontSize: '12px', fontWeight: 600 }}>
+                  <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '10px 12px', color: '#166534', fontSize: '14px', fontWeight: 600 }}>
                     All prices current
                   </div>
                 )}
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div style={{ fontSize: '14px', color: '#64748b' }}>
                   {needsReviewBreakdown.costChanges} cost changes · {needsReviewBreakdown.priceExpired} price expired · {needsReviewBreakdown.other} other
                 </div>
                 <button className="btn btn-secondary btn-sem-approvals" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=rejected')}>
@@ -1070,10 +1068,10 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <RefreshCw size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Rate Health</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Rate Health</h3>
                 </div>
               </div>
-              <div style={{ display: 'grid', gap: '8px', fontSize: '13px', color: '#334155' }}>
+              <div style={{ display: 'grid', gap: '8px', fontSize: '15px', color: '#334155' }}>
                 <div>{staleRateSummary.latestLabel}</div>
                 <div><span className="dashboard-number-xs">{staleRateSummary.staleCount}</span> rate{staleRateSummary.staleCount === 1 ? '' : 's'} older than 7 days</div>
                 <div>Oldest update age: <span className="dashboard-number-xs">{staleRateSummary.oldestAgeDays}</span> day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'}</div>
@@ -1084,11 +1082,11 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FileText size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Price Level Focus</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Price Level Focus</h3>
                 </div>
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
-                <div style={{ fontSize: '13px', color: '#334155' }}><span className="dashboard-number-xs">{priceLevelSummary.exportReadyLevels}</span> levels have approved pricing ready to export</div>
+                <div style={{ fontSize: '15px', color: '#334155' }}><span className="dashboard-number-xs">{priceLevelSummary.exportReadyLevels}</span> levels have approved pricing ready to export</div>
                 <button className="btn btn-secondary btn-sem-pricelist" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/price-levels')}>
                   <span>Levels Needing Approval</span>
                   <strong className="dashboard-number-xs">{priceLevelSummary.levelsWithPendingItems}</strong>
@@ -1104,7 +1102,7 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Clock size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Recent Activity</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Recent Activity</h3>
                 </div>
               </div>
 
@@ -1125,8 +1123,8 @@ export default function Dashboard() {
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
                           <span style={{ color: '#475569', marginTop: '1px' }}>{icon}</span>
                           <div>
-                            <div style={{ fontSize: '13px', fontWeight: 400, color: '#0f172a' }}>{item.text}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>{relativeTime(item.timestamp)}</div>
+                            <div style={{ fontSize: '15px', fontWeight: 400, color: '#0f172a' }}>{item.text}</div>
+                            <div style={{ fontSize: '13px', color: '#64748b' }}>{relativeTime(item.timestamp)}</div>
                           </div>
                         </div>
                       </div>
@@ -1140,17 +1138,17 @@ export default function Dashboard() {
         {upcomingPriceExpiries.length > 0 && (
           <div className="app-card" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Upcoming Price Expiries</h3>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Upcoming Price Expiries</h3>
               <button
                 className="btn btn-secondary"
-                style={{ padding: '6px 10px', fontSize: '12px', fontWeight: 700 }}
+                style={{ padding: '6px 10px', fontSize: '14px', fontWeight: 700 }}
                 onClick={() => navigate('/products?expiringSoon=1')}
               >
                 View all →
               </button>
             </div>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
                     <th style={{ padding: '8px 10px' }}>Product Name</th>
@@ -1217,7 +1215,7 @@ export default function Dashboard() {
           right: -2px;
         }
         .dashboard-stat-value {
-          font-size: 24px;
+          font-size: 25px;
           font-weight: 700;
           margin-top: 6px;
           color: #0f172a;
@@ -1229,36 +1227,36 @@ export default function Dashboard() {
           line-height: 1.2;
         }
         .dashboard-number-sm {
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
         }
         .dashboard-number-xs {
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
         }
         .dashboard-stat-title {
           margin-top: 10px;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 700;
           color: #64748b;
           letter-spacing: 0.3px;
         }
         .dashboard-stat-sub {
           margin-top: 6px;
-          font-size: 12px;
+          font-size: 13px;
           color: #64748b;
           line-height: 1.35;
         }
         .dashboard-stat-hint {
           margin-top: 4px;
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 600;
           color: #475569;
           line-height: 1.3;
         }
         .dashboard-help-text {
           margin: 0 0 10px;
-          font-size: 12px;
+          font-size: 13px;
           color: #64748b;
           line-height: 1.35;
         }
@@ -1274,18 +1272,18 @@ export default function Dashboard() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 13px;
+          font-size: 14px;
           font-weight: 700;
           color: #1d4ed8;
           letter-spacing: 0.2px;
         }
         .dashboard-quick-actions-title::before {
           content: '⚡';
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1;
         }
         .dashboard-quick-actions-sub {
-          font-size: 12px;
+          font-size: 13px;
           color: #334155;
         }
         .dashboard-quick-card {
@@ -1430,7 +1428,7 @@ export default function Dashboard() {
           gap: 8px;
           align-items: center;
           color: #475569;
-          font-size: 13px;
+          font-size: 14px;
           padding: 12px 0;
         }
         @media (max-width: 1200px) {

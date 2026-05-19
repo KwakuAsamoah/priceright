@@ -37,7 +37,7 @@ export default function UndoBanner() {
             alignItems: 'center',
             gap: '16px',
             zIndex: 2100,
-            fontSize: '13px',
+            fontSize: '15px',
             fontWeight: 400,
           }}
         >
@@ -52,7 +52,7 @@ export default function UndoBanner() {
               color: '#000000',
               borderRadius: '6px',
               padding: '6px 14px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: isUndoing ? 'not-allowed' : 'pointer',
             }}
@@ -68,7 +68,7 @@ export default function UndoBanner() {
               color: '#ffffff',
               borderRadius: '6px',
               padding: '6px 14px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
             }}

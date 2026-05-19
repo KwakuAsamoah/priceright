@@ -41,11 +41,11 @@ export default function DemoModeBanner() {
           <span className="demo-dot" aria-hidden="true" />
           <span className="demo-pill-text" style={{ color: '#9a3412', fontWeight: 700 }}>Demo mode is ON</span>
         </div>
-        <div style={{ fontSize: '12px', color: '#9a3412' }}>
+        <div style={{ fontSize: '14px', color: '#9a3412' }}>
           Exploring sample data. To switch to your own data, go to Settings and open Data and Backups.
         </div>
       </div>
-      <span style={{ fontSize: '12px', fontWeight: 600, color: '#9a3412' }}>Open Settings</span>
+      <span style={{ fontSize: '14px', fontWeight: 600, color: '#9a3412' }}>Open Settings</span>
     </div>
   );
 }

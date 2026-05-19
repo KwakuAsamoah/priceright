@@ -77,7 +77,7 @@ export default function AppToast({ open, message, type, onClose, autoHideMs }: A
             border: 'none',
             cursor: 'pointer',
             color: '#64748b',
-            fontSize: '16px',
+            fontSize: '18px',
             lineHeight: 1,
             padding: '2px 6px',
           }}

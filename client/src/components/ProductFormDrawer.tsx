@@ -43,6 +43,7 @@ interface ProductFormDrawerProps {
   materials: Material[];
   categoryOptions: string[];
   defaultOverhead: string;
+  defaultProfitMargin: string;
   onSaved: () => void | Promise<void>;
 }
 
@@ -53,6 +54,7 @@ export default function ProductFormDrawer({
   materials,
   categoryOptions,
   defaultOverhead,
+  defaultProfitMargin,
   onSaved,
 }: ProductFormDrawerProps) {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
@@ -63,7 +65,7 @@ export default function ProductFormDrawer({
     description: '',
     category: '',
     overheadPercentage: defaultOverhead,
-    profitMargin: '30',
+    profitMargin: defaultProfitMargin,
     otherDirectCosts: '0',
     productionMode: 'single' as 'single' | 'batch',
     batchYield: '1',
@@ -92,7 +94,7 @@ export default function ProductFormDrawer({
         description: product.description || '',
         category: hasKnownCategory ? productCategory : productCategory ? '__custom__' : '',
         overheadPercentage: product.overheadPercentage?.toString() || defaultOverhead,
-        profitMargin: product.profitMargin?.toString() || '30',
+        profitMargin: product.profitMargin?.toString() || defaultProfitMargin,
         otherDirectCosts: product.otherDirectCosts?.toString() || '0',
         productionMode: product.productionMode || 'single',
         batchYield: product.batchYield?.toString() || '1',
@@ -103,7 +105,7 @@ export default function ProductFormDrawer({
     } else {
       resetForm();
     }
-  }, [isOpen, product, defaultOverhead]);
+  }, [isOpen, product, defaultOverhead, defaultProfitMargin]);
 
   async function loadExistingBOM(productId: number) {
     try {
@@ -122,7 +124,7 @@ export default function ProductFormDrawer({
       description: '',
       category: '',
       overheadPercentage: defaultOverhead,
-      profitMargin: '30',
+      profitMargin: defaultProfitMargin,
       otherDirectCosts: '0',
       productionMode: 'single',
       batchYield: '1',
@@ -337,8 +339,8 @@ export default function ProductFormDrawer({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
-            <div style={{ color: '#64748b', fontSize: '13px' }}>Update product details and BOM inline</div>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
+            <div style={{ color: '#64748b', fontSize: '15px' }}>Update product details and BOM inline</div>
           </div>
           <button
             onClick={onClose}
@@ -357,10 +359,10 @@ export default function ProductFormDrawer({
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Basic Info</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Product Name *</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Product Name *</label>
                 <input
                   type="text"
                   required
@@ -371,7 +373,7 @@ export default function ProductFormDrawer({
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>SKU</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>SKU</label>
                   <input
                     type="text"
                     value={formData.sku}
@@ -380,7 +382,7 @@ export default function ProductFormDrawer({
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Category *</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Category *</label>
                   <select
                     required
                     value={formData.category}
@@ -409,7 +411,7 @@ export default function ProductFormDrawer({
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Description</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -420,12 +422,12 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Production Settings</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Production Mode</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Production Mode</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px' }}>
                     <input
                       type="radio"
                       checked={formData.productionMode === 'single'}
@@ -433,7 +435,7 @@ export default function ProductFormDrawer({
                     />
                     Single
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px' }}>
                     <input
                       type="radio"
                       checked={formData.productionMode === 'batch'}
@@ -445,7 +447,7 @@ export default function ProductFormDrawer({
               </div>
               {formData.productionMode === 'batch' && (
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="The number of finished units your recipe produces in one production run. If your recipe makes 6 bottles of sugar, enter 6.">
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title="The number of finished units your recipe produces in one production run. If your recipe makes 6 bottles of sugar, enter 6.">
                     Batch Yield *
                   </label>
                   <input
@@ -460,7 +462,7 @@ export default function ProductFormDrawer({
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="A percentage added to your material costs to cover indirect costs like electricity, water, rent, and labour. 25% overhead on GHS 1,000 of materials adds GHS 250 to your production cost.">
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title="A percentage added to your material costs to cover indirect costs like electricity, water, rent, and labour. 25% overhead on GHS 1,000 of materials adds GHS 250 to your production cost.">
                     Overhead % *
                   </label>
                   <input
@@ -473,7 +475,7 @@ export default function ProductFormDrawer({
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }} title="Profit on cost (markup). A value of 20 means add 20% on top of production cost when calculating optimal price.">
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title="Profit on cost (markup). A value of 20 means add 20% on top of production cost when calculating optimal price.">
                     Profit on cost (%) *
                   </label>
                   <input
@@ -485,13 +487,13 @@ export default function ProductFormDrawer({
                     onChange={(e) => setFormData({ ...formData, profitMargin: e.target.value })}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
                   />
-                  <div style={{ marginTop: '6px', color: '#64748b', fontSize: '12px' }}>
+                  <div style={{ marginTop: '6px', color: '#64748b', fontSize: '14px' }}>
                     How much profit to add on top of production cost. E.g. 20 means add 20% on top of cost.
                   </div>
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Approved base price</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Approved base price</label>
                 <input
                   type="number"
                   step="0.01"
@@ -504,9 +506,9 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Bill of Materials</h3>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Bill of Materials</h3>
             <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600' }}>Select Material</label>
+              <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Select Material</label>
               <div style={{ position: 'relative' }}>
                 <input
                   ref={materialInputRef}
@@ -526,7 +528,7 @@ export default function ProductFormDrawer({
                     padding: '10px 12px',
                     borderRadius: '8px',
                     border: '1px solid ' + (materialDropdownOpen ? '#3b82f6' : '#e2e8f0'),
-                    fontSize: '14px',
+                    fontSize: '16px',
                     transition: 'border-color 0.2s',
                   }}
                 />
@@ -563,7 +565,7 @@ export default function ProductFormDrawer({
                           transition: 'background-color 0.15s',
                         }}
                       >
-                        <span style={{ fontSize: '14px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '16px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           {material.name}
                           {material.materialType === 'intermediate' ? (
                             <span style={{ fontSize: 12, border: '1px solid #94a3b8', borderRadius: 999, padding: '2px 6px', color: '#475569' }}>
@@ -571,7 +573,7 @@ export default function ProductFormDrawer({
                             </span>
                           ) : null}
                         </span>
-                        <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '12px', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '14px', color: '#64748b', marginLeft: '12px', whiteSpace: 'nowrap' }}>
                           GHS {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
                         </span>
                       </div>
@@ -591,7 +593,7 @@ export default function ProductFormDrawer({
                       borderRadius: '0 0 8px 8px',
                       padding: '12px',
                       textAlign: 'center',
-                      fontSize: '13px',
+                      fontSize: '15px',
                       color: '#64748b',
                       zIndex: 10,
                     }}
@@ -606,11 +608,11 @@ export default function ProductFormDrawer({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ backgroundColor: '#f1f5f9' }}>
                   <tr>
-                    <th style={{ padding: '8px', textAlign: 'left', fontSize: '12px' }}>Material</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Quantity</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Unit Price</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '12px' }}>Total</th>
-                    <th style={{ padding: '8px', textAlign: 'center', fontSize: '12px' }}>Action</th>
+                    <th style={{ padding: '8px', textAlign: 'left', fontSize: '14px' }}>Material</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Quantity</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Unit Price</th>
+                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Total</th>
+                    <th style={{ padding: '8px', textAlign: 'center', fontSize: '14px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -618,8 +620,8 @@ export default function ProductFormDrawer({
                     const totalCost = item.quantity * parseFloat(item.unitPrice);
                     return (
                       <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '8px', fontSize: '12px' }}>{item.materialName}</td>
-                        <td style={{ padding: '8px', fontSize: '12px', textAlign: 'right' }}>
+                        <td style={{ padding: '8px', fontSize: '14px' }}>{item.materialName}</td>
+                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right' }}>
                           {editingBomId === item.id ? (
                             <input
                               type="number"
@@ -633,10 +635,10 @@ export default function ProductFormDrawer({
                             `${item.quantity.toFixed(3)} ${item.unit}`
                           )}
                         </td>
-                        <td style={{ padding: '8px', fontSize: '12px', textAlign: 'right' }}>
+                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right' }}>
                           GHS {parseFloat(item.unitPrice).toFixed(2)}
                         </td>
-                        <td style={{ padding: '8px', fontSize: '12px', textAlign: 'right', fontWeight: '600' }}>
+                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right', fontWeight: '600' }}>
                           GHS {totalCost.toFixed(2)}
                         </td>
                         <td style={{ padding: '8px', textAlign: 'center' }}>
@@ -645,14 +647,14 @@ export default function ProductFormDrawer({
                               <button
                                 type="button"
                                 onClick={() => handleSaveBomEdit(item.id)}
-                                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 Save
                               </button>
                               <button
                                 type="button"
                                 onClick={handleCancelBomEdit}
-                                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 Cancel
                               </button>
@@ -662,14 +664,14 @@ export default function ProductFormDrawer({
                               <button
                                 type="button"
                                 onClick={() => handleEditBomItem(item.id, item.quantity.toString())}
-                                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#eff6ff', color: '#1e40af', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#eff6ff', color: '#1e40af', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 Edit
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveMaterialFromTemp(item.id)}
-                                style={{ padding: '4px 8px', fontSize: '11px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                               >
                                 Delete
                               </button>
@@ -682,15 +684,15 @@ export default function ProductFormDrawer({
                 </tbody>
               </table>
             ) : (
-              <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '12px' }}>
+              <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '14px' }}>
                 No materials added yet
               </div>
             )}
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '13px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
-            <div style={{ display: 'grid', gap: '8px', fontSize: '13px' }}>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+            <div style={{ display: 'grid', gap: '8px', fontSize: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
                 <span style={{ fontWeight: '600' }}>GHS {liveCost.materialCost.toFixed(2)}</span>
@@ -709,7 +711,7 @@ export default function ProductFormDrawer({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#1e40af', fontWeight: '700' }}>Optimal Price</span>
-                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
+                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

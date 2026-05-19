@@ -298,6 +298,7 @@ export default function Products() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultOverhead, setDefaultOverhead] = useState('30');
+  const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -460,6 +461,10 @@ export default function Products() {
       const overheadSetting = settings.find((s: any) => s.settingKey === 'defaultOverhead');
       if (overheadSetting) {
         setDefaultOverhead(overheadSetting.settingValue);
+      }
+      const profitMarginSetting = settings.find((s: any) => s.settingKey === 'defaultProfitMargin');
+      if (profitMarginSetting) {
+        setDefaultProfitMargin(profitMarginSetting.settingValue);
       }
     } catch (error) {
       console.error('Error loading default overhead:', error);
@@ -1031,8 +1036,13 @@ export default function Products() {
     setImporting(true);
     try {
       const resp = await productsApi.import(importPreview);
-      const failures = resp.failures || [];
-      const successCount = resp.successCount || 0;
+      const failures = (resp.errors || []).map((e: any) => ({
+        rowNumber: e.row,
+        name: e.productName,
+        reason: e.reason,
+        originalRow: {},
+      }));
+      const successCount = resp.imported || 0;
       setImportFailures(failures);
       setImportSuccessCount(successCount);
 
@@ -1814,10 +1824,10 @@ export default function Products() {
           <title>Products Report</title>
           <style>
             body { font-family: 'Open Sans', sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 24px; }
-            .meta { margin-bottom: 12px; color: #475569; font-size: 12px; }
+            h1 { margin: 0 0 6px; font-size: 25px; }
+            .meta { margin-bottom: 12px; color: #475569; font-size: 13px; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; text-align: left; }
+            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 13px; text-align: left; }
             th { background: #f8fafc; }
             @media print { body { margin: 0; } }
           </style>
@@ -1863,7 +1873,7 @@ export default function Products() {
   const compactControlStyle = {
     minHeight: '28px',
     padding: '4px 6px',
-    fontSize: '11px',
+    fontSize: '13px',
   } as const;
 
   function openProductsTableSettings() {
@@ -2087,7 +2097,7 @@ export default function Products() {
               gap: '12px',
             }}
           >
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#e65100', fontSize: '13px', fontWeight: 400 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#e65100', fontSize: '15px', fontWeight: 400 }}>
               <AlertTriangle size={16} color="#e65100" />
               <span>{statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.</span>
             </div>
@@ -2112,7 +2122,7 @@ export default function Products() {
               gap: '12px',
             }}
           >
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#0c4a6e', fontSize: '13px', fontWeight: 500 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#0c4a6e', fontSize: '15px', fontWeight: 500 }}>
               <Info size={16} color="#0369a1" />
               <span>This is your first pricing setup. Set starting approved base prices for your products.</span>
             </div>
@@ -2140,7 +2150,7 @@ export default function Products() {
               zIndex: 10,
             }}
           >
-            <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+            <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
               {selectedProducts.size} selected
             </span>
 
@@ -2253,7 +2263,7 @@ export default function Products() {
         >
         <div className="app-card app-data-card" style={{ padding: 0, flex: 1, minWidth: 0 }} ref={productsTableRef}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: '700' }}>Products ({filteredProducts.length})</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Products ({filteredProducts.length})</h2>
           </div>
           {filteredProducts.length === 0 ? (
             <div className="app-empty-state">
@@ -2265,7 +2275,7 @@ export default function Products() {
               <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
@@ -2276,18 +2286,18 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
-                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }}>Production Cost</th>}
+                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
+                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
-                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
+                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
                     )}
-                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
+                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
                     {isProductColumnVisible('sellingPrice') && (
-                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
+                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
                     {isProductColumnVisible('profitOnCost') && (
                       <th
-                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
                         title="Markup percentage: (approved base price - production cost) / production cost."
                       >
                         Profit on cost
@@ -2295,14 +2305,14 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('profitOnSales') && (
                       <th
-                        style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
                         title="Gross margin percentage: (approved base price - production cost) / approved base price."
                       >
                         Profit on sales
                       </th>
                     )}
                     {isProductColumnVisible('status') && (
-                      <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           Status
                           {needsReviewCount > 0 && (
@@ -2320,7 +2330,7 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
+                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2363,7 +2373,7 @@ export default function Products() {
                                 title={`SKU: ${product.sku || '-'}`}
                                 style={{
                                   fontWeight: 600,
-                                  fontSize: '12px',
+                                  fontSize: '14px',
                                   color: product.isActive ? undefined : '#aaaaaa',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
@@ -2375,13 +2385,13 @@ export default function Products() {
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
                           </td>}
-                          {isProductColumnVisible('materialCost') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('materialCost') && <td style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.totalCost.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('optimalPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('optimalPrice') && <td style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.optimalPrice.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '6px 6px', fontSize: '13px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                             {product.approvedPriceExpiresAt ? (
                               (() => {
                                 const expiryDate = new Date(product.approvedPriceExpiresAt);
@@ -2404,7 +2414,7 @@ export default function Products() {
                               <span style={{ color: '#94a3b8' }}>—</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '6px 6px', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '6px 6px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {hasSellingPrice ? (
                               <span
                                 className="money-value"
@@ -2414,10 +2424,10 @@ export default function Products() {
                                 {Number(product.currentSellingPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
                               </span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: '#94a3b8' }}>Not set</span>
+                              <span style={{ fontSize: '14px', color: '#94a3b8' }}>Not set</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>
                             {profitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2431,7 +2441,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>
                             {profitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2458,7 +2468,7 @@ export default function Products() {
                                     color: '#e65100',
                                     border: '1px solid #ffcc80',
                                     fontWeight: 600,
-                                    fontSize: '12px',
+                                    fontSize: '14px',
                                     padding: '3px 8px',
                                     borderRadius: '12px',
                                   }}
@@ -2553,10 +2563,10 @@ export default function Products() {
           >
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
               <div>
-                <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                <div style={{ fontSize: '18px', fontWeight: 700 }}>
                   {priceReviewMode === 'setup' ? 'Set Starting Prices' : 'Update Prices Workflow'}
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>
                   {priceReviewMode === 'setup'
                     ? `${setupProducts.length} product${setupProducts.length === 1 ? '' : 's'} ready for first-time setup`
                     : `${reviewedCardsCount} reviewed, ${remainingCardsCount} remaining`}
@@ -2592,8 +2602,8 @@ export default function Products() {
                     <div key={product.id} style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '10px', display: 'grid', gap: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'start' }}>
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: '14px' }}>{product.name}</div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>SKU: {product.sku || '-'} | Suggested optimal: {Number(product.optimalPrice || 0).toFixed(2)}</div>
+                          <div style={{ fontWeight: 700, fontSize: '16px' }}>{product.name}</div>
+                          <div style={{ fontSize: '14px', color: '#64748b' }}>SKU: {product.sku || '-'} | Suggested optimal: {Number(product.optimalPrice || 0).toFixed(2)}</div>
                         </div>
                       </div>
                       <input
@@ -2611,9 +2621,9 @@ export default function Products() {
               ) : (
                 <>
                   <div style={{ display: 'grid', gap: '8px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Needs Review</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>Needs Review</div>
                     {filteredStandardReviewProducts.length === 0 ? (
-                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '15px' }}>
                         No needs-review products match this search.
                       </div>
                     ) : filteredStandardReviewProducts.map((product) => {
@@ -2634,12 +2644,12 @@ export default function Products() {
                           }}
                         >
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: '14px' }}>{product.name}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b' }}>
+                            <div style={{ fontWeight: 700, fontSize: '16px' }}>{product.name}</div>
+                            <div style={{ fontSize: '14px', color: '#64748b' }}>
                               Current: {Number(product.currentSellingPrice || 0).toFixed(2)} | New optimal: {Number(product.optimalPrice || 0).toFixed(2)}
                             </div>
                             {reviewedState && (
-                              <div style={{ marginTop: '4px', fontSize: '12px', color: '#166534', fontWeight: 700 }}>
+                              <div style={{ marginTop: '4px', fontSize: '14px', color: '#166534', fontWeight: 700 }}>
                                 <Check size={13} strokeWidth={3} style={{ marginRight: '4px', verticalAlign: 'text-bottom' }} />
                                 {reviewedState.actionLabel} at {reviewedState.chosenPrice.toFixed(2)}
                               </div>
@@ -2673,9 +2683,9 @@ export default function Products() {
                                     Keep current price
                                   </button>
                                   {belowCost ? (
-                                    <div style={{ fontSize: '11px', color: '#c62828' }}>Cannot keep: price is below production cost</div>
+                                    <div style={{ fontSize: '13px', color: '#c62828' }}>Cannot keep: price is below production cost</div>
                                   ) : keepMargin !== null ? (
-                                    <div style={{ fontSize: '11px', color: marginColor }}>Margin at current price: {keepMargin.toFixed(1)}%</div>
+                                    <div style={{ fontSize: '13px', color: marginColor }}>Margin at current price: {keepMargin.toFixed(1)}%</div>
                                   ) : null}
                                 </div>
                               );
@@ -2708,16 +2718,16 @@ export default function Products() {
                   </div>
 
                   <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '10px', display: 'grid', gap: '8px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Approved / Pending Quick Actions</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>Approved / Pending Quick Actions</div>
                     {panelReferenceProducts.length === 0 ? (
-                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '13px' }}>
+                      <div style={{ border: '1px dashed #cbd5e1', borderRadius: '8px', padding: '10px', color: '#64748b', fontSize: '15px' }}>
                         No approved or pending products match this search.
                       </div>
                     ) : panelReferenceProducts.map((product) => (
                       <div key={product.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 700 }}>{product.name}</div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>Optimal {Number(product.optimalPrice || 0).toFixed(2)}</div>
+                          <div style={{ fontSize: '15px', fontWeight: 700 }}>{product.name}</div>
+                          <div style={{ fontSize: '14px', color: '#64748b' }}>Optimal {Number(product.optimalPrice || 0).toFixed(2)}</div>
                         </div>
                         <button
                           className="btn btn-secondary btn-sm"
@@ -2737,7 +2747,7 @@ export default function Products() {
             <div style={{ padding: '12px 16px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
               {priceReviewMode === 'setup' ? (
                 <>
-                  <span style={{ color: '#64748b', fontSize: '12px' }}>Save only rows with a value above 0</span>
+                  <span style={{ color: '#64748b', fontSize: '14px' }}>Save only rows with a value above 0</span>
                   <button
                     className="btn btn-primary"
                     onClick={handleSaveStartingPrices}
@@ -2749,7 +2759,7 @@ export default function Products() {
                 </>
               ) : (
                 <>
-                  <span style={{ color: '#64748b', fontSize: '12px' }}>Bulk update remaining needs-review products</span>
+                  <span style={{ color: '#64748b', fontSize: '14px' }}>Bulk update remaining needs-review products</span>
                   <button
                     className="btn btn-success"
                     onClick={handleApproveAllNeedsReviewInPanel}
@@ -2781,6 +2791,7 @@ export default function Products() {
         materials={materials}
         categoryOptions={productCategories}
         defaultOverhead={defaultOverhead}
+        defaultProfitMargin={defaultProfitMargin}
         onSaved={async () => {
           setShowDrawer(false);
           await loadData();
@@ -2813,8 +2824,8 @@ export default function Products() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px' }}>Delete {deleteTarget.name}?</div>
-            <div style={{ fontSize: '14px', color: '#64748b', marginBottom: '20px' }}>
+            <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>Delete {deleteTarget.name}?</div>
+            <div style={{ fontSize: '16px', color: '#64748b', marginBottom: '20px' }}>
               This will also delete its BOM. This cannot be undone.
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
@@ -2863,7 +2874,7 @@ export default function Products() {
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Delete {selectedProducts.size} Product{selectedProducts.size !== 1 ? 's' : ''}?
             </h2>
-            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '14px' }}>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
               This will also delete their BOMs. This cannot be undone.
             </p>
 
@@ -2872,7 +2883,7 @@ export default function Products() {
                 <AlertTriangle size={14} strokeWidth={2} />
                 {selectedProducts.size} product{selectedProducts.size !== 1 ? 's' : ''} will be deleted
               </div>
-              <div style={{ fontSize: '14px', color: '#78350f', maxHeight: '200px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '16px', color: '#78350f', maxHeight: '200px', overflowY: 'auto' }}>
                 {Array.from(selectedProducts).slice(0, 5).map((id) => {
                   const product = filteredProducts.find((p) => p.id === id);
                   return (
@@ -2925,7 +2936,7 @@ export default function Products() {
                   />
                   <span style={{ fontWeight: 700 }}>Approve at Optimal Price</span>
                 </div>
-                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                <div style={{ color: '#64748b', fontSize: '15px', marginLeft: '24px' }}>
                   Each product is approved at its system-calculated optimal price based on current material costs, overhead, and target margin.
                 </div>
               </label>
@@ -2941,7 +2952,7 @@ export default function Products() {
                   />
                   <span style={{ fontWeight: 700 }}>Keep current price</span>
                 </div>
-                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                <div style={{ color: '#64748b', fontSize: '15px', marginLeft: '24px' }}>
                   Each product is approved at its approved base price. Products with no approved base price set will be approved at their optimal price instead.
                 </div>
               </label>
@@ -2957,12 +2968,12 @@ export default function Products() {
                   />
                   <span style={{ fontWeight: 700 }}>Approve at Optimal Price + Markup %</span>
                 </div>
-                <div style={{ color: '#64748b', fontSize: '13px', marginLeft: '24px' }}>
+                <div style={{ color: '#64748b', fontSize: '15px', marginLeft: '24px' }}>
                   Each product is approved at its optimal price adjusted by the markup percentage you enter below.
                 </div>
                 {bulkApprovePriceMethod === 'markup' && (
                   <div style={{ marginLeft: '24px', marginTop: '6px' }}>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>Markup %</label>
+                    <label style={{ display: 'block', fontSize: '15px', fontWeight: 600, marginBottom: '6px' }}>Markup %</label>
                     <input
                       className="app-control"
                       type="number"
@@ -2974,13 +2985,13 @@ export default function Products() {
                       onChange={(e) => setBulkApproveMarkup(e.target.value)}
                       style={{ width: '260px' }}
                     />
-                    <div style={{ marginTop: '6px', fontSize: '12px', color: '#64748b' }}>{getBulkApproveExample()}</div>
+                    <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>{getBulkApproveExample()}</div>
                   </div>
                 )}
               </label>
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', display: 'grid', gap: '6px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700 }}>
+                <label style={{ display: 'block', fontSize: '15px', fontWeight: 700 }}>
                   Set expiry date for all Approved base prices (optional)
                 </label>
                 <input
@@ -2992,7 +3003,7 @@ export default function Products() {
                   onChange={(e) => setBulkApproveExpiryDate(e.target.value)}
                   style={{ width: '260px' }}
                 />
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div style={{ fontSize: '14px', color: '#64748b' }}>
                   All selected products will be flagged for review on this date.
                 </div>
               </div>
@@ -3025,7 +3036,7 @@ export default function Products() {
               Reject Approved base prices for {selectedProducts.size} selected products? Products will be moved to Rejected status and removed from price lists until re-approved.
             </p>
             {selectedNonApprovedCount > 0 && (
-              <div style={{ marginBottom: '10px', fontSize: '13px', color: '#92400e', backgroundColor: '#fef3c7', borderRadius: '8px', padding: '8px 10px' }}>
+              <div style={{ marginBottom: '10px', fontSize: '15px', color: '#92400e', backgroundColor: '#fef3c7', borderRadius: '8px', padding: '8px 10px' }}>
                 {selectedNonApprovedCount} of your selected products are not currently approved and will be skipped.
               </div>
             )}
@@ -3131,7 +3142,7 @@ export default function Products() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Import Products (Standard CSV)</h2>
+              <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>Import Products (Standard CSV)</h2>
               <button
                 className="btn btn-secondary"
                 onClick={() => {
@@ -3154,16 +3165,16 @@ export default function Products() {
                   <a
                     href={templateUrl('PriceRight_Products_Import_Template.csv')}
                     onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Products_Import_Template.csv'); }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                     Download CSV template
                   </a>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                 </div>
                 <div style={{ marginBottom: '12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                   <AlertTriangle size={18} strokeWidth={2} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
-                  <div style={{ fontSize: '13px', color: '#78350f' }}>
+                  <div style={{ fontSize: '15px', color: '#78350f' }}>
                     <strong>Import materials first.</strong> Product import matches material names to your existing materials. Any product whose material is not found will be skipped.
                   </div>
                 </div>
@@ -3180,15 +3191,15 @@ export default function Products() {
                     backgroundColor: '#f8fafc',
                   }}
                 >
-                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
+                  <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
+                  <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
                   <input id="product-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleProductFileUpload} style={{ display: 'none' }} />
                 </label>
 
                 <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                  <div style={{ fontSize: '13px', color: '#475569' }}>One row per BOM material. Keep product-level fields identical for repeated product rows.</div>
-                  <div style={{ fontSize: '13px', color: '#475569' }}>Include Approved base price when available; leave blank to default to 0.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>One row per BOM material. Keep product-level fields identical for repeated product rows.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Include Approved base price when available; leave blank to default to 0.</div>
                 </div>
 
               </div>
@@ -3211,7 +3222,7 @@ export default function Products() {
                 )}
                 {importPreview.length > 0 && (
                   <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
@@ -3279,7 +3290,7 @@ export default function Products() {
                         </div>
 
                         <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                             <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
                               <tr>
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row #</th>

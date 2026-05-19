@@ -284,7 +284,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
   return (
     <div style={{ display: 'grid', gap: '14px' }}>
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Pricing health</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Pricing health</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
           {[
             {
@@ -345,11 +345,11 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                 }}
                 title={`Filter by ${card.label.toLowerCase()}`}
               >
-                <div style={{ fontSize: '28px', fontWeight: 700, color: card.color, fontFamily: 'Open Sans, sans-serif', lineHeight: 1 }}>
+                <div style={{ fontSize: '30px', fontWeight: 700, color: card.color, fontFamily: 'Open Sans, sans-serif', lineHeight: 1 }}>
                   {card.count}
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#1f2937' }}>{card.label}</div>
-                <div style={{ fontSize: '12px', fontWeight: 400, color: '#6b7280' }}>{card.sub}</div>
+                <div style={{ fontSize: '15px', fontWeight: 600, color: '#1f2937' }}>{card.label}</div>
+                <div style={{ fontSize: '14px', fontWeight: 400, color: '#6b7280' }}>{card.sub}</div>
               </button>
             );
           })}
@@ -357,7 +357,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
       </div>
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a', marginBottom: '2px' }}>Margin distribution</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', marginBottom: '2px' }}>Margin distribution</div>
         <div style={{ display: 'grid', gap: '8px' }}>
           {bandData.map((item) => {
             const isSelected = selectedBand === item.key;
@@ -378,8 +378,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                 title={`Filter by ${item.band}`}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '11px', color: '#374151', fontWeight: 600 }}>{item.band}</span>
-                  <span style={{ fontSize: '11px', color: '#6b7280' }}>{item.count}</span>
+                  <span style={{ fontSize: '13px', color: '#374151', fontWeight: 600 }}>{item.band}</span>
+                  <span style={{ fontSize: '13px', color: '#6b7280' }}>{item.count}</span>
                 </div>
                 <div style={{ height: '12px', borderRadius: '6px', backgroundColor: '#f3f4f6', overflow: 'hidden' }}>
                   <div
@@ -399,7 +399,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Products by margin</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Products by margin</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -410,7 +410,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         </div>
 
         {selectedBand !== null && (
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#92400e', backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '999px', padding: '4px 10px', width: 'fit-content' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#92400e', backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '999px', padding: '4px 10px', width: 'fit-content' }}>
             <span>{getFilterLabel(selectedBand)}</span>
             <button
               type="button"
@@ -424,7 +424,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         )}
 
         {rankedRows.length === 0 ? (
-          <div style={{ border: '1px dashed #d1d5db', borderRadius: '8px', padding: '14px', color: '#6b7280', fontSize: '13px' }}>
+          <div style={{ border: '1px dashed #d1d5db', borderRadius: '8px', padding: '14px', color: '#6b7280', fontSize: '15px' }}>
             {selectedBand !== null
               ? 'No products in this band.'
               : hasAnyApprovedPrices
@@ -519,7 +519,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a1a1a' }}>Price level coverage</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Price level coverage</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -531,24 +531,24 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         </div>
 
         {coverageState.loading ? (
-          <div style={{ fontSize: '13px', color: '#64748b' }}>Loading coverage...</div>
+          <div style={{ fontSize: '15px', color: '#64748b' }}>Loading coverage...</div>
         ) : coverageState.error ? (
-          <div style={{ fontSize: '13px', color: '#b91c1c' }}>{coverageState.error}</div>
+          <div style={{ fontSize: '15px', color: '#b91c1c' }}>{coverageState.error}</div>
         ) : (
           <>
-            <div style={{ fontSize: '12px', color: '#475569' }}>
+            <div style={{ fontSize: '14px', color: '#475569' }}>
               {coverageRows.covered.length} of {activeProducts.length} active products are in at least one approved price level item.
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px' }}>
               <div style={{ border: '1px solid #d1fae5', borderRadius: '8px', padding: '10px', backgroundColor: '#f0fdf4' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#166534', marginBottom: '6px' }}>Covered</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#166534', marginBottom: '6px' }}>Covered</div>
                 {coverageRows.covered.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>No covered products yet.</div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>No covered products yet.</div>
                 ) : (
                   <div style={{ display: 'grid', gap: '6px' }}>
                     {coverageRows.covered.slice(0, 8).map((product) => (
-                      <div key={product.id} style={{ fontSize: '12px', color: '#14532d', display: 'grid', gap: '2px' }}>
+                      <div key={product.id} style={{ fontSize: '14px', color: '#14532d', display: 'grid', gap: '2px' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: 600 }}>
                           <CheckCircle size={12} strokeWidth={2} />
                           {product.name}
@@ -563,9 +563,9 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               </div>
 
               <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '10px', backgroundColor: '#f9fafb' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Not covered</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Not covered</div>
                 {coverageRows.uncovered.length === 0 ? (
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>All active products are covered.</div>
+                  <div style={{ fontSize: '14px', color: '#6b7280' }}>All active products are covered.</div>
                 ) : (
                   <div style={{ display: 'grid', gap: '6px' }}>
                     {coverageRows.uncovered.slice(0, 8).map((product) => (
@@ -578,7 +578,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                           background: 'none',
                           padding: 0,
                           textAlign: 'left',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           color: '#4b5563',
                           cursor: 'pointer',
                           textDecoration: 'underline',

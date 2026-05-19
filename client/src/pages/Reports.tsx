@@ -1003,7 +1003,7 @@ export default function Reports() {
             </table>
           </div>
 
-          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '11px' }}>
+          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
             Realised margin = (Approved base price − Production Cost) / Approved base price
           </div>
         </div>
@@ -1119,7 +1119,7 @@ export default function Reports() {
             </table>
           </div>
 
-          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '11px', fontStyle: 'italic' }}>
+          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
             † Optimal price shown is current calculated value. Historical optimal price at time of approval is not stored.
           </div>
         </div>
@@ -1234,7 +1234,7 @@ export default function Reports() {
           </div>
         </div>
 
-        <div style={{ marginTop: '8px', color: '#64748b', fontSize: '11px' }}>
+        <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
           Exposure calculated from unit costs converted to GHS at current rates. Changes in exchange rates directly impact production costs for foreign-currency materials.
         </div>
       </div>
@@ -1277,9 +1277,9 @@ export default function Reports() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Icon size={15} strokeWidth={2} />
-                      <strong style={{ fontSize: '13px', fontWeight: 700 }}>{report.name}</strong>
+                      <strong style={{ fontSize: '15px', fontWeight: 700 }}>{report.name}</strong>
                     </div>
-                    <div style={{ fontSize: '11px', marginTop: '5px', color: isActive ? '#d1d5db' : '#64748b' }}>
+                    <div style={{ fontSize: '13px', marginTop: '5px', color: isActive ? '#d1d5db' : '#64748b' }}>
                       {report.description}
                     </div>
                   </button>
@@ -1287,7 +1287,7 @@ export default function Reports() {
               })}
             </div>
 
-            <div style={{ marginTop: '10px', color: '#888', fontSize: '11px', fontWeight: 400 }}>
+            <div style={{ marginTop: '10px', color: '#888', fontSize: '13px', fontWeight: 400 }}>
               Reports are generated from live PriceRight data.
             </div>
           </aside>
@@ -1297,8 +1297,8 @@ export default function Reports() {
               <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
                 <div style={{ textAlign: 'center', color: '#64748b' }}>
                   <BarChart2 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '10px' }} />
-                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#334155' }}>Select a report to get started</div>
-                  <div style={{ fontSize: '13px', marginTop: '5px' }}>Choose from the list on the left</div>
+                  <div style={{ fontSize: '20px', fontWeight: 600, color: '#334155' }}>Select a report to get started</div>
+                  <div style={{ fontSize: '15px', marginTop: '5px' }}>Choose from the list on the left</div>
                 </div>
               </div>
             )}
@@ -1307,8 +1307,8 @@ export default function Reports() {
               <>
                 {!generatedAt && !isLoading && (
                   <div className="app-card" style={{ padding: '16px', marginBottom: '10px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{selectedMeta?.name}</h2>
-                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>{selectedMeta?.description}</p>
+                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{selectedMeta?.name}</h2>
+                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{selectedMeta?.description}</p>
                     <div style={{ marginTop: '10px' }}>{renderFilters()}</div>
                     <AppButton className="report-generate-btn" variant="primary" onClick={generateReport}>
                       Generate Report
@@ -1382,9 +1382,9 @@ function StatCard({
 
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px', backgroundColor: backgroundByTone }}>
-      <div style={{ fontSize: '11px', color: '#64748b' }}>{label}</div>
-      <div style={{ marginTop: '4px', fontSize: '16px', fontWeight: 700, color: colorByTone }}>{value}</div>
-      {secondary && <div style={{ marginTop: '2px', fontSize: '11px', color: '#64748b' }}>{secondary}</div>}
+      <div style={{ fontSize: '13px', color: '#64748b' }}>{label}</div>
+      <div style={{ marginTop: '4px', fontSize: '18px', fontWeight: 700, color: colorByTone }}>{value}</div>
+      {secondary && <div style={{ marginTop: '2px', fontSize: '13px', color: '#64748b' }}>{secondary}</div>}
     </div>
   );
 }

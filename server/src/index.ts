@@ -234,7 +234,7 @@ async function resolveBaseCurrency(): Promise<{ id: number; code: string; symbol
 
   const availableCurrencies = await getActiveDb().select().from(currencies);
   if (availableCurrencies.length === 0) {
-    throw new Error('No currencies configured');
+    return { id: 0, code: 'GHS', symbol: 'GHS' };
   }
 
   const normalizedCurrencies = availableCurrencies.map((currency) => ({
@@ -870,6 +870,7 @@ app.get('/api/materials', async (req, res) => {
     
     res.json(materialsWithBaseCurrency);
   } catch (error) {
+    console.error('[materials] GET error:', error);
     res.status(500).json({ error: 'Failed to fetch materials' });
   }
 });
@@ -1557,7 +1558,7 @@ app.post('/api/intermediate-materials/import', async (req, res) => {
     const allRawMaterials = await db
       .select({ id: materials.id, name: materials.name })
       .from(materials)
-      .where(eq(materials.materialType, 'raw'));
+      .where(eq(materials.materialType, 'primary'));
 
     const rawMaterialByName = new Map(
       allRawMaterials.map((m) => [String(m.name || '').trim().toLowerCase(), m]),
@@ -4114,7 +4115,7 @@ app.post('/api/products/import', async (req, res) => {
       groups[key].push({ row: raw, rowNumber });
     }
 
-    const errors: Array<{ productName: string; reason: string }> = [];
+    const errors: Array<{ productName: string; row: number; reason: string }> = [];
     let imported = 0;
     let skipped = 0;
 
@@ -4125,7 +4126,7 @@ app.post('/api/products/import', async (req, res) => {
     for (const [productName, entries] of Object.entries(groups)) {
       if (productName === '__INVALID__') {
         for (const e of entries) {
-          errors.push({ productName: '', reason: 'Missing required field: Product Name' });
+          errors.push({ productName: '', row: e.rowNumber, reason: 'Missing required field: Product Name' });
           skipped += 1;
         }
         continue;
@@ -4144,14 +4145,14 @@ app.post('/api/products/import', async (req, res) => {
       // Validate product-level fields
       const productionMode = productionModeRaw ? String(productionModeRaw).toLowerCase() : 'single';
       if (!['single', 'batch'].includes(productionMode)) {
-        errors.push({ productName, reason: `Invalid Production Mode: ${productionModeRaw}` });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Production Mode: ${productionModeRaw}` });
         skipped += 1;
         continue;
       }
 
       const batchYield = productionMode === 'batch' ? parseInt(batchYieldRaw || '0') : 1;
       if (productionMode === 'batch' && (!batchYield || isNaN(batchYield) || batchYield <= 0)) {
-        errors.push({ productName, reason: 'Missing or invalid Batch Yield for batch product' });
+        errors.push({ productName, row: entries[0].rowNumber, reason: 'Missing or invalid Batch Yield for batch product' });
         skipped += 1;
         continue;
       }
@@ -4160,17 +4161,17 @@ app.post('/api/products/import', async (req, res) => {
       const profitMargin = parseFloat(profitRaw || '0');
       const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
       if (isNaN(overhead)) {
-        errors.push({ productName, reason: `Invalid Overhead %: ${overheadRaw}` });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Overhead %: ${overheadRaw}` });
         skipped += 1;
         continue;
       }
       if (isNaN(profitMargin) || profitMargin < 0 || profitMargin > 99) {
-        errors.push({ productName, reason: `Invalid Profit on Cost %: ${profitRaw}` });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Profit on Cost %: ${profitRaw}` });
         skipped += 1;
         continue;
       }
       if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
-        errors.push({ productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
         skipped += 1;
         continue;
       }
@@ -4178,7 +4179,7 @@ app.post('/api/products/import', async (req, res) => {
       // Duplicate product name check (case-insensitive)
       const lowerName = productName.toLowerCase();
       if (existingProductNames.has(lowerName)) {
-        errors.push({ productName, reason: 'Product already exists' });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Product '${productName}' already exists and was skipped.` });
         skipped += 1;
         continue;
       }
@@ -4209,7 +4210,10 @@ app.post('/api/products/import', async (req, res) => {
       // If any material validation failed, skip entire product
       if (materialValidationErrors.length > 0) {
         const firstError = materialValidationErrors[0];
-        errors.push({ productName, reason: `Material '${firstError.matName}' not found` });
+        const reason = firstError.matName === ''
+          ? 'BOM line is missing a material name'
+          : `Material '${firstError.matName}' not found. Import materials and intermediates first.`;
+        errors.push({ productName, row: entries[0].rowNumber, reason });
         skipped += 1;
         continue;
       }
@@ -4251,7 +4255,7 @@ app.post('/api/products/import', async (req, res) => {
 
         imported += 1;
       } catch (err: any) {
-        errors.push({ productName, reason: `Failed to create product: ${err?.message || String(err)}` });
+        errors.push({ productName, row: entries[0].rowNumber, reason: `Failed to create product: ${err?.message || String(err)}` });
         skipped += 1;
       }
     }

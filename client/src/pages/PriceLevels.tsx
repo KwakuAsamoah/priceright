@@ -1164,11 +1164,11 @@ export default function PriceLevels() {
           <style>
             body { font-family: 'Open Sans', sans-serif; margin: 28px; color: #0f172a; }
             h1, h2, p { text-align: center; margin-left: auto; margin-right: auto; }
-            h1 { margin: 0 0 8px; font-size: 24px; }
-            h2 { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #1e293b; }
-            p { margin: 0 0 20px; font-size: 12px; color: #475569; }
+            h1 { margin: 0 0 8px; font-size: 25px; }
+            h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #1e293b; }
+            p { margin: 0 0 20px; font-size: 13px; color: #475569; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; text-align: left; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 13px; text-align: left; }
             th { background: #0f172a; color: #ffffff; }
             tfoot td { padding-top: 16px; border: none; text-align: center; color: #64748b; font-style: italic; }
             @media print { body { margin: 0; } }
@@ -1240,19 +1240,19 @@ export default function PriceLevels() {
                   value={searchLevels}
                   onChange={(e) => setSearchLevels(e.target.value)}
                   placeholder="Search price levels..."
-                  style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}
+                  style={{ flex: 1, padding: '8px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '15px' }}
                 />
               </div>
               {selectedLevelIds.size > 0 && (
                 <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#1a1a1a', borderRadius: '8px', padding: '8px 12px' }}>
-                  <span style={{ fontSize: '13px', color: '#cbd5e1', flex: 1 }}>
+                  <span style={{ fontSize: '15px', color: '#cbd5e1', flex: 1 }}>
                     {selectedLevelIds.size} level{selectedLevelIds.size !== 1 ? 's' : ''} selected
                   </span>
                   <button
                     type="button"
                     onClick={handleBulkDeleteLevels}
                     disabled={saving}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}
                   >
                     <Trash2 size={12} />
                     Delete
@@ -1311,12 +1311,12 @@ export default function PriceLevels() {
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '14px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '16px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {level.name}
                         </div>
                         <AppBadge variant={status.variant} size="sm">{status.label}</AppBadge>
                       </div>
-                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
+                      <div style={{ marginTop: '4px', fontSize: '14px', color: '#64748b' }}>
                         {items.length} products
                       </div>
                     </button>
@@ -1325,7 +1325,7 @@ export default function PriceLevels() {
               })}
 
               {filteredLevels.length === 0 && (
-                <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+                <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: '15px', color: '#64748b' }}>
                   No price levels yet. Create your first one.
                 </div>
               )}
@@ -1336,7 +1336,7 @@ export default function PriceLevels() {
             {!selectedLevel ? (
               <div className="app-card" style={{ minHeight: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
                 <Tag size={48} strokeWidth={1.4} style={{ color: '#cbd5e1', marginBottom: '14px' }} />
-                <div style={{ fontSize: '16px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+                <div style={{ fontSize: '18px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
                   Select a price level to view its products and prices
                 </div>
               </div>
@@ -1350,13 +1350,13 @@ export default function PriceLevels() {
                           <input
                             value={levelNameDraft}
                             onChange={(e) => setLevelNameDraft(e.target.value)}
-                            style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '20px', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
+                            style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '22px', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
                           />
                           <AppButton variant="primary" size="sm" onClick={saveLevelName} disabled={saving}>Save</AppButton>
                           <AppButton variant="secondary" size="sm" onClick={() => { setEditingLevelName(false); setLevelNameDraft(selectedLevel.name); }}>Cancel</AppButton>
                         </div>
                       ) : (
-                        <h2 style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '20px', margin: 0 }}>{selectedLevel.name}</h2>
+                        <h2 style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '22px', margin: 0 }}>{selectedLevel.name}</h2>
                       )}
                     </div>
 
@@ -1387,7 +1387,7 @@ export default function PriceLevels() {
 
                 <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>Products and prices</h3>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Products and prices</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <AppButton variant="primary" size="sm" onClick={openAddProductsModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <Plus size={14} strokeWidth={2} />
@@ -1414,7 +1414,7 @@ export default function PriceLevels() {
                         gap: '12px',
                       }}
                     >
-                      <span style={{ fontSize: '13px', color: '#cbd5e1' }}>{selectedRows.size} items selected</span>
+                      <span style={{ fontSize: '15px', color: '#cbd5e1' }}>{selectedRows.size} items selected</span>
                       <button
                         type="button"
                         onClick={approveSelected}
@@ -1443,7 +1443,7 @@ export default function PriceLevels() {
                     return (
                       <div style={{ margin: '12px 16px 0', padding: '10px 14px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderLeft: '3px solid #e65100', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                         <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
-                        <div style={{ flex: 1, fontSize: '12px', color: '#bf360c' }}>
+                        <div style={{ flex: 1, fontSize: '14px', color: '#bf360c' }}>
                           <strong>{staleCount} custom {staleCount === 1 ? 'price' : 'prices'} may need review.</strong> The approved base price changed after these prices were set.
                         </div>
                         <button type="button" onClick={() => setStaleBannerDismissed(true)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#e65100', padding: 0, lineHeight: 1 }} title="Dismiss">
@@ -1496,7 +1496,7 @@ export default function PriceLevels() {
                                 <td>{item.productCategory || '-'}</td>
                                 <td style={{ textAlign: 'right' }}>{formatMoney(item.productApprovedPrice)}</td>
                                 <td>{pricingRuleLabel(item)}</td>
-                                <td style={{ textAlign: 'right', fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '14px' }}>
+                                <td style={{ textAlign: 'right', fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {formatMoney(item.finalPrice)}
                                     {item.isCustomPriceStale && (
@@ -1513,7 +1513,7 @@ export default function PriceLevels() {
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                                     <AppBadge variant={itemStatusVariant(item.status)}>{item.status}</AppBadge>
                                     {item.isCustomPriceStale && (
-                                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review custom price</span>
+                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review custom price</span>
                                     )}
                                   </div>
                                 </td>
@@ -1608,7 +1608,7 @@ export default function PriceLevels() {
                                   <td colSpan={9} style={{ backgroundColor: '#fcfcfd' }}>
                                     <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
                                       {item.isCustomPriceStale && (
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '12px', color: '#bf360c' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
                                           <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
                                           <span>The approved base price changed since this custom price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your custom price: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
                                         </div>
@@ -1624,19 +1624,19 @@ export default function PriceLevels() {
                                           min={0}
                                           step="0.01"
                                           placeholder={rowDraft.overrideType === 'custom_price' ? 'Enter fixed price' : 'Enter percentage'}
-                                          style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                                          style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                                         />
                                       </div>
 
-                                      <div style={{ fontSize: '13px', color: '#475569' }}>
+                                      <div style={{ fontSize: '15px', color: '#475569' }}>
                                         Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
                                       </div>
 
                                       {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
-                                        <div style={{ fontSize: '12px', color: '#b45309' }}>Warning: margin is below 15%. Justification is required.</div>
+                                        <div style={{ fontSize: '14px', color: '#b45309' }}>Warning: margin is below 15%. Justification is required.</div>
                                       )}
                                       {belowCost && (
-                                        <div style={{ fontSize: '12px', color: '#b91c1c' }}>Final price is below production cost. Save is blocked.</div>
+                                        <div style={{ fontSize: '14px', color: '#b91c1c' }}>Final price is below production cost. Save is blocked.</div>
                                       )}
 
                                       <textarea
@@ -1644,7 +1644,7 @@ export default function PriceLevels() {
                                         onChange={(e) => setRowDraft((prev) => ({ ...prev, justification: e.target.value }))}
                                         rows={3}
                                         placeholder="Add justification (required if margin is below 15%)"
-                                        style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                                        style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                                       />
 
                                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -1663,7 +1663,7 @@ export default function PriceLevels() {
                   </div>
 
                   {selectedLevelItems.length === 0 && (
-                    <div style={{ padding: '22px 16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                    <div style={{ padding: '22px 16px', textAlign: 'center', color: '#64748b', fontSize: '15px' }}>
                       No products added to this level yet.
                     </div>
                   )}
@@ -1685,16 +1685,16 @@ export default function PriceLevels() {
                       justifyContent: 'space-between',
                     }}
                   >
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Recent activity</span>
+                    <span style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>Recent activity</span>
                     {recentActivityOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
 
                   {recentActivityOpen && (
                     <div style={{ borderTop: '1px solid #e2e8f0', padding: '12px 16px' }}>
                       {recentActivityLoading ? (
-                        <div style={{ fontSize: '12px', color: '#64748b' }}>Loading activity...</div>
+                        <div style={{ fontSize: '14px', color: '#64748b' }}>Loading activity...</div>
                       ) : recentActivity.length === 0 ? (
-                        <div style={{ fontSize: '12px', color: '#64748b' }}>No recent activity for this price level.</div>
+                        <div style={{ fontSize: '14px', color: '#64748b' }}>No recent activity for this price level.</div>
                       ) : (
                         <div style={{ display: 'grid', gap: '8px', marginBottom: '10px' }}>
                           {recentActivity.map((entry) => {
@@ -1702,17 +1702,17 @@ export default function PriceLevels() {
                             return (
                               <div key={`level-activity-${entry.id}`} style={{ display: 'grid', gridTemplateColumns: '16px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
                                 <visual.Icon size={13} style={{ color: visual.color }} />
-                                <div style={{ fontSize: '12px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeLevelActivity(entry)}>
+                                <div style={{ fontSize: '14px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeLevelActivity(entry)}>
                                   {describeLevelActivity(entry)}
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'right' }}>{formatRelativeTime(entry.createdAt)}</div>
+                                <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>{formatRelativeTime(entry.createdAt)}</div>
                               </div>
                             );
                           })}
                         </div>
                       )}
 
-                      <a href="/activity?entityType=price_level_item" style={{ fontSize: '12px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+                      <a href="/activity?entityType=price_level_item" style={{ fontSize: '14px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
                         View full activity log
                       </a>
                     </div>
@@ -1735,7 +1735,7 @@ export default function PriceLevels() {
                 value={addProductsSearch}
                 onChange={(e) => setAddProductsSearch(e.target.value)}
                 placeholder="Search products..."
-                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
               />
             </div>
 
@@ -1787,7 +1787,7 @@ export default function PriceLevels() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td>{product.name} {alreadyAdded ? <span style={{ fontSize: '11px' }}>(Already added)</span> : null}</td>
+                      <td>{product.name} {alreadyAdded ? <span style={{ fontSize: '13px' }}>(Already added)</span> : null}</td>
                       <td>{product.category || '-'}</td>
                       <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(product.approvedPrice, 0))}</td>
                     </tr>
@@ -1826,7 +1826,7 @@ export default function PriceLevels() {
                 return (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px' }}>
                     <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0, marginTop: '2px' }} />
-                    <div style={{ fontSize: '12px', color: '#bf360c' }}>
+                    <div style={{ fontSize: '14px', color: '#bf360c' }}>
                       <div style={{ fontWeight: 700, marginBottom: '3px' }}>{staleExportCount} product{staleExportCount === 1 ? '' : 's'} have custom prices that may be outdated.</div>
                       <div>This export uses the latest approved base prices for rule-based prices, but custom prices are exported as set.</div>
                       <div style={{ color: '#78350f', marginTop: '4px' }}>Review custom prices before exporting if base prices have changed recently.</div>
@@ -1836,12 +1836,12 @@ export default function PriceLevels() {
               })()}
               <div className="app-card" style={{ padding: '14px 16px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '15px' }}>Approved products</div>
+                  <div style={{ fontWeight: 700, fontSize: '17px' }}>Approved products</div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => toggleExportSelectAll(true)}
-                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
                     >
                       Select all
                     </button>
@@ -1849,11 +1849,11 @@ export default function PriceLevels() {
                     <button
                       type="button"
                       onClick={() => toggleExportSelectAll(false)}
-                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
                     >
                       Deselect all
                     </button>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>{selectedExportRows.length} selected</span>
+                    <span style={{ fontSize: '14px', color: '#64748b' }}>{selectedExportRows.length} selected</span>
                   </div>
                 </div>
 
@@ -1908,10 +1908,10 @@ export default function PriceLevels() {
               </div>
 
               <div className="app-card" style={{ padding: '14px 16px', display: 'grid', gap: '12px' }}>
-                <div style={{ fontWeight: 700, fontSize: '15px' }}>Optional header details</div>
+                <div style={{ fontWeight: 700, fontSize: '17px' }}>Optional header details</div>
 
                 <label style={{ display: 'grid', gap: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#0f172a' }}>
                     <input type="checkbox" checked={includeCompanyName} onChange={(e) => setIncludeCompanyName(e.target.checked)} />
                     Company name
                   </span>
@@ -1920,18 +1920,18 @@ export default function PriceLevels() {
                       value={exportCompanyName}
                       onChange={(e) => setExportCompanyName(e.target.value)}
                       placeholder="Company name"
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                     />
                   )}
                 </label>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#0f172a' }}>
                   <input type="checkbox" checked={includeGeneratedDate} onChange={(e) => setIncludeGeneratedDate(e.target.checked)} />
                   Generated date
                 </label>
 
                 <label style={{ display: 'grid', gap: '8px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: '#0f172a' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '15px', color: '#0f172a' }}>
                     <input type="checkbox" checked={includeValidUntil} onChange={(e) => setIncludeValidUntil(e.target.checked)} />
                     Valid until
                   </span>
@@ -1940,7 +1940,7 @@ export default function PriceLevels() {
                       type="date"
                       value={exportValidUntil}
                       onChange={(e) => setExportValidUntil(e.target.value)}
-                      style={{ width: '220px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                      style={{ width: '220px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                     />
                   )}
                 </label>
@@ -1948,7 +1948,7 @@ export default function PriceLevels() {
             </div>
 
             <div style={{ padding: '14px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', background: '#ffffff', position: 'sticky', bottom: 0 }}>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>
+              <div style={{ fontSize: '14px', color: '#64748b' }}>
                 Choose the approved products you want to include, then download Excel or PDF.
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1966,7 +1966,7 @@ export default function PriceLevels() {
         <div className="app-modal-overlay" onClick={cancelWizard}>
           <div className="app-modal" style={{ maxWidth: '680px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>Step {wizardStep} of 4</div>
+              <div style={{ fontSize: '14px', color: '#64748b' }}>Step {wizardStep} of 4</div>
               <AppButton variant="ghost" size="sm" onClick={cancelWizard} ariaLabel="Close wizard" title="Close wizard">
                 <X size={14} />
               </AppButton>
@@ -1979,7 +1979,7 @@ export default function PriceLevels() {
                   value={wizardName}
                   onChange={(e) => setWizardName(e.target.value)}
                   placeholder="e.g. Wholesale, Retail, Export"
-                  style={{ width: '100%', fontSize: '16px', fontWeight: 600, padding: '12px 14px', borderRadius: '10px', border: '1px solid #cbd5e1' }}
+                  style={{ width: '100%', fontSize: '18px', fontWeight: 600, padding: '12px 14px', borderRadius: '10px', border: '1px solid #cbd5e1' }}
                 />
                 <p className="app-modal-subtitle" style={{ marginTop: '10px' }}>
                   Use a descriptive name for the tier or export sheet you want to manage.
@@ -2001,7 +2001,7 @@ export default function PriceLevels() {
                   value={wizardSearchProducts}
                   onChange={(e) => setWizardSearchProducts(e.target.value)}
                   placeholder="Search products..."
-                  style={{ width: '100%', marginBottom: '10px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  style={{ width: '100%', marginBottom: '10px', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                 />
 
                 <div className="app-table-wrap" style={{ maxHeight: '360px', overflowY: 'auto' }}>
@@ -2062,11 +2062,11 @@ export default function PriceLevels() {
                 <p className="app-modal-subtitle">Set a pricing rule for each selected product.</p>
 
                 <div className="app-card" style={{ marginBottom: '10px', padding: '10px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: '#64748b', marginRight: '4px' }}>Apply same rule to all</span>
+                  <span style={{ fontSize: '14px', color: '#64748b', marginRight: '4px' }}>Apply same rule to all</span>
                   <select
                     value={wizardApplyAllType}
                     onChange={(e) => setWizardApplyAllType(e.target.value as OverrideType)}
-                    style={{ padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    style={{ padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                   >
                     <option value="rule_discount">Discount %</option>
                     <option value="rule_markup">Markup %</option>
@@ -2079,7 +2079,7 @@ export default function PriceLevels() {
                     min={0}
                     step="0.01"
                     placeholder={wizardApplyAllType === 'custom_price' ? 'Fixed price' : 'Percent'}
-                    style={{ width: '120px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                    style={{ width: '120px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                   />
                   <AppButton variant="ghost" size="sm" onClick={applySameRuleToAll}>Apply to all</AppButton>
                 </div>
@@ -2099,9 +2099,9 @@ export default function PriceLevels() {
                       <div key={product.id} className="app-card" style={{ padding: '12px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px' }}>
                           <div style={{ fontWeight: 700 }}>{product.name}</div>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>{product.category || '-'}</div>
+                          <div style={{ fontSize: '14px', color: '#64748b' }}>{product.category || '-'}</div>
                         </div>
-                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                        <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>
                           Approved base price {formatMoney(approvedBase)} | Optimal {formatMoney(optimalPrice)}
                         </div>
 
@@ -2116,21 +2116,21 @@ export default function PriceLevels() {
                             min={0}
                             step="0.01"
                             placeholder={rule.overrideType === 'custom_price' ? 'Fixed price' : 'Percent'}
-                            style={{ width: '140px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                            style={{ width: '140px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                           />
                         </div>
 
-                        <div style={{ marginTop: '8px', fontSize: '13px', color: '#475569' }}>
+                        <div style={{ marginTop: '8px', fontSize: '15px', color: '#475569' }}>
                           Final price: <strong>{formatMoney(finalPrice)}</strong> | Margin: <strong>{margin.toFixed(1)}%</strong>
                         </div>
 
                         {!belowCost && margin < MIN_MARGIN_WARNING && (
-                          <div style={{ marginTop: '4px', fontSize: '12px', color: '#b45309' }}>
+                          <div style={{ marginTop: '4px', fontSize: '14px', color: '#b45309' }}>
                             Margin is below 15%. Justification is required.
                           </div>
                         )}
                         {belowCost && (
-                          <div style={{ marginTop: '4px', fontSize: '12px', color: '#b91c1c' }}>
+                          <div style={{ marginTop: '4px', fontSize: '14px', color: '#b91c1c' }}>
                             Price is below production cost and cannot be saved.
                           </div>
                         )}
@@ -2140,7 +2140,7 @@ export default function PriceLevels() {
                           onChange={(e) => updateWizardRule(product.id, { justification: e.target.value })}
                           rows={2}
                           placeholder="Justification (required when margin < 15%)"
-                          style={{ marginTop: '8px', width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                          style={{ marginTop: '8px', width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                         />
                       </div>
                     );
@@ -2168,7 +2168,7 @@ export default function PriceLevels() {
                   <input
                     value={wizardName}
                     onChange={(e) => setWizardName(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                   />
                 </div>
 
@@ -2209,7 +2209,7 @@ export default function PriceLevels() {
                 </div>
 
                 {wizardLowMarginCount > 0 && (
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#b45309' }}>
+                  <div style={{ marginTop: '10px', fontSize: '14px', color: '#b45309' }}>
                     {wizardLowMarginCount} products have margins below 15% - justification required
                   </div>
                 )}

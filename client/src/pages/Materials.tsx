@@ -814,10 +814,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           <title>Raw Materials Report</title>
           <style>
             body { font-family: 'Open Sans', sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 24px; }
-            .meta { margin-bottom: 12px; color: #475569; font-size: 12px; }
+            h1 { margin: 0 0 6px; font-size: 25px; }
+            .meta { margin-bottom: 12px; color: #475569; font-size: 13px; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 12px; text-align: left; }
+            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 13px; text-align: left; }
             th { background: #f8fafc; }
             @media print { body { margin: 0; } }
           </style>
@@ -1196,7 +1196,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const compactControlStyle = {
     minHeight: '32px',
     padding: '6px 8px',
-    fontSize: '12px',
+    fontSize: '14px',
   } as const;
 
   function openMaterialsTableSettings() {
@@ -1378,13 +1378,13 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               }}
             >
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Exchange rates</span>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>Exchange rates</span>
                 {foreignCurrencyRates.map(({ currency, displayRate, flag }) => {
                   const isEditing = editingRateCurrencyId === currency.id;
                   const isSaving = savingRateCurrencyId === currency.id;
                   const isSaved = recentlySavedCurrencyId === currency.id;
                   return (
-                    <span key={currency.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#0f172a' }}>
+                    <span key={currency.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#0f172a' }}>
                       <strong style={{ fontWeight: 600 }}>{currency.code}</strong>
                       {flag ? <span aria-label={`${currency.code} flag`}>{flag}</span> : null}
                       {isEditing ? (
@@ -1394,7 +1394,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                             step="0.01"
                             value={editingRateValue}
                             onChange={(e) => setEditingRateValue(e.target.value)}
-                            style={{ width: '94px', minHeight: '26px', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px' }}
+                            style={{ width: '94px', minHeight: '26px', padding: '2px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                           />
                           <span style={{ color: '#475569' }}>{baseCurrencyCode}</span>
                           <button
@@ -1437,7 +1437,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   );
                 })}
               </div>
-              <span style={{ fontSize: '12px', color: '#888' }}>{latestRateUpdateLabel}</span>
+              <span style={{ fontSize: '14px', color: '#888' }}>{latestRateUpdateLabel}</span>
             </div>
 
             {exchangeRateNotice && (
@@ -1448,7 +1448,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   border: '1px solid #bbf7d0',
                   borderRadius: '8px',
                   padding: '8px 12px',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   color: '#166534',
                 }}
               >
@@ -1476,7 +1476,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               zIndex: 10,
             }}
           >
-            <span style={{ fontSize: '13px', color: '#cbd5e1' }}>
+            <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
               {visibleInSelected} selected
             </span>
 
@@ -1549,7 +1549,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '13px', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '15px', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       checked={selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0}
@@ -1560,27 +1560,27 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '13px', width: '40px', whiteSpace: 'nowrap' }}>#</th>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '15px', width: '40px', whiteSpace: 'nowrap' }}>#</th>
                   {isMaterialColumnVisible('material') && <th onClick={() => {
                     setSortField('name');
                     setSortOrder((prev) => (sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
                   {isMaterialColumnVisible('category') && <th onClick={() => {
                     setSortField('category');
                     setSortOrder((prev) => (sortField === 'category' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
-                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
+                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isMaterialColumnVisible('unitCost') && <th onClick={() => {
                     setSortField('unitPrice');
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
-                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
                   {isMaterialColumnVisible('supplier') && <th onClick={() => {
                     setSortField('supplier');
                     setSortOrder((prev) => (sortField === 'supplier' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
-                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '13px', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
+                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1596,25 +1596,25 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     </td>
                     <td style={{ padding: '6px 6px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                     {isMaterialColumnVisible('material') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: '600', fontSize: '12px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                      <div style={{ fontWeight: '600', fontSize: '14px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                     </td>}
                     {isMaterialColumnVisible('category') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span style={{ fontSize: '11px', color: '#334155' }}>{material.category}</span>
+                      <span style={{ fontSize: '13px', color: '#334155' }}>{material.category}</span>
                     </td>}
-                    {isMaterialColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
+                    {isMaterialColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
                     {isMaterialColumnVisible('unitCost') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
-                      <div className="money-value" style={{ fontWeight: '600', fontSize: '12px' }}>
+                      <div className="money-value" style={{ fontWeight: '600', fontSize: '14px' }}>
                         {material.baseCurrencySymbol}
                         {parseFloat(material.unitPrice).toFixed(2)}
                       </div>
                     </td>}
                     {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
-                      <div className="money-value" style={{ fontSize: '12px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
+                      <div className="money-value" style={{ fontSize: '14px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
                         {material.purchaseCurrencySymbol}
                         {parseFloat(material.bulkPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '6px 6px', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
+                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
                     {isMaterialColumnVisible('status') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap' }}>
                       <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
                         {material.isActive ? 'Active' : 'Inactive'}
@@ -1897,12 +1897,12 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   <a
                     href={templateUrl('PriceRight_Materials_Import_Template.xlsx')}
                     onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Materials_Import_Template.xlsx'); }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '14px', textDecoration: 'none', cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
                     Download import template
                   </a>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>Fill it in and upload below</div>
+                  <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                 </div>
                 <label
                   htmlFor="file-upload"
@@ -1917,10 +1917,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   }}
                 >
                   <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
-                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
                     Upload materials CSV
                   </div>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>
+                  <div style={{ fontSize: '16px', color: '#64748b' }}>
                     Use the standard template for best results.
                   </div>
                   <input
@@ -1934,8 +1934,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
                 <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                  <div style={{ fontSize: '13px', color: '#475569' }}>Columns: Material Name, Category, Unit, Purchase Currency, Bulk Price, Bulk Quantity, Supplier Type.</div>
-                  <div style={{ fontSize: '13px', color: '#475569' }}>Supplier Type accepts Local or Foreign. Currency can be blank to use base currency.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Columns: Material Name, Category, Unit, Purchase Currency, Bulk Price, Bulk Quantity, Supplier Type.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Supplier Type accepts Local or Foreign. Currency can be blank to use base currency.</div>
                 </div>
 
 
@@ -1960,17 +1960,17 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     <div style={{ marginBottom: '12px' }}>
                       {/* Amber summary banner */}
                       <div style={{ backgroundColor: '#fff3e0', color: '#e65100', padding: '10px 12px', borderRadius: '8px', marginBottom: '8px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                        <span style={{ fontSize: '16px', lineHeight: 1 }}>⚠</span>
+                        <span style={{ fontSize: '18px', lineHeight: 1 }}>⚠</span>
                         <div>
                           <strong>{errorRows.length} row{errorRows.length !== 1 ? 's' : ''} have errors and will be skipped.</strong>
-                          <div style={{ fontSize: '12px', marginTop: '2px' }}>
+                          <div style={{ fontSize: '14px', marginTop: '2px' }}>
                             {validCount} valid row{validCount !== 1 ? 's' : ''} will be imported. Fix the errors in your CSV and re-upload to import all rows.
                           </div>
                         </div>
                       </div>
                       {/* Error detail table */}
                       <div style={{ border: '1px solid #fcd34d', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                           <thead style={{ backgroundColor: '#fffbeb' }}>
                             <tr>
                               <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>Line #</th>
@@ -1998,7 +1998,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                         <button
                           type="button"
                           onClick={downloadParseErrorReport}
-                          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}
+                          style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}
                         >
                           Download error report (CSV)
                         </button>
@@ -2009,7 +2009,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
                 {importPreview.length > 0 && (
                   <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Row</th>
@@ -2091,7 +2091,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     {importResult.errors.length > 0 && (
                       <div>
                         <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                             <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
                               <tr>
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row</th>
@@ -2208,7 +2208,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                       style={{
                         padding: '10px 12px',
                         borderBottom: index === selectedMaterialUsage.products.length - 1 ? 'none' : '1px solid #f1f5f9',
-                        fontSize: '14px',
+                        fontSize: '16px',
                         color: '#1e293b',
                       }}
                     >
@@ -2262,11 +2262,11 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                   <AlertTriangle size={14} strokeWidth={2} />
                   {usageData.inUse.length} material{usageData.inUse.length !== 1 ? 's' : ''} cannot be deleted
                 </div>
-                <div style={{ fontSize: '14px', color: '#78350f', maxHeight: '200px', overflowY: 'auto' }}>
+                <div style={{ fontSize: '16px', color: '#78350f', maxHeight: '200px', overflowY: 'auto' }}>
                   {usageData.inUse.map((item) => (
                     <div key={item.materialId} style={{ marginBottom: '8px' }}>
                       <strong>{item.materialName}</strong>
-                      <div style={{ fontSize: '12px', marginLeft: '8px', marginTop: '4px' }}>
+                      <div style={{ fontSize: '14px', marginLeft: '8px', marginTop: '4px' }}>
                         Used in {item.productCount} product{item.productCount !== 1 ? 's' : ''}:
                         {item.products.slice(0, 3).map((p, idx) => (
                           <div key={idx}>• {p}</div>
@@ -2396,7 +2396,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
               Price History: {selectedMaterialForHistory.name}
             </h2>
-            <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
+            <p style={{ color: '#64748b', fontSize: '16px', marginBottom: '20px' }}>
               Track all price changes for this material
             </p>
 
@@ -2413,10 +2413,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Date</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Purchase Price</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Base Currency</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '14px' }}>Change</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Date</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Purchase Price</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Base Currency</th>
+                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Change</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2431,18 +2431,18 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
                       return (
                         <tr key={entry.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '12px', fontSize: '14px' }}>
+                          <td style={{ padding: '12px', fontSize: '16px' }}>
                             {new Date(entry.changedAt).toLocaleDateString()}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '16px', fontWeight: '600' }}>
                             {entry.currencySymbol}{parseFloat(entry.priceInPurchaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '14px', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '16px', fontWeight: '600' }}>
                             {selectedMaterialForHistory.baseCurrencySymbol}{parseFloat(entry.priceInBaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '14px' }}>
+                          <td style={{ padding: '12px', fontSize: '16px' }}>
                             {index === priceHistory.length - 1 ? (
-                              <span style={{ color: '#64748b', fontSize: '12px' }}>Initial</span>
+                              <span style={{ color: '#64748b', fontSize: '14px' }}>Initial</span>
                             ) : (
                               <span
                                 style={{

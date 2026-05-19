@@ -66,10 +66,10 @@ export default function TableSettingsDropdown({
             boxShadow: '0 10px 24px rgba(15, 23, 42, 0.12)',
           }}
         >
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', padding: '2px 4px 6px' }}>Columns</div>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '2px 4px 6px' }}>Columns</div>
           <div style={{ display: 'grid', gap: '2px' }}>
             {columns.map((column) => (
-              <label key={column.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', fontSize: '12px', cursor: 'pointer' }}>
+              <label key={column.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', fontSize: '14px', cursor: 'pointer' }}>
                 <input
                   type="checkbox"
                   checked={column.visible}
@@ -87,7 +87,7 @@ export default function TableSettingsDropdown({
               border: 'none',
               background: 'none',
               color: '#2563eb',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',
               padding: '4px 6px',
@@ -97,7 +97,7 @@ export default function TableSettingsDropdown({
           </button>
 
           <div style={{ marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', padding: '0 4px 6px' }}>View</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '0 4px 6px' }}>View</div>
             <div style={{ display: 'inline-flex', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
               <button
                 type="button"
@@ -107,7 +107,7 @@ export default function TableSettingsDropdown({
                 style={{
                   border: 'none',
                   padding: '6px 10px',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   cursor: 'pointer',
                   backgroundColor: density === 'comfortable' ? '#111827' : '#fff',
                   color: density === 'comfortable' ? '#fff' : '#334155',
@@ -123,7 +123,7 @@ export default function TableSettingsDropdown({
                 style={{
                   border: 'none',
                   padding: '6px 10px',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   cursor: 'pointer',
                   backgroundColor: density === 'compact' ? '#111827' : '#fff',
                   color: density === 'compact' ? '#fff' : '#334155',
@@ -150,7 +150,7 @@ export default function TableSettingsDropdown({
                 color: disableApproveAllEligible ? '#94a3b8' : '#0f172a',
                 borderRadius: '8px',
                 padding: '7px 10px',
-                fontSize: '12px',
+                fontSize: '14px',
                 fontWeight: 600,
                 cursor: disableApproveAllEligible ? 'not-allowed' : 'pointer',
                 textAlign: 'left',

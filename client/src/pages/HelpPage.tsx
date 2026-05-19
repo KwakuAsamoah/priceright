@@ -60,7 +60,7 @@ export default function HelpPage() {
     <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', height: '100vh', backgroundColor: '#f8fafc' }}>
       <aside style={{ backgroundColor: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #e2e8f0' }}>
-          <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '10px', color: '#0f172a' }}>
+          <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '10px', color: '#0f172a' }}>
             Help Articles
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #dbe2ea', borderRadius: '8px', padding: '0 10px', color: '#64748b' }}>
@@ -70,14 +70,14 @@ export default function HelpPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search help articles..."
-              style={{ border: 0, outline: 'none', width: '100%', padding: '8px 0', fontSize: '12px', background: 'transparent' }}
+              style={{ border: 0, outline: 'none', width: '100%', padding: '8px 0', fontSize: '14px', background: 'transparent' }}
             />
           </label>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '12px', flex: 1 }}>
           {sections.length === 0 ? (
-            <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '14px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BookOpen size={14} strokeWidth={2} /> No matching articles.
             </div>
           ) : (
@@ -86,7 +86,7 @@ export default function HelpPage() {
                 <button
                   type="button"
                   onClick={() => setExpandedSections((current) => ({ ...current, [section]: !current[section] }))}
-                  style={{ width: '100%', border: 0, background: 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 8px', fontSize: '12px', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
+                  style={{ width: '100%', border: 0, background: 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 8px', fontSize: '14px', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
                 >
                   <span>{section}</span>
                   <span>{expandedSections[section] === false ? '+' : '−'}</span>
@@ -107,7 +107,7 @@ export default function HelpPage() {
                             color: active ? '#ffffff' : '#334155',
                             padding: '8px 10px',
                             textAlign: 'left',
-                            fontSize: '12px',
+                            fontSize: '14px',
                             fontWeight: active ? 700 : 600,
                             cursor: 'pointer',
                           }}
@@ -130,16 +130,16 @@ export default function HelpPage() {
             <button
               type="button"
               onClick={() => navigate(from)}
-              style={{ border: 0, background: 'transparent', color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+              style={{ border: 0, background: 'transparent', color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', cursor: 'pointer', fontWeight: 600 }}
             >
               <ArrowLeft size={16} strokeWidth={2} />
               Exit Help
             </button>
           </div>
-          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '18px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '20px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {currentTitle}
           </div>
-          <div style={{ textAlign: 'right', fontSize: '13px', color: '#64748b' }}>
+          <div style={{ textAlign: 'right', fontSize: '15px', color: '#64748b' }}>
             {currentSection}
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function HelpPage() {
               color: previousArticle ? '#334155' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: previousArticle ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
@@ -168,7 +168,7 @@ export default function HelpPage() {
             Previous article
           </button>
 
-          <div style={{ fontSize: '12px', color: '#888', fontWeight: 400 }}>
+          <div style={{ fontSize: '14px', color: '#888', fontWeight: 400 }}>
             {selectedIndex >= 0 ? `${selectedIndex + 1} of ${helpArticles.length} articles` : `0 of ${helpArticles.length} articles`}
           </div>
 
@@ -183,7 +183,7 @@ export default function HelpPage() {
               color: nextArticle ? '#334155' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
-              fontSize: '12px',
+              fontSize: '14px',
               fontWeight: 600,
               cursor: nextArticle ? 'pointer' : 'not-allowed',
               display: 'inline-flex',
@@ -199,8 +199,8 @@ export default function HelpPage() {
         <div ref={contentScrollRef} style={{ overflowY: 'auto', backgroundColor: '#f8fafc' }}>
           {selectedArticle ? (
             <div style={{ maxWidth: '760px', margin: '0 auto', padding: '48px 64px 32px' }}>
-              <div style={{ marginBottom: '32px', fontSize: '13px', color: '#64748b' }}>Help → {selectedArticle.section}</div>
-              <h1 style={{ margin: '0 0 8px', fontWeight: 700, fontSize: '24px', color: '#0f172a' }}>
+              <div style={{ marginBottom: '32px', fontSize: '15px', color: '#64748b' }}>Help → {selectedArticle.section}</div>
+              <h1 style={{ margin: '0 0 8px', fontWeight: 700, fontSize: '26px', color: '#0f172a' }}>
                 {selectedArticle.title}
               </h1>
               <div className="help-article-body" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
@@ -209,10 +209,10 @@ export default function HelpPage() {
             <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '32px' }}>
               <div style={{ textAlign: 'center', maxWidth: '760px' }}>
                 <BookOpen size={48} strokeWidth={1.8} color="#94a3b8" style={{ marginBottom: '16px' }} />
-                <h1 style={{ margin: 0, fontWeight: 700, fontSize: '24px', color: '#0f172a' }}>
+                <h1 style={{ margin: 0, fontWeight: 700, fontSize: '26px', color: '#0f172a' }}>
                   PriceRight Help &amp; Guide
                 </h1>
-                <p style={{ margin: '10px 0 22px', fontSize: '14px', color: '#64748b' }}>
+                <p style={{ margin: '10px 0 22px', fontSize: '16px', color: '#64748b' }}>
                   Select an article from the left to get started, or search for a topic above.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', textAlign: 'left' }}>
@@ -223,8 +223,8 @@ export default function HelpPage() {
                       onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
                       style={{ border: '1px solid #dbe2ea', borderRadius: '10px', backgroundColor: '#ffffff', padding: '10px 12px', cursor: 'pointer' }}
                     >
-                      <div style={{ fontSize: '11px', letterSpacing: '0.04em', color: '#64748b', marginBottom: '3px' }}>{article.section}</div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{article.title}</div>
+                      <div style={{ fontSize: '13px', letterSpacing: '0.04em', color: '#64748b', marginBottom: '3px' }}>{article.section}</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{article.title}</div>
                     </button>
                   ))}
                 </div>

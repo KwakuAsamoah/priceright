@@ -118,6 +118,7 @@ export default function Settings() {
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState('');
   const [defaultOverhead, setDefaultOverhead] = useState('30');
+  const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
   const [isSavingBranding, setIsSavingBranding] = useState(false);
@@ -228,6 +229,11 @@ async function loadData() {
       const overheadSetting = settingsData.find((s: any) => s.settingKey === 'defaultOverhead');
       if (overheadSetting) {
         setDefaultOverhead(overheadSetting.settingValue);
+      }
+
+      const profitMarginSetting = settingsData.find((s: any) => s.settingKey === 'defaultProfitMargin');
+      if (profitMarginSetting) {
+        setDefaultProfitMargin(profitMarginSetting.settingValue);
       }
 
       const companyNameSetting = settingsData.find((s: any) => s.settingKey === 'companyName');
@@ -344,6 +350,16 @@ async function loadData() {
       setBaseCurrency(code);
     } catch (error) {
       console.error('Error setting base currency:', error);
+    }
+  }
+
+  async function handleSaveDefaultProfitMargin() {
+    try {
+      await settingsApi.save({ settingKey: 'defaultProfitMargin', settingValue: defaultProfitMargin });
+      showToastMessage('Default profit on cost saved successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving default profit margin:', error);
+      showToastMessage('Failed to save default profit on cost', 'error');
     }
   }
 
@@ -577,9 +593,9 @@ async function loadData() {
             aria-live="polite"
           >
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
+              <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
               {rateSaveBanner.reminder && (
-                <div style={{ marginTop: '6px', fontSize: '12px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
+                <div style={{ marginTop: '6px', fontSize: '14px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
               )}
             </div>
             <button
@@ -591,7 +607,7 @@ async function loadData() {
                 background: 'transparent',
                 color: '#334155',
                 cursor: 'pointer',
-                fontSize: '16px',
+                fontSize: '18px',
                 lineHeight: 1,
                 padding: 0,
               }}
@@ -652,7 +668,7 @@ async function loadData() {
                     accept="image/*"
                     onChange={handleLogoFileChange}
                   />
-                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '12px' }}>
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px' }}>
                     PNG/JPG up to 1MB.
                   </div>
                 </div>
@@ -668,7 +684,7 @@ async function loadData() {
                       className="btn btn-secondary"
                       onClick={() => setCompanyLogoDataUrl('')}
                       type="button"
-                      style={{ padding: '6px 10px', fontSize: '12px' }}
+                      style={{ padding: '6px 10px', fontSize: '14px' }}
                     >
                       Remove Logo
                     </button>
@@ -684,7 +700,7 @@ async function loadData() {
                   >
                     {isSavingBranding ? 'Saving...' : 'Save Branding'}
                   </button>
-                  {brandingMessage && <span style={{ fontSize: '12px', color: '#475569' }}>{brandingMessage}</span>}
+                  {brandingMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{brandingMessage}</span>}
                 </div>
               </div>
             </div>
@@ -764,7 +780,7 @@ async function loadData() {
                     type="button"
                     onClick={handleChangePin}
                     disabled={isChangingPin}
-                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                    style={{ padding: '8px 12px', fontSize: '14px' }}
                   >
                     {isChangingPin ? '...' : 'Change PIN'}
                   </button>
@@ -774,9 +790,18 @@ async function loadData() {
 
             <div className="app-card app-settings-card">
               <h2>Sample data</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+              <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
                 Download sample files to explore PriceRight with realistic data before entering your own.
               </p>
+              <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
+                <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
+                <ol style={{ fontSize: '15px', color: '#0369a1', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
+                  <li>Download and import <strong>Sample Materials</strong> first</li>
+                  <li>Download and import <strong>Sample Intermediates</strong> second</li>
+                  <li>Download and import <strong>Sample Products</strong> last</li>
+                </ol>
+                <p style={{ fontSize: '14px', color: '#0c4a6e', marginTop: '6px', marginBottom: 0 }}>Each file depends on the previous one being imported first.</p>
+              </div>
               <div style={{ display: 'grid', gap: '12px' }}>
                 {/* Row 1 — Raw materials */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
@@ -784,8 +809,8 @@ async function loadData() {
                     <Package size={18} style={{ color: '#94a3b8' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
-                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
+                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
                   </div>
                   <a
                     href={templateUrl('PriceRight_Sample_Materials.csv')}
@@ -802,8 +827,8 @@ async function loadData() {
                     <Layers size={18} style={{ color: '#94a3b8' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
-                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
+                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
                   </div>
                   <a
                     href={templateUrl('PriceRight_Sample_Intermediates.csv')}
@@ -820,8 +845,8 @@ async function loadData() {
                     <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
-                    <div style={{ fontSize: '12px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
+                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
                   </div>
                   <a
                     href={templateUrl('PriceRight_Sample_Products.csv')}
@@ -831,13 +856,6 @@ async function loadData() {
                   >
                     Download
                   </a>
-                </div>
-              </div>
-              {/* Import order notice */}
-              <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                <Info size={14} style={{ color: '#0284c7', flexShrink: 0, marginTop: '2px' }} />
-                <div style={{ fontSize: '13px', color: '#0c4a6e', lineHeight: '1.5' }}>
-                  <strong>Import in this order:</strong> (1) Raw materials, (2) Intermediate materials, (3) Products. Products will be skipped if their ingredients are not already in your materials list.
                 </div>
               </div>
             </div>
@@ -865,6 +883,49 @@ async function loadData() {
               )}
             {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
+              <h2>Default Profit on Cost</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Applied automatically when creating a new product. Can be overridden per product.
+              </p>
+              <div className="app-settings-row-end">
+                <div style={{ flex: 1 }}>
+                  <label className="app-settings-label">
+                    Default profit on cost (%)
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={defaultProfitMargin}
+                      onChange={(e) => setDefaultProfitMargin(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        paddingRight: '35px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '16px',
+                      }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveDefaultProfitMargin}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+            )}
+
+            {activeTab === 'pricing' && (
+            <div className="app-card app-settings-card">
               <h2>Default Overhead Rate</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
                 This percentage will be pre-filled when creating new products. Use the calculator to the right to determine it.
@@ -887,7 +948,7 @@ async function loadData() {
                         paddingRight: '35px',
                         borderRadius: '8px',
                         border: '1px solid #e2e8f0',
-                        fontSize: '14px',
+                        fontSize: '16px',
                       }}
                     />
                     <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
@@ -915,7 +976,7 @@ async function loadData() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
                     <label className="app-settings-label" style={{ margin: 0 }}>Product Categories</label>
-                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
                       Suggested options when creating/editing products
                     </div>
                   </div>
@@ -927,7 +988,7 @@ async function loadData() {
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredProductCategories.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
                       <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredProductCategories.length}):</div>
                       {configuredProductCategories.map((value) => {
                         const count = productCategoryCounts[value.toLowerCase()] || 0;
@@ -944,7 +1005,7 @@ async function loadData() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
                     <label className="app-settings-label" style={{ margin: 0 }}>Raw Material Categories</label>
-                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
                       Suggested options when creating/editing materials
                     </div>
                   </div>
@@ -956,7 +1017,7 @@ async function loadData() {
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredMaterialCategories.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
                       <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialCategories.length}):</div>
                       {configuredMaterialCategories.map((value) => {
                         const count = materialCategoryCounts[value.toLowerCase()] || 0;
@@ -973,7 +1034,7 @@ async function loadData() {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
                     <label className="app-settings-label" style={{ margin: 0 }}>Units of Measure</label>
-                    <div style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
                       Suggested options when specifying material quantities
                     </div>
                   </div>
@@ -985,7 +1046,7 @@ async function loadData() {
                     style={{ minHeight: '90px', width: '100%' }}
                   />
                   {configuredMaterialUnits.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#475569' }}>
+                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
                       <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialUnits.length}):</div>
                       {configuredMaterialUnits.map((value) => {
                         const count = materialUnitCounts[value.toLowerCase()] || 0;
@@ -1008,7 +1069,7 @@ async function loadData() {
                   >
                     {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
                   </button>
-                  {masterDataMessage && <span style={{ fontSize: '12px', color: '#475569' }}>{masterDataMessage}</span>}
+                  {masterDataMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{masterDataMessage}</span>}
                 </div>
               </div>
             </div>
@@ -1022,7 +1083,7 @@ async function loadData() {
                 <Calculator size={18} strokeWidth={2} />
                 Overhead Calculator
               </h2>
-              <p className="app-page-subtitle" style={{ fontSize: '12px', marginBottom: '16px' }}>
+              <p className="app-page-subtitle" style={{ fontSize: '14px', marginBottom: '16px' }}>
                 (Overhead ÷ Material Costs) × 100 = Rate %
               </p>
 
@@ -1033,7 +1094,7 @@ async function loadData() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '600' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '15px', fontWeight: '600' }}>
                     Monthly Overhead (₵)
                   </label>
                   <input
@@ -1042,11 +1103,11 @@ async function loadData() {
                     value={overheadInputs.totalOverhead}
                     onChange={(e) => setOverheadInputs({ ...overheadInputs, totalOverhead: e.target.value })}
                     placeholder="e.g., 5000"
-                    style={{ fontSize: '13px' }}
+                    style={{ fontSize: '15px' }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: '600', color: '#10b981' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '15px', fontWeight: '600', color: '#10b981' }}>
                     Material Costs (₵)
                   </label>
                   <input
@@ -1060,7 +1121,7 @@ async function loadData() {
                       padding: '8px',
                       borderRadius: '6px',
                       border: '2px solid #10b981',
-                      fontSize: '13px',
+                      fontSize: '15px',
                     }}
                   />
                 </div>
@@ -1074,11 +1135,11 @@ async function loadData() {
                 marginBottom: '12px',
                 textAlign: 'center'
               }}>
-                <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>Recommended Rate:</div>
-                <div style={{ fontSize: '32px', fontWeight: '700', color: '#10b981', marginBottom: '4px' }}>
+                <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>Recommended Rate:</div>
+                <div style={{ fontSize: '34px', fontWeight: '700', color: '#10b981', marginBottom: '4px' }}>
                   {calculateOverheadPercentage()}%
                 </div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>
                   ₵{(parseFloat(overheadInputs.materialCosts || '0') * calculateOverheadPercentage() / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per ₵{parseFloat(overheadInputs.materialCosts || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
@@ -1121,7 +1182,7 @@ async function loadData() {
               />
               <span>{isDemoMode ? 'Demo Mode ON' : 'Demo Mode OFF'}</span>
             </label>
-            {isSwitchingMode && <span style={{ fontSize: '12px', color: '#64748b' }}>Switching data mode...</span>}
+            {isSwitchingMode && <span style={{ fontSize: '14px', color: '#64748b' }}>Switching data mode...</span>}
           </div>
           {isDemoMode && (
             <div style={{ marginTop: '12px' }}>
@@ -1134,7 +1195,7 @@ async function loadData() {
               >
                 Reset demo data
               </button>
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#64748b' }}>
+              <div style={{ marginTop: '8px', fontSize: '14px', color: '#64748b' }}>
                 Restores the original Savanna Foods sample data
               </div>
             </div>
@@ -1147,7 +1208,7 @@ async function loadData() {
             Automatic backups are created hourly. You can also create a manual backup at any time.
           </p>
 
-          <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: '#166534' }}>
+          <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '15px', color: '#166534' }}>
             {backupStatus ? (
               <div>
                 <div style={{ marginBottom: '8px' }}>
@@ -1182,7 +1243,7 @@ async function loadData() {
               {isCreatingBackup ? 'Creating Backup...' : 'Create Manual Backup'}
             </button>
             {backupMessage && (
-              <span style={{ fontSize: '13px' }}>
+              <span style={{ fontSize: '15px' }}>
                 {backupMessage}
               </span>
             )}
@@ -1279,7 +1340,7 @@ async function loadData() {
                           }}
                           style={{
                             padding: '4px 8px',
-                            fontSize: '12px',
+                            fontSize: '14px',
                             backgroundColor: '#eff6ff',
                             color: '#3b82f6',
                             borderRadius: '4px',
@@ -1297,7 +1358,7 @@ async function loadData() {
                       style={{
                         padding: '4px 12px',
                         borderRadius: '12px',
-                        fontSize: '12px',
+                        fontSize: '14px',
                         fontWeight: '600',
                         backgroundColor: currency.isActive ? '#d1fae5' : '#fee2e2',
                         color: currency.isActive ? '#065f46' : '#991b1b',
@@ -1311,7 +1372,7 @@ async function loadData() {
                       <span
                         style={{
                           padding: '6px 12px',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           color: '#64748b',
                           fontStyle: 'italic',
                         }}
@@ -1333,7 +1394,7 @@ async function loadData() {
                         }}
                         style={{
                           padding: '6px 12px',
-                          fontSize: '12px',
+                          fontSize: '14px',
                           backgroundColor: '#fee2e2',
                           color: '#991b1b',
                           borderRadius: '4px',
@@ -1363,7 +1424,7 @@ async function loadData() {
           <p className="app-page-subtitle" style={{ marginBottom: '8px' }}>
             This section is reserved for maintenance and advanced operational controls.
           </p>
-          <div style={{ fontSize: '12px', color: '#475569' }}>
+          <div style={{ fontSize: '14px', color: '#475569' }}>
             Add future items here, such as audit tools, migration helpers, and diagnostics.
           </div>
         </div>

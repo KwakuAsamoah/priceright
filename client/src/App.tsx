@@ -397,7 +397,7 @@ function AppLayout({ children }: { children: ReactNode }) {
 
         <div className="app-user-panel">
           <div className="app-user-row">
-            <div className="app-user-role" style={{ fontSize: '12px', color: 'rgba(241, 245, 249, 0.72)' }}>PriceRight</div>
+            <div className="app-user-role" style={{ fontSize: '13px', color: 'rgba(241, 245, 249, 0.72)' }}>PriceRight</div>
           </div>
         </div>
         </aside>

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -162,7 +162,7 @@ export default function OverflowMenu({ items, ariaLabel = 'More actions' }: Over
                   borderRadius: '5px',
                   backgroundColor: 'transparent',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   color: item.danger ? '#dc2626' : '#0f172a',
                   textAlign: 'left',
                   transition: 'background-color 80ms',
