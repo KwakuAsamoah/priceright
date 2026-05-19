@@ -301,13 +301,12 @@ function AppLayout({ children }: { children: ReactNode }) {
   function handleExit() {
     // Clear all PIN unlock state so PIN screen shows on next launch
     sessionStorage.removeItem('priceright_skip_pin_once');
-    // Immediately show PIN screen in current session
+    // Immediately show PIN screen — no reload needed; setIsUnlocked(false)
+    // triggers a re-render and the useEffect([skipPIN]) does not re-run
     setIsUnlocked(false);
-    // Close or reload
+    // In Electron, close the window
     if (window.electronAPI?.isElectron) {
       window.close();
-    } else {
-      window.location.reload();
     }
   }
 

@@ -39,15 +39,15 @@
   --space-section: 32px;
   --space-card: 20px;
 
-  --font-size-2xs: 13px;
-  --font-size-xs: 14px;
-  --font-size-sm: 15px;
-  --font-size-md: 16px;
-  --font-size-lg: 18px;
-  --font-size-xl: 20px;
-  --font-size-xxl: 22px;
-  --font-size-2xl: 26px;
-  --font-size-display: 34px;
+  --font-size-2xs: 14px;
+  --font-size-xs: 15px;
+  --font-size-sm: 16px;
+  --font-size-md: 17px;
+  --font-size-lg: 19px;
+  --font-size-xl: 21px;
+  --font-size-xxl: 23px;
+  --font-size-2xl: 27px;
+  --font-size-display: 35px;
 
   --font-body: var(--font-size-md);
   --font-small: var(--font-size-sm);
@@ -264,12 +264,12 @@ textarea {
 }
 
 .products-toolbar-actions .app-chip-info {
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 6px;
 }
 
 .products-toolbar-actions .btn.btn-sm {
-  font-size: 10px !important;
+  font-size: 11px !important;
   min-height: 40px;
   padding: 0 8px !important;
   white-space: nowrap;
@@ -407,7 +407,7 @@ textarea {
 
 .help-article-body p {
   font-family: 'Open Sans', sans-serif;
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.8;
   color: var(--color-text-secondary, #555);
   margin-bottom: 16px;
@@ -415,7 +415,7 @@ textarea {
 
 .help-article-body h3 {
   font-family: 'Open Sans', sans-serif;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--color-text-primary, #1a1a1a);
   margin: 24px 0 8px;
@@ -428,7 +428,7 @@ textarea {
 }
 
 .help-article-body li {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1.8;
   margin-bottom: 6px;
   color: var(--color-text-secondary, #555);
@@ -472,7 +472,7 @@ textarea {
   position: absolute;
   right: 10px;
   top: 10px;
-  font-size: 18px;
+  font-size: 19px;
   color: var(--color-text-secondary);
 }
 
@@ -509,12 +509,12 @@ textarea {
 }
 
 .app-card h2 {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 600;
 }
 
 .app-card h3 {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 600;
 }
 
@@ -758,7 +758,7 @@ textarea {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
   color: #1a1a1a;
   font-family: 'Open Sans', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.6;
   padding: 8px 12px;
@@ -777,7 +777,7 @@ textarea {
 .app-page table th {
   font-family: 'Open Sans', sans-serif;
   padding: 12px 16px !important;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.3px;
   color: #475569;
@@ -854,7 +854,7 @@ textarea {
 .app-page table td {
   padding: 12px 16px !important;
   border-bottom: 1px solid var(--color-border);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
   color: #374151;
 }
@@ -872,12 +872,12 @@ textarea {
 }
 
 .app-table.app-table-ultra-compact th {
-  font-size: 15px !important;
+  font-size: 16px !important;
   letter-spacing: 0.04em;
 }
 
 .app-table.app-table-ultra-compact td {
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 1.15;
 }
 
@@ -887,7 +887,7 @@ textarea {
 }
 
 .app-table-uniform-numbers .money-value {
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
   line-height: 1.25;
 }
@@ -897,7 +897,7 @@ textarea {
 }
 
 .app-table-uniform-numbers td[style*='text-align: right'] {
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
 }
 
@@ -953,7 +953,7 @@ textarea {
 /* Keep all table body text consistent across pages, including nested value/name wrappers. */
 .app-page table tbody td,
 .app-page table tbody td :is(span, div, p, small, strong, a, label) {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
 }
 
@@ -978,7 +978,7 @@ textarea {
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-text-secondary);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1;
   transition: background 0.15s, color 0.15s;
   z-index: 10;
