@@ -1950,25 +1950,6 @@ export default function Products() {
       </div>
 
       {/* Base currency warning */}
-      {baseCurrencyMissing && (
-        <div className="app-page-content" style={{ paddingBottom: 0, paddingTop: 0 }}>
-          <div style={{ position: 'relative', backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '8px', padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>Base currency not set</div>
-                <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>You must set a base currency before adding materials or products. Cost calculations depend on it.</div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => navigate('/settings?tab=currencies')}
-                >
-                  Go to Settings &rarr; Currencies and Rates
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="app-page-content app-page-content-tight" style={{ paddingBottom: '0' }}>
       <div className="app-section-tabs" role="tablist" aria-label="Product workflows">

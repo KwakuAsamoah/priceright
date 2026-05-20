@@ -25,7 +25,7 @@ export const DATABASE_FILE_PATH = path.resolve(dbRootDir, 'priceright.db');
 export const DEMO_DATABASE_FILE_PATH = path.resolve(dbRootDir, 'demo.db');
 export const DEMO_MODE_FILE_PATH = path.resolve(dbRootDir, 'demo-mode.json');
 
-const sqlite = new Database(DATABASE_FILE_PATH);
+let sqlite = new Database(DATABASE_FILE_PATH);
 const demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
 
 sqlite.pragma('foreign_keys = ON');
@@ -481,6 +481,26 @@ ensureSchemaTables();
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });
+
+export function closeLiveDb(): void {
+	try {
+		sqlite.close();
+	} catch (err) {
+		console.error('[db] Error closing liveDb:', err);
+	}
+}
+
+export function reopenLiveDb(): void {
+	try {
+		sqlite = new Database(DATABASE_FILE_PATH);
+		sqlite.pragma('foreign_keys = ON');
+		// Patch the internal session's client so existing Drizzle instance uses the new connection
+		(db as any).session.client = sqlite;
+	} catch (err) {
+		console.error('[db] Error reopening liveDb:', err);
+		throw err;
+	}
+}
 
 // Seed demo data on startup; seedDemoData skips automatically when data already exists.
 // Pass DEMO_DATABASE_FILE_PATH so the seed writes to the same file the app reads from.

@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
@@ -241,7 +240,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
-  const navigate = useNavigate();
   const [editingRateCurrencyId, setEditingRateCurrencyId] = useState<number | null>(null);
   const [editingRateValue, setEditingRateValue] = useState('');
   const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
@@ -1255,27 +1253,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   return (
     <div className="app-page">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-
-      {/* Base currency warning */}
-      {baseCurrencyMissing && (
-        <div className="app-page-content" style={{ paddingBottom: 0 }}>
-          <div style={{ position: 'relative', backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: '8px', padding: '14px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-              <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '1px' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#92400e', marginBottom: '4px' }}>Base currency not set</div>
-                <div style={{ fontSize: '14px', color: '#78350f', marginBottom: '10px' }}>You must set a base currency before adding materials or products. Cost calculations depend on it.</div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => navigate('/settings?tab=currencies')}
-                >
-                  Go to Settings → Currencies and Rates
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Search and Filters */}
       <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>

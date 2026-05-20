@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import './App.css';
 import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag } from 'lucide-react';
+import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
@@ -19,7 +19,7 @@ import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
 import PINScreen from './components/PINScreen';
-import { pinApi, materialsApi, productsApi, priceLevelRulesApi } from './api';
+import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -250,6 +250,7 @@ function AppLayout({ children }: { children: ReactNode }) {
 
   const { isDemoMode } = useDemoMode();
   const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
+  const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,6 +267,23 @@ function AppLayout({ children }: { children: ReactNode }) {
             products: Array.isArray(prods) ? prods.length : 0,
             priceLevels: Array.isArray(levels) ? levels.length : 0,
           });
+        }
+        // Check base currency
+        if (!isDemoMode && !cancelled) {
+          const [allCurrencies, allSettings] = await Promise.all([
+            currenciesApi.getAll(),
+            settingsApi.getAll(),
+          ]);
+          const baseCurrencySetting = Array.isArray(allSettings)
+            ? allSettings.find((s: { settingKey: string; settingValue: string }) => s.settingKey === 'baseCurrency')
+            : undefined;
+          setBaseCurrencyMissing(
+            !Array.isArray(allCurrencies) ||
+            allCurrencies.length === 0 ||
+            !baseCurrencySetting?.settingValue
+          );
+        } else if (!cancelled) {
+          setBaseCurrencyMissing(false);
         }
       } catch {
         // fail silently — counts are non-critical
@@ -474,6 +492,20 @@ function AppLayout({ children }: { children: ReactNode }) {
 
         <main className="app-main">
           <DemoModeBanner />
+          {baseCurrencyMissing && (
+            <div style={{ backgroundColor: '#DC2626', color: 'white', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
+                No base currency set.{' '}Cost calculations will not work correctly until you set a base currency.
+              </span>
+              <button
+                onClick={() => navigate('/settings?tab=currencies')}
+                style={{ background: 'white', color: '#DC2626', border: 'none', borderRadius: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+              >
+                Set base currency →
+              </button>
+            </div>
+          )}
           {children}
         </main>
           <UndoBanner />

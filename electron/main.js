@@ -226,6 +226,51 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
   });
 });
 
+ipcMain.handle('save-backup-file', async (_event, base64Data, defaultFilename) => {
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultFilename,
+    filters: [
+      { name: 'PriceRight Backup', extensions: ['db'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+    title: 'Save PriceRight Backup',
+  });
+
+  if (canceled || !filePath) return { success: false, canceled: true };
+
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(filePath, buffer);
+    return { success: true, filePath };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('select-restore-file', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select PriceRight Backup',
+    filters: [
+      { name: 'PriceRight Backup', extensions: ['db'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+    properties: ['openFile'],
+  });
+
+  if (canceled || filePaths.length === 0) return { canceled: true };
+
+  try {
+    const data = fs.readFileSync(filePaths[0]);
+    return {
+      canceled: false,
+      base64: data.toString('base64'),
+      filename: path.basename(filePaths[0]),
+    };
+  } catch (err) {
+    return { canceled: false, error: err.message };
+  }
+});
+
 app.whenReady().then(async () => {
   const serverAlreadyRunning = await checkServerOnce();
   if (!serverAlreadyRunning) {

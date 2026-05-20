@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
+import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
@@ -511,6 +511,76 @@ app.get('/api/backup/status', (req, res) => {
   } catch (error) {
     console.error('Error getting backup status:', error);
     res.status(500).json({ error: 'Failed to get backup status' });
+  }
+});
+
+// --- User-initiated backup download ---
+app.get('/api/backup/download', (_req, res) => {
+  try {
+    if (!fs.existsSync(DATABASE_FILE_PATH)) {
+      res.status(404).json({ error: 'Database file not found' });
+      return;
+    }
+    const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `priceright_backup_${date}.db`;
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', fs.statSync(DATABASE_FILE_PATH).size.toString());
+    fs.createReadStream(DATABASE_FILE_PATH).pipe(res);
+  } catch (err) {
+    console.error('[backup] Download error:', err);
+    res.status(500).json({ error: 'Failed to create backup' });
+  }
+});
+
+// --- Restore from user-uploaded backup (base64 JSON body) ---
+app.post('/api/backup/restore', express.json({ limit: '200mb' }), async (req, res) => {
+  const { data } = req.body as { data?: string };
+  if (!data) {
+    res.status(400).json({ error: 'No backup data provided' });
+    return;
+  }
+
+  const tempBackupPath = `${DATABASE_FILE_PATH}.before_restore_${Date.now()}`;
+
+  try {
+    const buf = Buffer.from(data, 'base64');
+    // Validate SQLite magic header
+    if (buf.length < 16 || buf.slice(0, 15).toString('utf8') !== 'SQLite format 3') {
+      res.status(400).json({ error: 'Invalid backup file. Not a valid SQLite database.' });
+      return;
+    }
+
+    // Safety backup of current database
+    if (fs.existsSync(DATABASE_FILE_PATH)) {
+      fs.copyFileSync(DATABASE_FILE_PATH, tempBackupPath);
+    }
+
+    // Close current connection, write new file, reopen
+    closeLiveDb();
+    fs.writeFileSync(DATABASE_FILE_PATH, buf);
+    reopenLiveDb();
+
+    // Clean up temp backup
+    if (fs.existsSync(tempBackupPath)) {
+      fs.unlinkSync(tempBackupPath);
+    }
+
+    res.json({ success: true, message: 'Database restored successfully' });
+  } catch (err) {
+    console.error('[restore] Error:', err);
+    // Attempt recovery
+    try {
+      if (fs.existsSync(tempBackupPath)) {
+        closeLiveDb();
+        fs.copyFileSync(tempBackupPath, DATABASE_FILE_PATH);
+        reopenLiveDb();
+        fs.unlinkSync(tempBackupPath);
+      }
+    } catch (recoveryErr) {
+      console.error('[restore] Recovery failed:', recoveryErr);
+    }
+    res.status(500).json({ error: 'Restore failed. Your original data has been preserved.' });
   }
 });
 

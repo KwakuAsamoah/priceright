@@ -137,8 +137,10 @@ export default function Settings() {
 
   // Backup State
   const [backupStatus, setBackupStatus] = useState<{ lastBackupTime: string | null; backupCount: number } | null>(null);
-  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
-  const [backupMessage, setBackupMessage] = useState('');
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [backupUserMsg, setBackupUserMsg] = useState('');
+  const [backupUserError, setBackupUserError] = useState('');
   const [isSavingRate, setIsSavingRate] = useState(false);
   const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
   const [rateSaveBanner, setRateSaveBanner] = useState<RateSaveBanner | null>(null);
@@ -324,22 +326,106 @@ async function loadData() {
     }
   }
 
-  async function handleCreateBackup() {
-    setIsCreatingBackup(true);
-    setBackupMessage('');
+  async function handleBackup() {
+    setIsBackingUp(true);
+    setBackupUserMsg('');
+    setBackupUserError('');
     try {
-      await backupApi.createBackup();
-      setBackupMessage('Backup created successfully.');
-      // Reload backup status
-      const status = await backupApi.getStatus();
-      setBackupStatus(status);
-      setTimeout(() => setBackupMessage(''), 3000);
-    } catch (error) {
-      console.error('Error creating backup:', error);
-      setBackupMessage('❌ Failed to create backup');
-      setTimeout(() => setBackupMessage(''), 3000);
+      const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `priceright_backup_${date}.db`;
+
+      if (window.electronAPI?.isElectron) {
+        const response = await fetch('http://localhost:3000/api/backup/download');
+        if (!response.ok) throw new Error('Backup download failed');
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        const result = await window.electronAPI.saveBackupFile(base64, filename);
+        if (result.canceled) {
+          // user cancelled — no message
+        } else if (result.success) {
+          setBackupUserMsg(`Backup saved to: ${result.filePath}`);
+        } else {
+          throw new Error(result.error ?? 'Save failed');
+        }
+      } else {
+        const link = document.createElement('a');
+        link.href = 'http://localhost:3000/api/backup/download';
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setBackupUserMsg('Backup downloaded successfully.');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Backup failed';
+      setBackupUserError(message);
     } finally {
-      setIsCreatingBackup(false);
+      setIsBackingUp(false);
+    }
+  }
+
+  async function handleRestore() {
+    setIsRestoring(true);
+    setBackupUserMsg('');
+    setBackupUserError('');
+
+    try {
+      let base64Data: string | null = null;
+
+      if (window.electronAPI?.isElectron) {
+        const result = await window.electronAPI.selectRestoreFile();
+        if (result.canceled) { setIsRestoring(false); return; }
+        if (result.error) throw new Error(result.error);
+        base64Data = result.base64 ?? null;
+      } else {
+        base64Data = await new Promise<string>((resolve, reject) => {
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.db';
+          input.onchange = () => {
+            const file = input.files?.[0];
+            if (!file) { reject(new Error('No file selected')); return; }
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              resolve(dataUrl.split(',')[1]);
+            };
+            reader.onerror = () => reject(new Error('File read failed'));
+            reader.readAsDataURL(file);
+          };
+          document.body.appendChild(input);
+          input.click();
+          document.body.removeChild(input);
+        });
+      }
+
+      if (!base64Data) throw new Error('No backup data');
+
+      const confirmed = window.confirm(
+        'Restore this backup?\n\nWARNING: This will replace ALL your current data with the data from the backup file.\n\nThis cannot be undone. Are you sure?'
+      );
+      if (!confirmed) { setIsRestoring(false); return; }
+
+      const response = await fetch('http://localhost:3000/api/backup/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64Data }),
+      });
+      const result = await response.json() as { success?: boolean; error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Restore failed');
+
+      setBackupUserMsg('Backup restored successfully. Reloading...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Restore failed';
+      if (message !== 'No file selected') {
+        setBackupUserError(message);
+      }
+    } finally {
+      setIsRestoring(false);
     }
   }
 
@@ -1123,24 +1209,28 @@ async function loadData() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
-              onClick={handleCreateBackup}
-              disabled={isCreatingBackup}
-              style={{
-                backgroundColor: isCreatingBackup ? '#cbd5e1' : '#3b82f6',
-                cursor: isCreatingBackup ? 'not-allowed' : 'pointer',
-              }}
+              onClick={() => { void handleBackup(); }}
+              disabled={isBackingUp || isRestoring}
             >
-              {isCreatingBackup ? 'Creating Backup...' : 'Create Manual Backup'}
+              {isBackingUp ? 'Creating backup...' : 'Create backup'}
             </button>
-            {backupMessage && (
-              <span style={{ fontSize: '15px' }}>
-                {backupMessage}
-              </span>
-            )}
+            <button
+              className="btn btn-outline"
+              onClick={() => { void handleRestore(); }}
+              disabled={isBackingUp || isRestoring}
+            >
+              {isRestoring ? 'Restoring...' : 'Restore from backup'}
+            </button>
           </div>
+          {backupUserMsg && (
+            <div style={{ marginTop: '10px', fontSize: '15px', color: '#166534' }}>{backupUserMsg}</div>
+          )}
+          {backupUserError && (
+            <div style={{ marginTop: '10px', fontSize: '15px', color: '#991b1b' }}>{backupUserError}</div>
+          )}
         </div>
 
         <div className="app-card app-settings-card">
