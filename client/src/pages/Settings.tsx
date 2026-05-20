@@ -704,26 +704,6 @@ async function loadData() {
             </div>
 
             <div className="app-card app-settings-card">
-              <h2>Base Currency</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                All prices will be converted to this currency for calculations.
-              </p>
-              <select
-                className="app-control"
-                value={baseCurrency}
-                onChange={(e) => handleSetBaseCurrency(e.target.value)}
-                style={{ minWidth: '200px' }}
-              >
-                <option value="">Select base currency</option>
-                {currencies.map((currency) => (
-                  <option key={currency.id} value={currency.code}>
-                    {currency.code} - {currency.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="app-card app-settings-card">
               <h2>Security</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
                 Change your PIN to protect access to PriceRight.
@@ -786,77 +766,6 @@ async function loadData() {
               </div>
             </div>
 
-            <div className="app-card app-settings-card">
-              <h2>Sample data</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
-                Download sample files to explore PriceRight with realistic data before entering your own.
-              </p>
-              <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
-                <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
-                <ol style={{ fontSize: '15px', color: '#0369a1', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
-                  <li>Download and import <strong>Sample Materials</strong> first</li>
-                  <li>Download and import <strong>Sample Intermediates</strong> second</li>
-                  <li>Download and import <strong>Sample Products</strong> last</li>
-                </ol>
-                <p style={{ fontSize: '14px', color: '#0c4a6e', marginTop: '6px', marginBottom: 0 }}>Each file depends on the previous one being imported first.</p>
-              </div>
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {/* Row 1 — Raw materials */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Package size={18} style={{ color: '#94a3b8' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
-                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
-                  </div>
-                  <a
-                    href={templateUrl('PriceRight_Sample_Materials.csv')}
-                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Materials.csv'); }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px', cursor: 'pointer' }}
-                  >
-                    Download
-                  </a>
-                </div>
-                {/* Row 2 — Intermediate materials */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Layers size={18} style={{ color: '#94a3b8' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
-                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
-                  </div>
-                  <a
-                    href={templateUrl('PriceRight_Sample_Intermediates.csv')}
-                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Intermediates.csv'); }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px', cursor: 'pointer' }}
-                  >
-                    Download
-                  </a>
-                </div>
-                {/* Row 3 — Products with BOM */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
-                  <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
-                    <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
-                  </div>
-                  <a
-                    href={templateUrl('PriceRight_Sample_Products.csv')}
-                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Products.csv'); }}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '6px 12px', cursor: 'pointer' }}
-                  >
-                    Download
-                  </a>
-                </div>
-              </div>
-            </div>
             </>
             )}
 
@@ -1233,10 +1142,103 @@ async function loadData() {
             )}
           </div>
         </div>
+
+        <div className="app-card app-settings-card">
+          <h2>Sample data</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
+            Download sample files to explore PriceRight with realistic data before entering your own.
+          </p>
+          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
+            <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
+            <ol style={{ fontSize: '15px', color: '#0369a1', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
+              <li>Download and import <strong>Sample Materials</strong> first</li>
+              <li>Download and import <strong>Sample Intermediates</strong> second</li>
+              <li>Download and import <strong>Sample Products</strong> last</li>
+            </ol>
+            <p style={{ fontSize: '14px', color: '#0c4a6e', marginTop: '6px', marginBottom: 0 }}>Each file depends on the previous one being imported first.</p>
+          </div>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {/* Row 1 — Raw materials */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Package size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Materials.csv')}
+                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Materials.csv'); }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: 'pointer' }}
+              >
+                Download
+              </a>
+            </div>
+            {/* Row 2 — Intermediate materials */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Layers size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Intermediates.csv')}
+                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Intermediates.csv'); }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: 'pointer' }}
+              >
+                Download
+              </a>
+            </div>
+            {/* Row 3 — Products with BOM */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Products.csv')}
+                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Products.csv'); }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: 'pointer' }}
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
         </>
         )}
 
         {activeTab === 'currencies' && (
+        <>
+        <div className="app-card app-settings-card">
+          <h2>Base Currency</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+            All prices will be converted to this currency for calculations.
+          </p>
+          <select
+            className="app-control"
+            value={baseCurrency}
+            onChange={(e) => handleSetBaseCurrency(e.target.value)}
+            style={{ minWidth: '200px' }}
+          >
+            <option value="">Select base currency</option>
+            {currencies.map((currency) => (
+              <option key={currency.id} value={currency.code}>
+                {currency.code} - {currency.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="app-card app-settings-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2>Currencies</h2>
@@ -1410,6 +1412,7 @@ async function loadData() {
           </table>
           </div>
         </div>
+        </>
         )}
 
         {activeTab === 'advanced' && (
