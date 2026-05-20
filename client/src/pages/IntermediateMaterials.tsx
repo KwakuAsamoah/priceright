@@ -1313,7 +1313,6 @@ export default function IntermediateMaterials() {
               display: 'flex',
               justifyContent: 'flex-end',
             }}
-            onClick={closeMaterialForm}
           >
             <div
               style={{
