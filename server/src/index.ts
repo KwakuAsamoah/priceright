@@ -2531,55 +2531,82 @@ app.post('/api/products/:id/approve', async (req, res) => {
 
     const sqliteClient = getSqliteClient();
     if (sqliteClient) {
+      ensureProductRejectionReasonColumn();
       sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
     }
 
     const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
-    const updatedProduct = withDerivedProductFields(updated[0]);
-    const performedBy = await getCurrentUserName();
-    const productionCost = await calculateProductionCostForProduct(updated[0], productId);
-    const margin = approvedPriceNumber > 0
-      ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
-      : 0;
 
-    await logActivity({
-      entityType: 'product',
-      entityId: productId,
-      entityName: updatedProduct.name,
-      action: 'product.approved',
-      details: {
-        oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
-        newPrice: approvedPriceNumber,
-        productionCost: roundToTwo(productionCost),
-        margin: roundToTwo(margin),
-      },
-      performedBy,
+    // Compute production cost for the response — mirrors GET /api/products/:id
+    let computedProductionCost = 0;
+    let computedOptimalPrice = 0;
+    try {
+      const snapshot = await calculateProductCostSnapshot(productId);
+      const denominator = 1 + Number(updated[0].profitMargin || 0) / 100;
+      computedProductionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+      computedOptimalPrice = snapshot.optimalPrice;
+    } catch {
+      // keep 0 — non-fatal
+    }
+    const updatedProduct = withDerivedProductFields({
+      ...updated[0],
+      productionCost: computedProductionCost,
+      optimalPrice: computedOptimalPrice,
     });
 
-    const staleCustomPriceItems = await getActiveDb()
-      .select({
-        priceLevelId: priceLevelItems.priceLevelId,
-        priceLevelName: priceLevels.name,
-        customPrice: priceLevelItems.customPrice,
-      })
-      .from(priceLevelItems)
-      .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
-      .where(
-        and(
-          eq(priceLevelItems.productId, productId),
-          eq(priceLevelItems.overrideType, 'custom_price'),
-          eq(priceLevelItems.status, 'approved'),
-        )
-      );
+    // Post-approval: activity log — wrapped so a failure does not cause a 500
+    try {
+      const performedBy = await getCurrentUserName();
+      const productionCost = await calculateProductionCostForProduct(updated[0], productId);
+      const margin = approvedPriceNumber > 0
+        ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
+        : 0;
+      await logActivity({
+        entityType: 'product',
+        entityId: productId,
+        entityName: updatedProduct.name,
+        action: 'product.approved',
+        details: {
+          oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
+          newPrice: approvedPriceNumber,
+          productionCost: roundToTwo(productionCost),
+          margin: roundToTwo(margin),
+        },
+        performedBy,
+      });
+    } catch (logErr) {
+      console.error('[approve] Activity log failed (approval still succeeded):', logErr);
+    }
 
-    const staleCustomPrices = staleCustomPriceItems
-      .filter((si) => si.customPrice != null)
-      .map((si) => ({
-        priceLevelId: si.priceLevelId,
-        priceLevelName: si.priceLevelName,
-        customPrice: Number(si.customPrice),
-        newApprovedBasePrice: approvedPriceNumber,
-      }));
+    // Post-approval: stale custom price check — wrapped so a failure does not cause a 500
+    let staleCustomPrices: Array<{ priceLevelId: number; priceLevelName: string; customPrice: number; newApprovedBasePrice: number }> = [];
+    try {
+      const staleCustomPriceItems = await getActiveDb()
+        .select({
+          priceLevelId: priceLevelItems.priceLevelId,
+          priceLevelName: priceLevels.name,
+          customPrice: priceLevelItems.customPrice,
+        })
+        .from(priceLevelItems)
+        .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
+        .where(
+          and(
+            eq(priceLevelItems.productId, productId),
+            eq(priceLevelItems.overrideType, 'custom_price'),
+            eq(priceLevelItems.status, 'approved'),
+          )
+        );
+      staleCustomPrices = staleCustomPriceItems
+        .filter((si) => si.customPrice != null)
+        .map((si) => ({
+          priceLevelId: si.priceLevelId,
+          priceLevelName: si.priceLevelName,
+          customPrice: Number(si.customPrice),
+          newApprovedBasePrice: approvedPriceNumber,
+        }));
+    } catch (plErr) {
+      console.error('[approve] Stale price level check failed (approval still succeeded):', plErr);
+    }
 
     res.json({
       success: true,

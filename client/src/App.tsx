@@ -19,7 +19,7 @@ import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
 import PINScreen from './components/PINScreen';
-import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi } from './api';
+import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -268,22 +268,25 @@ function AppLayout({ children }: { children: ReactNode }) {
             priceLevels: Array.isArray(levels) ? levels.length : 0,
           });
         }
-        // Check base currency
-        if (!isDemoMode && !cancelled) {
-          const [allCurrencies, allSettings] = await Promise.all([
-            currenciesApi.getAll(),
-            settingsApi.getAll(),
-          ]);
-          const baseCurrencySetting = Array.isArray(allSettings)
-            ? allSettings.find((s: { settingKey: string; settingValue: string }) => s.settingKey === 'baseCurrency')
-            : undefined;
-          setBaseCurrencyMissing(
-            !Array.isArray(allCurrencies) ||
-            allCurrencies.length === 0 ||
-            !baseCurrencySetting?.settingValue
-          );
-        } else if (!cancelled) {
-          setBaseCurrencyMissing(false);
+        // Check base currency — fetch demo mode directly from API to avoid stale context state
+        if (!cancelled) {
+          const demoStatus = await demoModeApi.get();
+          if (!demoStatus?.demoMode && !cancelled) {
+            const [allCurrencies, allSettings] = await Promise.all([
+              currenciesApi.getAll(),
+              settingsApi.getAll(),
+            ]);
+            const baseCurrencySetting = Array.isArray(allSettings)
+              ? allSettings.find((s: { settingKey: string; settingValue: string }) => s.settingKey === 'baseCurrency')
+              : undefined;
+            setBaseCurrencyMissing(
+              !Array.isArray(allCurrencies) ||
+              allCurrencies.length === 0 ||
+              !baseCurrencySetting?.settingValue
+            );
+          } else if (!cancelled) {
+            setBaseCurrencyMissing(false);
+          }
         }
       } catch {
         // fail silently — counts are non-critical

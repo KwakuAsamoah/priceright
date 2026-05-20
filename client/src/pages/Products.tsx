@@ -3228,12 +3228,12 @@ export default function Products() {
             ) : (
               <div>
                 <div style={{ marginBottom: '12px' }}>
-                  <strong>File:</strong> {importFile.name} ({importPreview.length} rows)
+                  <strong>File:</strong> {importFile.name} ({new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} product{new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size !== 1 ? 's' : ''})
                 </div>
 
                 {importing && (
                   <div style={{ marginBottom: '12px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
-                    Importing {importPreview.length} row{importPreview.length !== 1 ? 's' : ''}. Please wait...
+                    Importing {new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} product{new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size !== 1 ? 's' : ''}. Please wait...
                   </div>
                 )}
 
@@ -3293,7 +3293,7 @@ export default function Products() {
                     disabled={importing || importPreview.length === 0}
                     style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: importing ? '#94a3b8' : '#10b981', color: 'white', fontWeight: '600', border: 'none', cursor: importing ? 'not-allowed' : 'pointer' }}
                   >
-                    {importing ? 'Importing...' : `Import ${importPreview.length} Products`}
+                    {importing ? 'Importing...' : `Import ${new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} Products`}
                   </button>
                 </div>
 

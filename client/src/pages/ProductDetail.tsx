@@ -774,15 +774,15 @@ export default function ProductDetail() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Production cost</span>
-                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {Number(product.totalCost || 0).toFixed(2)}</span>
+                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Profit on cost</span>
                   <span style={{ fontWeight: 700 }}>
-                    {product.approvedPrice && product.totalCost
-                      ? (((Number(product.approvedPrice) - Number(product.totalCost))
-                          / Number(product.totalCost)) * 100).toFixed(1)
+                    {product.approvedPrice && productionCost
+                      ? (((Number(product.approvedPrice) - productionCost)
+                          / productionCost) * 100).toFixed(1)
                       : '—'}%
                   </span>
                 </div>
@@ -790,8 +790,8 @@ export default function ProductDetail() {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Profit on sales</span>
                   <span style={{ fontWeight: 700 }}>
-                    {product.approvedPrice && product.totalCost
-                      ? (((Number(product.approvedPrice) - Number(product.totalCost))
+                    {product.approvedPrice && productionCost
+                      ? (((Number(product.approvedPrice) - productionCost)
                           / Number(product.approvedPrice)) * 100).toFixed(1)
                       : '—'}%
                   </span>

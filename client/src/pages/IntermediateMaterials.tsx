@@ -7,7 +7,7 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
-import { materialsApi, settingsApi, templateUrl, downloadTemplate, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import { materialsApi, currenciesApi, settingsApi, templateUrl, downloadTemplate, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 
@@ -250,6 +250,7 @@ export default function IntermediateMaterials() {
   const [materials, setMaterials] = useState<MaterialRecord[]>([]);
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
@@ -418,19 +419,23 @@ export default function IntermediateMaterials() {
   }, [selectedId]);
 
   async function loadData() {
-    const [intermediateData, componentData, settingsData] = await Promise.all([
+    const [intermediateData, componentData, settingsData, currenciesData] = await Promise.all([
       materialsApi.getAll('all', 'intermediate'),
       materialsApi.getAll('active', 'all'),
       settingsApi.getAll(),
+      currenciesApi.getAll(),
     ]);
 
     const safeIntermediate = Array.isArray(intermediateData) ? intermediateData : [];
     const safeComponents = Array.isArray(componentData) ? componentData : [];
+    const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
     const materialCategoriesSetting = (settingsData || []).find((entry: any) => entry.settingKey === 'materialCategories');
+    const baseCurrencySetting = (settingsData || []).find((entry: any) => entry.settingKey === 'baseCurrency');
 
     setMaterials(safeIntermediate);
     setComponents(safeComponents);
     setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
+    setBaseCurrencyMissing(safeCurrencies.length === 0 || !baseCurrencySetting?.settingValue);
   }
 
   async function loadBom(materialId: number) {
@@ -1115,6 +1120,8 @@ export default function IntermediateMaterials() {
               <ActionDropdown
                 label="+ Add"
                 buttonClassName="btn btn-primary btn-sm"
+                disabled={baseCurrencyMissing}
+                disabledTitle="Set a base currency first in Settings"
                 items={[
                   {
                     key: 'add-single',
