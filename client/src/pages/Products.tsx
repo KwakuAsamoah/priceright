@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Info, Pencil, Plus, Printer, RefreshCw, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
@@ -371,7 +372,19 @@ export default function Products() {
   const productsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { setHasOpenForm } = useFormState();
   const { registerUndo } = useUndoAction();
+
+  useEffect(() => {
+    setHasOpenForm(showDrawer || showImportModal);
+  }, [showDrawer, showImportModal, setHasOpenForm]);
+
+  useEffect(() => {
+    return () => {
+      setHasOpenForm(false);
+    };
+  }, [setHasOpenForm]);
+
   const [isApprovingAll, setIsApprovingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'analysis'>(() => {
     try {

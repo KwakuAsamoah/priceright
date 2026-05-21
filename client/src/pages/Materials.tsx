@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useFormState } from '../context/FormStateContext';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
@@ -284,7 +285,18 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const [usageData, setUsageData] = useState<UsageCheckResult | null>(null);
   const [loadingUsageCheck, setLoadingUsageCheck] = useState(false);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { setHasOpenForm } = useFormState();
   useUndoAction();
+
+  useEffect(() => {
+    setHasOpenForm(showAddModal || showImportModal || showCategoryModal);
+  }, [showAddModal, showImportModal, showCategoryModal, setHasOpenForm]);
+
+  useEffect(() => {
+    return () => {
+      setHasOpenForm(false);
+    };
+  }, [setHasOpenForm]);
 
   const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
   const [materialCustomUnitValue, setMaterialCustomUnitValue] = useState('');

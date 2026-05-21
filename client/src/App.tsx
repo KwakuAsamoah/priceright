@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import './App.css';
-import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate, useBlocker } from 'react-router-dom';
 import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
+import { FormStateProvider, useFormState } from './context/FormStateContext';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
@@ -249,8 +250,32 @@ function AppLayout({ children }: { children: ReactNode }) {
   const [helpOpen, setHelpOpen] = useState(false);
 
   const { isDemoMode } = useDemoMode();
+  const { hasOpenForm } = useFormState();
   const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasOpenForm && currentLocation.pathname !== nextLocation.pathname
+  );
+
+  const pendingNavigation = useMemo<(() => void) | null>(
+    () => (blocker.state === 'blocked' ? blocker.proceed : null),
+    [blocker.state, blocker.proceed],
+  );
+  const showNavWarning = blocker.state === 'blocked';
+
+  function handleNavConfirm() {
+    if (pendingNavigation) {
+      pendingNavigation();
+    }
+  }
+
+  function handleNavCancel() {
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -515,6 +540,25 @@ function AppLayout({ children }: { children: ReactNode }) {
         </div>
       )}
       {!isHelpPage && <HelpPanel isOpen={helpOpen} onClose={() => setHelpOpen(false)} />}
+      {showNavWarning && (
+        <div className="app-modal-overlay">
+          <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={handleNavCancel} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Leave this page?</h2>
+            <p style={{ marginTop: '12px', color: '#475569' }}>
+              You have a form open with unsaved changes. If you leave now your changes will be lost.
+            </p>
+            <div className="app-modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" type="button" onClick={handleNavCancel}>
+                Stay on page
+              </button>
+              <button className="btn btn-primary" type="button" onClick={handleNavConfirm} style={{ marginLeft: '12px' }}>
+                Leave anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showWelcome && !isHelpPage && (
         <WelcomeModal
           onGetStarted={() => dismissWelcome()}
@@ -528,10 +572,11 @@ function AuthenticatedApp() {
   return (
     <UndoActionProvider>
       <DemoModeProvider>
-        <HashRouter>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
+        <FormStateProvider>
+          <HashRouter>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
               <Route path="/materials" element={<MaterialsPage />} />
               <Route path="/materials/primary" element={<Navigate to="/materials" replace />} />
               <Route path="/materials/intermediate" element={<Navigate to="/materials" replace />} />
@@ -549,6 +594,7 @@ function AuthenticatedApp() {
             </Routes>
           </AppLayout>
         </HashRouter>
+      </FormStateProvider>
       </DemoModeProvider>
     </UndoActionProvider>
   );

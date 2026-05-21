@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl, downloadTemplate } from '../api';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
+import { useFormState } from '../context/FormStateContext';
 import { useDemoMode } from '../context/DemoModeContext';
 
 interface Currency {
@@ -119,6 +120,7 @@ export default function Settings() {
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState('');
   const [defaultOverhead, setDefaultOverhead] = useState('30');
+  const { setHasOpenForm } = useFormState();
   const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
@@ -159,6 +161,17 @@ export default function Settings() {
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
+
+  useEffect(() => {
+    setHasOpenForm(showAddModal || showResetModal);
+  }, [showAddModal, showResetModal, setHasOpenForm]);
+
+  useEffect(() => {
+    return () => {
+      setHasOpenForm(false);
+    };
+  }, [setHasOpenForm]);
+
   const [resetStep, setResetStep] = useState<1 | 2>(1);
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResetting, setIsResetting] = useState(false);

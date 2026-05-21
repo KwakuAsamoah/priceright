@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useFormState } from '../context/FormStateContext';
 import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
@@ -287,6 +288,18 @@ export default function IntermediateMaterials() {
     skipped: number;
     errors: Array<{ row: number; name: string; reason: string }>;
   } | null>(null);
+  const { setHasOpenForm } = useFormState();
+
+  useEffect(() => {
+    setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal);
+  }, [isFormOpen, showImportModal, showIntermediateImportModal, setHasOpenForm]);
+
+  useEffect(() => {
+    return () => {
+      setHasOpenForm(false);
+    };
+  }, [setHasOpenForm]);
+
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const intermediatesTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
 
