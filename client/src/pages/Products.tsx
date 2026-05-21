@@ -1656,10 +1656,6 @@ export default function Products() {
     }
   }
 
-  function handleReviewNow() {
-    openStandardReviewPanel();
-  }
-
   function handleUpdatePrices() {
     setIsNeedsReviewBannerDismissed(false);
     openStandardReviewPanel();
@@ -2114,9 +2110,7 @@ export default function Products() {
               <AlertTriangle size={16} color="#e65100" />
               <span>{statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.</span>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-              <button className="btn btn-primary btn-sm" onClick={handleReviewNow}>Review now</button>
-            </div>
+
           </div>
         )}
 
