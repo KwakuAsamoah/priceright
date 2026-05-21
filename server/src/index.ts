@@ -584,6 +584,40 @@ app.post('/api/backup/restore', express.json({ limit: '200mb' }), async (req, re
   }
 });
 
+// --- Live database full reset (irreversible) ---
+app.post('/api/reset/live', async (_req, res) => {
+  try {
+    const db = liveDb;
+
+    // Delete all data in correct order (children before parents to respect foreign keys)
+    await db.delete(priceListItems);
+    await db.delete(priceLists);
+    await db.delete(specialPricing);
+    await db.delete(priceLevelItems);
+    await db.delete(priceLevels);
+    await db.delete(billOfMaterials);
+    await db.delete(intermediateMaterialBom);
+    await db.delete(materialPriceHistory);
+    await db.delete(products);
+    await db.delete(materials);
+    await db.delete(customers);
+    await db.delete(activityLog);
+    await db.delete(exchangeRates);
+    await db.delete(currencies);
+    await db.delete(settings);
+
+    res.json({
+      success: true,
+      message: 'All data has been reset.',
+    });
+  } catch (error) {
+    console.error('[reset] Live reset error:', error);
+    res.status(500).json({
+      error: 'Reset failed. Your data has not been changed.',
+    });
+  }
+});
+
 // ============================================
 // SETTINGS ENDPOINTS
 // ============================================
@@ -675,6 +709,20 @@ app.get('/api/settings/:key', async (req, res) => {
 app.post('/api/settings', async (req, res) => {
   try {
     const { settingKey, settingValue } = req.body;
+    // Lock base currency once materials exist
+    if (settingKey === 'baseCurrency') {
+      const existingMaterials = await getActiveDb()
+        .select({ id: materials.id })
+        .from(materials)
+        .limit(1);
+
+      if (existingMaterials.length > 0) {
+        return res.status(400).json({
+          error: 'BASE_CURRENCY_LOCKED',
+          message: 'Base currency cannot be changed once materials have been added. To use a different base currency, reset all data in Settings → Data and Backups.',
+        });
+      }
+    }
     
     const existing = await getActiveDb().select().from(settings).where(eq(settings.settingKey, settingKey));
     

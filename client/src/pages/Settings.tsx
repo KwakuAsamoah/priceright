@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl, downloadTemplate } from '../api';
 import AppToast from '../components/AppToast';
@@ -114,6 +114,7 @@ export default function Settings() {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrency, setBaseCurrency] = useState<string>('');
+  const [baseCurrencyLocked, setBaseCurrencyLocked] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState('');
@@ -157,6 +158,11 @@ export default function Settings() {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     try {
@@ -270,6 +276,13 @@ async function loadData() {
 
       const safeProducts = Array.isArray(productsData) ? productsData as ProductSummary[] : [];
       const safeMaterials = Array.isArray(materialsData) ? materialsData as MaterialSummary[] : [];
+
+      // Lock base currency if any materials exist
+      try {
+        setBaseCurrencyLocked(Array.isArray(safeMaterials) && safeMaterials.length > 0);
+      } catch {
+        setBaseCurrencyLocked(false);
+      }
 
       setProductCategoryCounts(
         countByNormalized(
@@ -429,6 +442,27 @@ async function loadData() {
     }
   }
 
+  async function handleLiveReset() {
+    if (resetConfirmText !== 'RESET') return;
+    setIsResetting(true);
+    setResetError(null);
+    try {
+      const response = await fetch('http://localhost:3000/api/reset/live', { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Reset failed');
+      }
+      // Clear PIN unlock state so PIN screen shows
+      sessionStorage.removeItem('priceright_skip_pin_once');
+      // Reload to fresh state
+      window.location.reload();
+    } catch (err: any) {
+      setResetError(err?.message || 'Reset failed. Try again.');
+    } finally {
+      setIsResetting(false);
+    }
+  }
+
   async function handleAddCurrency(e: React.FormEvent) {
     e.preventDefault();
     try {
@@ -443,10 +477,15 @@ async function loadData() {
 
   async function handleSetBaseCurrency(code: string) {
     try {
+      if (baseCurrencyLocked) {
+        showToastMessage('Base currency is locked. Reset all data to change it.', 'error');
+        return;
+      }
       await settingsApi.save({ settingKey: 'baseCurrency', settingValue: code });
       setBaseCurrency(code);
     } catch (error) {
       console.error('Error setting base currency:', error);
+      showToastMessage('Failed to set base currency', 'error');
     }
   }
 
@@ -1182,6 +1221,29 @@ async function loadData() {
         </div>
 
         <div className="app-card app-settings-card">
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={18} strokeWidth={2} /> Danger Zone</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
+            These actions are permanent and cannot be undone.
+          </p>
+          <div style={{ marginBottom: '12px', color: '#64748b' }}>
+            Resetting will permanently delete ALL live data and clear your PIN. Create a backup first if you want to preserve your data.
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                setResetStep(1);
+                setResetConfirmText('');
+                setResetError(null);
+                setShowResetModal(true);
+              }}
+            >
+              Reset all data
+            </button>
+          </div>
+        </div>
+
+        <div className="app-card app-settings-card">
           <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Database Backups</h2>
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
             Automatic backups are created hourly. You can also create a manual backup at any time.
@@ -1314,19 +1376,30 @@ async function loadData() {
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
             All prices will be converted to this currency for calculations.
           </p>
-          <select
-            className="app-control"
-            value={baseCurrency}
-            onChange={(e) => handleSetBaseCurrency(e.target.value)}
-            style={{ minWidth: '200px' }}
-          >
-            <option value="">Select base currency</option>
-            {currencies.map((currency) => (
-              <option key={currency.id} value={currency.code}>
-                {currency.code} - {currency.name}
-              </option>
-            ))}
-          </select>
+          {baseCurrencyLocked ? (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                <Lock size={16} />
+                <div style={{ fontWeight: 700 }}>{baseCurrency || 'GHS'}</div>
+                <div style={{ color: '#64748b' }}>(locked)</div>
+              </div>
+              <div style={{ color: '#64748b', fontSize: '13px' }}>Base currency is locked because materials exist. Reset all data to change it.</div>
+            </div>
+          ) : (
+            <select
+              className="app-control"
+              value={baseCurrency}
+              onChange={(e) => handleSetBaseCurrency(e.target.value)}
+              style={{ minWidth: '200px' }}
+            >
+              <option value="">Select base currency</option>
+              {currencies.map((currency) => (
+                <option key={currency.id} value={currency.code}>
+                  {currency.code} - {currency.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="app-card app-settings-card">
@@ -1517,6 +1590,61 @@ async function loadData() {
         </div>
         )}
       </div>
+
+      {/* Reset All Data Modal */}
+      {showResetModal && (
+        <div className="app-modal-overlay">
+          <div className="app-modal" style={{ maxWidth: '720px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowResetModal(false)} aria-label="Close">&times;</button>
+            {resetStep === 1 && (
+              <>
+                <h2 className="app-modal-title">Reset all data</h2>
+                <p style={{ marginTop: '8px', color: '#475569' }}>
+                  This will permanently delete everything in your live database:
+                </p>
+                <ul style={{ marginTop: '12px', color: '#334155' }}>
+                  <li>All materials and intermediate materials</li>
+                  <li>All products and bills of materials</li>
+                  <li>All price levels and price lists</li>
+                  <li>All approved prices and price history</li>
+                  <li>All currencies and exchange rates</li>
+                  <li>All settings including base currency</li>
+                  <li>Your PIN — you will need to set a new one</li>
+                  <li>All activity log entries</li>
+                </ul>
+                <p style={{ marginTop: '12px', color: '#7f1d1d' }}><strong>This cannot be undone. Create a backup first if you want to keep a copy of your data.</strong></p>
+                <div className="app-modal-actions" style={{ marginTop: '16px' }}>
+                  <button className="btn btn-secondary" onClick={() => setShowResetModal(false)}>Cancel</button>
+                  <button className="btn btn-ghost" onClick={() => { setResetStep(2); }}>Create backup first</button>
+                  <button className="btn btn-primary" onClick={() => { setResetStep(2); }}>Continue →</button>
+                </div>
+              </>
+            )}
+            {resetStep === 2 && (
+              <>
+                <h2 className="app-modal-title">Confirm reset</h2>
+                <p style={{ marginTop: '8px', color: '#475569' }}>Type <strong>RESET</strong> in the box below to confirm you want to permanently delete all data.</p>
+                <input
+                  className="app-control"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  style={{ marginTop: '12px', width: '100%' }}
+                  autoFocus
+                />
+                {resetError && (
+                  <div style={{ marginTop: '12px', color: '#991b1b' }}>{resetError}</div>
+                )}
+                <div className="app-modal-actions" style={{ marginTop: '16px' }}>
+                  <button className="btn btn-secondary" onClick={() => setResetStep(1)} disabled={isResetting}>← Back</button>
+                  <button className="btn btn-danger" onClick={() => handleLiveReset()} disabled={isResetting || resetConfirmText !== 'RESET'}>
+                    {isResetting ? 'Resetting...' : 'Reset all data permanently'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Add Currency Modal */}
       {showAddModal && (
