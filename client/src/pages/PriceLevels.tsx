@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Tag, Trash2, X, XCircle, Clock3, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   priceLevelItemsApi,
@@ -421,6 +421,49 @@ export default function PriceLevels() {
       console.error('Failed to load level items:', error);
       showToastMessage('Failed to refresh price level items.', 'error');
       return [];
+    }
+  }
+
+  function buildDuplicateLevelName(baseName: string, existingNames: Set<string>) {
+    const base = `Copy of ${(baseName || 'Price Level').trim()}`;
+    if (!existingNames.has(base.toLowerCase())) return base;
+    let counter = 2;
+    while (existingNames.has(`${base} (${counter})`.toLowerCase())) {
+      counter += 1;
+    }
+    return `${base} (${counter})`;
+  }
+
+  async function handleDuplicateLevel(level: PriceLevelRule) {
+    try {
+      const existingNames = new Set(levels.map((l) => (l.name || '').trim().toLowerCase()));
+      const newName = buildDuplicateLevelName(level.name, existingNames);
+
+      const created = await priceLevelRulesApi.create({
+        name: newName,
+        adjustmentType: 'discount',
+        adjustmentPercentage: 0,
+        description: level.description || '',
+      }) as PriceLevelRule;
+
+      const items = await priceLevelItemsApi.getAll(level.id);
+      const sourceItems = Array.isArray(items) ? items : [];
+
+      for (const item of sourceItems) {
+        await priceLevelItemsApi.upsert((created as any).id, {
+          productId: item.productId,
+          overrideType: item.overrideType as any,
+          adjustmentPercentage: item.adjustmentPercentage ?? undefined,
+          customPrice: item.customPrice ?? undefined,
+          justification: item.justification ?? undefined,
+        });
+      }
+
+      await loadInitialData();
+      showToastMessage(`Price level duplicated: ${newName}`, 'success');
+    } catch (error: any) {
+      console.error('Error duplicating price level:', error);
+      showToastMessage(error?.message || 'Failed to duplicate price level', 'error');
     }
   }
 
@@ -1407,6 +1450,7 @@ export default function PriceLevels() {
                         ariaLabel="More actions for selected price level"
                         items={[
                           { label: 'Edit level name', icon: Pencil, onClick: () => setEditingLevelName(true) },
+                          { label: 'Duplicate', icon: Copy, onClick: () => selectedLevel ? handleDuplicateLevel(selectedLevel) : undefined },
                           { type: 'divider' as const, key: 'detail-divider' },
                           { label: 'Delete level', icon: Trash2, onClick: deleteLevel, danger: true },
                         ]}
