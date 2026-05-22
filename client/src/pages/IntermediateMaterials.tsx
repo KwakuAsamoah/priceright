@@ -657,30 +657,57 @@ export default function IntermediateMaterials() {
     setStatusText('Cost recalculated from latest component prices.');
   }
 
-  function handleDuplicateMaterial(material: MaterialRecord) {
-    const knownCategory = materialCategories.includes(String(material.category || ''));
-    setMaterialCustomCategoryValue(knownCategory ? '' : String(material.category || ''));
-    setSelectedId(null);
-    setForm({
-      name: `${String(material.name || '').trim()} Copy`.trim(),
-      sku: String(material.sku || '').trim() ? `${String(material.sku).trim()}-COPY` : '',
-      description: String(material.description || ''),
-      category: knownCategory ? String(material.category || '') : '__custom__',
-      unit: String(material.unit || 'kg'),
-      intermediateCostMode: material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield',
-      bulkQuantity: String(material.bulkQuantity || '1'),
-      overheadPercentage: String(material.overheadPercentage || '0'),
-      marginPercentage: String(material.marginPercentage || '0'),
-      yieldPercentage: String(material.yieldPercentage || '100'),
-      supplier: String(material.supplier || ''),
-    });
-    setBomItems([]);
-    setComponentMaterialId(0);
-    setComponentQuantity('1');
-    setComponentSearch('');
-    setStatusText('Loaded selected material into a new draft.');
-    setIsFormOpen(true);
-    showToastMessage('Created a new draft from the selected material', 'success');
+  function buildDuplicateName(baseName: string, existingNames: Set<string>) {
+    const normalizedBase = (baseName || 'Untitled Material').trim();
+    let candidate = `${normalizedBase} (Copy)`;
+    let counter = 2;
+    while (existingNames.has(candidate.toLowerCase())) {
+      candidate = `${normalizedBase} (Copy ${counter})`;
+      counter += 1;
+    }
+    return candidate;
+  }
+
+  async function handleDuplicateMaterial(material: MaterialRecord) {
+    try {
+      const existingNames = new Set(materials.map((item) => (item.name || '').trim().toLowerCase()));
+      const duplicatedName = buildDuplicateName(material.name, existingNames);
+      const duplicatedSku = material.sku ? `${String(material.sku).trim()}-COPY` : '';
+
+      const created = await materialsApi.create({
+        name: duplicatedName,
+        sku: duplicatedSku,
+        description: String(material.description || ''),
+        category: String(material.category || ''),
+        unit: String(material.unit || 'kg'),
+        bulkQuantity: Number(material.bulkQuantity || 1),
+        bulkPrice: Number(material.bulkPrice || 0),
+        purchaseCurrencyId: Number(material.purchaseCurrencyId || 0),
+        supplier: String(material.supplier || ''),
+        materialType: 'intermediate',
+        overheadPercentage: Number(material.overheadPercentage || 0),
+        marginPercentage: Number(material.marginPercentage || 0),
+        intermediateCostMode: material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield',
+        yieldPercentage: Number(material.yieldPercentage || 100),
+        calculatedCostPerUnit: Number(material.unitPrice || 0),
+      });
+
+      const sourceBom = await materialsApi.getIntermediateBom(material.id);
+      const sourceBomItems = Array.isArray(sourceBom) ? sourceBom : [];
+
+      for (const bomItem of sourceBomItems) {
+        await materialsApi.addIntermediateBomItem(created.id, {
+          componentMaterialId: bomItem.componentMaterialId,
+          quantity: Number(bomItem.quantity || 0),
+        });
+      }
+
+      await loadData();
+      showToastMessage('Intermediate material duplicated successfully', 'success');
+    } catch (error: any) {
+      console.error('Error duplicating intermediate material:', error);
+      showToastMessage(error?.message || 'Failed to duplicate intermediate material', 'error');
+    }
   }
 
   async function handleDeleteMaterial(material: MaterialRecord) {
@@ -1600,7 +1627,6 @@ export default function IntermediateMaterials() {
                   <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}>
                     {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
                   </button>
-                  {selectedMaterial ? <button className="btn btn-secondary btn-sm" type="button" onClick={() => handleDuplicateMaterial(selectedMaterial)}>Duplicate as New</button> : null}
                   <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Cancel</button>
                   {selectedMaterial ? <button className="btn btn-outline btn-sm" type="button" onClick={() => void recalculateSelected()}>Recalculate Cost</button> : null}
                 </div>
