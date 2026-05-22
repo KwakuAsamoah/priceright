@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
-import { HashRouter, Routes, Route, Link, Navigate, useLocation, useNavigate, useBlocker } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterProvider } from 'react-router-dom';
+import { createHashRouter } from 'react-router';
 import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
 import Dashboard from './pages/Dashboard';
@@ -569,32 +570,39 @@ function AppLayout({ children }: { children: ReactNode }) {
 }
 
 function AuthenticatedApp() {
+  const router = createHashRouter([
+    {
+      path: '/',
+      element: (
+        <AppLayout>
+          <Outlet />
+        </AppLayout>
+      ),
+      children: [
+        { index: true, element: <Dashboard /> },
+        { path: 'materials', element: <MaterialsPage /> },
+        { path: 'materials/primary', element: <Navigate to="materials" replace /> },
+        { path: 'materials/intermediate', element: <Navigate to="materials" replace /> },
+        { path: 'products', element: <Products /> },
+        { path: 'products/:id', element: <ProductDetail /> },
+        { path: 'products/*', element: <Products /> },
+        { path: 'price-levels', element: <PriceLevels /> },
+        { path: 'reports', element: <Reports /> },
+        { path: 'activity', element: <Activity /> },
+        { path: 'settings', element: <Settings /> },
+        { path: 'help', element: <HelpPage /> },
+        { path: 'help/:articleId', element: <HelpPage /> },
+        { path: '*', element: <Navigate to="products" replace /> },
+      ],
+    },
+  ]);
+
   return (
     <UndoActionProvider>
       <DemoModeProvider>
         <FormStateProvider>
-          <HashRouter>
-            <AppLayout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-              <Route path="/materials" element={<MaterialsPage />} />
-              <Route path="/materials/primary" element={<Navigate to="/materials" replace />} />
-              <Route path="/materials/intermediate" element={<Navigate to="/materials" replace />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/products/:id" element={<ProductDetail />} />
-              <Route path="/products/*" element={<Products />} />
-              <Route path="/price-levels" element={<PriceLevels />} />
-
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/activity" element={<Activity />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/help" element={<HelpPage />} />
-              <Route path="/help/:articleId" element={<HelpPage />} />
-              <Route path="*" element={<Navigate to="/products" replace />} />
-            </Routes>
-          </AppLayout>
-        </HashRouter>
-      </FormStateProvider>
+          <RouterProvider router={router} />
+        </FormStateProvider>
       </DemoModeProvider>
     </UndoActionProvider>
   );

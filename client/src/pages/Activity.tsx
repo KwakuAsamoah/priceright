@@ -126,6 +126,12 @@ function formatOverrideType(overrideType: unknown, value: unknown): string {
   if (overrideType === 'rule_markup') {
     return `Markup ${toNumberString(value)}%`;
   }
+  if (overrideType === 'fixed_amount_add') {
+    return `+GHS ${toNumberString(value)}`;
+  }
+  if (overrideType === 'fixed_amount_deduct') {
+    return `-GHS ${toNumberString(value)}`;
+  }
   if (overrideType === 'custom_price') {
     return 'Custom price';
   }

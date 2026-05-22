@@ -7,7 +7,7 @@ import path from 'node:path';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://127.0.0.1:5173')
@@ -213,7 +213,16 @@ function startAutoBackupScheduler() {
 
 const MIN_MARGIN_PERCENTAGE = 15;
 
-type PriceLevelItemOverrideType = 'rule_discount' | 'rule_markup' | 'custom_price';
+type PriceLevelItemOverrideType =
+  | 'rule_discount'
+  | 'rule_markup'
+  | 'fixed_amount_add'
+  | 'fixed_amount_deduct'
+  | 'custom_price';
+
+function isFixedAmountOverrideType(value: PriceLevelItemOverrideType): boolean {
+  return value === 'fixed_amount_add' || value === 'fixed_amount_deduct';
+}
 
 function roundToFour(value: number): number {
   return Math.round((value + Number.EPSILON) * 10_000) / 10_000;
@@ -295,6 +304,12 @@ function parsePriceLevelItemOverrideType(value: unknown): PriceLevelItemOverride
   if (value === 'rule_markup' || value === 'markup') {
     return 'rule_markup';
   }
+  if (value === 'fixed_amount_add') {
+    return 'fixed_amount_add';
+  }
+  if (value === 'fixed_amount_deduct') {
+    return 'fixed_amount_deduct';
+  }
   if (value === 'custom_price' || value === 'custom') {
     return 'custom_price';
   }
@@ -309,29 +324,69 @@ function computePriceLevelItemFinalPrice(input: {
 }) {
   const { overrideType, adjustmentPercentage, customPrice, approvedPrice } = input;
   const normalizedApprovedPrice = Number.isFinite(approvedPrice) ? approvedPrice : 0;
+  const normalizedCustomPrice = Number.isFinite(Number(customPrice ?? 0)) ? Number(customPrice ?? 0) : 0;
 
   if (overrideType === 'custom_price') {
-    return roundToFour(Number(customPrice || 0));
+    return roundToFour(normalizedCustomPrice);
   }
 
   if (overrideType === 'rule_discount') {
     return roundToFour(normalizedApprovedPrice * (1 - (Number(adjustmentPercentage || 0) / 100)));
   }
 
-  return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+  if (overrideType === 'rule_markup') {
+    return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+  }
+
+  if (overrideType === 'fixed_amount_add') {
+    return roundToFour(normalizedApprovedPrice + normalizedCustomPrice);
+  }
+
+  return roundToFour(normalizedApprovedPrice - normalizedCustomPrice);
+}
+
+function normalizeLegacyCustomPriceOverride(input: {
+  overrideType: PriceLevelItemOverrideType;
+  customPrice: number | null;
+  approvedPrice: number;
+}): { overrideType: PriceLevelItemOverrideType; customPrice: number | null; approvedPrice: number } {
+  if (input.overrideType !== 'custom_price') {
+    return input;
+  }
+
+  const legacyPrice = Number(input.customPrice ?? 0);
+  const approvedPrice = Number.isFinite(input.approvedPrice) ? input.approvedPrice : 0;
+  const delta = legacyPrice - approvedPrice;
+  const newOverrideType: PriceLevelItemOverrideType = delta >= 0 ? 'fixed_amount_add' : 'fixed_amount_deduct';
+  return {
+    overrideType: newOverrideType,
+    customPrice: Math.abs(delta),
+    approvedPrice: input.approvedPrice,
+  };
 }
 
 async function toPriceLevelItemResponse(item: PriceLevelItem, productRow: typeof products.$inferSelect) {
   const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
   const approvedPrice = Number(productRow.approvedPrice || 0);
   const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
-  const overrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
+  const rawOverrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
+  let overrideType = rawOverrideType;
   const adjustmentPercentage = toOptionalNumber(item.adjustmentPercentage);
-  const customPrice = toOptionalNumber(item.customPrice);
+  let customPrice = toOptionalNumber(item.customPrice);
+
+  if (rawOverrideType === 'custom_price') {
+    const normalized = normalizeLegacyCustomPriceOverride({
+      overrideType: rawOverrideType,
+      customPrice,
+      approvedPrice,
+    });
+    overrideType = normalized.overrideType;
+    customPrice = normalized.customPrice;
+  }
 
   const productApprovedAt = productRow.approvedAt ?? null;
-  const isCustomPriceStale = (
-    overrideType === 'custom_price'
+  const isStalePrice = (
+    isFixedAmountOverrideType(overrideType)
     && item.status === 'approved'
     && productApprovedAt != null
     && item.updatedAt != null
@@ -363,7 +418,7 @@ async function toPriceLevelItemResponse(item: PriceLevelItem, productRow: typeof
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     productApprovedAt,
-    isCustomPriceStale,
+    isStalePrice,
   };
 }
 
@@ -2626,7 +2681,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
       console.error('[approve] Activity log failed (approval still succeeded):', logErr);
     }
 
-    // Post-approval: stale custom price check — wrapped so a failure does not cause a 500
+    // Post-approval: stale fixed amount check — wrapped so a failure does not cause a 500
     let staleCustomPrices: Array<{ priceLevelId: number; priceLevelName: string; customPrice: number; newApprovedBasePrice: number }> = [];
     try {
       const staleCustomPriceItems = await getActiveDb()
@@ -2640,7 +2695,11 @@ app.post('/api/products/:id/approve', async (req, res) => {
         .where(
           and(
             eq(priceLevelItems.productId, productId),
-            eq(priceLevelItems.overrideType, 'custom_price'),
+            or(
+              eq(priceLevelItems.overrideType, 'fixed_amount_add'),
+              eq(priceLevelItems.overrideType, 'fixed_amount_deduct'),
+              eq(priceLevelItems.overrideType, 'custom_price'),
+            ),
             eq(priceLevelItems.status, 'approved'),
           )
         );
@@ -3319,7 +3378,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
 
     const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType);
     if (!overrideType) {
-      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'fixed_amount_add', 'fixed_amount_deduct', 'custom_price'" });
     }
 
     const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
@@ -3340,52 +3399,69 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
 
     let resolvedAdjustment: number | null = null;
     let resolvedCustomPrice: number | null = null;
+    let resolvedOverrideType = overrideType;
 
     if (overrideType === 'rule_discount') {
       if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
         return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 100 for rule_discount' });
       }
       resolvedAdjustment = adjustmentPercentage;
-      resolvedCustomPrice = null;
     } else if (overrideType === 'rule_markup') {
       if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 1000) {
         return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 1000 for rule_markup' });
       }
       resolvedAdjustment = adjustmentPercentage;
-      resolvedCustomPrice = null;
     } else {
       if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-        return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+        return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
       }
 
       const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
-      if (customPrice <= productionCost) {
+      const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
+      let proposedFinalPrice = customPrice;
+
+      if (overrideType === 'fixed_amount_add') {
+        proposedFinalPrice = approvedPriceNumber + customPrice;
+      } else if (overrideType === 'fixed_amount_deduct') {
+        proposedFinalPrice = approvedPriceNumber - customPrice;
+      }
+
+      if (proposedFinalPrice <= productionCost) {
         return res.status(400).json({
-          error: 'customPrice must be above production cost',
+          error: 'Proposed fixed amount pricing must be above production cost',
           code: 'PRICE_BELOW_COST',
           details: {
             productionCost: roundToTwo(productionCost),
-            proposedPrice: roundToTwo(customPrice),
+            proposedPrice: roundToTwo(proposedFinalPrice),
           },
         });
       }
 
-      const resultingMarginPercentage = ((customPrice - productionCost) / customPrice) * 100;
+      const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
       if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
         return res.status(400).json({
           error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
           code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
           details: {
             productionCost: roundToTwo(productionCost),
-            proposedPrice: roundToTwo(customPrice),
+            proposedPrice: roundToTwo(proposedFinalPrice),
             resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
             thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
           },
         });
       }
 
-      resolvedAdjustment = null;
-      resolvedCustomPrice = roundToFour(customPrice);
+      if (overrideType === 'custom_price') {
+        const normalized = normalizeLegacyCustomPriceOverride({
+          overrideType,
+          customPrice,
+          approvedPrice: approvedPriceNumber,
+        });
+        resolvedOverrideType = normalized.overrideType;
+        resolvedCustomPrice = normalized.customPrice;
+      } else {
+        resolvedCustomPrice = roundToFour(customPrice);
+      }
     }
 
     const existingRows = await getActiveDb()
@@ -3399,7 +3475,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
     if (existingRows.length > 0) {
       await getActiveDb().update(priceLevelItems)
         .set({
-          overrideType,
+          overrideType: resolvedOverrideType,
           adjustmentPercentage: resolvedAdjustment,
           customPrice: resolvedCustomPrice,
           status: 'pending',
@@ -3414,7 +3490,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
       const created = await getActiveDb().insert(priceLevelItems).values({
         priceLevelId,
         productId,
-        overrideType,
+        overrideType: resolvedOverrideType,
         adjustmentPercentage: resolvedAdjustment,
         customPrice: resolvedCustomPrice,
         status: 'pending',
@@ -3462,7 +3538,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
     const selectedProduct = productRows[0];
     const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType ?? existing.overrideType);
     if (!overrideType) {
-      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+      return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'fixed_amount_add', 'fixed_amount_deduct', 'custom_price'" });
     }
 
     const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage ?? req.body?.discountPercentage ?? existing.adjustmentPercentage);
@@ -3473,6 +3549,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
 
     let resolvedAdjustment: number | null = null;
     let resolvedCustomPrice: number | null = null;
+    let resolvedOverrideType = overrideType;
 
     if (overrideType === 'rule_discount') {
       if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
@@ -3486,25 +3563,59 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
       resolvedAdjustment = adjustmentPercentage;
     } else {
       if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-        return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+        return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
       }
       const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
-      if (customPrice <= productionCost) {
+      const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
+      let proposedFinalPrice = customPrice;
+
+      if (overrideType === 'fixed_amount_add') {
+        proposedFinalPrice = approvedPriceNumber + customPrice;
+      } else if (overrideType === 'fixed_amount_deduct') {
+        proposedFinalPrice = approvedPriceNumber - customPrice;
+      }
+
+      if (proposedFinalPrice <= productionCost) {
         return res.status(400).json({
-          error: 'customPrice must be above production cost',
+          error: 'Proposed fixed amount pricing must be above production cost',
           code: 'PRICE_BELOW_COST',
           details: {
             productionCost: roundToTwo(productionCost),
-            proposedPrice: roundToTwo(customPrice),
+            proposedPrice: roundToTwo(proposedFinalPrice),
           },
         });
       }
-      resolvedCustomPrice = roundToFour(customPrice);
+
+      const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+      if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
+        return res.status(400).json({
+          error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
+          code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
+          details: {
+            productionCost: roundToTwo(productionCost),
+            proposedPrice: roundToTwo(proposedFinalPrice),
+            resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
+            thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
+          },
+        });
+      }
+
+      if (overrideType === 'custom_price') {
+        const normalized = normalizeLegacyCustomPriceOverride({
+          overrideType,
+          customPrice,
+          approvedPrice: approvedPriceNumber,
+        });
+        resolvedOverrideType = normalized.overrideType;
+        resolvedCustomPrice = normalized.customPrice;
+      } else {
+        resolvedCustomPrice = roundToFour(customPrice);
+      }
     }
 
     await getActiveDb().update(priceLevelItems)
       .set({
-        overrideType,
+        overrideType: resolvedOverrideType,
         adjustmentPercentage: resolvedAdjustment,
         customPrice: resolvedCustomPrice,
         status: 'pending',
@@ -3817,6 +3928,19 @@ function resolvePriceSourceForItem(input: {
       return {
         priceSource: 'level_custom',
         finalPrice: Number(input.levelItem.customPrice),
+        discountPercentage: 0,
+      };
+    }
+
+    if (isFixedAmountOverrideType(overrideType) && input.levelItem.customPrice != null) {
+      return {
+        priceSource: 'level_fixed',
+        finalPrice: approvedPrice > 0 ? computePriceLevelItemFinalPrice({
+          overrideType,
+          adjustmentPercentage: null,
+          customPrice: Number(input.levelItem.customPrice),
+          approvedPrice,
+        }) : 0,
         discountPercentage: 0,
       };
     }

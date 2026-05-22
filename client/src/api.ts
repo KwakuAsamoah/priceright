@@ -147,7 +147,7 @@ export interface PriceLevelItemResponse {
   productApprovedPrice: number;
   productOptimalPrice: number;
   productProductionCost: number;
-  overrideType: 'rule_discount' | 'rule_markup' | 'custom_price';
+  overrideType: 'rule_discount' | 'rule_markup' | 'fixed_amount_add' | 'fixed_amount_deduct';
   adjustmentPercentage: number | null;
   customPrice: number | null;
   finalPrice: number;
@@ -158,7 +158,7 @@ export interface PriceLevelItemResponse {
   createdAt: number;
   updatedAt: number;
   productApprovedAt: number | null;
-  isCustomPriceStale: boolean;
+  isStalePrice: boolean;
 }
 
 export interface ActivityEntry {
@@ -615,7 +615,7 @@ export const priceLevelItemsApi = {
     priceLevelId: number,
     data: {
       productId: number;
-      overrideType: 'rule_discount' | 'rule_markup' | 'custom_price';
+      overrideType: 'rule_discount' | 'rule_markup' | 'fixed_amount_add' | 'fixed_amount_deduct';
       adjustmentPercentage?: number;
       customPrice?: number;
       justification?: string;

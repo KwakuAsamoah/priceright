@@ -4,10 +4,10 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
-import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState } from './db.js';
+import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://127.0.0.1:5173')
@@ -178,6 +178,9 @@ function startAutoBackupScheduler() {
     console.log(`ðŸ§¹ Backup retention is set to keep latest ${AUTO_BACKUP_RETENTION_COUNT} file(s)`);
 }
 const MIN_MARGIN_PERCENTAGE = 15;
+function isFixedAmountOverrideType(value) {
+    return value === 'fixed_amount_add' || value === 'fixed_amount_deduct';
+}
 function roundToFour(value) {
     return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
@@ -240,6 +243,12 @@ function parsePriceLevelItemOverrideType(value) {
     if (value === 'rule_markup' || value === 'markup') {
         return 'rule_markup';
     }
+    if (value === 'fixed_amount_add') {
+        return 'fixed_amount_add';
+    }
+    if (value === 'fixed_amount_deduct') {
+        return 'fixed_amount_deduct';
+    }
     if (value === 'custom_price' || value === 'custom') {
         return 'custom_price';
     }
@@ -248,23 +257,54 @@ function parsePriceLevelItemOverrideType(value) {
 function computePriceLevelItemFinalPrice(input) {
     const { overrideType, adjustmentPercentage, customPrice, approvedPrice } = input;
     const normalizedApprovedPrice = Number.isFinite(approvedPrice) ? approvedPrice : 0;
+    const normalizedCustomPrice = Number.isFinite(Number(customPrice ?? 0)) ? Number(customPrice ?? 0) : 0;
     if (overrideType === 'custom_price') {
-        return roundToFour(Number(customPrice || 0));
+        return roundToFour(normalizedCustomPrice);
     }
     if (overrideType === 'rule_discount') {
         return roundToFour(normalizedApprovedPrice * (1 - (Number(adjustmentPercentage || 0) / 100)));
     }
-    return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+    if (overrideType === 'rule_markup') {
+        return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+    }
+    if (overrideType === 'fixed_amount_add') {
+        return roundToFour(normalizedApprovedPrice + normalizedCustomPrice);
+    }
+    return roundToFour(normalizedApprovedPrice - normalizedCustomPrice);
+}
+function normalizeLegacyCustomPriceOverride(input) {
+    if (input.overrideType !== 'custom_price') {
+        return input;
+    }
+    const legacyPrice = Number(input.customPrice ?? 0);
+    const approvedPrice = Number.isFinite(input.approvedPrice) ? input.approvedPrice : 0;
+    const delta = legacyPrice - approvedPrice;
+    const newOverrideType = delta >= 0 ? 'fixed_amount_add' : 'fixed_amount_deduct';
+    return {
+        overrideType: newOverrideType,
+        customPrice: Math.abs(delta),
+        approvedPrice: input.approvedPrice,
+    };
 }
 async function toPriceLevelItemResponse(item, productRow) {
     const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
     const approvedPrice = Number(productRow.approvedPrice || 0);
     const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
-    const overrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
+    const rawOverrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
+    let overrideType = rawOverrideType;
     const adjustmentPercentage = toOptionalNumber(item.adjustmentPercentage);
-    const customPrice = toOptionalNumber(item.customPrice);
+    let customPrice = toOptionalNumber(item.customPrice);
+    if (rawOverrideType === 'custom_price') {
+        const normalized = normalizeLegacyCustomPriceOverride({
+            overrideType: rawOverrideType,
+            customPrice,
+            approvedPrice,
+        });
+        overrideType = normalized.overrideType;
+        customPrice = normalized.customPrice;
+    }
     const productApprovedAt = productRow.approvedAt ?? null;
-    const isCustomPriceStale = (overrideType === 'custom_price'
+    const isStalePrice = (isFixedAmountOverrideType(overrideType)
         && item.status === 'approved'
         && productApprovedAt != null
         && item.updatedAt != null
@@ -294,7 +334,7 @@ async function toPriceLevelItemResponse(item, productRow) {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         productApprovedAt,
-        isCustomPriceStale,
+        isStalePrice,
     };
 }
 function parseStatusFilter(value) {
@@ -427,6 +467,103 @@ app.get('/api/backup/status', (req, res) => {
         res.status(500).json({ error: 'Failed to get backup status' });
     }
 });
+// --- User-initiated backup download ---
+app.get('/api/backup/download', (_req, res) => {
+    try {
+        if (!fs.existsSync(DATABASE_FILE_PATH)) {
+            res.status(404).json({ error: 'Database file not found' });
+            return;
+        }
+        const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const filename = `priceright_backup_${date}.db`;
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', fs.statSync(DATABASE_FILE_PATH).size.toString());
+        fs.createReadStream(DATABASE_FILE_PATH).pipe(res);
+    }
+    catch (err) {
+        console.error('[backup] Download error:', err);
+        res.status(500).json({ error: 'Failed to create backup' });
+    }
+});
+// --- Restore from user-uploaded backup (base64 JSON body) ---
+app.post('/api/backup/restore', express.json({ limit: '200mb' }), async (req, res) => {
+    const { data } = req.body;
+    if (!data) {
+        res.status(400).json({ error: 'No backup data provided' });
+        return;
+    }
+    const tempBackupPath = `${DATABASE_FILE_PATH}.before_restore_${Date.now()}`;
+    try {
+        const buf = Buffer.from(data, 'base64');
+        // Validate SQLite magic header
+        if (buf.length < 16 || buf.slice(0, 15).toString('utf8') !== 'SQLite format 3') {
+            res.status(400).json({ error: 'Invalid backup file. Not a valid SQLite database.' });
+            return;
+        }
+        // Safety backup of current database
+        if (fs.existsSync(DATABASE_FILE_PATH)) {
+            fs.copyFileSync(DATABASE_FILE_PATH, tempBackupPath);
+        }
+        // Close current connection, write new file, reopen
+        closeLiveDb();
+        fs.writeFileSync(DATABASE_FILE_PATH, buf);
+        reopenLiveDb();
+        // Clean up temp backup
+        if (fs.existsSync(tempBackupPath)) {
+            fs.unlinkSync(tempBackupPath);
+        }
+        res.json({ success: true, message: 'Database restored successfully' });
+    }
+    catch (err) {
+        console.error('[restore] Error:', err);
+        // Attempt recovery
+        try {
+            if (fs.existsSync(tempBackupPath)) {
+                closeLiveDb();
+                fs.copyFileSync(tempBackupPath, DATABASE_FILE_PATH);
+                reopenLiveDb();
+                fs.unlinkSync(tempBackupPath);
+            }
+        }
+        catch (recoveryErr) {
+            console.error('[restore] Recovery failed:', recoveryErr);
+        }
+        res.status(500).json({ error: 'Restore failed. Your original data has been preserved.' });
+    }
+});
+// --- Live database full reset (irreversible) ---
+app.post('/api/reset/live', async (_req, res) => {
+    try {
+        const db = liveDb;
+        // Delete all data in correct order (children before parents to respect foreign keys)
+        await db.delete(priceListItems);
+        await db.delete(priceLists);
+        await db.delete(specialPricing);
+        await db.delete(priceLevelItems);
+        await db.delete(priceLevels);
+        await db.delete(billOfMaterials);
+        await db.delete(intermediateMaterialBom);
+        await db.delete(materialPriceHistory);
+        await db.delete(products);
+        await db.delete(materials);
+        await db.delete(customers);
+        await db.delete(activityLog);
+        await db.delete(exchangeRates);
+        await db.delete(currencies);
+        await db.delete(settings);
+        res.json({
+            success: true,
+            message: 'All data has been reset.',
+        });
+    }
+    catch (error) {
+        console.error('[reset] Live reset error:', error);
+        res.status(500).json({
+            error: 'Reset failed. Your data has not been changed.',
+        });
+    }
+});
 // ============================================
 // SETTINGS ENDPOINTS
 // ============================================
@@ -509,6 +646,19 @@ app.get('/api/settings/:key', async (req, res) => {
 app.post('/api/settings', async (req, res) => {
     try {
         const { settingKey, settingValue } = req.body;
+        // Lock base currency once materials exist
+        if (settingKey === 'baseCurrency') {
+            const existingMaterials = await getActiveDb()
+                .select({ id: materials.id })
+                .from(materials)
+                .limit(1);
+            if (existingMaterials.length > 0) {
+                return res.status(400).json({
+                    error: 'BASE_CURRENCY_LOCKED',
+                    message: 'Base currency cannot be changed once materials have been added. To use a different base currency, reset all data in Settings → Data and Backups.',
+                });
+            }
+        }
         const existing = await getActiveDb().select().from(settings).where(eq(settings.settingKey, settingKey));
         if (existing.length > 0) {
             await getActiveDb().update(settings)
@@ -2102,45 +2252,75 @@ app.post('/api/products/:id/approve', async (req, res) => {
         await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
         const sqliteClient = getSqliteClient();
         if (sqliteClient) {
+            ensureProductRejectionReasonColumn();
             sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
         }
         const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
-        const updatedProduct = withDerivedProductFields(updated[0]);
-        const performedBy = await getCurrentUserName();
-        const productionCost = await calculateProductionCostForProduct(updated[0], productId);
-        const margin = approvedPriceNumber > 0
-            ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
-            : 0;
-        await logActivity({
-            entityType: 'product',
-            entityId: productId,
-            entityName: updatedProduct.name,
-            action: 'product.approved',
-            details: {
-                oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
-                newPrice: approvedPriceNumber,
-                productionCost: roundToTwo(productionCost),
-                margin: roundToTwo(margin),
-            },
-            performedBy,
+        // Compute production cost for the response — mirrors GET /api/products/:id
+        let computedProductionCost = 0;
+        let computedOptimalPrice = 0;
+        try {
+            const snapshot = await calculateProductCostSnapshot(productId);
+            const denominator = 1 + Number(updated[0].profitMargin || 0) / 100;
+            computedProductionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+            computedOptimalPrice = snapshot.optimalPrice;
+        }
+        catch {
+            // keep 0 — non-fatal
+        }
+        const updatedProduct = withDerivedProductFields({
+            ...updated[0],
+            productionCost: computedProductionCost,
+            optimalPrice: computedOptimalPrice,
         });
-        const staleCustomPriceItems = await getActiveDb()
-            .select({
-            priceLevelId: priceLevelItems.priceLevelId,
-            priceLevelName: priceLevels.name,
-            customPrice: priceLevelItems.customPrice,
-        })
-            .from(priceLevelItems)
-            .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
-            .where(and(eq(priceLevelItems.productId, productId), eq(priceLevelItems.overrideType, 'custom_price'), eq(priceLevelItems.status, 'approved')));
-        const staleCustomPrices = staleCustomPriceItems
-            .filter((si) => si.customPrice != null)
-            .map((si) => ({
-            priceLevelId: si.priceLevelId,
-            priceLevelName: si.priceLevelName,
-            customPrice: Number(si.customPrice),
-            newApprovedBasePrice: approvedPriceNumber,
-        }));
+        // Post-approval: activity log — wrapped so a failure does not cause a 500
+        try {
+            const performedBy = await getCurrentUserName();
+            const productionCost = await calculateProductionCostForProduct(updated[0], productId);
+            const margin = approvedPriceNumber > 0
+                ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
+                : 0;
+            await logActivity({
+                entityType: 'product',
+                entityId: productId,
+                entityName: updatedProduct.name,
+                action: 'product.approved',
+                details: {
+                    oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
+                    newPrice: approvedPriceNumber,
+                    productionCost: roundToTwo(productionCost),
+                    margin: roundToTwo(margin),
+                },
+                performedBy,
+            });
+        }
+        catch (logErr) {
+            console.error('[approve] Activity log failed (approval still succeeded):', logErr);
+        }
+        // Post-approval: stale fixed amount check — wrapped so a failure does not cause a 500
+        let staleCustomPrices = [];
+        try {
+            const staleCustomPriceItems = await getActiveDb()
+                .select({
+                priceLevelId: priceLevelItems.priceLevelId,
+                priceLevelName: priceLevels.name,
+                customPrice: priceLevelItems.customPrice,
+            })
+                .from(priceLevelItems)
+                .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
+                .where(and(eq(priceLevelItems.productId, productId), or(eq(priceLevelItems.overrideType, 'fixed_amount_add'), eq(priceLevelItems.overrideType, 'fixed_amount_deduct'), eq(priceLevelItems.overrideType, 'custom_price')), eq(priceLevelItems.status, 'approved')));
+            staleCustomPrices = staleCustomPriceItems
+                .filter((si) => si.customPrice != null)
+                .map((si) => ({
+                priceLevelId: si.priceLevelId,
+                priceLevelName: si.priceLevelName,
+                customPrice: Number(si.customPrice),
+                newApprovedBasePrice: approvedPriceNumber,
+            }));
+        }
+        catch (plErr) {
+            console.error('[approve] Stale price level check failed (approval still succeeded):', plErr);
+        }
         res.json({
             success: true,
             product: updatedProduct,
@@ -2718,7 +2898,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
         }
         const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType);
         if (!overrideType) {
-            return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+            return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'fixed_amount_add', 'fixed_amount_deduct', 'custom_price'" });
         }
         const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
         if (productRows.length === 0) {
@@ -2735,50 +2915,67 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
             : null;
         let resolvedAdjustment = null;
         let resolvedCustomPrice = null;
+        let resolvedOverrideType = overrideType;
         if (overrideType === 'rule_discount') {
             if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
                 return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 100 for rule_discount' });
             }
             resolvedAdjustment = adjustmentPercentage;
-            resolvedCustomPrice = null;
         }
         else if (overrideType === 'rule_markup') {
             if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 1000) {
                 return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 1000 for rule_markup' });
             }
             resolvedAdjustment = adjustmentPercentage;
-            resolvedCustomPrice = null;
         }
         else {
             if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-                return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+                return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
-            if (customPrice <= productionCost) {
+            const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
+            let proposedFinalPrice = customPrice;
+            if (overrideType === 'fixed_amount_add') {
+                proposedFinalPrice = approvedPriceNumber + customPrice;
+            }
+            else if (overrideType === 'fixed_amount_deduct') {
+                proposedFinalPrice = approvedPriceNumber - customPrice;
+            }
+            if (proposedFinalPrice <= productionCost) {
                 return res.status(400).json({
-                    error: 'customPrice must be above production cost',
+                    error: 'Proposed fixed amount pricing must be above production cost',
                     code: 'PRICE_BELOW_COST',
                     details: {
                         productionCost: roundToTwo(productionCost),
-                        proposedPrice: roundToTwo(customPrice),
+                        proposedPrice: roundToTwo(proposedFinalPrice),
                     },
                 });
             }
-            const resultingMarginPercentage = ((customPrice - productionCost) / customPrice) * 100;
+            const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
             if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
                 return res.status(400).json({
                     error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
                     code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
                     details: {
                         productionCost: roundToTwo(productionCost),
-                        proposedPrice: roundToTwo(customPrice),
+                        proposedPrice: roundToTwo(proposedFinalPrice),
                         resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
                         thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
                     },
                 });
             }
-            resolvedAdjustment = null;
-            resolvedCustomPrice = roundToFour(customPrice);
+            if (overrideType === 'custom_price') {
+                const normalized = normalizeLegacyCustomPriceOverride({
+                    overrideType,
+                    customPrice,
+                    approvedPrice: approvedPriceNumber,
+                });
+                resolvedOverrideType = normalized.overrideType;
+                resolvedCustomPrice = normalized.customPrice;
+            }
+            else {
+                resolvedCustomPrice = roundToFour(customPrice);
+            }
         }
         const existingRows = await getActiveDb()
             .select()
@@ -2789,7 +2986,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
         if (existingRows.length > 0) {
             await getActiveDb().update(priceLevelItems)
                 .set({
-                overrideType,
+                overrideType: resolvedOverrideType,
                 adjustmentPercentage: resolvedAdjustment,
                 customPrice: resolvedCustomPrice,
                 status: 'pending',
@@ -2805,7 +3002,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
             const created = await getActiveDb().insert(priceLevelItems).values({
                 priceLevelId,
                 productId,
-                overrideType,
+                overrideType: resolvedOverrideType,
                 adjustmentPercentage: resolvedAdjustment,
                 customPrice: resolvedCustomPrice,
                 status: 'pending',
@@ -2848,7 +3045,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
         const selectedProduct = productRows[0];
         const overrideType = parsePriceLevelItemOverrideType(req.body?.overrideType ?? req.body?.pricingType ?? existing.overrideType);
         if (!overrideType) {
-            return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'custom_price'" });
+            return res.status(400).json({ error: "overrideType must be one of: 'rule_discount', 'rule_markup', 'fixed_amount_add', 'fixed_amount_deduct', 'custom_price'" });
         }
         const adjustmentPercentage = toOptionalNumber(req.body?.adjustmentPercentage ?? req.body?.discountPercentage ?? existing.adjustmentPercentage);
         const customPrice = toOptionalNumber(req.body?.customPrice ?? existing.customPrice);
@@ -2857,6 +3054,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
             : existing.justification ?? null;
         let resolvedAdjustment = null;
         let resolvedCustomPrice = null;
+        let resolvedOverrideType = overrideType;
         if (overrideType === 'rule_discount') {
             if (adjustmentPercentage == null || Number.isNaN(adjustmentPercentage) || adjustmentPercentage < 0 || adjustmentPercentage > 100) {
                 return res.status(400).json({ error: 'adjustmentPercentage must be between 0 and 100 for rule_discount' });
@@ -2871,24 +3069,56 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
         }
         else {
             if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-                return res.status(400).json({ error: 'customPrice must be greater than 0 for custom_price' });
+                return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
-            if (customPrice <= productionCost) {
+            const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
+            let proposedFinalPrice = customPrice;
+            if (overrideType === 'fixed_amount_add') {
+                proposedFinalPrice = approvedPriceNumber + customPrice;
+            }
+            else if (overrideType === 'fixed_amount_deduct') {
+                proposedFinalPrice = approvedPriceNumber - customPrice;
+            }
+            if (proposedFinalPrice <= productionCost) {
                 return res.status(400).json({
-                    error: 'customPrice must be above production cost',
+                    error: 'Proposed fixed amount pricing must be above production cost',
                     code: 'PRICE_BELOW_COST',
                     details: {
                         productionCost: roundToTwo(productionCost),
-                        proposedPrice: roundToTwo(customPrice),
+                        proposedPrice: roundToTwo(proposedFinalPrice),
                     },
                 });
             }
-            resolvedCustomPrice = roundToFour(customPrice);
+            const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+            if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
+                return res.status(400).json({
+                    error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
+                    code: 'LOW_MARGIN_JUSTIFICATION_REQUIRED',
+                    details: {
+                        productionCost: roundToTwo(productionCost),
+                        proposedPrice: roundToTwo(proposedFinalPrice),
+                        resultingMarginPercentage: roundToTwo(resultingMarginPercentage),
+                        thresholdMarginPercentage: MIN_MARGIN_PERCENTAGE,
+                    },
+                });
+            }
+            if (overrideType === 'custom_price') {
+                const normalized = normalizeLegacyCustomPriceOverride({
+                    overrideType,
+                    customPrice,
+                    approvedPrice: approvedPriceNumber,
+                });
+                resolvedOverrideType = normalized.overrideType;
+                resolvedCustomPrice = normalized.customPrice;
+            }
+            else {
+                resolvedCustomPrice = roundToFour(customPrice);
+            }
         }
         await getActiveDb().update(priceLevelItems)
             .set({
-            overrideType,
+            overrideType: resolvedOverrideType,
             adjustmentPercentage: resolvedAdjustment,
             customPrice: resolvedCustomPrice,
             status: 'pending',
@@ -3162,6 +3392,18 @@ function resolvePriceSourceForItem(input) {
             return {
                 priceSource: 'level_custom',
                 finalPrice: Number(input.levelItem.customPrice),
+                discountPercentage: 0,
+            };
+        }
+        if (isFixedAmountOverrideType(overrideType) && input.levelItem.customPrice != null) {
+            return {
+                priceSource: 'level_fixed',
+                finalPrice: approvedPrice > 0 ? computePriceLevelItemFinalPrice({
+                    overrideType,
+                    adjustmentPercentage: null,
+                    customPrice: Number(input.levelItem.customPrice),
+                    approvedPrice,
+                }) : 0,
                 discountPercentage: 0,
             };
         }
@@ -3561,7 +3803,7 @@ app.post('/api/products/import', async (req, res) => {
         for (const [productName, entries] of Object.entries(groups)) {
             if (productName === '__INVALID__') {
                 for (const e of entries) {
-                    errors.push({ productName: '', reason: 'Missing required field: Product Name' });
+                    errors.push({ productName: '', row: e.rowNumber, reason: 'Missing required field: Product Name' });
                     skipped += 1;
                 }
                 continue;
@@ -3578,13 +3820,13 @@ app.post('/api/products/import', async (req, res) => {
             // Validate product-level fields
             const productionMode = productionModeRaw ? String(productionModeRaw).toLowerCase() : 'single';
             if (!['single', 'batch'].includes(productionMode)) {
-                errors.push({ productName, reason: `Invalid Production Mode: ${productionModeRaw}` });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Production Mode: ${productionModeRaw}` });
                 skipped += 1;
                 continue;
             }
             const batchYield = productionMode === 'batch' ? parseInt(batchYieldRaw || '0') : 1;
             if (productionMode === 'batch' && (!batchYield || isNaN(batchYield) || batchYield <= 0)) {
-                errors.push({ productName, reason: 'Missing or invalid Batch Yield for batch product' });
+                errors.push({ productName, row: entries[0].rowNumber, reason: 'Missing or invalid Batch Yield for batch product' });
                 skipped += 1;
                 continue;
             }
@@ -3592,24 +3834,24 @@ app.post('/api/products/import', async (req, res) => {
             const profitMargin = parseFloat(profitRaw || '0');
             const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
             if (isNaN(overhead)) {
-                errors.push({ productName, reason: `Invalid Overhead %: ${overheadRaw}` });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Overhead %: ${overheadRaw}` });
                 skipped += 1;
                 continue;
             }
             if (isNaN(profitMargin) || profitMargin < 0 || profitMargin > 99) {
-                errors.push({ productName, reason: `Invalid Profit on Cost %: ${profitRaw}` });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Profit on Cost %: ${profitRaw}` });
                 skipped += 1;
                 continue;
             }
             if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
-                errors.push({ productName, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
                 skipped += 1;
                 continue;
             }
             // Duplicate product name check (case-insensitive)
             const lowerName = productName.toLowerCase();
             if (existingProductNames.has(lowerName)) {
-                errors.push({ productName, reason: 'Product already exists' });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Product '${productName}' already exists and was skipped.` });
                 skipped += 1;
                 continue;
             }
@@ -3636,7 +3878,10 @@ app.post('/api/products/import', async (req, res) => {
             // If any material validation failed, skip entire product
             if (materialValidationErrors.length > 0) {
                 const firstError = materialValidationErrors[0];
-                errors.push({ productName, reason: `Material '${firstError.matName}' not found` });
+                const reason = firstError.matName === ''
+                    ? 'BOM line is missing a material name'
+                    : `Material '${firstError.matName}' not found. Import materials and intermediates first.`;
+                errors.push({ productName, row: entries[0].rowNumber, reason });
                 skipped += 1;
                 continue;
             }
@@ -3674,7 +3919,7 @@ app.post('/api/products/import', async (req, res) => {
                 imported += 1;
             }
             catch (err) {
-                errors.push({ productName, reason: `Failed to create product: ${err?.message || String(err)}` });
+                errors.push({ productName, row: entries[0].rowNumber, reason: `Failed to create product: ${err?.message || String(err)}` });
                 skipped += 1;
             }
         }

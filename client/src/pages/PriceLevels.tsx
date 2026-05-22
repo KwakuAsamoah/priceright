@@ -28,7 +28,7 @@ type PriceLevelRule = {
   isActive?: boolean;
 };
 
-type OverrideType = 'rule_discount' | 'rule_markup' | 'custom_price';
+type OverrideType = 'rule_discount' | 'rule_markup' | 'fixed_amount_add' | 'fixed_amount_deduct';
 
 type RowDraft = {
   overrideType: OverrideType;
@@ -78,8 +78,11 @@ function parseDraftValue(raw: string): number | null {
 }
 
 function computeFinalPrice(overrideType: OverrideType, value: number, approvedBasePrice: number): number {
-  if (overrideType === 'custom_price') {
-    return roundToTwo(value);
+  if (overrideType === 'fixed_amount_add') {
+    return roundToTwo(approvedBasePrice + value);
+  }
+  if (overrideType === 'fixed_amount_deduct') {
+    return roundToTwo(approvedBasePrice - value);
   }
   if (overrideType === 'rule_discount') {
     return roundToTwo(approvedBasePrice * (1 - (value / 100)));
@@ -117,8 +120,11 @@ function levelStatus(items: PriceLevelItemResponse[]): { label: string; variant:
 }
 
 function pricingRuleLabel(item: PriceLevelItemResponse): string {
-  if (item.overrideType === 'custom_price') {
-    return `${formatMoney(item.customPrice ?? 0)} (fixed)`;
+  if (item.overrideType === 'fixed_amount_add') {
+    return `+${formatMoney(item.customPrice ?? 0)}`;
+  }
+  if (item.overrideType === 'fixed_amount_deduct') {
+    return `-${formatMoney(item.customPrice ?? 0)}`;
   }
   if (item.overrideType === 'rule_markup') {
     return `Markup ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
@@ -127,9 +133,9 @@ function pricingRuleLabel(item: PriceLevelItemResponse): string {
 }
 
 function draftFromItem(item: PriceLevelItemResponse): RowDraft {
-  if (item.overrideType === 'custom_price') {
+  if (item.overrideType === 'fixed_amount_add' || item.overrideType === 'fixed_amount_deduct') {
     return {
-      overrideType: 'custom_price',
+      overrideType: item.overrideType,
       value: String(toNumber(item.customPrice, 0)),
       justification: item.justification || '',
     };
@@ -168,8 +174,11 @@ function formatDateForFilename(date: Date) {
 }
 
 function getAdjustmentLabel(item: PriceLevelItemResponse) {
-  if (item.overrideType === 'custom_price') {
-    return 'Custom';
+  if (item.overrideType === 'fixed_amount_add') {
+    return `+${formatMoney(item.customPrice ?? 0)}`;
+  }
+  if (item.overrideType === 'fixed_amount_deduct') {
+    return `-${formatMoney(item.customPrice ?? 0)}`;
   }
 
   const percentage = toNumber(item.adjustmentPercentage, 0).toFixed(2);
@@ -524,8 +533,12 @@ export default function PriceLevels() {
       await priceLevelItemsApi.upsert(selectedLevel.id, {
         productId: item.productId,
         overrideType: rowDraft.overrideType,
-        adjustmentPercentage: rowDraft.overrideType === 'custom_price' ? undefined : numericValue,
-        customPrice: rowDraft.overrideType === 'custom_price' ? numericValue : undefined,
+        adjustmentPercentage: rowDraft.overrideType === 'rule_discount' || rowDraft.overrideType === 'rule_markup'
+          ? numericValue
+          : undefined,
+        customPrice: rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct'
+          ? numericValue
+          : undefined,
         justification: rowDraft.justification.trim() || undefined,
       });
       await refreshLevelItems(selectedLevel.id);
@@ -997,8 +1010,12 @@ export default function PriceLevels() {
           return priceLevelItemsApi.upsert(newLevelId, {
             productId: product.id,
             overrideType: rule.overrideType,
-            adjustmentPercentage: rule.overrideType === 'custom_price' ? undefined : numericValue,
-            customPrice: rule.overrideType === 'custom_price' ? numericValue : undefined,
+            adjustmentPercentage: rule.overrideType === 'rule_discount' || rule.overrideType === 'rule_markup'
+              ? numericValue
+              : undefined,
+            customPrice: rule.overrideType === 'fixed_amount_add' || rule.overrideType === 'fixed_amount_deduct'
+              ? numericValue
+              : undefined,
             justification: rule.justification.trim() || undefined,
           });
         })
@@ -1451,7 +1468,7 @@ export default function PriceLevels() {
                   )}
 
                   {(() => {
-                    const staleCount = selectedLevelItems.filter((item) => item.isCustomPriceStale).length;
+                    const staleCount = selectedLevelItems.filter((item) => item.isStalePrice).length;
                     if (staleCount === 0 || staleBannerDismissed) return null;
                     return (
                       <div style={{ position: 'relative', margin: '12px 16px 0', padding: '10px 44px 10px 14px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderLeft: '3px solid #e65100', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -1460,7 +1477,7 @@ export default function PriceLevels() {
                         </button>
                         <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
                         <div style={{ flex: 1, fontSize: '14px', color: '#bf360c' }}>
-                          <strong>{staleCount} custom {staleCount === 1 ? 'price' : 'prices'} may need review.</strong> The approved base price changed after these prices were set.
+                          <strong>{staleCount} price override{staleCount === 1 ? '' : 's'} may need review.</strong> The approved base price changed after these overrides were set.
                         </div>
                       </div>
                     );
@@ -1512,8 +1529,8 @@ export default function PriceLevels() {
                                 <td style={{ textAlign: 'right', fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {formatMoney(item.finalPrice)}
-                                    {item.isCustomPriceStale && (
-                                      <span title="Base price was updated after this custom price was set. Review to confirm this price is still appropriate.">
+                                    {item.isStalePrice && (
+                                      <span title="Base price was updated after this price override was set. Review to confirm this price is still appropriate.">
                                         <AlertTriangle size={13} style={{ color: '#e65100' }} />
                                       </span>
                                     )}
@@ -1525,8 +1542,8 @@ export default function PriceLevels() {
                                 <td>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                                     <AppBadge variant={itemStatusVariant(item.status)}>{item.status}</AppBadge>
-                                    {item.isCustomPriceStale && (
-                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review custom price</span>
+                                    {item.isStalePrice && (
+                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review price</span>
                                     )}
                                   </div>
                                 </td>
@@ -1620,23 +1637,24 @@ export default function PriceLevels() {
                                 <tr key={`${item.productId}-edit`}>
                                   <td colSpan={9} style={{ backgroundColor: '#fcfcfd' }}>
                                     <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
-                                      {item.isCustomPriceStale && (
+                                      {item.isStalePrice && (
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
                                           <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
-                                          <span>The approved base price changed since this custom price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your custom price: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
+                                          <span>The approved base price changed since this price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your override amount: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
                                         </div>
                                       )}
                                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         <AppButton variant={rowDraft.overrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_discount' }))}>Discount %</AppButton>
                                         <AppButton variant={rowDraft.overrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_markup' }))}>Markup %</AppButton>
-                                        <AppButton variant={rowDraft.overrideType === 'custom_price' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'custom_price' }))}>Fixed price</AppButton>
+                                        <AppButton variant={rowDraft.overrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_add' }))}>Add amount</AppButton>
+                                        <AppButton variant={rowDraft.overrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_deduct' }))}>Deduct amount</AppButton>
                                         <input
                                           value={rowDraft.value}
                                           onChange={(e) => setRowDraft((prev) => ({ ...prev, value: e.target.value }))}
                                           type="number"
                                           min={0}
                                           step="0.01"
-                                          placeholder={rowDraft.overrideType === 'custom_price' ? 'Enter fixed price' : 'Enter percentage'}
+                                          placeholder={rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct' ? 'Enter amount' : 'Enter percentage'}
                                           style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                                         />
                                       </div>
@@ -1837,15 +1855,15 @@ export default function PriceLevels() {
 
             <div style={{ maxHeight: '72vh', overflowY: 'auto', padding: '18px 20px', display: 'grid', gap: '18px' }}>
               {(() => {
-                const staleExportCount = approvedSelectedLevelItems.filter((item) => item.isCustomPriceStale).length;
+                const staleExportCount = approvedSelectedLevelItems.filter((item) => item.isStalePrice).length;
                 if (staleExportCount === 0) return null;
                 return (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 12px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px' }}>
                     <AlertTriangle size={14} style={{ color: '#e65100', flexShrink: 0, marginTop: '2px' }} />
                     <div style={{ fontSize: '14px', color: '#bf360c' }}>
-                      <div style={{ fontWeight: 700, marginBottom: '3px' }}>{staleExportCount} product{staleExportCount === 1 ? '' : 's'} have custom prices that may be outdated.</div>
-                      <div>This export uses the latest approved base prices for rule-based prices, but custom prices are exported as set.</div>
-                      <div style={{ color: '#78350f', marginTop: '4px' }}>Review custom prices before exporting if base prices have changed recently.</div>
+                      <div style={{ fontWeight: 700, marginBottom: '3px' }}>{staleExportCount} product{staleExportCount === 1 ? '' : 's'} have price overrides that may be outdated.</div>
+                      <div>This export uses the latest approved base prices for rule-based prices, but fixed amounts are exported as set.</div>
+                      <div style={{ color: '#78350f', marginTop: '4px' }}>Review amount-based price overrides before exporting if base prices have changed recently.</div>
                     </div>
                   </div>
                 );
@@ -1905,8 +1923,8 @@ export default function PriceLevels() {
                             <td>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                 {row.productName}
-                                {item.isCustomPriceStale && (
-                                  <span style={{ width: '7px', height: '7px', borderRadius: '999px', backgroundColor: '#e65100', display: 'inline-block', flexShrink: 0 }} title="Custom price may be outdated" />
+                                {item.isStalePrice && (
+                                  <span style={{ width: '7px', height: '7px', borderRadius: '999px', backgroundColor: '#e65100', display: 'inline-block', flexShrink: 0 }} title="Price override may be outdated" />
                                 )}
                               </span>
                             </td>
@@ -2086,7 +2104,8 @@ export default function PriceLevels() {
                   >
                     <option value="rule_discount">Discount %</option>
                     <option value="rule_markup">Markup %</option>
-                    <option value="custom_price">Fixed price</option>
+                    <option value="fixed_amount_add">Add amount</option>
+                    <option value="fixed_amount_deduct">Deduct amount</option>
                   </select>
                   <input
                     value={wizardApplyAllValue}
@@ -2094,7 +2113,7 @@ export default function PriceLevels() {
                     type="number"
                     min={0}
                     step="0.01"
-                    placeholder={wizardApplyAllType === 'custom_price' ? 'Fixed price' : 'Percent'}
+                    placeholder={wizardApplyAllType === 'fixed_amount_add' || wizardApplyAllType === 'fixed_amount_deduct' ? 'Amount' : 'Percent'}
                     style={{ width: '120px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                   />
                   <AppButton variant="ghost" size="sm" onClick={applySameRuleToAll}>Apply to all</AppButton>
@@ -2124,14 +2143,15 @@ export default function PriceLevels() {
                         <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
                           <AppButton variant={rule.overrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => updateWizardRule(product.id, { overrideType: 'rule_discount' })}>Discount %</AppButton>
                           <AppButton variant={rule.overrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => updateWizardRule(product.id, { overrideType: 'rule_markup' })}>Markup %</AppButton>
-                          <AppButton variant={rule.overrideType === 'custom_price' ? 'primary' : 'secondary'} size="sm" onClick={() => updateWizardRule(product.id, { overrideType: 'custom_price' })}>Fixed price</AppButton>
+                          <AppButton variant={rule.overrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => updateWizardRule(product.id, { overrideType: 'fixed_amount_add' })}>Add amount</AppButton>
+                          <AppButton variant={rule.overrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => updateWizardRule(product.id, { overrideType: 'fixed_amount_deduct' })}>Deduct amount</AppButton>
                           <input
                             value={rule.value}
                             onChange={(e) => updateWizardRule(product.id, { value: e.target.value })}
                             type="number"
                             min={0}
                             step="0.01"
-                            placeholder={rule.overrideType === 'custom_price' ? 'Fixed price' : 'Percent'}
+                            placeholder={rule.overrideType === 'fixed_amount_add' || rule.overrideType === 'fixed_amount_deduct' ? 'Amount' : 'Percent'}
                             style={{ width: '140px', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
                           />
                         </div>
@@ -2211,9 +2231,11 @@ export default function PriceLevels() {
                           <tr key={product.id}>
                             <td>{product.name}</td>
                             <td>
-                              {rule.overrideType === 'custom_price'
-                                ? `${formatMoney(numericValue)} (fixed)`
-                                : `${rule.overrideType === 'rule_markup' ? 'Markup' : 'Discount'} ${numericValue.toFixed(2)}%`}
+                              {rule.overrideType === 'fixed_amount_add'
+                                ? `+${formatMoney(numericValue)}`
+                                : rule.overrideType === 'fixed_amount_deduct'
+                                  ? `-${formatMoney(numericValue)}`
+                                  : `${rule.overrideType === 'rule_markup' ? 'Markup' : 'Discount'} ${numericValue.toFixed(2)}%`}
                             </td>
                             <td style={{ textAlign: 'right' }}>{formatMoney(finalPrice)}</td>
                             <td style={{ textAlign: 'right' }}><AppBadge variant={variant}>{margin.toFixed(1)}%</AppBadge></td>
