@@ -10,7 +10,9 @@ import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
+import useTableZoom from '../hooks/useTableZoom';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 
@@ -256,6 +258,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     'priceright_columns_materials',
     DEFAULT_MATERIAL_COLUMNS,
   );
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -275,6 +278,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const [selectedMaterialForUsage, setSelectedMaterialForUsage] = useState<Material | null>(null);
   const [selectedMaterialUsage, setSelectedMaterialUsage] = useState<MaterialUsage | null>(null);
   const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
+  const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
+  const [detailBom, setDetailBom] = useState<Array<any>>([]);
   
   // New state for bulk actions
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1074,6 +1079,25 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     setShowAddModal(true);
   }
 
+  function openEditFromDetail(material: Material) {
+    setDetailMaterial(null);
+    handleEdit(material);
+  }
+
+  async function openDetail(material: Material) {
+    setDetailMaterial(material);
+    setDetailBom([]);
+    if ((material as any).materialType === 'intermediate') {
+      try {
+        const bom = await materialsApi.getIntermediateBom(material.id);
+        setDetailBom(Array.isArray(bom) ? bom : []);
+      } catch (err) {
+        console.error('Failed to load BOM for detail panel', err);
+        setDetailBom([]);
+      }
+    }
+  }
+
   function resetForm() {
     const defaultUnit = materialUnits.includes('kg') ? 'kg' : materialUnits[0] || 'kg';
     setMaterialCustomCategoryValue('');
@@ -1557,15 +1581,16 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
         {/* Materials Table */}
         <div className="app-card app-data-card" style={{ padding: 0 }}>
-          <h2 style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0' }}>
-            Materials ({filteredMaterials.length})
-          </h2>
+          <div style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <h2 style={{ margin: 0 }}>Materials ({filteredMaterials.length})</h2>
+            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+          </div>
 
-          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
-            <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+            <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '15px', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       checked={selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0}
@@ -1576,70 +1601,74 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', fontSize: '15px', width: '40px', whiteSpace: 'nowrap' }}>#</th>
+                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
                   {isMaterialColumnVisible('material') && <th onClick={() => {
                     setSortField('name');
                     setSortOrder((prev) => (sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
                   {isMaterialColumnVisible('category') && <th onClick={() => {
                     setSortField('category');
                     setSortOrder((prev) => (sortField === 'category' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
-                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
+                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isMaterialColumnVisible('unitCost') && <th onClick={() => {
                     setSortField('unitPrice');
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
-                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
                   {isMaterialColumnVisible('supplier') && <th onClick={() => {
                     setSortField('supplier');
                     setSortOrder((prev) => (sortField === 'supplier' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
-                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
+                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredMaterials.map((material, idx) => (
-                  <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa' }}>
-                    <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                  <tr
+                    key={material.id}
+                    style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa', cursor: 'pointer' }}
+                    onClick={() => openDetail(material)}
+                  >
+                    <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedMaterials.has(material.id)}
-                        onChange={() => handleSelectMaterial(material.id)}
+                        onChange={(e) => { e.stopPropagation(); handleSelectMaterial(material.id); }}
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
-                    <td style={{ padding: '6px 6px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                    {isMaterialColumnVisible('material') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
+                    {isMaterialColumnVisible('material') && <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                     </td>}
-                    {isMaterialColumnVisible('category') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <span style={{ fontSize: '13px', color: '#334155' }}>{material.category}</span>
                     </td>}
-                    {isMaterialColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
-                    {isMaterialColumnVisible('unitCost') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
+                    {isMaterialColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
+                    {isMaterialColumnVisible('unitCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <div className="money-value" style={{ fontWeight: '600', fontSize: '14px' }}>
                         {material.baseCurrencySymbol}
                         {parseFloat(material.unitPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '6px 6px', whiteSpace: 'nowrap' }}>
+                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <div className="money-value" style={{ fontSize: '14px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
                         {material.purchaseCurrencySymbol}
                         {parseFloat(material.bulkPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
-                    {isMaterialColumnVisible('status') && <td style={{ padding: '4px 4px', whiteSpace: 'nowrap' }}>
+                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
+                    {isMaterialColumnVisible('status') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
                         {material.isActive ? 'Active' : 'Inactive'}
                       </AppBadge>
                     </td>}
-                    {isMaterialColumnVisible('actions') && <td style={{ padding: '4px 3px' }}>
+                    {isMaterialColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
                       <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
                         <AppButton
-                          onClick={() => handleEdit(material)}
+                          onClick={(e) => { e.stopPropagation(); handleEdit(material); }}
                           variant="ghost"
                           size="sm"
                           className="app-row-action-icon"
@@ -1684,6 +1713,146 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           </div>
         </div>
       </div>
+
+      {/* Detail Panel */}
+      {detailMaterial && !showAddModal && (
+        <div
+          style={{
+            position: 'fixed',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: '420px',
+            background: 'white',
+            boxShadow: '-6px 0 18px rgba(2,6,23,0.08)',
+            zIndex: 1200,
+            overflowY: 'auto',
+            padding: '18px',
+          }}
+          role="dialog"
+          aria-label="Material details"
+        >
+          <button
+            className="btn-close-x"
+            onClick={() => setDetailMaterial(null)}
+            aria-label="Close"
+            style={{ position: 'absolute', right: '12px', top: '8px' }}
+          >
+            ×
+          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+            <div>
+              <h2 style={{ margin: '0 0 6px 0' }}>{detailMaterial.name}</h2>
+              <div style={{ color: '#64748b', fontSize: '14px' }}>Material detail view</div>
+            </div>
+            <button className="btn btn-primary btn-sm" type="button" onClick={() => openEditFromDetail(detailMaterial)}>
+              Edit
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Category</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.category || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Unit</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.unit || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>SKU</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.sku || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Supplier</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.supplier || '—'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Description</div>
+                <div style={{ fontWeight: 600, whiteSpace: 'pre-wrap' }}>{detailMaterial.description || '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Pricing</h3>
+            <div style={{ display: 'grid', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Purchase currency</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencyCode || detailMaterial.purchaseCurrencySymbol || 'GHS'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Bulk price</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencySymbol}{Number(detailMaterial.bulkPrice || 0).toFixed(2)}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Bulk quantity</div>
+                <div style={{ fontWeight: 600 }}>{Number(detailMaterial.bulkQuantity || 0).toFixed(2)} {detailMaterial.unit || ''}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>Unit cost</div>
+                <div style={{ fontWeight: 800, fontSize: '18px', color: '#0f172a' }}>{detailMaterial.baseCurrencySymbol}{Number(detailMaterial.unitPrice || 0).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+
+          {(detailMaterial as any).materialType === 'intermediate' && (
+            <>
+              <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Costing method</div>
+                    <div style={{ fontWeight: 600 }}>{(detailMaterial as any).intermediateCostMode === 'completed_output' ? 'Completed Output' : 'Yield-Based'}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>{(detailMaterial as any).intermediateCostMode === 'completed_output' ? 'Completed output quantity' : 'Batch quantity'}</div>
+                    <div style={{ fontWeight: 600 }}>{Number(detailMaterial.bulkQuantity || 0).toFixed(2)} {detailMaterial.unit || ''}</div>
+                  </div>
+                  {(detailMaterial as any).intermediateCostMode === 'yield' ? (
+                    <div>
+                      <div style={{ fontSize: '13px', color: '#64748b' }}>Yield %</div>
+                      <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).yieldPercentage || 0).toFixed(1)}%</div>
+                    </div>
+                  ) : null}
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Overhead %</div>
+                    <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).overheadPercentage || 0).toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Profit %</div>
+                    <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).marginPercentage || 0).toFixed(1)}%</div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Components ({detailBom.length})</h3>
+                {detailBom.length === 0 ? (
+                  <div style={{ color: '#64748b' }}>No components</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '10px' }}>
+                    {detailBom.map((item, i) => (
+                      <div key={item.id || i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #eef2f7' }}>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{item.componentMaterialName || item.name}</div>
+                          <div style={{ fontSize: '13px', color: '#64748b' }}>{item.unit || '—'}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 600 }}>{Number(item.quantity || 0)} {item.unit || ''}</div>
+                          <div style={{ fontSize: '13px', color: '#64748b' }}>{item.unitPrice ? `${detailMaterial.baseCurrencySymbol}${Number(item.unitPrice).toFixed(2)}` : '—'}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Add/Edit Material Modal */}
       {showAddModal && (

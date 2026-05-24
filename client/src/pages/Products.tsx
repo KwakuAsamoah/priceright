@@ -10,7 +10,9 @@ import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl, dow
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
+import useTableZoom from '../hooks/useTableZoom';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
@@ -308,6 +310,7 @@ export default function Products() {
     'priceright_columns_products',
     DEFAULT_PRODUCT_COLUMNS,
   );
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
 
   useEffect(() => {
     const hasProfitOnCost = visibleColumns.includes('profitOnCost');
@@ -2281,8 +2284,9 @@ export default function Products() {
           }}
         >
         <div className="app-card app-data-card" style={{ padding: 0, flex: 1, minWidth: 0 }} ref={productsTableRef}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700' }}>Products ({filteredProducts.length})</h2>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Products ({filteredProducts.length})</h2>
+            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
           </div>
           {filteredProducts.length === 0 ? (
             <div className="app-empty-state">
@@ -2290,11 +2294,11 @@ export default function Products() {
               <div className="app-loading-subtitle">Adjust filters or add a new product to get started</div>
             </div>
           ) : (
-            <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
-              <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+            <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+              <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <th style={{ padding: '6px 6px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
@@ -2305,18 +2309,18 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
-                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }}>Production Cost</th>}
+                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
+                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal' }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
-                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
+                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
                     )}
-                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
+                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
                     {isProductColumnVisible('sellingPrice') && (
-                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal', lineHeight: 1.15 }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
+                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
                     {isProductColumnVisible('profitOnCost') && (
                       <th
-                        style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                         title="Markup percentage: (approved base price - production cost) / production cost."
                       >
                         Profit on cost
@@ -2324,14 +2328,14 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('profitOnSales') && (
                       <th
-                        style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.15 }}
+                        style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                         title="Gross margin percentage: (approved base price - production cost) / approved base price."
                       >
                         Profit on sales
                       </th>
                     )}
                     {isProductColumnVisible('status') && (
-                      <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           Status
                           {needsReviewCount > 0 && (
@@ -2349,7 +2353,7 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontSize: '15px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
+                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -2378,7 +2382,7 @@ export default function Products() {
                             color: product.isActive ? undefined : '#aaaaaa',
                           }}
                         >
-                          <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                          <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={selectedProducts.has(product.id)}
@@ -2386,7 +2390,7 @@ export default function Products() {
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
-                          {isProductColumnVisible('name') && <td style={{ padding: '6px 6px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
+                          {isProductColumnVisible('name') && <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <span
                                 title={`SKU: ${product.sku || '-'}`}
@@ -2404,13 +2408,13 @@ export default function Products() {
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
                           </td>}
-                          {isProductColumnVisible('materialCost') && <td style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('materialCost') && <td style={{ padding: '8px 14px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.totalCost.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('optimalPrice') && <td style={{ padding: '6px 6px', fontSize: '13px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('optimalPrice') && <td style={{ padding: '8px 14px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.optimalPrice.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '6px 6px', fontSize: '13px', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '8px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                             {product.approvedPriceExpiresAt ? (
                               (() => {
                                 const expiryDate = new Date(product.approvedPriceExpiresAt);
@@ -2433,7 +2437,7 @@ export default function Products() {
                               <span style={{ color: '#94a3b8' }}>—</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '6px 6px', fontSize: '13px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {hasSellingPrice ? (
                               <span
                                 className="money-value"
@@ -2446,7 +2450,7 @@ export default function Products() {
                               <span style={{ fontSize: '14px', color: '#94a3b8' }}>Not set</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                             {profitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2460,7 +2464,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '6px 6px', fontSize: '13px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                             {profitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2474,7 +2478,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('status') && <td style={{ padding: '4px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('status') && <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                               {isNeedsReview ? (
                                 <span
@@ -2505,7 +2509,7 @@ export default function Products() {
                               )}
                             </div>
                           </td>}
-                          {isProductColumnVisible('actions') && <td style={{ padding: '6px 4px' }}>
+                          {isProductColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>
                               {isNeedsReview ? (
                                 <AppButton

@@ -1865,6 +1865,14 @@ app.post('/api/intermediate-materials/import', async (req, res) => {
           });
         }
 
+        // Recalculate cost from BOM after insert
+        try {
+          await recalculateIntermediateMaterialWithCascade(intermediateId);
+        } catch (calcErr) {
+          console.error('[import] Cost recalc failed for', intermediateName, calcErr);
+          // Do not fail the import — row still counts as imported
+        }
+
         imported += 1;
       } catch (error: any) {
         errors.push({ row: firstRowNumber, name: intermediateName, reason: error?.message || 'Failed to create intermediate material' });

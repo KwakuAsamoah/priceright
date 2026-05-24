@@ -10,6 +10,7 @@ import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
 import PriceLevels from './pages/PriceLevels';
 import ProductDetail from './pages/ProductDetail';
+import IntermediateDetail from './pages/IntermediateDetail';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
 import Activity from './pages/Activity';
@@ -585,6 +586,7 @@ function AuthenticatedApp() {
         { path: 'materials/intermediate', element: <Navigate to="materials" replace /> },
         { path: 'products', element: <Products /> },
         { path: 'products/:id', element: <ProductDetail /> },
+        { path: 'intermediate-materials/:id', element: <IntermediateDetail /> },
         { path: 'products/*', element: <Products /> },
         { path: 'price-levels', element: <PriceLevels /> },
         { path: 'reports', element: <Reports /> },

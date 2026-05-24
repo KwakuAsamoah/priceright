@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
@@ -8,8 +9,10 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import TableZoomControl from '../components/TableZoomControl';
 import { materialsApi, currenciesApi, settingsApi, templateUrl, downloadTemplate, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
+import useTableZoom from '../hooks/useTableZoom';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 
 interface MaterialFormState {
@@ -264,6 +267,7 @@ export default function IntermediateMaterials() {
     'priceright_columns_intermediate_materials',
     DEFAULT_INTERMEDIATE_COLUMNS,
   );
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
@@ -289,6 +293,8 @@ export default function IntermediateMaterials() {
     errors: Array<{ row: number; name: string; reason: string }>;
   } | null>(null);
   const { setHasOpenForm } = useFormState();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal);
@@ -420,6 +426,17 @@ export default function IntermediateMaterials() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    const locationState = location.state as { editMaterialId?: number } | null;
+    if (locationState?.editMaterialId) {
+      const targetMaterial = materials.find((m) => m.id === locationState.editMaterialId);
+      if (targetMaterial) {
+        openEditMaterialForm(targetMaterial);
+      }
+      window.history.replaceState({}, '', window.location.href);
+    }
+  }, [location.state, materials]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -1274,9 +1291,12 @@ export default function IntermediateMaterials() {
         ) : null}
 
         <div className="app-card app-data-card" style={{ padding: 0 }}>
-          <h2 style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0' }}>Intermediate Materials ({filteredMaterials.length})</h2>
-          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)' }}>
-            <table className={`app-table app-table-uniform-numbers app-table-ultra-compact ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+          <div style={{ padding: '10px 14px', margin: 0, borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+            <h2 style={{ margin: 0 }}>Intermediate Materials ({filteredMaterials.length})</h2>
+            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+          </div>
+          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+            <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                   <th style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
@@ -1292,51 +1312,55 @@ export default function IntermediateMaterials() {
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
-                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
-                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
-                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
-                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', fontSize: '15px', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
-                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', fontSize: '15px', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
+                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
+                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
+                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
+                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {filteredMaterials.map((material) => (
-                  <tr key={material.id} style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa' }}>
-                    <td style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                  <tr
+                    key={material.id}
+                    style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa', cursor: 'pointer' }}
+                    onClick={() => navigate(`/intermediate-materials/${material.id}`)}
+                  >
+                    <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedIds.has(material.id)}
-                        onChange={(e) => toggleSelectOne(material.id, e.target.checked)}
+                        onChange={(e) => { e.stopPropagation(); toggleSelectOne(material.id, e.target.checked); }}
                         onClick={(e) => e.stopPropagation()}
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
-                    {isIntermediateColumnVisible('material') && <td style={{ padding: '6px 6px', minWidth: '220px' }}>
+                    {isIntermediateColumnVisible('material') && <td style={{ padding: '8px 14px', minWidth: '220px' }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
                     </td>}
-                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '6px 6px', fontSize: '13px' }}>{material.unit}</td>}
-                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '13px' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
-                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '6px 6px', textAlign: 'right', fontSize: '13px' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
-                    {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '6px 6px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
+                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
+                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
+                    {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
                       {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
                     </td>}
-                    {isIntermediateColumnVisible('status') && <td style={{ padding: '4px 4px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>}
-                    {isIntermediateColumnVisible('actions') && <td style={{ padding: '4px 3px' }}>
+                    {isIntermediateColumnVisible('status') && <td style={{ padding: '8px 14px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>}
+                    {isIntermediateColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
                       <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
-                        <AppButton onClick={() => openEditMaterialForm(material)} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
+                        <AppButton onClick={(e) => { e.stopPropagation(); openEditMaterialForm(material); }} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           <Pencil size={11} strokeWidth={2} />
                         </AppButton>
-                        <AppButton onClick={() => void handleToggleMaterialActive(material)} variant="ghost" size="sm" className="app-row-action-icon" title={material.isActive ? 'Set Inactive' : 'Set Active'} ariaLabel={`${material.isActive ? 'Set inactive' : 'Set active'} ${material.name}`} style={{ backgroundColor: 'transparent', display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
+                        <AppButton onClick={(e) => { e.stopPropagation(); void handleToggleMaterialActive(material); }} variant="ghost" size="sm" className="app-row-action-icon" title={material.isActive ? 'Set Inactive' : 'Set Active'} ariaLabel={`${material.isActive ? 'Set inactive' : 'Set active'} ${material.name}`} style={{ backgroundColor: 'transparent', display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           {material.isActive ? <EyeOff size={11} strokeWidth={2} /> : <Eye size={11} strokeWidth={2} />}
                         </AppButton>
                         <OverflowMenu
                           ariaLabel={`More actions for ${material.name}`}
                           items={[
                             { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicateMaterial(material) },
-                            { label: 'Delete', icon: Trash2, onClick: () => void handleDeleteMaterial(material), danger: true },
+                            { label: 'Delete', icon: Trash2, onClick: () => handleDeleteMaterial(material), danger: true },
                           ]}
                         />
                       </div>
@@ -1585,6 +1609,125 @@ export default function IntermediateMaterials() {
                 </div>
               </div>
 
+              <div className="app-card" style={{ display: 'grid', gap: 10 }}>
+                <h3 style={{ margin: 0 }}>Bill of Materials</h3>
+                {!selectedMaterial ? <div style={{ color: '#64748b' }}>Select or create an intermediate material to edit its BOM.</div> : null}
+                {selectedMaterial ? (
+                  <>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Select Material</label>
+                      <input
+                        className="app-input"
+                        type="search"
+                        placeholder="Search and select material..."
+                        value={componentSearch}
+                        onChange={(e) => setComponentSearch(e.target.value)}
+                      />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                      <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))}>
+                        <option value={0}>Select component material...</option>
+                        {filteredAvailableComponents.map((material) => (
+                          <option key={material.id} value={material.id}>{material.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        className="app-input"
+                        type="text"
+                        inputMode="decimal"
+                        value={componentQuantity}
+                        onChange={(e) => setComponentQuantity(e.target.value)}
+                        onBlur={() => {
+                          commitMathExpression(componentQuantity, setComponentQuantity);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const resolved = commitMathExpression(componentQuantity, setComponentQuantity);
+                            if (resolved !== componentQuantity) {
+                              (e.currentTarget as HTMLInputElement).blur();
+                            }
+                          }
+                        }}
+                        placeholder="Qty or =2+2"
+                      />
+                      <button className="btn btn-secondary btn-sm" onClick={() => void addBomItem()}>Add</button>
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>
+                        Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                      </div>
+                    </div>
+
+                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                      <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '36%' }}>Material</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bomItems.map((item) => {
+                            const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+                            const isEditing = editingBomId === item.id;
+
+                            return (
+                              <tr key={item.id}>
+                                <td>{item.componentMaterialName}</td>
+                                <td>
+                                  {isEditing ? (
+                                    <input
+                                      className="app-input"
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={editingQuantity}
+                                      onChange={(e) => setEditingQuantity(e.target.value)}
+                                      onBlur={() => {
+                                        commitMathExpression(editingQuantity, setEditingQuantity);
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          e.preventDefault();
+                                          void saveBomEdit(item);
+                                        }
+                                      }}
+                                      style={{ maxWidth: 120 }}
+                                    />
+                                  ) : (
+                                    <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
+                                  )}
+                                </td>
+                                <td>{formatMoney(Number(item.unitPrice || 0))}</td>
+                                <td>{formatMoney(rowTotal)}</td>
+                                <td>
+                                  <div style={{ display: 'inline-flex', gap: 6 }}>
+                                    {isEditing ? (
+                                      <>
+                                        <button className="btn btn-secondary btn-sm" onClick={() => void saveBomEdit(item)}>Save</button>
+                                        <button className="btn btn-outline btn-sm" onClick={cancelBomEdit}>Cancel</button>
+                                      </>
+                                    ) : (
+                                      <button className="btn btn-secondary btn-sm" onClick={() => startBomEdit(item)}>Edit</button>
+                                    )}
+                                    <button className="btn btn-danger btn-sm" onClick={() => void deleteBomItem(item)}>Delete</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {bomItems.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : null}
+              </div>
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
                 <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
                 <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
@@ -1634,128 +1777,8 @@ export default function IntermediateMaterials() {
             </form>
             {statusText ? <div style={{ fontSize: 12, color: '#0f766e' }}>{statusText}</div> : null}
           </div>
-
-          <div className="app-card" style={{ display: 'grid', gap: 10 }}>
-            <h3 style={{ margin: 0 }}>Bill of Materials</h3>
-            {!selectedMaterial ? <div style={{ color: '#64748b' }}>Select or create an intermediate material to edit its BOM.</div> : null}
-            {selectedMaterial ? (
-              <>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Select Material</label>
-                  <input
-                    className="app-input"
-                    type="search"
-                    placeholder="Search and select material..."
-                    value={componentSearch}
-                    onChange={(e) => setComponentSearch(e.target.value)}
-                  />
-                  <div style={{ display: 'flex', gap: 8 }}>
-                  <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))}>
-                    <option value={0}>Select component material...</option>
-                    {filteredAvailableComponents.map((material) => (
-                      <option key={material.id} value={material.id}>{material.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    className="app-input"
-                    type="text"
-                    inputMode="decimal"
-                    value={componentQuantity}
-                    onChange={(e) => setComponentQuantity(e.target.value)}
-                    onBlur={() => {
-                      commitMathExpression(componentQuantity, setComponentQuantity);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const resolved = commitMathExpression(componentQuantity, setComponentQuantity);
-                        if (resolved !== componentQuantity) {
-                          (e.currentTarget as HTMLInputElement).blur();
-                        }
-                      }
-                    }}
-                    placeholder="Qty or =2+2"
-                  />
-                  <button className="btn btn-secondary btn-sm" onClick={() => void addBomItem()}>Add</button>
-                  </div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>
-                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
-                  </div>
-                </div>
-
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '36%' }}>Material</th>
-                        <th>Quantity</th>
-                        <th>Unit Price</th>
-                        <th>Total</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {bomItems.map((item) => {
-                        const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
-                        const isEditing = editingBomId === item.id;
-
-                        return (
-                          <tr key={item.id}>
-                            <td>{item.componentMaterialName}</td>
-                            <td>
-                              {isEditing ? (
-                                <input
-                                  className="app-input"
-                                  type="text"
-                                  inputMode="decimal"
-                                  value={editingQuantity}
-                                  onChange={(e) => setEditingQuantity(e.target.value)}
-                                  onBlur={() => {
-                                    commitMathExpression(editingQuantity, setEditingQuantity);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      void saveBomEdit(item);
-                                    }
-                                  }}
-                                  style={{ maxWidth: 120 }}
-                                />
-                              ) : (
-                                <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
-                              )}
-                            </td>
-                            <td>{formatMoney(Number(item.unitPrice || 0))}</td>
-                            <td>{formatMoney(rowTotal)}</td>
-                            <td>
-                              <div style={{ display: 'inline-flex', gap: 6 }}>
-                                {isEditing ? (
-                                  <>
-                                    <button className="btn btn-secondary btn-sm" onClick={() => void saveBomEdit(item)}>Save</button>
-                                    <button className="btn btn-outline btn-sm" onClick={cancelBomEdit}>Cancel</button>
-                                  </>
-                                ) : (
-                                  <button className="btn btn-secondary btn-sm" onClick={() => startBomEdit(item)}>Edit</button>
-                                )}
-                                <button className="btn btn-danger btn-sm" onClick={() => void deleteBomItem(item)}>Delete</button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {bomItems.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : null}
-          </div>
-            </div>
-          </div>
+        </div>
+      </div>
         ) : null}
 
         {showImportModal ? (

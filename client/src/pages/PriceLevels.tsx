@@ -16,8 +16,10 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import OverflowMenu from '../components/OverflowMenu';
+import TableZoomControl from '../components/TableZoomControl';
 import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
+import useTableZoom from '../hooks/useTableZoom';
 
 type PriceLevelRule = {
   id: number;
@@ -261,6 +263,7 @@ export default function PriceLevels() {
 
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [selectedLevelIds, setSelectedLevelIds] = useState<Set<number>>(new Set());
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
 
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [addProductsSearch, setAddProductsSearch] = useState('');
@@ -1463,6 +1466,7 @@ export default function PriceLevels() {
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
                     <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Products and prices</h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
                       <AppButton variant="primary" size="sm" onClick={openAddProductsModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                         <Plus size={14} strokeWidth={2} />
                         Add products
@@ -1527,7 +1531,7 @@ export default function PriceLevels() {
                     );
                   })()}
 
-                  <div className="app-table-wrap">
+                  <div className="app-table-wrap" style={{ zoom: `${zoomPercent}%` }}>
                     <table className="app-table app-table-compact app-table-uniform-numbers">
                       <thead>
                         <tr>
@@ -1865,7 +1869,7 @@ export default function PriceLevels() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td>{product.name} {alreadyAdded ? <span style={{ fontSize: '13px' }}>(Already added)</span> : null}</td>
+                      <td>{product.name} {alreadyAdded ? <span style={{ fontSize: '15px' }}>(Already added)</span> : null}</td>
                       <td>{product.category || '-'}</td>
                       <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(product.approvedPrice, 0))}</td>
                     </tr>
