@@ -10,10 +10,11 @@ files:
   - electron/preload.js
   - electron/icons/**
   - client-dist/**
-  - server/demo.db
   - package.json
 
 extraResources:
+  - from: server/demo.db
+    to: server/demo.db
   - from: server-dist
     to: server-dist
   - from: server/node_modules
