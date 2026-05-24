@@ -10,6 +10,7 @@ files:
   - electron/preload.js
   - electron/icons/**
   - client-dist/**
+  - server/demo.db
   - package.json
 
 extraResources:

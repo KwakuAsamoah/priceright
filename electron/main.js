@@ -273,6 +273,21 @@ ipcMain.handle('select-restore-file', async () => {
 
 app.whenReady().then(async () => {
   const serverAlreadyRunning = await checkServerOnce();
+
+  // Copy demo.db from package resources to userData on first launch
+  if (app.isPackaged) {
+    const packagedDemoDb = path.join(process.resourcesPath, 'server', 'demo.db');
+    const userDemoDb = path.join(app.getPath('userData'), 'demo.db');
+    if (fs.existsSync(packagedDemoDb) && !fs.existsSync(userDemoDb)) {
+      try {
+        fs.copyFileSync(packagedDemoDb, userDemoDb);
+        console.log('[startup] demo.db copied to userData');
+      } catch (copyErr) {
+        console.error('[startup] Failed to copy demo.db:', copyErr);
+      }
+    }
+  }
+
   if (!serverAlreadyRunning) {
     try {
       await startServer();
