@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
@@ -113,6 +114,7 @@ function sanitizePinInput(value: string): string {
 }
 
 export default function Settings() {
+  const [searchParams] = useSearchParams();
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const { downloading, handleDownload } = useTemplateDownload();
   const { setBaseCurrencyMissing } = useBaseCurrencyContext();
@@ -182,20 +184,16 @@ export default function Settings() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    try {
-      const urlTab = new URLSearchParams(window.location.search).get('tab');
-      if (
-        urlTab === 'general'
-        || urlTab === 'pricing'
-        || urlTab === 'currencies'
-        || urlTab === 'master-data'
-        || urlTab === 'data-backups'
-        || urlTab === 'advanced'
-      ) {
-        return urlTab;
-      }
-    } catch {
-      // Ignore storage errors and use default.
+    const urlTab = searchParams.get('tab');
+    if (
+      urlTab === 'general'
+      || urlTab === 'pricing'
+      || urlTab === 'currencies'
+      || urlTab === 'master-data'
+      || urlTab === 'data-backups'
+      || urlTab === 'advanced'
+    ) {
+      return urlTab;
     }
     return 'general';
   });
