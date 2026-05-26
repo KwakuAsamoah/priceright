@@ -4,10 +4,95 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
+const https = require('https');
 const { pathToFileURL } = require('url');
+const { machineIdSync } = require('node-machine-id');
+
+const LICENCE_SERVER_URL =
+  process.env.LICENCE_SERVER_URL ||
+  'https://priceright-licence-server.up.railway.app';
+const LICENCE_STATE_FILE = path.join(
+  app.getPath('userData'), 'licence.json'
+);
+const MAX_OFFLINE_LAUNCHES = 3;
 
 const SERVER_PORT = 3000;
 const isProd = app.isPackaged;
+
+// ---------------------------------------------------------------------------
+// Licence helpers
+// ---------------------------------------------------------------------------
+
+function readLicenceState() {
+  try {
+    if (fs.existsSync(LICENCE_STATE_FILE)) {
+      const raw = fs.readFileSync(LICENCE_STATE_FILE, 'utf8');
+      return JSON.parse(raw);
+    }
+  } catch {}
+  return null;
+}
+
+function writeLicenceState(state) {
+  try {
+    fs.writeFileSync(LICENCE_STATE_FILE, JSON.stringify(state), 'utf8');
+  } catch (err) {
+    console.error('[licence] Failed to write state:', err);
+  }
+}
+
+function getMachineId() {
+  try {
+    return machineIdSync();
+  } catch (err) {
+    console.error('[licence] Failed to get machine ID:', err);
+    const fallbackFile = path.join(app.getPath('userData'), 'machine.id');
+    if (fs.existsSync(fallbackFile)) {
+      return fs.readFileSync(fallbackFile, 'utf8').trim();
+    }
+    const { randomUUID } = require('crypto');
+    const newId = randomUUID();
+    fs.writeFileSync(fallbackFile, newId, 'utf8');
+    return newId;
+  }
+}
+
+async function checkLicenceWithServer(machineId) {
+  try {
+    const url = new URL(LICENCE_SERVER_URL + '/api/trial/status');
+    const isHttps = url.protocol === 'https:';
+    const transport = isHttps ? https : http;
+    const body = JSON.stringify({ machineId });
+
+    return await new Promise((resolve, reject) => {
+      const req = transport.request({
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 8000,
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { reject(new Error('Invalid JSON')); }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      req.write(body);
+      req.end();
+    });
+  } catch (err) {
+    console.error('[licence] Server check failed:', err.message);
+    return null;
+  }
+}
 
 let serverProcess = null;
 let mainWindow = null;
@@ -27,6 +112,7 @@ async function startServer() {
     CLIENT_DIST_PATH: isProd
       ? path.join(process.resourcesPath, 'client-dist')
       : path.join(__dirname, '..', 'client-dist'),
+    LICENCE_SERVER_URL: LICENCE_SERVER_URL,
   };
 
   if (isProd) {
@@ -318,6 +404,141 @@ ipcMain.handle('select-restore-file', async () => {
     };
   } catch (err) {
     return { canceled: false, error: err.message };
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Licence IPC handlers
+// ---------------------------------------------------------------------------
+
+ipcMain.handle('get-machine-id', async () => {
+  return getMachineId();
+});
+
+ipcMain.handle('check-licence', async () => {
+  const machineId = getMachineId();
+  const cached = readLicenceState();
+
+  const serverResult = await checkLicenceWithServer(machineId);
+
+  if (serverResult) {
+    const state = {
+      ...serverResult,
+      machineId,
+      lastChecked: new Date().toISOString(),
+      offlineLaunches: 0,
+    };
+    writeLicenceState(state);
+    return state;
+  }
+
+  if (cached) {
+    const offlineLaunches = (cached.offlineLaunches || 0) + 1;
+    const updatedCache = { ...cached, offline: true, offlineLaunches };
+    writeLicenceState(updatedCache);
+
+    if (offlineLaunches <= MAX_OFFLINE_LAUNCHES) {
+      return updatedCache;
+    }
+
+    return { ...cached, offline: true, offlineLaunches, forceOnline: true };
+  }
+
+  return { status: 'not_activated', offline: true, offlineLaunches: 1 };
+});
+
+ipcMain.handle('activate-trial', async (_event, email) => {
+  const machineId = getMachineId();
+  try {
+    const url = new URL(LICENCE_SERVER_URL + '/api/trial/activate');
+    const isHttps = url.protocol === 'https:';
+    const transport = isHttps ? https : http;
+    const body = JSON.stringify({ email, machineId });
+
+    const result = await new Promise((resolve, reject) => {
+      const req = transport.request({
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 10000,
+      }, (res) => {
+        let data = '';
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { reject(new Error('Invalid JSON')); }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      req.write(body);
+      req.end();
+    });
+
+    writeLicenceState({
+      ...result,
+      machineId,
+      lastChecked: new Date().toISOString(),
+      offlineLaunches: 0,
+    });
+
+    return { success: true, ...result };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('validate-licence', async (_event, key) => {
+  const machineId = getMachineId();
+  try {
+    const url = new URL(LICENCE_SERVER_URL + '/api/licence/validate');
+    const isHttps = url.protocol === 'https:';
+    const transport = isHttps ? https : http;
+    const body = JSON.stringify({ key, machineId });
+
+    const result = await new Promise((resolve, reject) => {
+      const req = transport.request({
+        hostname: url.hostname,
+        port: url.port || (isHttps ? 443 : 80),
+        path: url.pathname,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 10000,
+      }, (res) => {
+        let data = '';
+        res.on('data', (c) => { data += c; });
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)); }
+          catch { reject(new Error('Invalid JSON')); }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      req.write(body);
+      req.end();
+    });
+
+    if (result.valid) {
+      writeLicenceState({
+        status: 'licensed',
+        email: result.email,
+        machineId,
+        lastChecked: new Date().toISOString(),
+        offlineLaunches: 0,
+      });
+    }
+
+    return result;
+  } catch (err) {
+    return { valid: false, error: err.message };
   }
 });
 
