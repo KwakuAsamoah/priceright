@@ -6,13 +6,15 @@ import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl, downloadTemplate } from '../api';
+import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
+import { useTemplateDownload } from '../hooks/useTemplateDownload';
+import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
@@ -311,6 +313,7 @@ export default function Products() {
     DEFAULT_PRODUCT_COLUMNS,
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
+  const { downloading, handleDownload } = useTemplateDownload();
 
   useEffect(() => {
     const hasProfitOnCost = visibleColumns.includes('profitOnCost');
@@ -389,15 +392,7 @@ export default function Products() {
   }, [setHasOpenForm]);
 
   const [isApprovingAll, setIsApprovingAll] = useState(false);
-  const [activeTab, setActiveTab] = useState<'products' | 'analysis'>(() => {
-    try {
-      const saved = window.localStorage.getItem('priceright_products_active_tab');
-      if (saved === 'products' || saved === 'analysis') return saved;
-    } catch {
-      // Ignore storage errors and use default.
-    }
-    return 'products';
-  });
+  const [activeTab, setActiveTab] = useState<'products' | 'analysis'>('products');
 
   const productCategories = useMemo(() => {
     const observed = products
@@ -464,14 +459,6 @@ export default function Products() {
   useEffect(() => {
     loadDefaultOverhead();
   }, []);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('priceright_products_active_tab', activeTab);
-    } catch {
-      // Ignore storage errors.
-    }
-  }, [activeTab]);
 
   async function loadDefaultOverhead() {
     try {
@@ -1039,9 +1026,7 @@ export default function Products() {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = readImportDataRows(workbook);
         setImportPreview(jsonData as any[]);
       } catch (error) {
         console.error('Error reading file:', error);
@@ -3189,18 +3174,32 @@ export default function Products() {
             >
               &times;
             </button>
-            <h2 className="app-modal-title">Import Products (Standard CSV)</h2>
+            <h2 className="app-modal-title">Import Products</h2>
 
             {!importFile ? (
               <div>
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <a
-                    href={templateUrl('PriceRight_Products_Import_Template.csv')}
-                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Products_Import_Template.csv'); }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
+                    href={templateUrl('PriceRight_Products_Import_Template.xlsx')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void handleDownload('PriceRight_Products_Import_Template.xlsx');
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: '#0f172a',
+                      fontWeight: '600',
+                      fontSize: '16px',
+                      textDecoration: 'none',
+                      cursor: downloading ? 'wait' : 'pointer',
+                      opacity: downloading ? 0.6 : 1,
+                      pointerEvents: downloading ? 'none' : 'auto',
+                    }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                    Download CSV template
+                    {downloading === 'PriceRight_Products_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
                   </a>
                   <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                 </div>

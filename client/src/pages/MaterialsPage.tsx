@@ -7,17 +7,7 @@ import { currenciesApi, exchangeRatesApi, materialsApi } from '../api';
 type MaterialTab = 'primary' | 'intermediate' | 'analysis';
 
 export default function MaterialsPage() {
-  const [activeTab, setActiveTab] = useState<MaterialTab>(() => {
-    try {
-      const saved = window.localStorage.getItem('priceright_materials_active_tab');
-      if (saved === 'primary' || saved === 'intermediate' || saved === 'analysis') {
-        return saved;
-      }
-    } catch {
-      // Ignore storage errors.
-    }
-    return 'primary';
-  });
+  const [activeTab, setActiveTab] = useState<MaterialTab>('primary');
   const [analysisLoaded, setAnalysisLoaded] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisMaterials, setAnalysisMaterials] = useState<any[]>([]);
@@ -49,11 +39,6 @@ export default function MaterialsPage() {
 
   function handleTabChange(tab: MaterialTab) {
     setActiveTab(tab);
-    try {
-      window.localStorage.setItem('priceright_materials_active_tab', tab);
-    } catch {
-      // Ignore storage errors.
-    }
     if (tab === 'analysis') {
       void ensureAnalysisDataLoaded();
     }

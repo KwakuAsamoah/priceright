@@ -10,9 +10,11 @@ import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import TableZoomControl from '../components/TableZoomControl';
-import { materialsApi, currenciesApi, settingsApi, templateUrl, downloadTemplate, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import { materialsApi, currenciesApi, settingsApi, templateUrl, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
+import { useTemplateDownload } from '../hooks/useTemplateDownload';
+import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 
 interface MaterialFormState {
@@ -268,6 +270,7 @@ export default function IntermediateMaterials() {
     DEFAULT_INTERMEDIATE_COLUMNS,
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
+  const { downloading, handleDownload } = useTemplateDownload();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
@@ -957,9 +960,7 @@ export default function IntermediateMaterials() {
       try {
         const data = event.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        const jsonData = readImportDataRows(workbook);
         setImportPreview(jsonData as any[]);
       } catch (error) {
         console.error('Error reading file:', error);
@@ -1793,12 +1794,26 @@ export default function IntermediateMaterials() {
                 <div>
                   <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <a
-                      href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
-                      onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
+                      href={templateUrl('PriceRight_Intermediates_Import_Template.xlsx')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void handleDownload('PriceRight_Intermediates_Import_Template.xlsx');
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: '#0f172a',
+                        fontWeight: '600',
+                        fontSize: '16px',
+                        textDecoration: 'none',
+                        cursor: downloading ? 'wait' : 'pointer',
+                        opacity: downloading ? 0.6 : 1,
+                        pointerEvents: downloading ? 'none' : 'auto',
+                      }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                      Download CSV template
+                      {downloading === 'PriceRight_Intermediates_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
                     </a>
                     <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                   </div>
@@ -1895,21 +1910,35 @@ export default function IntermediateMaterials() {
                 <div>
                   <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <a
-                      href={templateUrl('PriceRight_Intermediates_Import_Template.csv')}
-                      onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Intermediates_Import_Template.csv'); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
+                      href={templateUrl('PriceRight_Intermediates_Import_Template.xlsx')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void handleDownload('PriceRight_Intermediates_Import_Template.xlsx');
+                      }}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        color: '#0f172a',
+                        fontWeight: '600',
+                        fontSize: '16px',
+                        textDecoration: 'none',
+                        cursor: downloading ? 'wait' : 'pointer',
+                        opacity: downloading ? 0.6 : 1,
+                        pointerEvents: downloading ? 'none' : 'auto',
+                      }}
                     >
                       <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                      Download CSV template
+                      {downloading === 'PriceRight_Intermediates_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
                     </a>
                     <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                   </div>
                   <p style={{ fontSize: '16px', color: '#475569', marginBottom: '16px' }}>
-                    Upload a CSV file to add multiple intermediate materials at once.
+                    Upload a CSV or Excel file to add multiple intermediate materials at once.
                   </p>
 
                   <label
-                    htmlFor="intermediate-file-upload"
+                    htmlFor="intermediate-server-import-upload"
                     style={{
                       display: 'block',
                       padding: '40px',
@@ -1924,15 +1953,15 @@ export default function IntermediateMaterials() {
                       <Upload size={40} strokeWidth={1.8} />
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '6px' }}>
-                      Select CSV file
+                      Select import file
                     </div>
                     <div style={{ fontSize: '15px', color: '#64748b' }}>
-                      Columns: Intermediate Name, Category, Unit, Notes
+                      Use the import template. CSV and Excel files are accepted.
                     </div>
                     <input
-                      id="intermediate-file-upload"
+                      id="intermediate-server-import-upload"
                       type="file"
-                      accept=".csv"
+                      accept=".csv,.xlsx,.xls"
                       onChange={handleIntermediateFileUpload}
                       style={{ display: 'none' }}
                     />

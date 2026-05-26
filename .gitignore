@@ -11,6 +11,7 @@ client/node_modules/
 server/node_modules/
 client-dist/
 server/demo-mode.json
-scripts/
+scripts/*
+!scripts/generate-templates.js
 temp-*.cjs
 temp-*.js

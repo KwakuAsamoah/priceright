@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl, downloadTemplate } from '../api';
+import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
+import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useFormState } from '../context/FormStateContext';
 import { useDemoMode } from '../context/DemoModeContext';
 
@@ -112,6 +113,7 @@ function sanitizePinInput(value: string): string {
 
 export default function Settings() {
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
+  const { downloading, handleDownload } = useTemplateDownload();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrency, setBaseCurrency] = useState<string>('');
@@ -189,17 +191,6 @@ export default function Settings() {
         || urlTab === 'advanced'
       ) {
         return urlTab;
-      }
-      const saved = window.localStorage.getItem('priceright_settings_active_tab');
-      if (
-        saved === 'general'
-        || saved === 'pricing'
-        || saved === 'currencies'
-        || saved === 'master-data'
-        || saved === 'data-backups'
-        || saved === 'advanced'
-      ) {
-        return saved;
       }
     } catch {
       // Ignore storage errors and use default.
@@ -707,11 +698,6 @@ async function loadData() {
 
   function handleTabChange(tab: SettingsTab) {
     setActiveTab(tab);
-    try {
-      window.localStorage.setItem('priceright_settings_active_tab', tab);
-    } catch {
-      // Ignore storage errors.
-    }
   }
 
 // Price Level Rules Functions
@@ -1334,11 +1320,14 @@ async function loadData() {
               </div>
               <a
                 href={templateUrl('PriceRight_Sample_Materials.csv')}
-                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Materials.csv'); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Materials.csv');
+                }}
                 className="btn btn-ghost btn-sm"
-                style={{ padding: '6px 12px', cursor: 'pointer' }}
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
               >
-                Download
+                {downloading === 'PriceRight_Sample_Materials.csv' ? 'Downloading...' : 'Download'}
               </a>
             </div>
             {/* Row 2 — Intermediate materials */}
@@ -1352,11 +1341,14 @@ async function loadData() {
               </div>
               <a
                 href={templateUrl('PriceRight_Sample_Intermediates.csv')}
-                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Intermediates.csv'); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Intermediates.csv');
+                }}
                 className="btn btn-ghost btn-sm"
-                style={{ padding: '6px 12px', cursor: 'pointer' }}
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
               >
-                Download
+                {downloading === 'PriceRight_Sample_Intermediates.csv' ? 'Downloading...' : 'Download'}
               </a>
             </div>
             {/* Row 3 — Products with BOM */}
@@ -1370,11 +1362,14 @@ async function loadData() {
               </div>
               <a
                 href={templateUrl('PriceRight_Sample_Products.csv')}
-                onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Sample_Products.csv'); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Products.csv');
+                }}
                 className="btn btn-ghost btn-sm"
-                style={{ padding: '6px 12px', cursor: 'pointer' }}
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
               >
-                Download
+                {downloading === 'PriceRight_Sample_Products.csv' ? 'Downloading...' : 'Download'}
               </a>
             </div>
           </div>

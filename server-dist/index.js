@@ -4042,9 +4042,9 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
 });
 // Serve templates from multiple possible locations
 const possibleTemplateDirs = [
-    path.join(__dirname, '..', 'client-dist', 'templates'),
-    path.join(__dirname, '..', 'client', 'public', 'templates'),
-    path.join(__dirname, '..', 'client', 'dist', 'templates'),
+    path.join(__dirname, '..', '..', 'client-dist', 'templates'),
+    path.join(__dirname, '..', '..', 'client', 'public', 'templates'),
+    path.join(__dirname, '..', '..', 'client', 'dist', 'templates'),
 ];
 const userDataPath = process.env.USER_DATA_PATH;
 if (userDataPath) {

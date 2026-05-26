@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl, downloadTemplate } from '../api';
+import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl } from '../api';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -13,6 +13,7 @@ import AppToast from '../components/AppToast';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
+import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 
@@ -259,6 +260,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     DEFAULT_MATERIAL_COLUMNS,
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
+  const { downloading, handleDownload } = useTemplateDownload();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -2087,11 +2089,25 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <a
                     href={templateUrl('PriceRight_Materials_Import_Template.xlsx')}
-                    onClick={(e) => { e.preventDefault(); void downloadTemplate('PriceRight_Materials_Import_Template.xlsx'); }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#0f172a', fontWeight: '600', fontSize: '16px', textDecoration: 'none', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void handleDownload('PriceRight_Materials_Import_Template.xlsx');
+                    }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: '#0f172a',
+                      fontWeight: '600',
+                      fontSize: '16px',
+                      textDecoration: 'none',
+                      cursor: downloading ? 'wait' : 'pointer',
+                      opacity: downloading ? 0.6 : 1,
+                      pointerEvents: downloading ? 'none' : 'auto',
+                    }}
                   >
                     <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                    Download import template
+                    {downloading === 'PriceRight_Materials_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
                   </a>
                   <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
                 </div>
