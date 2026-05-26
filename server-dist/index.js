@@ -3823,7 +3823,7 @@ app.post('/api/products/import', async (req, res) => {
             const sku = getField(first, ['SKU', 'sku']);
             const category = getField(first, ['Category', 'category']);
             const productionModeRaw = getField(first, ['Production Mode', 'productionMode', 'ProductionMode']);
-            const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield']);
+            const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield', 'Batch Size', 'batchSize']);
             const overheadRaw = getField(first, ['Overhead %', 'Overhead', 'overhead', 'Overhead%']);
             const profitRaw = getField(first, ['Profit on Cost %', 'Profit on cost %', 'Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
             const currentSellingPriceRaw = getField(first, ['Current Selling Price', 'currentSellingPrice', 'Selling Price', 'Current Price']);
@@ -3869,7 +3869,7 @@ app.post('/api/products/import', async (req, res) => {
             const materialValidationErrors = [];
             for (const e of entries) {
                 const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
-                const qtyRaw = getField(e.row, ['Quantity', 'quantity']);
+                const qtyRaw = getField(e.row, ['Quantity', 'quantity', 'Material Quantity', 'materialQuantity']);
                 const qty = parseFloat(qtyRaw || '0');
                 if (!matName) {
                     materialValidationErrors.push({ rowNumber: e.rowNumber, matName: '' });
@@ -3914,7 +3914,7 @@ app.post('/api/products/import', async (req, res) => {
                 // For each BOM row, find material and add to BOM
                 for (const e of entries) {
                     const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
-                    const qtyRaw = getField(e.row, ['Quantity', 'quantity']);
+                    const qtyRaw = getField(e.row, ['Quantity', 'quantity', 'Material Quantity', 'materialQuantity']);
                     const qty = parseFloat(qtyRaw || '0');
                     // Material already validated above, so just insert
                     const mats = await getActiveDb().select().from(materials).where(sql `lower(${materials.name}) = ${matName.toLowerCase()}`);
