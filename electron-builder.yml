@@ -17,6 +17,8 @@ extraResources:
     to: server/demo.db
   - from: server-dist
     to: server-dist
+  - from: client-dist/templates
+    to: client-dist/templates
   - from: server/node_modules
     to: node_modules
     filter:

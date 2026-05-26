@@ -211,19 +211,69 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
 
   if (canceled || !filePath) return { success: false, canceled: true };
 
-  return new Promise((resolve) => {
-    const file = fs.createWriteStream(filePath);
-    http.get(url, (response) => {
-      response.pipe(file);
-      file.on('finish', () => {
-        file.close();
-        resolve({ success: true, filePath });
+  function fetchAndSave(targetUrl, redirectCount) {
+    console.log('[download] fetching:', targetUrl);
+    if (redirectCount > 5) {
+      console.log('[download] too many redirects');
+      return Promise.resolve({
+        success: false,
+        error: 'Too many redirects',
       });
-    }).on('error', (err) => {
-      fs.unlink(filePath, () => {});
-      resolve({ success: false, error: err.message });
+    }
+
+    return new Promise((resolve) => {
+      http.get(targetUrl, (response) => {
+        console.log('[download] status:', response.statusCode);
+        console.log('[download] content-type:', response.headers['content-type']);
+
+        if (
+          response.statusCode === 301 ||
+          response.statusCode === 302 ||
+          response.statusCode === 307 ||
+          response.statusCode === 308
+        ) {
+          console.log('[download] redirect to:', response.headers.location);
+          const location = response.headers.location;
+          if (!location) {
+            resolve({ success: false, error: 'Redirect with no location' });
+            return;
+          }
+
+          response.resume();
+          resolve(fetchAndSave(location, redirectCount + 1));
+          return;
+        }
+
+        if (response.statusCode !== 200) {
+          console.log('[download] non-200, failing');
+          response.resume();
+          try { fs.unlinkSync(filePath); } catch {}
+          resolve({
+            success: false,
+            error: 'Server returned status ' + response.statusCode,
+          });
+          return;
+        }
+
+        console.log('[download] 200 OK, saving to:', filePath);
+        const file = fs.createWriteStream(filePath);
+        response.pipe(file);
+        file.on('finish', () => {
+          file.close();
+          resolve({ success: true, filePath });
+        });
+        file.on('error', (err) => {
+          try { fs.unlinkSync(filePath); } catch {}
+          resolve({ success: false, error: err.message });
+        });
+      }).on('error', (err) => {
+        try { fs.unlinkSync(filePath); } catch {}
+        resolve({ success: false, error: err.message });
+      });
     });
-  });
+  }
+
+  return fetchAndSave(url, 0);
 });
 
 ipcMain.handle('save-backup-file', async (_event, base64Data, defaultFilename) => {

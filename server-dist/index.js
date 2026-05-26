@@ -4,11 +4,13 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN ?? 'http://localhost:5173,http://127.0.0.1:5173')
     .split(',')
@@ -4038,6 +4040,23 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
         res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });
     }
 });
+// Serve templates from multiple possible locations
+const possibleTemplateDirs = [
+    path.join(__dirname, '..', 'client-dist', 'templates'),
+    path.join(__dirname, '..', 'client', 'public', 'templates'),
+    path.join(__dirname, '..', 'client', 'dist', 'templates'),
+];
+const userDataPath = process.env.USER_DATA_PATH;
+if (userDataPath) {
+    possibleTemplateDirs.push(path.join(userDataPath, '..', 'app', 'client-dist', 'templates'));
+}
+for (const dir of possibleTemplateDirs) {
+    if (fs.existsSync(dir)) {
+        app.use('/templates', express.static(dir));
+        console.log('[server] serving templates from:', dir);
+        break;
+    }
+}
 // Serve client static files and SPA fallback when running in Electron
 const clientDistPath = process.env.CLIENT_DIST_PATH || '';
 if (clientDistPath && fs.existsSync(clientDistPath)) {
