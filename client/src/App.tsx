@@ -5,6 +5,7 @@ import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterPro
 import { createHashRouter } from 'react-router';
 import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
+import { BaseCurrencyContext } from './context/BaseCurrencyContext';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
@@ -433,6 +434,7 @@ function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
+    <BaseCurrencyContext.Provider value={{ setBaseCurrencyMissing }}>
     <>
       {isHelpPage ? (
         <div className="app-help-route-shell">
@@ -567,6 +569,7 @@ function AppLayout({ children }: { children: ReactNode }) {
         />
       )}
     </>
+    </BaseCurrencyContext.Provider>
   );
 }
 

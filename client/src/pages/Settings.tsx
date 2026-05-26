@@ -7,6 +7,7 @@ import useAppToast from '../hooks/useAppToast';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useFormState } from '../context/FormStateContext';
 import { useDemoMode } from '../context/DemoModeContext';
+import { useBaseCurrencyContext } from '../context/BaseCurrencyContext';
 
 interface Currency {
   id: number;
@@ -114,6 +115,7 @@ function sanitizePinInput(value: string): string {
 export default function Settings() {
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const { downloading, handleDownload } = useTemplateDownload();
+  const { setBaseCurrencyMissing } = useBaseCurrencyContext();
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [baseCurrency, setBaseCurrency] = useState<string>('');
@@ -487,6 +489,7 @@ async function loadData() {
       }
       await settingsApi.save({ settingKey: 'baseCurrency', settingValue: code });
       setBaseCurrency(code);
+      setBaseCurrencyMissing(false);
     } catch (error) {
       console.error('Error setting base currency:', error);
       showToastMessage('Failed to set base currency', 'error');
