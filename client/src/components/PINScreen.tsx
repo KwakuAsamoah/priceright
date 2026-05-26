@@ -40,10 +40,12 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
 
   useEffect(() => {
     if (mode === 'set' || mode === 'enter') {
-      window.setTimeout(() => {
+      const timer = window.setTimeout(() => {
         inputRef.current?.focus();
-      }, 0);
+      }, 150);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, [mode]);
 
   async function handleSetPin(event: React.FormEvent) {
