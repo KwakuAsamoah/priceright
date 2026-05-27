@@ -47,7 +47,7 @@ export function TrialBanner() {
 
         <button
           type="button"
-          onClick={() => window.open('https://priceright.app', '_blank')}
+          onClick={() => window.open('https://paystack.shop/pay/4bsuzaofbj', '_blank')}
           style={{
             padding: '4px 12px', background: 'transparent', color: 'white',
             border: '1px solid rgba(255,255,255,0.6)', borderRadius: '6px',

@@ -128,7 +128,7 @@ export function LockScreen({
 
         <button
           type="button"
-          onClick={() => window.open('https://priceright.app', '_blank')}
+          onClick={() => window.open('https://paystack.shop/pay/4bsuzaofbj', '_blank')}
           style={{
             width: '100%', padding: '12px', background: 'white', color: '#0f172a',
             border: '2px solid #0f172a', borderRadius: '8px',
