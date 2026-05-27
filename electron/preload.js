@@ -22,4 +22,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   licenceServerUrl:
     process.env.LICENCE_SERVER_URL ||
     'https://web-production-136f6.up.railway.app',
+  onUpdateAvailable: (callback) =>
+    ipcRenderer.on('update-available', (_event, version) => callback(version)),
+  onUpdateDownloaded: (callback) =>
+    ipcRenderer.on('update-downloaded', (_event, version) => callback(version)),
+  restartAndUpdate: () =>
+    ipcRenderer.send('restart-and-update'),
 });

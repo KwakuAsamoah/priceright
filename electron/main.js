@@ -240,49 +240,32 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
-    dialog
-      .showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Update Available',
-        message: `PriceRight ${info.version} is available.`,
-        detail: 'Download and install the update now?',
-        buttons: ['Download update', 'Remind me later'],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) {
-          autoUpdater.downloadUpdate();
-        }
-      });
+    console.log('[updater] Update available:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info.version);
+    }
   });
 
-  autoUpdater.on('update-downloaded', () => {
-    dialog
-      .showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Update Ready',
-        message: 'PriceRight will restart to install the update.',
-        buttons: ['Restart now', 'Later'],
-        defaultId: 0,
-        cancelId: 1,
-      })
-      .then(({ response }) => {
-        if (response === 0) {
-          autoUpdater.quitAndInstall(false, true);
-        }
-      });
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[updater] Update downloaded:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info.version);
+    }
   });
 
   autoUpdater.on('error', (err) => {
     console.error('[updater] error:', err && err.message ? err.message : err);
   });
 
-  setTimeout(() => autoUpdater.checkForUpdates(), 10000);
+  // Check for updates 10 seconds after launch to not slow down startup
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify()
+      .catch((err) => console.error('[updater] Check failed:', err.message));
+  }, 10000);
 }
 
 ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
@@ -405,6 +388,14 @@ ipcMain.handle('select-restore-file', async () => {
   } catch (err) {
     return { canceled: false, error: err.message };
   }
+});
+
+// ---------------------------------------------------------------------------
+// Auto-updater IPC handler
+// ---------------------------------------------------------------------------
+
+ipcMain.on('restart-and-update', () => {
+  autoUpdater.quitAndInstall();
 });
 
 // ---------------------------------------------------------------------------

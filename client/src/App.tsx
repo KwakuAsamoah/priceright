@@ -25,6 +25,7 @@ import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
 import PINScreen from './components/PINScreen';
 import { LicenceGate } from './components/LicenceGate';
 import { TrialBanner } from './components/TrialBanner';
+import { UpdateBanner } from './components/UpdateBanner';
 import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
@@ -527,6 +528,7 @@ function AppLayout({ children }: { children: ReactNode }) {
         <main className="app-main">
           <DemoModeBanner />
           <TrialBanner />
+          <UpdateBanner />
           {baseCurrencyMissing && (
             <div style={{ backgroundColor: '#DC2626', color: 'white', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <AlertTriangle size={16} style={{ flexShrink: 0 }} />
