@@ -10,7 +10,7 @@ const { machineIdSync } = require('node-machine-id');
 
 const LICENCE_SERVER_URL =
   process.env.LICENCE_SERVER_URL ||
-  'https://priceright-licence-server.up.railway.app';
+  'https://web-production-136f6.up.railway.app';
 const LICENCE_STATE_FILE = path.join(
   app.getPath('userData'), 'licence.json'
 );

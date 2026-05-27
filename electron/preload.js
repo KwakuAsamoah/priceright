@@ -21,5 +21,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('validate-licence', key),
   licenceServerUrl:
     process.env.LICENCE_SERVER_URL ||
-    'https://priceright-licence-server.up.railway.app',
+    'https://web-production-136f6.up.railway.app',
 });
