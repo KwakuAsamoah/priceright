@@ -130,36 +130,45 @@ function enableSpreadsheetStyleNumberInputs() {
     target.dataset.originalInputType = 'number';
     target.inputMode = 'decimal';
 
-    // Install a per-element property override so React's controlled-input
-    // reconciler cannot revert type="text" back to type="number" on re-renders.
-    if (typePropDesc?.get && typePropDesc?.set) {
-      const protoGet = typePropDesc.get as (this: HTMLInputElement) => string;
-      const protoSet = typePropDesc.set as (this: HTMLInputElement, v: string) => void;
-      Object.defineProperty(target, 'type', {
-        configurable: true,
-        enumerable: true,
-        get() { return protoGet.call(this); },
-        set(value: string) {
-          // Block React from switching back to 'number' while in math mode.
-          if (value === 'number' && (this as HTMLInputElement).dataset.originalInputType === 'number') return;
-          protoSet.call(this, value);
-        },
-      });
-    }
+    // Defer the DOM type mutation so Electron's internal focus cycle completes
+    // before we touch the element. Synchronous type-switching during focusin
+    // corrupts Electron/Chromium's native caret state, making the field appear
+    // focused but unresponsive to keyboard input until the window is alt-tabbed.
+    requestAnimationFrame(() => {
+      // Guard: field may have lost focus before the frame ran — do not mutate.
+      if (target.dataset.originalInputType !== 'number') return;
 
-    try {
-      target.type = 'text';
-    } catch {
-      // Ignore browsers that do not allow changing the type dynamically.
-    }
+      // Install a per-element property override so React's controlled-input
+      // reconciler cannot revert type="text" back to type="number" on re-renders.
+      if (typePropDesc?.get && typePropDesc?.set) {
+        const protoGet = typePropDesc.get as (this: HTMLInputElement) => string;
+        const protoSet = typePropDesc.set as (this: HTMLInputElement, v: string) => void;
+        Object.defineProperty(target, 'type', {
+          configurable: true,
+          enumerable: true,
+          get() { return protoGet.call(this); },
+          set(value: string) {
+            // Block React from switching back to 'number' while in math mode.
+            if (value === 'number' && (this as HTMLInputElement).dataset.originalInputType === 'number') return;
+            protoSet.call(this, value);
+          },
+        });
+      }
 
-    // Select the entire current value so the first keystroke replaces it
-    // rather than appending (prevents "05" from typing "5" into a field showing "0").
-    try {
-      target.select();
-    } catch {
-      // Ignore
-    }
+      try {
+        target.type = 'text';
+      } catch {
+        // Ignore browsers that do not allow changing the type dynamically.
+      }
+
+      // Select the entire current value so the first keystroke replaces it
+      // rather than appending (prevents "05" from typing "5" into a field showing "0").
+      try {
+        target.select();
+      } catch {
+        // Ignore
+      }
+    });
   };
 
   const finalizeInput = (input: HTMLInputElement) => {
