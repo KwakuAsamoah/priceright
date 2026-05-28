@@ -681,9 +681,34 @@ export default function ProductDetail() {
         {/* ─── Right column ─────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
 
-          {/* Pricing card */}
-          <div className="app-card">
-            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Pricing</div>
+          {/* ─── Unified Pricing & Approval card ─── */}
+          <div className="app-card" style={{ border: `1px solid ${panelColors.border}`, backgroundColor: panelColors.background }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '7px',
+                fontWeight: 700, fontSize: '15px',
+                color: product.approvalStatus === 'approved' ? '#166534'
+                     : product.approvalStatus === 'needs_review' ? '#9a3412'
+                     : '#0f172a',
+              }}>
+                {product.approvalStatus === 'approved' && <CheckCircle size={14} strokeWidth={2.2} />}
+                {product.approvalStatus === 'needs_review' && <AlertTriangle size={14} strokeWidth={2} />}
+                {product.approvalStatus === 'approved'
+                  ? 'Price approved'
+                  : product.approvalStatus === 'needs_review'
+                  ? 'Needs review'
+                  : 'Pricing'}
+              </div>
+              {showReadOnlyApprovedSummary && (
+                <AppButton variant="secondary" size="sm" onClick={() => setShowPriceForm(true)}>
+                  Update price
+                </AppButton>
+              )}
+            </div>
+
+            {/* Price rows */}
             <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Optimal Price:</span>
@@ -692,9 +717,47 @@ export default function ProductDetail() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Approved base price:</span>
                 <span className="money-value" style={{ fontWeight: 700, color: product.priceMismatch ? '#c62828' : undefined }}>
-                  {product.currentSellingPrice ? `GHS ${Number(product.currentSellingPrice).toFixed(2)}${product.priceMismatch ? ' ⚠' : ''}` : '—'}
+                  {product.currentSellingPrice
+                    ? `GHS ${Number(product.currentSellingPrice).toFixed(2)}${product.priceMismatch ? ' ⚠' : ''}`
+                    : '—'}
                 </span>
               </div>
+              {showReadOnlyApprovedSummary && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#64748b' }}>Production cost:</span>
+                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Margin section — only when approved and not editing */}
+            {showReadOnlyApprovedSummary && (
+              <>
+                <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', margin: '10px 0' }} />
+                <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Profit on cost:</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {product.approvedPrice && productionCost
+                        ? (((Number(product.approvedPrice) - productionCost) / productionCost) * 100).toFixed(1)
+                        : '—'}%
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Profit on sales:</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {product.approvedPrice && productionCost
+                        ? (((Number(product.approvedPrice) - productionCost) / Number(product.approvedPrice)) * 100).toFixed(1)
+                        : '—'}%
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Approval details */}
+            <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', margin: '10px 0' }} />
+            <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b' }}>Approval Status:</span>
                 <AppBadge variant={approvalBadge.variant} size="sm">{approvalBadge.label}</AppBadge>
@@ -711,11 +774,12 @@ export default function ProductDetail() {
                   <span style={{ fontWeight: 600 }}>{product.approvedBy}</span>
                 </div>
               )}
-              {shouldShowExpiry && normalizedExpiryDate && (
+              {product.approvedPriceExpiresAt && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Price expires:</span>
-                  <span style={{ fontWeight: 600, color: expiryColor }}>
-                    {formatDate(normalizedExpiryDate)} ({daysUntilExpiry}d)
+                  <span style={{ color: '#64748b' }}>Valid until:</span>
+                  <span style={{ fontWeight: 600, color: shouldShowExpiry ? expiryColor : '#94a3b8' }}>
+                    {formatDate(normalizedExpiryDate || product.approvedPriceExpiresAt)}
+                    {shouldShowExpiry && daysUntilExpiry !== null ? ` (${daysUntilExpiry}d)` : ''}
                   </span>
                 </div>
               )}
@@ -747,73 +811,6 @@ export default function ProductDetail() {
                     <span style={{ color: '#7c2d12' }}>Optimal price change:</span>
                     <span className="money-value" style={{ fontWeight: 700, color: optimalPrice - Number(product.approvedPrice) < 0 ? '#b91c1c' : '#166534' }}>
                       {optimalPrice - Number(product.approvedPrice) >= 0 ? '+' : '-'}GHS {Math.abs(optimalPrice - Number(product.approvedPrice)).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {showReadOnlyApprovedSummary && (
-            <div className="app-card" style={{ border: '1px solid #bbf7d0', backgroundColor: '#f0fdf4' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', fontWeight: 700, color: '#166534', fontSize: '15px' }}>
-                  <CheckCircle size={14} strokeWidth={2.2} />
-                  Price approved
-                </div>
-                <AppButton variant="secondary" size="sm" onClick={() => setShowPriceForm(true)}>
-                  Update price
-                </AppButton>
-              </div>
-
-              <div style={{ display: 'grid', gap: '8px', fontSize: '14px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Approved base price</span>
-                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {Number(product.approvedPrice).toFixed(2)}</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Production cost</span>
-                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Profit on cost</span>
-                  <span style={{ fontWeight: 700 }}>
-                    {product.approvedPrice && productionCost
-                      ? (((Number(product.approvedPrice) - productionCost)
-                          / productionCost) * 100).toFixed(1)
-                      : '—'}%
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Profit on sales</span>
-                  <span style={{ fontWeight: 700 }}>
-                    {product.approvedPrice && productionCost
-                      ? (((Number(product.approvedPrice) - productionCost)
-                          / Number(product.approvedPrice)) * 100).toFixed(1)
-                      : '—'}%
-                  </span>
-                </div>
-
-                {product.approvedBy && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Approved by</span>
-                    <span style={{ fontWeight: 700 }}>{product.approvedBy}</span>
-                  </div>
-                )}
-
-                {product.approvedPriceExpiresAt && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Valid until</span>
-                    <span style={{ fontWeight: 700 }}>
-                      {new Date(product.approvedPriceExpiresAt)
-                        .toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
                     </span>
                   </div>
                 )}
