@@ -303,7 +303,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
     insR.run(usdId, USD_TO_GHS, now, 'seed', now);
 
     // ── Settings ────────────────────────────────────────────────────────────
-    insS.run('base_currency',               'GHS',                now);
+    insS.run('baseCurrency',                'GHS',                now);
     insS.run('default_overhead_percentage', '25',                 now);
     insS.run('companyName',                 'Savanna Bakes Demo', now);
 
