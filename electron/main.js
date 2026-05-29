@@ -536,16 +536,24 @@ ipcMain.handle('validate-licence', async (_event, key) => {
 app.whenReady().then(async () => {
   const serverAlreadyRunning = await checkServerOnce();
 
-  // Copy demo.db from package resources to userData on first launch
+  // Copy demo.db from package resources to userData, replacing if version changed
+  const DEMO_DB_VERSION = '1.0.1';
   if (app.isPackaged) {
     const packagedDemoDb = path.join(process.resourcesPath, 'server', 'demo.db');
     const userDemoDb = path.join(app.getPath('userData'), 'demo.db');
-    if (fs.existsSync(packagedDemoDb) && !fs.existsSync(userDemoDb)) {
+    const demoVersionFile = path.join(app.getPath('userData'), 'demo.db.version');
+    const currentDemoVersion = fs.existsSync(demoVersionFile)
+      ? fs.readFileSync(demoVersionFile, 'utf8').trim()
+      : '0';
+    if (fs.existsSync(packagedDemoDb) && (
+      !fs.existsSync(userDemoDb) || currentDemoVersion !== DEMO_DB_VERSION
+    )) {
       try {
         fs.copyFileSync(packagedDemoDb, userDemoDb);
-        console.log('[startup] demo.db copied to userData');
+        fs.writeFileSync(demoVersionFile, DEMO_DB_VERSION, 'utf8');
+        console.log('[startup] demo.db updated to version', DEMO_DB_VERSION);
       } catch (copyErr) {
-        console.error('[startup] Failed to copy demo.db:', copyErr);
+        console.error('[startup] Failed to update demo.db:', copyErr);
       }
     }
   }
