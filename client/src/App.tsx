@@ -26,6 +26,8 @@ import PINScreen from './components/PINScreen';
 import { LicenceGate } from './components/LicenceGate';
 import { TrialBanner } from './components/TrialBanner';
 import { UpdateModal } from './components/UpdateModal';
+import { NotificationBell } from './components/NotificationBell';
+import { NotificationProvider } from './context/NotificationContext';
 import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
@@ -557,9 +559,20 @@ function AppLayout({ children }: { children: ReactNode }) {
         </aside>
 
         <main className="app-main">
+          {/* IPC listener — registers update events, renders nothing */}
+          <UpdateModal />
+          {/* Top header bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            padding: '8px 20px 0',
+            minHeight: '44px',
+          }}>
+            <NotificationBell />
+          </div>
           <DemoModeBanner />
           <TrialBanner />
-          <UpdateModal />
           {baseCurrencyMissing && (
             <div style={{ backgroundColor: '#DC2626', color: 'white', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <AlertTriangle size={16} style={{ flexShrink: 0 }} />
@@ -660,8 +673,10 @@ export default function App() {
   }, []);
 
   return (
-    <LicenceGate>
-      <AuthenticatedApp />
-    </LicenceGate>
+    <NotificationProvider>
+      <LicenceGate>
+        <AuthenticatedApp />
+      </LicenceGate>
+    </NotificationProvider>
   );
 }
