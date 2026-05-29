@@ -246,14 +246,22 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     console.log('[updater] Update available:', info.version);
     if (mainWindow) {
-      mainWindow.webContents.send('update-available', info.version);
+      mainWindow.webContents.send('update-available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes || '',
+        releaseDate: info.releaseDate || '',
+      });
     }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     console.log('[updater] Update downloaded:', info.version);
     if (mainWindow) {
-      mainWindow.webContents.send('update-downloaded', info.version);
+      mainWindow.webContents.send('update-downloaded', {
+        version: info.version,
+        releaseNotes: info.releaseNotes || '',
+        releaseDate: info.releaseDate || '',
+      });
     }
   });
 

@@ -23,9 +23,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     process.env.LICENCE_SERVER_URL ||
     'https://web-production-136f6.up.railway.app',
   onUpdateAvailable: (callback) =>
-    ipcRenderer.on('update-available', (_event, version) => callback(version)),
+    ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateDownloaded: (callback) =>
-    ipcRenderer.on('update-downloaded', (_event, version) => callback(version)),
+    ipcRenderer.on('update-downloaded', (_event, info) => callback(info)),
   restartAndUpdate: () =>
     ipcRenderer.send('restart-and-update'),
 });

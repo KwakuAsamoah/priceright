@@ -56,8 +56,14 @@ interface Window {
       error?: string;
     }>;
     licenceServerUrl: string;
-    onUpdateAvailable: (callback: (version: string) => void) => void;
-    onUpdateDownloaded: (callback: (version: string) => void) => void;
+    onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void;
+    onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
     restartAndUpdate: () => void;
   };
+}
+
+interface UpdateInfo {
+  version: string;
+  releaseNotes?: string;
+  releaseDate?: string;
 }
