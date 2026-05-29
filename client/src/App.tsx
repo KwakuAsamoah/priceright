@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterProvider } from 'react-router-dom';
 import { createHashRouter } from 'react-router';
-import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, LogOut, Package, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
+import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
 import { BaseCurrencyContext } from './context/BaseCurrencyContext';
 import Dashboard from './pages/Dashboard';
@@ -517,20 +517,42 @@ function AppLayout({ children }: { children: ReactNode }) {
             <span className="app-nav-icon" aria-hidden="true"><HelpCircle size={16} strokeWidth={2} /></span>
             Help
           </button>
-          <button
-            type="button"
-            className="app-nav-link"
-            onClick={handleExit}
-          >
-            <span className="app-nav-icon" aria-hidden="true"><LogOut size={16} strokeWidth={2} /></span>
-            Exit
-          </button>
         </div>
 
         <div className="app-user-panel">
           <div className="app-user-row">
             <div className="app-user-role" style={{ fontSize: '13px', color: 'rgba(241, 245, 249, 0.72)' }}>PriceRight</div>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 16px' }}>
+          <button
+            type="button"
+            onClick={handleExit}
+            title="Lock and exit"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '8px',
+              borderRadius: '8px',
+              color: 'rgba(255,255,255,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'color 0.15s, background 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
+              e.currentTarget.style.background = 'none';
+            }}
+          >
+            <Power size={18} />
+          </button>
         </div>
         </aside>
 
