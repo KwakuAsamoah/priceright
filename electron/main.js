@@ -243,6 +243,14 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[updater] Checking for update...');
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[updater] No update available. Current:', info.version);
+  });
+
   autoUpdater.on('update-available', (info) => {
     console.log('[updater] Update available:', info.version);
     if (mainWindow) {
