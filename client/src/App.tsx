@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterProvider } from 'react-router-dom';
@@ -471,45 +471,51 @@ function AppLayout({ children }: { children: ReactNode }) {
 
         <nav className="app-sidebar-nav">
           {NAV_SECTIONS.map((section, sectionIndex) => (
-            <section key={`section-${sectionIndex}`} className="app-nav-section">
-              {section.title ? <div className="app-nav-title">{section.title}</div> : null}
-              {section.items.map((item) => {
-                const count =
-                  item.to === '/materials' ? navCounts.materials :
-                  item.to === '/products' ? navCounts.products :
-                  item.to === '/price-levels' ? navCounts.priceLevels :
-                  0;
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`app-nav-link ${item.isActive(location.pathname) ? 'is-active' : ''}`}
-                  >
-                    <span className="app-nav-icon" aria-hidden="true"><item.icon size={16} strokeWidth={2} /></span>
-                    {item.label}
-                    {count > 0 && (
-                      <span style={{
-                        marginLeft: 'auto',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: 'rgba(255,255,255,0.15)',
-                        color: 'rgba(241,245,249,0.85)',
-                        minWidth: '20px',
-                        textAlign: 'center',
-                      }}>
-                        {count}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </section>
+            <Fragment key={`section-${sectionIndex}`}>
+              {/* Thin divider before the Pricing group */}
+              {sectionIndex === 2 && (
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '6px 12px' }} />
+              )}
+              <section className="app-nav-section">
+                {section.items.map((item) => {
+                  const count =
+                    item.to === '/materials' ? navCounts.materials :
+                    item.to === '/products' ? navCounts.products :
+                    item.to === '/price-levels' ? navCounts.priceLevels :
+                    0;
+                  return (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className={`app-nav-link ${item.isActive(location.pathname) ? 'is-active' : ''}`}
+                    >
+                      <span className="app-nav-icon" aria-hidden="true"><item.icon size={16} strokeWidth={2} /></span>
+                      {item.label}
+                      {count > 0 && (
+                        <span style={{
+                          marginLeft: 'auto',
+                          fontSize: '10px',
+                          fontWeight: 600,
+                          lineHeight: 1,
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          backgroundColor: 'rgba(255,255,255,0.12)',
+                          color: 'rgba(255,255,255,0.65)',
+                          minWidth: '18px',
+                          textAlign: 'center',
+                        }}>
+                          {count}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </section>
+            </Fragment>
           ))}
         </nav>
 
+        {/* Help trigger */}
         <div className="app-sidebar-footer">
           <button
             type="button"
@@ -521,56 +527,54 @@ function AppLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <div className="app-user-panel">
-          <div className="app-user-row">
-            <div className="app-user-role" style={{ fontSize: '13px', color: 'rgba(241, 245, 249, 0.72)' }}>PriceRight</div>
+        {/* Bottom bar — label + bell + power */}
+        <div style={{
+          padding: '10px 14px',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontWeight: 500 }}>
+            PriceRight
+          </span>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <NotificationBell variant="sidebar" />
+            <button
+              type="button"
+              onClick={handleExit}
+              title="Lock and exit"
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.06)',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'rgba(255,255,255,0.35)',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+              }}
+            >
+              <Power size={14} />
+            </button>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 16px' }}>
-          <button
-            type="button"
-            onClick={handleExit}
-            title="Lock and exit"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: '8px',
-              color: 'rgba(255,255,255,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'color 0.15s, background 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
-              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
-              e.currentTarget.style.background = 'none';
-            }}
-          >
-            <Power size={18} />
-          </button>
         </div>
         </aside>
 
         <main className="app-main">
           {/* IPC listener — registers update events, renders nothing */}
           <UpdateModal />
-          {/* Top header bar */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            padding: '8px 20px 0',
-            minHeight: '44px',
-          }}>
-            <NotificationBell />
-          </div>
           <DemoModeBanner />
           <TrialBanner />
           {baseCurrencyMissing && (

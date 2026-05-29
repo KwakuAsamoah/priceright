@@ -2,6 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '../context/NotificationContext';
 
+interface NotificationBellProps {
+  variant?: 'header' | 'sidebar';
+}
+
 function parseReleaseNotes(notes: string | undefined): string {
   if (!notes) return '';
   return notes
@@ -14,7 +18,7 @@ function parseReleaseNotes(notes: string | undefined): string {
     .trim();
 }
 
-export function NotificationBell() {
+export function NotificationBell({ variant = 'header' }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -26,6 +30,8 @@ export function NotificationBell() {
     markAllRead,
     restartAndUpdate,
   } = useNotifications();
+
+  const isSidebar = variant === 'sidebar';
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -47,6 +53,43 @@ export function NotificationBell() {
 
   const notes = parseReleaseNotes(updateInfo?.releaseNotes);
 
+  /* ── Sidebar variant button styles ── */
+  const sidebarBtnStyle: React.CSSProperties = {
+    position: 'relative',
+    width: '28px',
+    height: '28px',
+    borderRadius: '6px',
+    background: open ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: open ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
+    transition: 'all 0.15s',
+    flexShrink: 0,
+  };
+
+  /* ── Header variant button styles ── */
+  const headerBtnStyle: React.CSSProperties = {
+    position: 'relative',
+    background: open ? '#F1F5F9' : 'none',
+    border: 'none',
+    borderRadius: '8px',
+    color: open ? '#0F2847' : '#475569',
+    cursor: 'pointer',
+    padding: '7px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background 0.15s, color 0.15s',
+  };
+
+  /* ── Panel position: sidebar opens upward to the right, header opens down ── */
+  const panelPositionStyle: React.CSSProperties = isSidebar
+    ? { bottom: 'calc(100% + 8px)', left: 0 }
+    : { top: 'calc(100% + 8px)', right: 0 };
+
   return (
     <div ref={panelRef} style={{ position: 'relative' }}>
       {/* Bell button */}
@@ -55,34 +98,44 @@ export function NotificationBell() {
         onClick={handleOpen}
         title="Notifications"
         aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-        style={{
-          position: 'relative',
-          background: open ? '#F1F5F9' : 'none',
-          border: 'none',
-          borderRadius: '8px',
-          color: open ? '#0F2847' : '#475569',
-          cursor: 'pointer',
-          padding: '7px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'background 0.15s, color 0.15s',
-        }}
+        style={isSidebar ? sidebarBtnStyle : headerBtnStyle}
         onMouseEnter={e => {
-          e.currentTarget.style.background = '#F1F5F9';
-          e.currentTarget.style.color = '#0F2847';
+          if (isSidebar) {
+            e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+          } else {
+            e.currentTarget.style.background = '#F1F5F9';
+            e.currentTarget.style.color = '#0F2847';
+          }
         }}
         onMouseLeave={e => {
           if (!open) {
-            e.currentTarget.style.background = 'none';
-            e.currentTarget.style.color = '#475569';
+            if (isSidebar) {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+            } else {
+              e.currentTarget.style.background = 'none';
+              e.currentTarget.style.color = '#475569';
+            }
           }
         }}
       >
-        <Bell size={18} />
+        <Bell size={isSidebar ? 14 : 18} />
 
-        {/* Unread badge */}
-        {unreadCount > 0 && (
+        {/* Badge — sidebar: green dot; header: red count pill */}
+        {unreadCount > 0 && isSidebar && (
+          <span style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: '#059669',
+            border: '1px solid rgba(0,0,0,0.2)',
+          }} />
+        )}
+        {unreadCount > 0 && !isSidebar && (
           <span style={{
             position: 'absolute',
             top: '3px',
@@ -104,8 +157,20 @@ export function NotificationBell() {
           </span>
         )}
 
-        {/* Downloading pulse ring */}
-        {isDownloading && (
+        {/* Downloading pulse — sidebar: blue dot; header: pulse ring */}
+        {isDownloading && isSidebar && (
+          <span style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: '#3b82f6',
+            animation: 'bellPulse 1.5s ease-in-out infinite',
+          }} />
+        )}
+        {isDownloading && !isSidebar && (
           <span style={{
             position: 'absolute',
             inset: '2px',
@@ -121,13 +186,12 @@ export function NotificationBell() {
       {open && (
         <div style={{
           position: 'absolute',
-          top: 'calc(100% + 8px)',
-          right: 0,
+          ...panelPositionStyle,
           width: '320px',
           background: '#fff',
           border: '1px solid #E2E8F0',
           borderRadius: '12px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.14)',
           zIndex: 9000,
           overflow: 'hidden',
         }}>

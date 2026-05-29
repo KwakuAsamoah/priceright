@@ -100,8 +100,8 @@ textarea {
 }
 
 .app-page-header {
-  background-color: var(--color-header-bg);
-  border-bottom: 1px solid var(--color-header-border);
+  background-color: #ffffff;
+  border-bottom: 1px solid #E2E8F0;
   padding: 16px var(--space-page);
 }
 
@@ -111,14 +111,14 @@ textarea {
   font-size: var(--font-size-2xl);
   font-weight: 700;
   line-height: 1.25;
-  color: var(--color-header-text);
+  color: #0F2847;
 }
 
 .app-page-subtitle {
   margin: 4px 0 0;
   font-size: var(--font-body);
   font-weight: 400;
-  color: var(--color-header-subtext);
+  color: var(--color-text-secondary);
 }
 
 .app-page-content {
@@ -200,11 +200,11 @@ textarea {
   gap: 8px;
   margin-bottom: 12px;
   font-size: var(--font-size-md);
-  color: var(--color-header-subtext);
+  color: var(--color-text-secondary);
 }
 
 .app-breadcrumb-current {
-  color: var(--color-header-text);
+  color: var(--color-text);
 }
 
 .app-header-row {
@@ -269,7 +269,7 @@ textarea {
 }
 
 .products-toolbar-actions .btn.btn-sm {
-  font-size: 11px !important;
+  font-size: 14px !important;
   min-height: 40px;
   padding: 0 8px !important;
   white-space: nowrap;
