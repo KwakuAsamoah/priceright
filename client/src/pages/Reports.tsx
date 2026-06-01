@@ -1247,9 +1247,19 @@ export default function Reports() {
         <h1 className="app-page-title">Reporting Centre</h1>
       </div>
 
-      <div className="app-page-content" style={{ gap: '14px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(0, 1fr)', gap: '14px', alignItems: 'start' }}>
-          <aside className="app-card report-selector-panel" style={{ padding: '10px', position: 'sticky', top: '10px' }}>
+      <div className="app-page-content">
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', overflow: 'hidden' }}>
+          <aside
+            className="app-card report-selector-panel"
+            style={{
+              width: '280px',
+              flexShrink: 0,
+              overflow: 'hidden',
+              padding: '10px',
+              position: 'sticky',
+              top: '10px',
+            }}
+          >
             <div style={{ display: 'grid', gap: '8px' }}>
               {REPORT_METADATA.map((report) => {
                 const Icon = report.icon;
@@ -1266,6 +1276,9 @@ export default function Reports() {
                       setError(null);
                     }}
                     style={{
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
                       border: '1px solid #e2e8f0',
                       borderRadius: '10px',
                       backgroundColor: isActive ? '#111827' : '#fff',
@@ -1292,7 +1305,7 @@ export default function Reports() {
             </div>
           </aside>
 
-          <section className="report-viewer-panel" style={{ minWidth: 0 }}>
+          <section className="report-viewer-panel" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             {!selectedReport && (
               <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
                 <div style={{ textAlign: 'center', color: '#64748b' }}>
