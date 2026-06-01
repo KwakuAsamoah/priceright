@@ -618,7 +618,7 @@ export default function Dashboard() {
   const skeletonCards = (
     <div className="dashboard-stat-grid">
       {Array.from({ length: 5 }).map((_, index) => (
-        <div key={`skeleton-card-${index}`} className="app-card dashboard-skeleton-block" style={{ height: '120px' }} />
+        <div key={`skeleton-card-${index}`} className="app-card dashboard-skeleton-block" style={{ minHeight: '120px' }} />
       ))}
     </div>
   );
@@ -1204,6 +1204,23 @@ export default function Dashboard() {
           cursor: pointer;
           border: 1px solid #dbe2ea;
           transition: border-color 0.15s ease;
+          min-height: 120px;
+          height: auto;
+          overflow: visible;
+          white-space: normal;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          min-width: 0;
+        }
+        .app-page button.dashboard-stat-card {
+          white-space: normal !important;
+          height: auto;
+          overflow: visible;
+          text-align: left;
+          padding: 16px !important;
+          background: #ffffff !important;
+          border: 1px solid #dbe2ea !important;
         }
         .dashboard-stat-card:hover {
           border-color: #cbd5e1;
@@ -1253,12 +1270,20 @@ export default function Dashboard() {
           font-weight: 700;
           color: #64748b;
           letter-spacing: 0.3px;
+          white-space: normal;
+          overflow: visible;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
         .dashboard-stat-sub {
           margin-top: 6px;
           font-size: 13px;
           color: #64748b;
           line-height: 1.35;
+          white-space: normal;
+          overflow: visible;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
         .dashboard-stat-hint {
           margin-top: 4px;
@@ -1266,6 +1291,10 @@ export default function Dashboard() {
           font-weight: 600;
           color: #475569;
           line-height: 1.3;
+          white-space: normal;
+          overflow: visible;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
         .dashboard-help-text {
           margin: 0 0 10px;
