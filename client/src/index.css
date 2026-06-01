@@ -102,22 +102,23 @@ textarea {
 .app-page-header {
   background-color: #ffffff;
   border-bottom: 1px solid #E2E8F0;
-  padding: 16px var(--space-page);
+  padding: 16px var(--space-page) 20px;
 }
 
 .app-page-title {
   margin: 0;
   font-family: var(--font-family-heading);
-  font-size: var(--font-size-2xl);
+  font-size: 24px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   color: #0F2847;
 }
 
 .app-page-subtitle {
   margin: 4px 0 0;
-  font-size: var(--font-body);
+  font-size: 14px;
   font-weight: 400;
+  line-height: 1.5;
   color: var(--color-text-secondary);
 }
 
@@ -127,7 +128,7 @@ textarea {
   padding: var(--space-page);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-section);
+  gap: 20px;
   min-width: 0;
 }
 
@@ -367,9 +368,7 @@ textarea {
   line-height: 1.4;
 }
 
-.settings-page .app-page-title {
-  font-size: var(--font-size-xl);
-}
+/* .settings-page .app-page-title — removed; all page titles now 24px */
 
 .settings-page .app-settings-card {
   padding: 18px;
@@ -493,11 +492,11 @@ textarea {
 }
 
 .app-card {
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  padding: var(--space-card);
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 20px 24px;
   transition: border-color 0.18s ease;
   min-width: 0;
 }
@@ -536,75 +535,127 @@ textarea {
 .app-page select:focus,
 .app-page textarea:focus,
 .app-control:focus {
-  outline: 2px solid rgba(37, 99, 235, 0.2);
-  outline-offset: 0;
-  border-color: var(--color-accent) !important;
+  outline: none;
+  border-color: #0F2847 !important;
+  box-shadow: 0 0 0 3px rgba(15, 40, 71, 0.08);
 }
 
+/* ── Base button reset — applied to all page buttons ── */
 .btn,
 .app-page button {
-  font-family: 'Open Sans', sans-serif;
-  border-radius: var(--radius-sm) !important;
-  padding: 10px 20px !important;
-  font-size: var(--font-size-md) !important;
-  font-weight: 500 !important;
-  border: 1px solid var(--color-input-border) !important;
-  background: #ffffff !important;
-  color: var(--color-text-secondary) !important;
+  font-family: inherit;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  background: #F1F5F9 !important;
+  color: #0F2847 !important;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn:hover,
 .app-page button:hover {
-  border-color: var(--color-accent) !important;
-  color: var(--color-text) !important;
+  background: #E2E8F0 !important;
 }
 
 .btn:disabled,
 .app-page button:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* Primary */
 .btn-primary {
-  background: var(--color-accent) !important;
+  background: #0F2847 !important;
   color: #ffffff !important;
-  border-color: var(--color-accent) !important;
+  border: none !important;
 }
 
+.btn-primary:hover {
+  background: #1a3a5c !important;
+}
+
+/* Secondary */
 .btn-secondary {
-  background: #ffffff !important;
-  color: var(--color-text-secondary) !important;
-  border-color: var(--color-border) !important;
+  background: #F1F5F9 !important;
+  color: #0F2847 !important;
+  border: 1px solid #E2E8F0 !important;
 }
 
+.btn-secondary:hover {
+  background: #E2E8F0 !important;
+}
+
+/* Outline */
+.btn-outline {
+  background: #ffffff !important;
+  color: #0F2847 !important;
+  border: 1.5px solid #E2E8F0 !important;
+}
+
+.btn-outline:hover {
+  border-color: #0F2847 !important;
+  background: #F8FAFC !important;
+}
+
+/* Ghost */
+.btn-ghost {
+  background: transparent !important;
+  color: #475569 !important;
+  border: none !important;
+}
+
+.btn-ghost:hover {
+  background: #F1F5F9 !important;
+  color: #0F2847 !important;
+}
+
+/* Danger */
+.btn-danger {
+  background: #ffffff !important;
+  color: #DC2626 !important;
+  border: 1.5px solid #FECACA !important;
+}
+
+.btn-danger:hover {
+  background: #FEF2F2 !important;
+  border-color: #DC2626 !important;
+}
+
+/* Success — intentional green, do not change */
 .btn-success {
   background: var(--color-success) !important;
   color: #ffffff !important;
+  border: none !important;
 }
 
-.btn-danger {
-  background: var(--color-error) !important;
-  color: #ffffff !important;
-}
-
-.btn-ghost {
-  background: transparent !important;
-  color: var(--color-text-secondary) !important;
-  border-color: var(--color-border) !important;
-}
-
+/* Warning — intentional warm, do not change */
 .btn-warning {
   background: var(--color-warning-soft) !important;
   color: var(--color-warning-text) !important;
-  border-color: #fcd34d !important;
+  border: 1px solid #fcd34d !important;
 }
 
+/* Sizes */
 .btn-sm {
+  font-size: 13px !important;
   padding: 6px 12px !important;
-  font-size: var(--font-size-xs) !important;
-  border-radius: 6px !important;
+  border-radius: 7px !important;
+}
+
+.btn-lg {
+  font-size: 15px !important;
+  padding: 11px 20px !important;
+  border-radius: 9px !important;
 }
 
 .status-badge {
@@ -939,10 +990,10 @@ textarea {
 }
 
 .app-modal-title {
-  margin: 0 0 20px;
-  font-size: var(--font-size-xxl);
+  margin: 0 0 16px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--color-text);
+  color: #0F2847;
   font-family: 'Open Sans', sans-serif;
 }
 

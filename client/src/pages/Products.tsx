@@ -2832,7 +2832,7 @@ export default function Products() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>Delete {deleteTarget.name}?</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px', color: '#0F2847' }}>Delete {deleteTarget.name}?</div>
             <div style={{ fontSize: '16px', color: '#64748b', marginBottom: '20px' }}>
               This will also delete its BOM. This cannot be undone.
             </div>

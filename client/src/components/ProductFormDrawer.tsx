@@ -342,8 +342,8 @@ export default function ProductFormDrawer({
           &times;
         </button>
         <div style={{ marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
-          <div style={{ color: '#64748b', fontSize: '15px' }}>Update product details and BOM inline</div>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0F2847' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
+          <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Update product details and BOM inline</div>
         </div>
 
         <form onSubmit={handleSubmit}>

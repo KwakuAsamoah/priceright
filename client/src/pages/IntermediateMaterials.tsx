@@ -1401,15 +1401,15 @@ export default function IntermediateMaterials() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '22px', fontWeight: '700' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
-                  <div style={{ color: '#64748b', fontSize: '15px', marginTop: 4 }}>Update material details and cost settings inline</div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0F2847' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                  <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Update material details and cost settings inline</div>
                 </div>
                 <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
               </div>
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700' }}>Material Details</h3>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0F2847' }}>Material Details</h3>
             </div>
             <form onSubmit={handleMaterialSubmit}>
               <div style={formSectionStyle}>
