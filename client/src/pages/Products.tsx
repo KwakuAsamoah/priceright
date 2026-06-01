@@ -2032,7 +2032,7 @@ export default function Products() {
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
                   <RefreshCw size={16} strokeWidth={2} />
-                  Update Prices
+                  Review Prices
                 </button>
               )}
 
@@ -2572,7 +2572,7 @@ export default function Products() {
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
               <div>
                 <div style={{ fontSize: '18px', fontWeight: 700 }}>
-                  {priceReviewMode === 'setup' ? 'Set Starting Prices' : 'Update Prices Workflow'}
+                  {priceReviewMode === 'setup' ? 'Set Starting Prices' : 'Review Prices Workflow'}
                 </div>
                 <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>
                   {priceReviewMode === 'setup'
@@ -2583,7 +2583,7 @@ export default function Products() {
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={closePriceReviewPanel}
-                aria-label="Close update prices panel"
+                aria-label="Close review prices panel"
               >
                 <X size={14} strokeWidth={2} />
               </button>
@@ -2595,7 +2595,7 @@ export default function Products() {
                 value={priceReviewSearch}
                 onChange={(e) => setPriceReviewSearch(e.target.value)}
                 placeholder="Search by product name or SKU"
-                aria-label="Search products in update prices panel"
+                aria-label="Search products in review prices panel"
               />
             </div>
 
