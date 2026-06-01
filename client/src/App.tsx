@@ -19,6 +19,8 @@ import HelpPage from './pages/HelpPage';
 import UndoBanner from './components/UndoBanner';
 import { UndoActionProvider } from './hooks/useUndoAction';
 import { WelcomeModal } from './components/WelcomeModal';
+import { OnboardingBar } from './components/OnboardingBar';
+import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
@@ -263,6 +265,7 @@ function AppLayout({ children }: { children: ReactNode }) {
 
   const { isDemoMode } = useDemoMode();
   const { hasOpenForm } = useFormState();
+  const { resumeOnboarding } = useOnboarding();
   const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
 
@@ -420,8 +423,12 @@ function AppLayout({ children }: { children: ReactNode }) {
             )
           : undefined;
 
-        if (!onboardingDone || onboardingDone.settingValue !== 'true') {
-          setShowWelcome(true);
+        if (!onboardingDone || onboardingDone.settingValue === 'in_progress') {
+          if (onboardingDone?.settingValue === 'in_progress') {
+            resumeOnboarding();
+          } else if (onboardingDone?.settingValue !== 'in_progress') {
+            setShowWelcome(true);
+          }
         }
       } catch {
         // Fail open — don't block the app if settings can't load.
@@ -437,7 +444,7 @@ function AppLayout({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isUnlocked]);
+  }, [isUnlocked, resumeOnboarding]);
 
   if (!isUnlocked) {
     if (isCheckingPin) {
@@ -611,6 +618,7 @@ function AppLayout({ children }: { children: ReactNode }) {
               </button>
             </div>
           )}
+          <OnboardingBar />
           {children}
         </main>
           <UndoBanner />
@@ -644,14 +652,21 @@ function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
+function OnboardingProviderWrapper({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  return <OnboardingProvider navigate={navigate}>{children}</OnboardingProvider>;
+}
+
 function AuthenticatedApp() {
   const router = createHashRouter([
     {
       path: '/',
       element: (
-        <AppLayout>
-          <Outlet />
-        </AppLayout>
+        <OnboardingProviderWrapper>
+          <AppLayout>
+            <Outlet />
+          </AppLayout>
+        </OnboardingProviderWrapper>
       ),
       children: [
         { index: true, element: <Dashboard /> },

@@ -1,40 +1,43 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ClipboardList } from 'lucide-react';
 import { settingsApi } from '../api';
+import { useOnboarding } from '../context/OnboardingContext';
 
 interface WelcomeModalProps {
   onDismiss: () => void;
 }
 
 export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
-  const navigate = useNavigate();
+  const { startOnboarding } = useOnboarding();
   const [saving, setSaving] = useState(false);
 
-  async function persistOnboardingComplete() {
+  async function handleDismiss() {
+    setSaving(true);
     try {
       await settingsApi.save({
         settingKey: 'onboardingCompleted',
         settingValue: 'true',
       });
     } catch {
-      // Non-blocking — modal still dismisses if save fails.
+      // Non-blocking.
     }
-  }
-
-  async function handleDismiss() {
-    setSaving(true);
-    await persistOnboardingComplete();
     setSaving(false);
     onDismiss();
   }
 
   async function handleStartMaterials() {
     setSaving(true);
-    await persistOnboardingComplete();
+    try {
+      await settingsApi.save({
+        settingKey: 'onboardingCompleted',
+        settingValue: 'in_progress',
+      });
+    } catch {
+      // Non-blocking.
+    }
     setSaving(false);
     onDismiss();
-    navigate('/materials');
+    startOnboarding();
   }
 
   const steps = [
