@@ -1081,6 +1081,12 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     setShowAddModal(true);
   }
 
+  function openAddMaterial() {
+    setEditingMaterial(null);
+    resetForm();
+    setShowAddModal(true);
+  }
+
   function openEditFromDetail(material: Material) {
     setDetailMaterial(null);
     handleEdit(material);
@@ -1708,9 +1714,30 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             </table>
 
             {filteredMaterials.length === 0 && (
-              <div className="app-empty-state">
-                No materials found.
-              </div>
+              materials.length === 0 ? (
+                <div className="app-empty-state">
+                  <div className="app-empty-state-icon" aria-hidden="true">📦</div>
+                  <div className="app-empty-state-title">No materials yet</div>
+                  <div className="app-empty-state-text">
+                    Add your raw materials to get started.
+                    Each material needs a name, unit, and bulk price.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ marginTop: '16px' }}
+                    onClick={openAddMaterial}
+                    disabled={baseCurrencyMissing}
+                    title={baseCurrencyMissing ? 'Set a base currency first in Settings' : undefined}
+                  >
+                    + Add your first material
+                  </button>
+                </div>
+              ) : (
+                <div className="app-empty-state">
+                  No materials found.
+                </div>
+              )
             )}
           </div>
         </div>
@@ -2632,10 +2659,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Date</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Purchase Price</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Base Currency</th>
-                      <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', fontSize: '16px' }}>Change</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Purchase Price</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Base Currency</th>
+                      <th style={{ padding: '12px', textAlign: 'left' }}>Change</th>
                     </tr>
                   </thead>
                   <tbody>

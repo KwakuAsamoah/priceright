@@ -280,6 +280,75 @@
   text-align: center;
 }
 
+.welcome-modal-card-onboarding {
+  width: min(640px, 100%);
+  text-align: left;
+}
+
+.welcome-modal-step-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.welcome-modal-step-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.welcome-modal-step-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome-modal-step-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.welcome-modal-step-description {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.welcome-modal-tip {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.welcome-modal-actions-onboarding {
+  grid-template-columns: 1fr;
+}
+
+.welcome-modal-actions-onboarding .welcome-modal-primary,
+.welcome-modal-actions-onboarding .welcome-modal-secondary {
+  width: 100%;
+  font-size: 14px;
+  padding: 12px 16px;
+}
+
 .welcome-modal-icon {
   width: 64px;
   height: 64px;

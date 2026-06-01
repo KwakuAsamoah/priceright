@@ -1,102 +1,126 @@
-import { LayoutDashboard } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardList } from 'lucide-react';
+import { settingsApi } from '../api';
 
-type WelcomeModalProps = {
-  onGetStarted: () => void;
-};
-
-const GUIDE_POINTS = [
-  'Add your raw materials and costs.',
-  'Build products with bills of materials.',
-  'Approve base prices for your products.',
-  'Create price levels for customer groups.',
-  'Export a price list to Excel or PDF.',
-];
-
-function openPrintableGuide() {
-  const printWindow = window.open('', '_blank', 'width=900,height=1200');
-  if (!printWindow) {
-    return;
-  }
-
-  const pointsHtml = GUIDE_POINTS.map((point) => `<li>${point}</li>`).join('');
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>PriceRight Welcome Guide</title>
-        <style>
-          @page { size: A4; margin: 18mm; }
-          body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; }
-          .page { max-width: 720px; margin: 0 auto; }
-          .header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-          .icon { width: 52px; height: 52px; border-radius: 16px; background: #111111; color: #ffffff; display: flex; align-items: center; justify-content: center; }
-          h1 { margin: 0; font-size: 29px; }
-          .subtitle { margin: 4px 0 0; color: #475569; font-size: 15px; }
-          p { line-height: 1.7; font-size: 15px; color: #334155; }
-          ol { margin: 18px 0 0 20px; padding: 0; }
-          li { margin: 0 0 10px; line-height: 1.6; font-size: 15px; }
-          .note { margin-top: 18px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="page">
-          <div class="header">
-            <div class="icon">PR</div>
-            <div>
-              <h1>PriceRight Welcome Guide</h1>
-              <div class="subtitle">Simple setup instructions for first-time users</div>
-            </div>
-          </div>
-          <p>PriceRight helps you cost products accurately, approve base prices, and manage customer pricing in one place.</p>
-          <ol>${pointsHtml}</ol>
-          <div class="note">
-            Downloading sample data is optional. If you want to explore first, go to Settings and download the bundled sample files.
-          </div>
-        </div>
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  window.setTimeout(() => printWindow.print(), 250);
+interface WelcomeModalProps {
+  onDismiss: () => void;
 }
 
-export default function WelcomeModal({ onGetStarted }: WelcomeModalProps) {
+export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
+  const navigate = useNavigate();
+  const [saving, setSaving] = useState(false);
+
+  async function persistOnboardingComplete() {
+    try {
+      await settingsApi.save({
+        settingKey: 'onboardingCompleted',
+        settingValue: 'true',
+      });
+    } catch {
+      // Non-blocking — modal still dismisses if save fails.
+    }
+  }
+
+  async function handleDismiss() {
+    setSaving(true);
+    await persistOnboardingComplete();
+    setSaving(false);
+    onDismiss();
+  }
+
+  async function handleStartMaterials() {
+    setSaving(true);
+    await persistOnboardingComplete();
+    setSaving(false);
+    onDismiss();
+    navigate('/materials');
+  }
+
+  const steps = [
+    {
+      number: '1',
+      title: 'Add your materials',
+      description: 'Enter your raw materials, suppliers, and current prices.',
+      color: '#0F2847',
+    },
+    {
+      number: '2',
+      title: 'Build your products',
+      description: 'Define your product recipes — what goes in and how much.',
+      color: '#0F2847',
+    },
+    {
+      number: '3',
+      title: 'Approve your prices',
+      description: 'Review calculated costs and approve your selling prices.',
+      color: '#0F2847',
+    },
+    {
+      number: '4',
+      title: 'Export your price list',
+      description: 'Share approved prices with your sales team via price levels.',
+      color: '#059669',
+    },
+  ];
+
   return (
     <div className="welcome-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-modal-title">
-      <div className="welcome-modal-card welcome-modal-card-simple" style={{ position: 'relative' }}>
-        <button className="btn-close-x" onClick={onGetStarted} aria-label="Close">
+      <div className="welcome-modal-card welcome-modal-card-onboarding" style={{ position: 'relative' }}>
+        <button className="btn-close-x" onClick={() => { void handleDismiss(); }} aria-label="Close" disabled={saving}>
           &times;
         </button>
-        <div className="welcome-modal-icon" aria-hidden="true">
-          <LayoutDashboard size={48} strokeWidth={2} />
+
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div className="welcome-modal-icon" aria-hidden="true">
+            <ClipboardList size={32} strokeWidth={2} />
+          </div>
+          <h2 id="welcome-modal-title" className="welcome-modal-title">Welcome to PriceRight</h2>
+          <p className="welcome-modal-subtitle" style={{ maxWidth: '420px', margin: '8px auto 0' }}>
+            You are minutes away from knowing your true production cost.
+            Here is how to get started:
+          </p>
         </div>
-        <h2 id="welcome-modal-title" className="welcome-modal-title">Welcome to PriceRight</h2>
-        <p className="welcome-modal-subtitle">Pricing management for food manufacturers</p>
 
-        <p className="welcome-modal-body">
-          PriceRight helps you build accurate product costs from your raw materials, set profitable prices, and manage what
-          you charge different customer groups — all in one place.
-        </p>
+        <div className="welcome-modal-step-grid">
+          {steps.map((step) => (
+            <div key={step.number} className="welcome-modal-step-card">
+              <div className="welcome-modal-step-number" style={{ backgroundColor: step.color }}>
+                {step.number}
+              </div>
+              <div>
+                <div className="welcome-modal-step-title">{step.title}</div>
+                <div className="welcome-modal-step-description">{step.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <p className="welcome-modal-body" style={{ marginTop: '12px' }}>
-          To get started:
-        </p>
-        <ul className="welcome-modal-body" style={{ marginTop: '4px', paddingLeft: '20px', lineHeight: 1.8 }}>
-          <li>Add your base currency in <strong>Settings → Currencies and Rates</strong></li>
-          <li>Add your raw materials under <strong>Materials</strong></li>
-          <li>Build your products under <strong>Products</strong></li>
-          <li>Or explore first with sample data from the <strong>Dashboard</strong></li>
-        </ul>
+        <div className="welcome-modal-tip">
+          💡 Tip: Start with Materials — everything else builds from your material costs.
+        </div>
 
-        <div className="welcome-modal-actions welcome-modal-actions-simple">
-          <button type="button" className="welcome-modal-secondary" onClick={openPrintableGuide}>
-            Download starter guide
+        <div className="welcome-modal-actions welcome-modal-actions-onboarding">
+          <button
+            type="button"
+            className="welcome-modal-primary"
+            onClick={() => { void handleStartMaterials(); }}
+            disabled={saving}
+          >
+            Start with Materials →
           </button>
-          <button type="button" className="welcome-modal-primary" onClick={onGetStarted}>
-            Get started →
+          <button
+            type="button"
+            className="welcome-modal-secondary"
+            onClick={() => { void handleDismiss(); }}
+            disabled={saving}
+          >
+            Explore on my own
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+export default WelcomeModal;

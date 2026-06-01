@@ -1401,8 +1401,21 @@ export default function PriceLevels() {
               })}
 
               {filteredLevels.length === 0 && (
-                <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: '15px', color: '#64748b' }}>
-                  No price levels yet. Create your first one.
+                <div className="app-empty-state" style={{ padding: '28px 16px' }}>
+                  <div className="app-empty-state-icon" aria-hidden="true">🏷️</div>
+                  <div className="app-empty-state-title">No price levels yet</div>
+                  <div className="app-empty-state-text">
+                    Price levels let you set different prices for different customer types — wholesale,
+                    retail, export. Create your first level to get started.
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ marginTop: '16px' }}
+                    onClick={openWizard}
+                  >
+                    + Create your first price level
+                  </button>
                 </div>
               )}
             </div>

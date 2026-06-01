@@ -215,11 +215,11 @@ export default function IntermediateDetail() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8fafc' }}>
-                      <th style={{ padding: '10px', textAlign: 'left', fontSize: '15px' }}>Material Name</th>
-                      <th style={{ padding: '10px', textAlign: 'right', fontSize: '15px' }}>Quantity</th>
-                      <th style={{ padding: '10px', textAlign: 'right', fontSize: '15px' }}>Unit</th>
-                      <th style={{ padding: '10px', textAlign: 'right', fontSize: '15px' }}>Unit Price</th>
-                      <th style={{ padding: '10px', textAlign: 'right', fontSize: '15px' }}>Total</th>
+                      <th style={{ padding: '10px', textAlign: 'left' }}>Material Name</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Quantity</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Unit</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Unit Price</th>
+                      <th style={{ padding: '10px', textAlign: 'right' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>

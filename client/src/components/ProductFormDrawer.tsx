@@ -597,11 +597,11 @@ export default function ProductFormDrawer({
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ backgroundColor: '#f1f5f9' }}>
                   <tr>
-                    <th style={{ padding: '8px', textAlign: 'left', fontSize: '14px' }}>Material</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Quantity</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Unit Price</th>
-                    <th style={{ padding: '8px', textAlign: 'right', fontSize: '14px' }}>Total</th>
-                    <th style={{ padding: '8px', textAlign: 'center', fontSize: '14px' }}>Action</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Material</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Quantity</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Unit Price</th>
+                    <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
+                    <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -1869,10 +1869,29 @@ export default function Products() {
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
           </div>
           {filteredProducts.length === 0 ? (
-            <div className="app-empty-state">
-              <div className="app-loading-title">No matching products</div>
-              <div className="app-loading-subtitle">Adjust filters or add a new product to get started</div>
-            </div>
+            products.length === 0 ? (
+              <div className="app-empty-state">
+                <div className="app-empty-state-icon" aria-hidden="true">📦</div>
+                <div className="app-empty-state-title">No products yet</div>
+                <div className="app-empty-state-text">
+                  Build your products by adding a bill of materials.
+                  PriceRight will calculate the production cost automatically.
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ marginTop: '16px' }}
+                  onClick={handleAddProduct}
+                >
+                  + Add your first product
+                </button>
+              </div>
+            ) : (
+              <div className="app-empty-state">
+                <div className="app-empty-state-title">No matching products</div>
+                <div className="app-empty-state-text">Adjust filters or add a new product to get started</div>
+              </div>
+            )
           ) : (
             <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
               <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>

@@ -18,7 +18,7 @@ import Activity from './pages/Activity';
 import HelpPage from './pages/HelpPage';
 import UndoBanner from './components/UndoBanner';
 import { UndoActionProvider } from './hooks/useUndoAction';
-import WelcomeModal from './components/WelcomeModal';
+import { WelcomeModal } from './components/WelcomeModal';
 import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
@@ -257,13 +257,8 @@ function AppLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const isHelpPage = location.pathname.startsWith('/help');
   const skipPIN = import.meta.env.VITE_SKIP_PIN === 'true';
-  const [showWelcome, setShowWelcome] = useState(() => {
-    try {
-      return !window.localStorage.getItem('priceright_launched');
-    } catch {
-      return false;
-    }
-  });
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeChecked, setWelcomeChecked] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
   const { isDemoMode } = useDemoMode();
@@ -407,17 +402,42 @@ function AppLayout({ children }: { children: ReactNode }) {
     };
   }, [skipPIN]);
 
-  function dismissWelcome(nextRoute?: string) {
-    try {
-      window.localStorage.setItem('priceright_launched', 'true');
-    } catch {
-      // Ignore localStorage access failures.
+  useEffect(() => {
+    if (!isUnlocked) {
+      return;
     }
-    setShowWelcome(false);
-    if (nextRoute) {
-      navigate(nextRoute);
+
+    let cancelled = false;
+
+    async function checkOnboarding() {
+      try {
+        const settings = await settingsApi.getAll();
+        if (cancelled) return;
+
+        const onboardingDone = Array.isArray(settings)
+          ? settings.find(
+              (s: { settingKey: string; settingValue: string }) => s.settingKey === 'onboardingCompleted',
+            )
+          : undefined;
+
+        if (!onboardingDone || onboardingDone.settingValue !== 'true') {
+          setShowWelcome(true);
+        }
+      } catch {
+        // Fail open — don't block the app if settings can't load.
+      } finally {
+        if (!cancelled) {
+          setWelcomeChecked(true);
+        }
+      }
     }
-  }
+
+    void checkOnboarding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isUnlocked]);
 
   if (!isUnlocked) {
     if (isCheckingPin) {
@@ -616,10 +636,8 @@ function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      {showWelcome && !isHelpPage && (
-        <WelcomeModal
-          onGetStarted={() => dismissWelcome()}
-        />
+      {showWelcome && welcomeChecked && !isHelpPage && (
+        <WelcomeModal onDismiss={() => setShowWelcome(false)} />
       )}
     </>
     </BaseCurrencyContext.Provider>

@@ -51,7 +51,7 @@
 
   --font-body: 14px;
   --font-small: var(--font-size-sm);
-  --font-table-head: var(--font-size-sm);
+  --font-table-head: 14px;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -424,7 +424,7 @@ textarea {
 }
 
 .settings-page .app-table th {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-table-head);
 }
 
 .settings-page .app-table td {
@@ -907,12 +907,14 @@ textarea {
 }
 
 .app-table th,
-.app-page table th {
-  font-family: 'Open Sans', sans-serif;
+.app-page table th,
+.app-modal table th,
+#root table thead th {
+  font-family: 'Open Sans', sans-serif !important;
   background: #F8FAFC;
   padding: 8px 12px !important;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--font-table-head) !important;
+  font-weight: 700 !important;
   letter-spacing: 0.02em;
   color: #374151;
   border-bottom: 1px solid #E2E8F0;
@@ -1014,7 +1016,6 @@ textarea {
 }
 
 .app-table.app-table-ultra-compact th {
-  font-size: 15px !important;
   letter-spacing: 0.04em;
 }
 
@@ -1035,7 +1036,7 @@ textarea {
 }
 
 .app-table-uniform-numbers th[style*='text-align: right'] {
-  font-size: var(--font-size-sm) !important;
+  font-size: var(--font-table-head) !important;
 }
 
 .app-table-uniform-numbers td[style*='text-align: right'] {

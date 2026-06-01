@@ -222,11 +222,11 @@ export default function ProductTabs({
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#e2e8f0' }}>
-                      <th style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>Material Name</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Quantity</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Unit</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Unit Price</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>Total</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Quantity</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Unit</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Unit Price</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -323,12 +323,12 @@ export default function ProductTabs({
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#e2e8f0' }}>
-                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Date</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Approved price</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Production cost</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Margin</th>
-                      <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>Change</th>
-                      <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600 }}>Approved by</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Date</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Approved price</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Production cost</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Margin</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>Change</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Approved by</th>
                     </tr>
                   </thead>
                   <tbody>
