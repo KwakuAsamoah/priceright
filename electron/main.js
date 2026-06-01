@@ -240,19 +240,29 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
+  // Write updater events to a log file in userData so we can diagnose issues
+  const logFile = path.join(app.getPath('userData'), 'updater.log');
+  function ulog(msg) {
+    const line = `[${new Date().toISOString()}] ${msg}\n`;
+    console.log(msg);
+    try { fs.appendFileSync(logFile, line); } catch (_) { /* ignore */ }
+  }
+
+  // Wire electron-updater's internal logger to our file
+  autoUpdater.logger = { info: ulog, warn: ulog, error: ulog, debug: () => {} };
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[updater] Checking for update...');
+    ulog('[updater] Checking for update...');
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[updater] No update available. Current:', info.version);
+    ulog(`[updater] No update available. Current: ${info.version}`);
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[updater] Update available:', info.version);
+    ulog(`[updater] Update available: ${info.version}`);
     if (mainWindow) {
       mainWindow.webContents.send('update-available', {
         version: info.version,
@@ -263,7 +273,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[updater] Update downloaded:', info.version);
+    ulog(`[updater] Update downloaded: ${info.version}`);
     if (mainWindow) {
       mainWindow.webContents.send('update-downloaded', {
         version: info.version,
@@ -274,13 +284,14 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('[updater] error:', err && err.message ? err.message : err);
+    ulog(`[updater] Error: ${err && err.message ? err.message : String(err)}`);
   });
 
   // Check for updates 10 seconds after launch to not slow down startup
   setTimeout(() => {
+    ulog(`[updater] Starting check (app version: ${app.getVersion()})`);
     autoUpdater.checkForUpdatesAndNotify()
-      .catch((err) => console.error('[updater] Check failed:', err.message));
+      .catch((err) => ulog(`[updater] Check failed: ${err.message}`));
   }, 10000);
 }
 
