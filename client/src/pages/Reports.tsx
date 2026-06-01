@@ -1252,9 +1252,9 @@ export default function Reports() {
           <aside
             className="app-card report-selector-panel"
             style={{
-              width: '280px',
+              width: '320px',
               flexShrink: 0,
-              overflow: 'hidden',
+              overflow: 'visible',
               padding: '10px',
               position: 'sticky',
               top: '10px',
@@ -1286,13 +1286,14 @@ export default function Reports() {
                       textAlign: 'left',
                       padding: '10px',
                       cursor: 'pointer',
+                      whiteSpace: 'normal',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Icon size={15} strokeWidth={2} />
-                      <strong style={{ fontSize: '15px', fontWeight: 700 }}>{report.name}</strong>
+                      <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
+                      <strong style={{ fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap' }}>{report.name}</strong>
                     </div>
-                    <div style={{ fontSize: '13px', marginTop: '5px', color: isActive ? '#d1d5db' : '#64748b' }}>
+                    <div style={{ fontSize: '13px', marginTop: '5px', color: isActive ? '#d1d5db' : '#64748b', whiteSpace: 'normal', overflow: 'visible', lineHeight: 1.4 }}>
                       {report.description}
                     </div>
                   </button>
