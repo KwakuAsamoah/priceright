@@ -510,14 +510,9 @@ export const helpArticles: HelpArticle[] = [
         <strong>Approved base price</strong> is used in <strong>Price levels</strong> and exports.</li>
       </ol>
 
-      <p>On the Products page, click <strong>Review Prices</strong> to open the review panel.
-      It lists products needing a decision and shows <strong>Production cost</strong>,
-      last approved value, and <strong>Optimal price</strong>. You can approve from there
-      without opening each product detail page.</p>
-
-      <p>For bulk work, select products with row checkboxes. The dark bulk bar
-      appears and the Approve menu lets you approve selected products together,
-      including approving at <strong>Optimal price</strong>.</p>
+      <p>Open each product from the list to review updated <strong>Production cost</strong>,
+      last approved value, and <strong>Optimal price</strong>, then approve from the product detail page.
+      For bulk work, select products with row checkboxes and use the Approve menu in the bulk bar.</p>
 
       <p>After approval, rule-based prices in <strong>Price levels</strong> recalculate from
       the new <strong>Approved base price</strong>. Custom level prices can show stale
@@ -609,7 +604,7 @@ export const helpArticles: HelpArticle[] = [
       header also shows an amber count dot. Row hover text and row actions help you
       open review quickly, and Dashboard includes a <strong>Review now</strong> path.</p>
 
-      <p>Review from product detail or the <strong>Review Prices</strong> panel. You will
+      <p>Review from the product detail page. You will
       see updated <strong>Production cost</strong>, last approved value, and new
       <strong>Optimal price</strong>. Then choose:</p>
       <ol>
@@ -892,7 +887,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Use this option when cost movement is temporary, customer commitments require stable pricing, or competitive pressure makes an immediate increase risky. Before confirming, review the updated margin to ensure the result is acceptable.</p>
 
-      <p>When a product is in <strong>Needs review</strong>, open product detail or use the <strong>Review Prices</strong> workflow on the <strong>Products</strong> page. Compare current approved value, updated <strong>Production cost</strong>, and new <strong>Optimal price</strong>, then select <strong>Keep current price</strong>.</p>
+      <p>When a product is in <strong>Needs review</strong>, open its product detail page from the <strong>Products</strong> list. Compare current approved value, updated <strong>Production cost</strong>, and new <strong>Optimal price</strong>, then select <strong>Keep current price</strong>.</p>
 
       <p>PriceRight protects against loss approvals. If the current approved value is below updated <strong>Production cost</strong>, the keep-current option is disabled and you must choose a different approval value.</p>
 

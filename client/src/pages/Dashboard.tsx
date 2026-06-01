@@ -1056,7 +1056,7 @@ export default function Dashboard() {
                     <button
                       className="btn btn-primary btn-sm"
                       style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }}
-                      onClick={() => navigate('/products', { state: { openUpdatePrices: true } })}
+                      onClick={() => navigate('/products?approval=needs_review')}
                     >
                       <span>Review now</span>
                       <strong className="dashboard-number-xs">{productCounts.needsReview}</strong>
