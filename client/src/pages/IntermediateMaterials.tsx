@@ -1409,11 +1409,11 @@ export default function IntermediateMaterials() {
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0F2847' }}>Material Details</h3>
+              <h3 className="app-form-section-title">Material Details</h3>
             </div>
             <form onSubmit={handleMaterialSubmit}>
               <div style={formSectionStyle}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
+                <h3 className="app-form-section-title">Basic Info</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
                     <label style={fieldLabelStyle}>Material Name *</label>
@@ -1511,7 +1511,7 @@ export default function IntermediateMaterials() {
               </div>
 
               <div style={formSectionStyle}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
+                <h3 className="app-form-section-title">Production Settings</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
                     <label style={fieldLabelStyle}>Costing Method</label>
@@ -1730,7 +1730,7 @@ export default function IntermediateMaterials() {
                 ) : null}
               </div>
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
-                <h3 style={{ margin: 0, marginBottom: '8px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+                <h3 className="app-form-section-title">Cost Summary (per unit)</h3>
                 <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
                   Calculated unit cost updates from the intermediate BOM and current component prices.
                 </div>

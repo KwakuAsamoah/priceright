@@ -348,7 +348,7 @@ export default function ProductFormDrawer({
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
+            <h3 className="app-form-section-title">Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Product Name *</label>
@@ -411,7 +411,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
+            <h3 className="app-form-section-title">Production Settings</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Production Mode</label>
@@ -495,7 +495,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Bill of Materials</h3>
+            <h3 className="app-form-section-title">Bill of Materials</h3>
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Select Material</label>
               <div style={{ position: 'relative' }}>
@@ -680,7 +680,7 @@ export default function ProductFormDrawer({
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Cost Summary (per unit)</h3>
+            <h3 className="app-form-section-title">Cost Summary (per unit)</h3>
             <div style={{ display: 'grid', gap: '8px', fontSize: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>

@@ -1753,7 +1753,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Basic Info</h3>
+            <h3 className="app-form-section-title">Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Category</div>
@@ -1779,7 +1779,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Pricing</h3>
+            <h3 className="app-form-section-title">Pricing</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Purchase currency</div>
@@ -1803,7 +1803,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           {(detailMaterial as any).materialType === 'intermediate' && (
             <>
               <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Production Settings</h3>
+                <h3 className="app-form-section-title">Production Settings</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
                     <div style={{ fontSize: '13px', color: '#64748b' }}>Costing method</div>
@@ -1831,7 +1831,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               </div>
 
               <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-                <h3 style={{ margin: 0, marginBottom: '12px', fontSize: '15px', fontWeight: '700' }}>Components ({detailBom.length})</h3>
+                <h3 className="app-form-section-title">Components ({detailBom.length})</h3>
                 {detailBom.length === 0 ? (
                   <div style={{ color: '#64748b' }}>No components</div>
                 ) : (
