@@ -49,7 +49,7 @@
   --font-size-2xl: 27px;
   --font-size-display: 35px;
 
-  --font-body: var(--font-size-md);
+  --font-body: 14px;
   --font-small: var(--font-size-sm);
   --font-table-head: var(--font-size-sm);
 
@@ -68,11 +68,12 @@ body,
   width: 100%;
   min-height: 100vh;
   overflow-x: hidden;
+  font-size: 14px;
 }
 
 body {
   font-family: 'Open Sans', sans-serif;
-  font-size: var(--font-size-md);
+  font-size: var(--font-body);
   font-weight: 400;
   color: var(--color-text);
   background-color: var(--color-bg);
@@ -102,13 +103,13 @@ textarea {
 .app-page-header {
   background-color: #ffffff;
   border-bottom: 1px solid #E2E8F0;
-  padding: 16px var(--space-page) 20px;
+  padding: 12px var(--space-page) 16px;
 }
 
 .app-page-title {
   margin: 0;
   font-family: var(--font-family-heading);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
   line-height: 1.2;
   color: #0F2847;
@@ -116,7 +117,7 @@ textarea {
 
 .app-page-subtitle {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
   color: var(--color-text-secondary);
@@ -125,10 +126,10 @@ textarea {
 .app-page-content {
   width: 100%;
   max-width: 100%;
-  padding: var(--space-page);
+  padding: 16px var(--space-page);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -519,11 +520,11 @@ textarea {
 .app-card {
   background: #ffffff;
   border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
     0 4px 12px rgba(0, 0, 0, 0.04);
-  padding: 20px 24px;
+  padding: 16px 20px;
   transition: border-color 0.18s ease, box-shadow 0.15s ease;
   min-width: 0;
 }
@@ -553,13 +554,14 @@ textarea {
 }
 
 .app-control,
+.app-input,
 .app-page input,
 .app-page select,
 .app-page textarea {
   border: 1px solid var(--color-input-border) !important;
   border-radius: var(--radius-sm) !important;
-  padding: 10px 12px !important;
-  font-size: var(--font-size-md) !important;
+  padding: 7px 10px !important;
+  font-size: 13px !important;
   color: var(--color-text) !important;
   background: var(--color-bg) !important;
   transition: border-color 0.18s ease, outline-color 0.18s ease;
@@ -579,8 +581,8 @@ textarea {
 .app-page button {
   font-family: inherit;
   border-radius: 8px !important;
-  padding: 8px 16px !important;
-  font-size: 14px !important;
+  padding: 7px 14px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
   border: none !important;
   background: #F1F5F9 !important;
@@ -681,8 +683,8 @@ textarea {
 
 /* Sizes */
 .btn-sm {
-  font-size: 13px !important;
-  padding: 6px 12px !important;
+  font-size: 12px !important;
+  padding: 5px 10px !important;
   border-radius: 7px !important;
 }
 
@@ -908,8 +910,8 @@ textarea {
 .app-page table th {
   font-family: 'Open Sans', sans-serif;
   background: #F8FAFC;
-  padding: 10px 14px !important;
-  font-size: 13px;
+  padding: 8px 12px !important;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #374151;
@@ -986,9 +988,9 @@ textarea {
 
 .app-table td,
 .app-page table td {
-  padding: 10px 14px !important;
+  padding: 8px 12px !important;
   border-bottom: 1px solid #F1F5F9;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   color: #374151;
   vertical-align: middle;
@@ -1064,7 +1066,7 @@ textarea {
 .app-modal {
   background: #ffffff;
   border-radius: 12px;
-  padding: 24px;
+  padding: 16px 20px;
   width: 100%;
   max-width: 600px;
   max-height: calc(100vh - 48px);
@@ -1078,7 +1080,7 @@ textarea {
 
 .app-modal-title {
   margin: 0 0 16px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #0F2847;
   font-family: 'Open Sans', sans-serif;
@@ -1093,7 +1095,7 @@ textarea {
 /* Keep all table body text consistent across pages, including nested value/name wrappers. */
 .app-page table tbody td,
 .app-page table tbody td :is(span, div, p, small, strong, a, label) {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
 }
 

@@ -659,7 +659,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="app-page-content" style={{ gap: '20px' }}>
+        <div className="app-page-content">
           {skeletonCards}
           {skeletonWidgets}
         </div>
@@ -685,7 +685,7 @@ export default function Dashboard() {
           .dashboard-stat-grid {
             display: grid;
             grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 16px;
+            gap: 12px;
           }
           .dashboard-widget-grid {
             display: grid;
@@ -747,7 +747,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="app-page-content" style={{ gap: '20px' }}>
+      <div className="app-page-content">
         {banner && (
           <div
             className="app-card"
@@ -1196,15 +1196,15 @@ export default function Dashboard() {
         .dashboard-stat-grid {
           display: grid;
           grid-template-columns: repeat(6, minmax(0, 1fr));
-          gap: 16px;
+          gap: 12px;
         }
         .dashboard-stat-card {
-          padding: 16px;
+          padding: 12px 14px;
           text-align: left;
           cursor: pointer;
           border: 1px solid #dbe2ea;
           transition: border-color 0.15s ease;
-          min-height: 120px;
+          min-height: auto;
           height: auto;
           overflow: visible;
           white-space: normal;
@@ -1218,7 +1218,7 @@ export default function Dashboard() {
           height: auto;
           overflow: visible;
           text-align: left;
-          padding: 16px !important;
+          padding: 12px 14px !important;
           background: #ffffff !important;
           border: 1px solid #dbe2ea !important;
         }
@@ -1226,8 +1226,8 @@ export default function Dashboard() {
           border-color: #cbd5e1;
         }
         .dashboard-icon-box {
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           border-radius: 8px;
           background: #0f172a;
           position: relative;
@@ -1245,10 +1245,10 @@ export default function Dashboard() {
           right: -2px;
         }
         .dashboard-stat-value {
-          font-size: 25px;
+          font-size: 24px;
           font-weight: 700;
-          margin-top: 6px;
-          color: #0f172a;
+          margin: 2px 0;
+          color: #0F2847;
           font-variant-numeric: tabular-nums;
         }
         .dashboard-number-sm,
@@ -1265,9 +1265,9 @@ export default function Dashboard() {
           font-weight: 700;
         }
         .dashboard-stat-title {
-          margin-top: 10px;
-          font-size: 13px;
-          font-weight: 700;
+          margin-top: 8px;
+          font-size: 12px;
+          font-weight: 600;
           color: #64748b;
           letter-spacing: 0.3px;
           white-space: normal;
@@ -1277,9 +1277,9 @@ export default function Dashboard() {
         }
         .dashboard-stat-sub {
           margin-top: 6px;
-          font-size: 13px;
+          font-size: 12px;
           color: #64748b;
-          line-height: 1.35;
+          line-height: 1.4;
           white-space: normal;
           overflow: visible;
           word-wrap: break-word;
@@ -1287,10 +1287,10 @@ export default function Dashboard() {
         }
         .dashboard-stat-hint {
           margin-top: 4px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
-          color: #475569;
-          line-height: 1.3;
+          color: #64748b;
+          line-height: 1.4;
           white-space: normal;
           overflow: visible;
           word-wrap: break-word;
