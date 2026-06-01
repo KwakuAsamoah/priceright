@@ -1293,7 +1293,7 @@ export default function PriceLevels() {
           <h1 className="app-page-title">Price levels</h1>
           <div className="app-page-subtitle">Manage level-specific product pricing and approval workflow.</div>
         </div>
-        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '20px' }}>
           <Plus size={14} strokeWidth={2} />
           New price level
         </AppButton>

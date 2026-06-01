@@ -86,7 +86,7 @@ export default function TableSettingsDropdown({
               marginTop: '6px',
               border: 'none',
               background: 'none',
-              color: '#2563eb',
+              color: '#0F2847',
               fontSize: '14px',
               fontWeight: 600,
               cursor: 'pointer',

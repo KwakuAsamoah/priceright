@@ -1488,7 +1488,7 @@ async function loadData() {
                           disabled={isSavingRate && savingRateCurrencyId === currency.id}
                           style={{
                             padding: '6px 12px',
-                            backgroundColor: (isSavingRate && savingRateCurrencyId === currency.id) ? '#cbd5e1' : '#3b82f6',
+                            backgroundColor: (isSavingRate && savingRateCurrencyId === currency.id) ? '#cbd5e1' : '#0F2847',
                             color: 'white',
                             borderRadius: '4px',
                             border: 'none',
@@ -1509,8 +1509,8 @@ async function loadData() {
                           style={{
                             padding: '4px 8px',
                             fontSize: '14px',
-                            backgroundColor: '#eff6ff',
-                            color: '#3b82f6',
+                            backgroundColor: 'rgba(15,40,71,0.06)',
+                            color: '#0F2847',
                             borderRadius: '4px',
                             border: 'none',
                             cursor: 'pointer',

@@ -535,7 +535,7 @@
   border: 0;
   background: transparent;
   padding: 0;
-  color: #2563eb;
+  color: #0F2847;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -578,7 +578,7 @@
 .app-help-open-guide-link {
   border: 0;
   background: transparent;
-  color: #1d4ed8;
+  color: #0F2847;
   font-family: 'Open Sans', sans-serif;
   font-weight: 600;
   font-size: 14px;
