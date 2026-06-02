@@ -1254,7 +1254,7 @@ export default function IntermediateMaterials() {
           <div
             className="app-bulk-bar app-bulk-bar-sticky"
             style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: '#0F2847',
               color: '#ffffff',
               padding: '10px 16px',
               borderRadius: '8px',

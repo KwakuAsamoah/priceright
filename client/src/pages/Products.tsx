@@ -1472,7 +1472,7 @@ export default function Products() {
         <head>
           <title>Products Report</title>
           <style>
-            body { font-family: 'Open Sans', sans-serif; margin: 24px; color: #0f172a; }
+            body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 24px; color: #0f172a; }
             h1 { margin: 0 0 6px; font-size: 25px; }
             .meta { margin-bottom: 12px; color: #475569; font-size: 13px; }
             table { width: 100%; border-collapse: collapse; }
@@ -1751,7 +1751,7 @@ export default function Products() {
           <div
             className="app-bulk-bar app-bulk-bar-sticky"
             style={{
-              backgroundColor: '#1a1a1a',
+              backgroundColor: '#0F2847',
               color: 'white',
               padding: '10px 16px',
               borderRadius: '8px',

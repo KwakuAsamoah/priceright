@@ -28,7 +28,7 @@ export default function UndoBanner() {
             transform: 'translateX(-50%)',
             width: 'calc(100% - 32px)',
             maxWidth: '560px',
-            backgroundColor: '#1a1a1a',
+            backgroundColor: '#0F2847',
             color: '#ffffff',
             borderRadius: '8px',
             padding: '14px 20px',

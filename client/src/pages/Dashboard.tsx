@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -107,6 +107,16 @@ function parseDate(value: string | number | null | undefined): Date | null {
 
 function currency(value: number): string {
   return `GHS ${value.toFixed(2)}`;
+}
+
+function marginHealthColor(margin: number): string {
+  if (margin >= 15) return '#059669';
+  if (margin >= 10) return '#D97706';
+  return '#DC2626';
+}
+
+function dashboardIconBoxStyle(backgroundColor: string): CSSProperties {
+  return { backgroundColor };
 }
 
 function getProductStatus(product: Product): ProductApprovalStatus {
@@ -613,7 +623,11 @@ export default function Dashboard() {
       .slice(0, 10);
   }, [products, exchangeRates, currencyLookup]);
 
-
+  const rejectedIconBg = productCounts.rejected > 0 ? '#DC2626' : '#059669';
+  const rejectedValueColor = rejectedIconBg;
+  const marginIconBg = marginHealthColor(averageApprovedMargin);
+  const marginValueColor = marginHealthColor(averageApprovedMargin);
+  const exportReadyIconBg = priceLevelSummary.exportReadyLevels > 0 ? '#059669' : '#64748b';
 
   const skeletonCards = (
     <div className="dashboard-stat-grid">
@@ -778,7 +792,7 @@ export default function Dashboard() {
             style={{
               background: '#0f172a',
               color: '#e2e8f0',
-              border: '1px solid #1e293b',
+              border: '1px solid #162037',
               borderRadius: '12px',
               padding: '20px',
               display: 'grid',
@@ -811,7 +825,7 @@ export default function Dashboard() {
         <div className="dashboard-stat-grid">
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><Package size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle('#0F2847')}><Package size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Total Raw Materials</div>
             <div className="dashboard-stat-value">{materialCounts.total}</div>
@@ -822,7 +836,7 @@ export default function Dashboard() {
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/products')} title="Open Products">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><Package size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle('#4338CA')}><Package size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Total Products</div>
             <div className="dashboard-stat-value">{productCounts.total}</div>
@@ -832,22 +846,22 @@ export default function Dashboard() {
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/products?approval=rejected')} title="Open rejected products">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><XCircle size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(rejectedIconBg)}><XCircle size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Rejected Products</div>
-            <div className="dashboard-stat-value">{productCounts.rejected}</div>
+            <div className="dashboard-stat-value" style={{ color: rejectedValueColor }}>{productCounts.rejected}</div>
             <div className="dashboard-stat-hint">Click to reprice and re-approve</div>
             <div className="dashboard-stat-sub">Require repricing and re-approval</div>
           </button>
 
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><TrendingUp size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(marginIconBg)}><TrendingUp size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Average Margin</div>
             <div
               className="dashboard-stat-value"
-              style={{ color: averageApprovedMargin < 15 ? '#e65100' : '#2e7d32' }}
+              style={{ color: marginValueColor }}
             >
               {averageApprovedMargin.toFixed(1)}%
             </div>
@@ -857,7 +871,7 @@ export default function Dashboard() {
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><Tag size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle('#0D9488')}><Tag size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Price levels</div>
             <div className="dashboard-stat-value">{priceLevelsCount}</div>
@@ -867,7 +881,7 @@ export default function Dashboard() {
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box"><FileText size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(exportReadyIconBg)}><FileText size={20} color="#ffffff" /></div>
             </div>
             <div className="dashboard-stat-title">Export-ready Levels</div>
             <div className="dashboard-stat-value">{priceLevelSummary.exportReadyLevels}</div>
@@ -1229,7 +1243,6 @@ export default function Dashboard() {
           width: 32px;
           height: 32px;
           border-radius: 8px;
-          background: #0f172a;
           position: relative;
           display: inline-flex;
           align-items: center;

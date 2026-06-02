@@ -1,6 +1,6 @@
 :root {
-  --font-family-heading: 'Open Sans', sans-serif;
-  --font-family-body: 'Open Sans', sans-serif;
+  --font-family-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-family-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --color-bg: #ffffff;
   --color-bg-secondary: #f8fafc;
@@ -26,8 +26,8 @@
   --color-info: #0369a1;
   --color-info-soft: #e0f2fe;
 
-  --color-header-bg: #334155;
-  --color-header-border: #334155;
+  --color-header-bg: #0F2847;
+  --color-header-border: #0F2847;
   --color-header-text: #f8fafc;
   --color-header-subtext: #cbd5e1;
 
@@ -72,7 +72,7 @@ body,
 }
 
 body {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: var(--font-body);
   font-weight: 400;
   color: var(--color-text);
@@ -374,7 +374,7 @@ textarea {
   margin-bottom: 6px;
   font-size: var(--font-size-sm);
   font-weight: 600;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-settings-row-end {
@@ -432,7 +432,7 @@ textarea {
 }
 
 .help-article-body p {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 17px;
   line-height: 1.8;
   color: var(--color-text-secondary, #555);
@@ -440,7 +440,7 @@ textarea {
 }
 
 .help-article-body h3 {
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 19px;
   font-weight: 700;
   color: var(--color-text-primary, #1a1a1a);
@@ -539,7 +539,7 @@ textarea {
 .app-card h2,
 .app-card h3 {
   margin: 0 0 12px;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--color-text);
 }
 
@@ -733,7 +733,7 @@ textarea {
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   border: 1px solid transparent;
 }
 
@@ -890,7 +890,7 @@ textarea {
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
   color: #1a1a1a;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
   font-size: 15px;
   font-weight: 400;
   line-height: 1.6;
@@ -910,7 +910,7 @@ textarea {
 .app-page table th,
 .app-modal table th,
 #root table thead th {
-  font-family: 'Open Sans', sans-serif !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
   background: #F8FAFC;
   padding: 8px 12px !important;
   font-size: var(--font-table-head) !important;
@@ -1084,7 +1084,7 @@ textarea {
   font-size: 16px;
   font-weight: 700;
   color: #0F2847;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-modal-subtitle {
@@ -1149,35 +1149,35 @@ textarea {
   font-size: var(--font-size-sm);
   font-weight: 700;
   color: #1a1a1a;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-muted {
   font-size: var(--font-size-xs);
   font-weight: 400;
   color: #888888;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-sub-label {
   font-size: var(--font-size-2xs);
   font-weight: 400;
   color: #888888;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-stat-value {
   font-size: var(--font-size-2xl);
   font-weight: 700;
   color: #1a1a1a;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-display-value {
   font-size: var(--font-size-display);
   font-weight: 700;
   color: #1a1a1a;
-  font-family: 'Open Sans', sans-serif;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 /* ── Form section headers (drawers/modals) ── */

@@ -345,7 +345,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                 }}
                 title={`Filter by ${card.label.toLowerCase()}`}
               >
-                <div style={{ fontSize: '30px', fontWeight: 700, color: card.color, fontFamily: 'Open Sans, sans-serif', lineHeight: 1 }}>
+                <div style={{ fontSize: '30px', fontWeight: 700, color: card.color, fontFamily: 'Plus Jakarta Sans, sans-serif', lineHeight: 1 }}>
                   {card.count}
                 </div>
                 <div style={{ fontSize: '15px', fontWeight: 600, color: '#1f2937' }}>{card.label}</div>

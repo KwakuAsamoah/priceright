@@ -526,8 +526,8 @@ function AppLayout({ children }: { children: ReactNode }) {
                           lineHeight: 1,
                           padding: '2px 6px',
                           borderRadius: '10px',
-                          backgroundColor: 'rgba(255,255,255,0.12)',
-                          color: 'rgba(255,255,255,0.65)',
+                          backgroundColor: 'rgba(255,255,255,0.15)',
+                          color: 'rgba(255,255,255,0.85)',
                           minWidth: '18px',
                           textAlign: 'center',
                         }}>

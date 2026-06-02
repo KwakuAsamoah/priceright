@@ -1238,7 +1238,7 @@ export default function PriceLevels() {
         <head>
           <title>${selectedLevel.name} Price List</title>
           <style>
-            body { font-family: 'Open Sans', sans-serif; margin: 28px; color: #0f172a; }
+            body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 28px; color: #0f172a; }
             h1, h2, p { text-align: center; margin-left: auto; margin-right: auto; }
             h1 { margin: 0 0 8px; font-size: 25px; }
             h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #1e293b; }
@@ -1320,7 +1320,7 @@ export default function PriceLevels() {
                 />
               </div>
               {selectedLevelIds.size > 0 && (
-                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#1a1a1a', borderRadius: '8px', padding: '8px 12px' }}>
+                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0F2847', borderRadius: '8px', padding: '8px 12px' }}>
                   <span style={{ fontSize: '15px', color: '#cbd5e1', flex: 1 }}>
                     {selectedLevelIds.size} level{selectedLevelIds.size !== 1 ? 's' : ''} selected
                   </span>
@@ -1358,7 +1358,7 @@ export default function PriceLevels() {
                       display: 'flex',
                       alignItems: 'stretch',
                       borderBottom: '1px solid #f1f5f9',
-                      borderLeft: isSelected ? '3px solid #1a1a1a' : '3px solid transparent',
+                      borderLeft: isSelected ? '3px solid #0F2847' : '3px solid transparent',
                       backgroundColor: isSelected ? '#f8f8f8' : isChecked ? '#f0f4ff' : '#ffffff',
                     }}
                   >
@@ -1387,7 +1387,7 @@ export default function PriceLevels() {
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '16px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px', color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {level.name}
                         </div>
                         <AppBadge variant={status.variant} size="sm">{status.label}</AppBadge>
@@ -1439,13 +1439,13 @@ export default function PriceLevels() {
                           <input
                             value={levelNameDraft}
                             onChange={(e) => setLevelNameDraft(e.target.value)}
-                            style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '22px', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
+                            style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '22px', padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: '8px' }}
                           />
                           <AppButton variant="primary" size="sm" onClick={saveLevelName} disabled={saving}>Save</AppButton>
                           <AppButton variant="secondary" size="sm" onClick={() => { setEditingLevelName(false); setLevelNameDraft(selectedLevel.name); }}>Cancel</AppButton>
                         </div>
                       ) : (
-                        <h2 style={{ fontFamily: 'Open Sans, sans-serif', fontWeight: 700, fontSize: '22px', margin: 0 }}>{selectedLevel.name}</h2>
+                        <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '22px', margin: 0 }}>{selectedLevel.name}</h2>
                       )}
                     </div>
 
@@ -1495,7 +1495,7 @@ export default function PriceLevels() {
                   {selectedRows.size > 0 && (
                     <div
                       style={{
-                        backgroundColor: '#1a1a1a',
+                        backgroundColor: '#0F2847',
                         color: 'white',
                         padding: '10px 16px',
                         borderRadius: '8px',
@@ -1587,7 +1587,7 @@ export default function PriceLevels() {
                                 <td>{item.productCategory || '-'}</td>
                                 <td style={{ textAlign: 'right' }}>{formatMoney(item.productApprovedPrice)}</td>
                                 <td>{pricingRuleLabel(item)}</td>
-                                <td style={{ textAlign: 'right', fontFamily: 'Open Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
+                                <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {formatMoney(item.finalPrice)}
                                     {item.isStalePrice && (
