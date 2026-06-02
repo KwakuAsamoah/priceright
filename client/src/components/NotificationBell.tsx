@@ -56,16 +56,16 @@ export function NotificationBell({ variant = 'header' }: NotificationBellProps) 
   /* ── Sidebar variant button styles ── */
   const sidebarBtnStyle: React.CSSProperties = {
     position: 'relative',
-    width: '28px',
-    height: '28px',
-    borderRadius: '6px',
+    width: '30px',
+    height: '30px',
+    borderRadius: '7px',
     background: open ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
     border: 'none',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: open ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.35)',
+    color: open ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.4)',
     transition: 'all 0.15s',
     flexShrink: 0,
   };
@@ -102,7 +102,7 @@ export function NotificationBell({ variant = 'header' }: NotificationBellProps) 
         onMouseEnter={e => {
           if (isSidebar) {
             e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-            e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+            e.currentTarget.style.color = 'rgba(255,255,255,0.85)';
           } else {
             e.currentTarget.style.background = '#F1F5F9';
             e.currentTarget.style.color = '#0F2847';
@@ -112,7 +112,7 @@ export function NotificationBell({ variant = 'header' }: NotificationBellProps) 
           if (!open) {
             if (isSidebar) {
               e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-              e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.4)';
             } else {
               e.currentTarget.style.background = 'none';
               e.currentTarget.style.color = '#475569';

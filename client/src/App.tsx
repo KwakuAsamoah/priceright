@@ -484,120 +484,74 @@ function AppLayout({ children }: { children: ReactNode }) {
       ) : (
         <div className="app-shell">
           <aside className="app-sidebar">
-        <div className="app-brand-wrap">
-          <div className="app-brand-row">
-            <div className="app-brand-icon" aria-hidden="true">
-              <ClipboardList size={20} strokeWidth={2} />
+            <div className="app-brand-wrap">
+              <div className="app-brand-row">
+                <div className="app-brand-icon" aria-hidden="true">
+                  <ClipboardList size={18} strokeWidth={2} />
+                </div>
+                <div className="app-brand-text">
+                  <div className="app-brand-title">PriceRight</div>
+                  <div className="app-brand-subtitle">Pricing Management</div>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="app-brand-title">PriceRight</div>
-              <div className="app-brand-subtitle">Pricing Management</div>
+
+            <nav className="app-sidebar-nav">
+              {NAV_SECTIONS.map((section, sectionIndex) => (
+                <Fragment key={`section-${sectionIndex}`}>
+                  {sectionIndex === 2 && <div className="app-nav-divider" aria-hidden="true" />}
+                  <section className="app-nav-section">
+                    {section.items.map((item) => {
+                      const count =
+                        item.to === '/materials' ? navCounts.materials :
+                        item.to === '/products' ? navCounts.products :
+                        item.to === '/price-levels' ? navCounts.priceLevels :
+                        0;
+                      return (
+                        <Link
+                          key={item.to}
+                          to={item.to}
+                          className={`app-nav-link ${item.isActive(location.pathname) ? 'is-active' : ''}`}
+                        >
+                          <span className="app-nav-icon" aria-hidden="true"><item.icon size={18} strokeWidth={2} /></span>
+                          {item.label}
+                          {count > 0 && (
+                            <span className="app-nav-count-badge">{count}</span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                    {sectionIndex === 2 && (
+                      <button
+                        type="button"
+                        className={`app-nav-link app-help-trigger ${helpOpen ? 'is-active' : ''}`}
+                        onClick={() => setHelpOpen((current) => !current)}
+                      >
+                        <span className="app-nav-icon" aria-hidden="true"><HelpCircle size={18} strokeWidth={2} /></span>
+                        Help
+                      </button>
+                    )}
+                  </section>
+                </Fragment>
+              ))}
+            </nav>
+
+            <div className="app-sidebar-bottom">
+              <span className="app-sidebar-bottom-label">PriceRight</span>
+              <div className="app-sidebar-bottom-actions">
+                <NotificationBell variant="sidebar" />
+                <button
+                  type="button"
+                  className="app-sidebar-action-btn"
+                  onClick={handleExit}
+                  title="Lock and exit"
+                  aria-label="Lock and exit"
+                >
+                  <Power size={14} />
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-
-        <nav className="app-sidebar-nav">
-          {NAV_SECTIONS.map((section, sectionIndex) => (
-            <Fragment key={`section-${sectionIndex}`}>
-              {/* Thin divider before the Pricing group */}
-              {sectionIndex === 2 && (
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '6px 12px' }} />
-              )}
-              <section className="app-nav-section">
-                {section.items.map((item) => {
-                  const count =
-                    item.to === '/materials' ? navCounts.materials :
-                    item.to === '/products' ? navCounts.products :
-                    item.to === '/price-levels' ? navCounts.priceLevels :
-                    0;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      className={`app-nav-link ${item.isActive(location.pathname) ? 'is-active' : ''}`}
-                    >
-                      <span className="app-nav-icon" aria-hidden="true"><item.icon size={16} strokeWidth={2} /></span>
-                      {item.label}
-                      {count > 0 && (
-                        <span style={{
-                          marginLeft: 'auto',
-                          fontSize: '10px',
-                          fontWeight: 600,
-                          lineHeight: 1,
-                          padding: '2px 6px',
-                          borderRadius: '10px',
-                          backgroundColor: 'rgba(255,255,255,0.15)',
-                          color: 'rgba(255,255,255,0.85)',
-                          minWidth: '18px',
-                          textAlign: 'center',
-                        }}>
-                          {count}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </section>
-            </Fragment>
-          ))}
-        </nav>
-
-        {/* Help trigger */}
-        <div className="app-sidebar-footer">
-          <button
-            type="button"
-            className={`app-nav-link app-help-trigger ${helpOpen ? 'is-active' : ''}`}
-            onClick={() => setHelpOpen((current) => !current)}
-          >
-            <span className="app-nav-icon" aria-hidden="true"><HelpCircle size={16} strokeWidth={2} /></span>
-            Help
-          </button>
-        </div>
-
-        {/* Bottom bar — label + bell + power */}
-        <div style={{
-          padding: '10px 14px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', fontWeight: 500 }}>
-            PriceRight
-          </span>
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <NotificationBell variant="sidebar" />
-            <button
-              type="button"
-              onClick={handleExit}
-              title="Lock and exit"
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '6px',
-                background: 'rgba(255,255,255,0.06)',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'rgba(255,255,255,0.35)',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
-                e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
-              }}
-            >
-              <Power size={14} />
-            </button>
-          </div>
-        </div>
-        </aside>
+          </aside>
 
         <main className="app-main">
           {/* IPC listener — registers update events, renders nothing */}
