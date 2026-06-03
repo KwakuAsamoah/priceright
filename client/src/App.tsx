@@ -487,7 +487,26 @@ function AppLayout({ children }: { children: ReactNode }) {
             <div className="app-brand-wrap">
               <div className="app-brand-row">
                 <div className="app-brand-icon" aria-hidden="true">
-                  <ClipboardList size={18} strokeWidth={2} />
+                  <svg className="app-brand-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <linearGradient id="prBrandBg" x1="7" y1="5" x2="29" y2="31" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#123a5c" />
+                        <stop offset="1" stopColor="#2563eb" />
+                      </linearGradient>
+                    </defs>
+                    <rect width="36" height="36" rx="10" fill="url(#prBrandBg)" />
+                    <rect x="0.5" y="0.5" width="35" height="35" rx="9.5" stroke="rgba(255, 255, 255, 0.12)" />
+                    <rect x="10" y="19" width="4.5" height="7" rx="1.2" fill="rgba(255, 255, 255, 0.88)" />
+                    <rect x="15.8" y="15" width="4.5" height="11" rx="1.2" fill="rgba(255, 255, 255, 0.94)" />
+                    <rect x="21.5" y="11" width="4.5" height="15" rx="1.2" fill="#ffffff" />
+                    <path
+                      d="M12 24.5h14"
+                      stroke="#34d399"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="26.5" cy="12.5" r="2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
+                  </svg>
                 </div>
                 <div className="app-brand-text">
                   <div className="app-brand-title">PriceRight</div>
@@ -539,6 +558,7 @@ function AppLayout({ children }: { children: ReactNode }) {
             <div className="app-sidebar-bottom">
               <span className="app-sidebar-bottom-label">PriceRight</span>
               <div className="app-sidebar-bottom-actions">
+                <DemoModeBanner />
                 <NotificationBell variant="sidebar" />
                 <button
                   type="button"
@@ -556,7 +576,6 @@ function AppLayout({ children }: { children: ReactNode }) {
         <main className="app-main">
           {/* IPC listener — registers update events, renders nothing */}
           <UpdateModal />
-          <DemoModeBanner />
           <TrialBanner />
           {baseCurrencyMissing && (
             <div style={{ backgroundColor: '#DC2626', color: 'white', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

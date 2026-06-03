@@ -198,6 +198,20 @@ export default function Settings() {
     return 'general';
   });
 
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    if (
+      urlTab === 'general'
+      || urlTab === 'pricing'
+      || urlTab === 'currencies'
+      || urlTab === 'master-data'
+      || urlTab === 'data-backups'
+      || urlTab === 'advanced'
+    ) {
+      setActiveTab(urlTab);
+    }
+  }, [searchParams]);
+
   const configuredProductCategories = useMemo(
     () => normalizeMasterListInput(productCategoriesInput),
     [productCategoriesInput]

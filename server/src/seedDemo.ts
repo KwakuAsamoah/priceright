@@ -23,6 +23,42 @@ const serverRoot = path.resolve(__dirname, '..');
 const defaultDemoDbPath = path.resolve(serverRoot, 'demo.db');
 
 const USD_TO_GHS = 14.25;
+const TARGET_GROSS_MARGIN_PCT = 32;
+
+function grossMarginToProfitOnCost(grossMarginPct: number): number {
+  return (grossMarginPct * 100) / (100 - grossMarginPct);
+}
+
+function priceForGrossMargin(productionCostPerUnit: number, grossMarginPct: number): number {
+  return Math.round((productionCostPerUnit / (1 - grossMarginPct / 100)) * 100) / 100;
+}
+
+type BomEntry = { r?: number; i?: number; qty: number };
+type ProdDef = {
+  name: string; sku: string; desc: string; cat: string;
+  overhead: number; otherDirect: number;
+  mode: 'single' | 'batch'; batchYield: number;
+  approved: boolean;
+  bom: BomEntry[];
+};
+
+function computeProductionCostPerUnit(
+  pd: ProdDef,
+  rawUP: (i: number) => number,
+  intCost: (i: number) => number,
+): number {
+  let totalMaterialCost = 0;
+  for (const entry of pd.bom) {
+    const unitPrice = entry.i !== undefined ? intCost(entry.i) : rawUP(entry.r!);
+    totalMaterialCost += unitPrice * entry.qty;
+  }
+  const overheadCost = totalMaterialCost * (pd.overhead / 100);
+  const totalCost = totalMaterialCost + overheadCost + pd.otherDirect;
+  if (pd.mode === 'batch') {
+    return totalCost / Math.max(1, pd.batchYield);
+  }
+  return totalCost;
+}
 
 
 // ─── Full schema for demo.db (always rebuilt fresh on seed) ─────────────────
@@ -419,6 +455,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
     ];
 
     const intIds: number[] = [];
+    const intCosts: number[] = [];
     for (const def of intDefs) {
       let totalCost = 0;
       let totalInput = 0;
@@ -437,6 +474,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
         calcCost, 'Demo Kitchen', now, now,
       ).lastInsertRowid);
       intIds.push(intDbId);
+      intCosts.push(calcCost);
 
       for (const [rawIdx, qty] of def.bom) {
         insIBom.run(intDbId, rId(rawIdx), qty, now);
@@ -445,48 +483,55 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
 
     // Helper: intermediate DB id by 0-based index
     const iId = (i: number) => intIds[i];
+    const intCost = (i: number) => intCosts[i];
+
+    // Target gross margins (profit on sales).
+    // Most approved products sit healthy; three staples run thin to populate low-margin insights.
+    const grossMarginBySku: Record<string, number> = {
+      'PRD-001': 13, // low — volume white loaf
+      'PRD-002': 11, // low — competitive honey oat
+      'PRD-003': 34,
+      'PRD-004': 35,
+      'PRD-005': 33,
+      'PRD-006': 31,
+      'PRD-007': 33,
+      'PRD-008': 32,
+      'PRD-009': 9,  // low — premium pastry, tight retail
+      'PRD-010': 36,
+    };
 
     // ────────────────────────────────────────────────────────────────────────
     // 10 PRODUCTS
     // ────────────────────────────────────────────────────────────────────────
-    type BomEntry = { r?: number; i?: number; qty: number };
-    type ProdDef = {
-      name: string; sku: string; desc: string; cat: string;
-      overhead: number; profit: number; otherDirect: number;
-      mode: 'single' | 'batch'; batchYield: number;
-      approved: boolean; approvedPrice: number | null;
-      bom: BomEntry[];
-    };
-
     const prodDefs: ProdDef[] = [
       // ── Bakery ──────────────────────────────────────────────────────────
       {
         name: 'Classic White Loaf', sku: 'PRD-001',
         desc: 'Soft sandwich loaf, 500g, sliced', cat: 'Bakery',
-        overhead: 25, profit: 30, otherDirect: 2.50, mode: 'single', batchYield: 1,
-        approved: true, approvedPrice: 12.50,
+        overhead: 25, otherDirect: 2.50, mode: 'single', batchYield: 1,
+        approved: true,
         bom: [{ i: 4, qty: 0.35 }, { r: 18, qty: 1 }],
       },
       {
         name: 'Honey Oat Loaf', sku: 'PRD-002',
         desc: 'Wholegrain honey-sweetened loaf, 500g', cat: 'Bakery',
-        overhead: 24, profit: 29, otherDirect: 2.00, mode: 'single', batchYield: 1,
-        approved: true, approvedPrice: 11.80,
+        overhead: 24, otherDirect: 2.00, mode: 'single', batchYield: 1,
+        approved: true,
         bom: [{ r: 0, qty: 0.30 }, { r: 14, qty: 0.08 }, { r: 4, qty: 0.01 }, { r: 5, qty: 0.01 }, { r: 18, qty: 1 }],
       },
       {
         name: 'Artisan Sourdough', sku: 'PRD-003',
         desc: 'Long-ferment sourdough loaf, 750g', cat: 'Bakery',
-        overhead: 24, profit: 30, otherDirect: 3.00, mode: 'single', batchYield: 1,
-        approved: true, approvedPrice: 18.00,
+        overhead: 24, otherDirect: 3.00, mode: 'single', batchYield: 1,
+        approved: true,
         bom: [{ r: 0, qty: 0.60 }, { r: 2, qty: 0.015 }, { r: 17, qty: 0.02 }, { r: 18, qty: 1 }, { r: 19, qty: 1 }],
       },
       // ── Cakes ───────────────────────────────────────────────────────────
       {
         name: 'Chocolate Fudge Cake', sku: 'PRD-004',
         desc: 'Rich chocolate layer cake, serves 12', cat: 'Cakes',
-        overhead: 28, profit: 35, otherDirect: 3.00, mode: 'batch', batchYield: 12,
-        approved: true, approvedPrice: 9.90,
+        overhead: 28, otherDirect: 3.00, mode: 'batch', batchYield: 12,
+        approved: true,
         bom: [
           { r: 0, qty: 0.5 }, { r: 12, qty: 0.2 }, { i: 0, qty: 0.3 },
           { r: 11, qty: 4 }, { r: 1, qty: 0.4 }, { r: 18, qty: 1 },
@@ -495,8 +540,8 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
       {
         name: 'Caramel Drip Cake', sku: 'PRD-005',
         desc: 'Sponge cake with caramel glaze and ganache topping, serves 10', cat: 'Cakes',
-        overhead: 27, profit: 34, otherDirect: 3.00, mode: 'batch', batchYield: 10,
-        approved: true, approvedPrice: 11.50,
+        overhead: 27, otherDirect: 3.00, mode: 'batch', batchYield: 10,
+        approved: true,
         bom: [
           { r: 0, qty: 0.4 }, { r: 11, qty: 3 }, { r: 1, qty: 0.3 },
           { r: 7, qty: 0.2 }, { i: 3, qty: 0.15 }, { i: 0, qty: 0.1 }, { r: 18, qty: 1 },
@@ -505,8 +550,8 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
       {
         name: 'Vanilla Pound Cake', sku: 'PRD-006',
         desc: 'Classic pound cake with vanilla bean, serves 8', cat: 'Cakes',
-        overhead: 26, profit: 32, otherDirect: 2.50, mode: 'batch', batchYield: 8,
-        approved: false, approvedPrice: null,
+        overhead: 26, otherDirect: 2.50, mode: 'batch', batchYield: 8,
+        approved: false,
         bom: [
           { r: 0, qty: 0.35 }, { r: 7, qty: 0.25 }, { r: 13, qty: 0.05 },
           { r: 11, qty: 4 }, { r: 1, qty: 0.3 }, { r: 18, qty: 1 },
@@ -515,8 +560,8 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
       {
         name: 'Fruit & Honey Cake', sku: 'PRD-007',
         desc: 'Traditional fruit cake with raw honey, 250g', cat: 'Cakes',
-        overhead: 25, profit: 31, otherDirect: 2.50, mode: 'single', batchYield: 1,
-        approved: false, approvedPrice: null,
+        overhead: 25, otherDirect: 2.50, mode: 'single', batchYield: 1,
+        approved: false,
         bom: [
           { r: 0, qty: 0.20 }, { r: 14, qty: 0.05 }, { r: 11, qty: 2 },
           { r: 7, qty: 0.10 }, { r: 6, qty: 0.005 }, { r: 18, qty: 1 },
@@ -526,23 +571,23 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
       {
         name: 'Cream Cheese Danish', sku: 'PRD-008',
         desc: 'Flaky pastry with cream cheese and vanilla filling', cat: 'Pastry',
-        overhead: 26, profit: 32, otherDirect: 2.00, mode: 'single', batchYield: 1,
-        approved: true, approvedPrice: 8.50,
+        overhead: 26, otherDirect: 2.00, mode: 'single', batchYield: 1,
+        approved: true,
         bom: [{ i: 4, qty: 0.25 }, { i: 1, qty: 0.08 }, { r: 18, qty: 1 }],
       },
       {
         name: 'Almond Croissant', sku: 'PRD-009',
         desc: 'Buttery croissant with almond paste centre, dusted icing sugar', cat: 'Pastry',
-        overhead: 26, profit: 33, otherDirect: 1.50, mode: 'single', batchYield: 1,
-        approved: true, approvedPrice: 7.80,
+        overhead: 26, otherDirect: 1.50, mode: 'single', batchYield: 1,
+        approved: true,
         bom: [{ i: 4, qty: 0.22 }, { i: 2, qty: 0.06 }, { r: 18, qty: 1 }],
       },
       // ── Biscuits ────────────────────────────────────────────────────────
       {
         name: 'Choco-Almond Biscotti', sku: 'PRD-010',
         desc: 'Twice-baked almond and chocolate biscotti, pack of 10', cat: 'Biscuits',
-        overhead: 28, profit: 36, otherDirect: 1.50, mode: 'batch', batchYield: 10,
-        approved: true, approvedPrice: 14.80,
+        overhead: 28, otherDirect: 1.50, mode: 'batch', batchYield: 10,
+        approved: true,
         bom: [
           { r: 0, qty: 0.25 }, { i: 0, qty: 0.12 }, { i: 2, qty: 0.10 },
           { r: 11, qty: 2 }, { r: 18, qty: 1 }, { r: 19, qty: 10 },
@@ -551,16 +596,23 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
     ];
 
     const productIds: number[] = [];
+    const approvedGrossMargins: number[] = [];
     for (let idx = 0; idx < prodDefs.length; idx++) {
       const pd = prodDefs[idx];
+      const targetGrossMargin = grossMarginBySku[pd.sku] ?? TARGET_GROSS_MARGIN_PCT;
+      const productionCost = computeProductionCostPerUnit(pd, rawUP, intCost);
+      const profitOnCost = Math.round(grossMarginToProfitOnCost(targetGrossMargin) * 10) / 10;
+      const approvedPrice = pd.approved
+        ? priceForGrossMargin(productionCost, targetGrossMargin)
+        : null;
       const approvedAt = pd.approved ? now - idx * 86_400 : null;
       const prodId = Number(insProd.run(
         pd.name, pd.sku, pd.desc, pd.cat,
-        pd.overhead, pd.profit, pd.otherDirect,
+        pd.overhead, profitOnCost, pd.otherDirect,
         pd.mode, pd.batchYield,
-        pd.approvedPrice ?? 0,
+        approvedPrice ?? 0,
         pd.approved ? 'approved' : 'pending',
-        pd.approvedPrice,
+        approvedPrice,
         pd.approved ? 'Admin' : null,
         approvedAt,
         null, now, now,
@@ -572,14 +624,29 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
         insBom.run(prodId, matDbId, entry.qty, now);
       }
 
-      if (pd.approved) {
+      if (pd.approved && approvedPrice != null) {
+        const realisedMargin = approvedPrice > 0
+          ? Math.round(((approvedPrice - productionCost) / approvedPrice) * 1000) / 10
+          : 0;
+        approvedGrossMargins.push(realisedMargin);
         insLog.run(
           'product.approved', 'product', prodId, pd.name, 'Admin',
-          JSON.stringify({ approvedPrice: pd.approvedPrice, note: 'Demo seed' }),
+          JSON.stringify({
+            approvedPrice,
+            productionCost: Math.round(productionCost * 100) / 100,
+            margin: realisedMargin,
+            note: 'Demo seed',
+          }),
           approvedAt,
         );
       }
     }
+
+    const averageApprovedMargin = approvedGrossMargins.length > 0
+      ? Math.round(
+          approvedGrossMargins.reduce((sum, margin) => sum + margin, 0) / approvedGrossMargins.length * 10,
+        ) / 10
+      : 0;
 
     // ────────────────────────────────────────────────────────────────────────
     // 3 PRICE LEVELS
@@ -621,7 +688,8 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
 
     console.log(
       `[demo] Seed complete — ${rawDefs.length} materials, ${intDefs.length} intermediates, ` +
-      `${prodDefs.length} products, ${levelDefs.length} price levels`,
+      `${prodDefs.length} products, ${levelDefs.length} price levels, ` +
+      `avg approved gross margin ${averageApprovedMargin}%`,
     );
   });
 
