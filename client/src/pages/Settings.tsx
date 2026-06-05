@@ -4,6 +4,7 @@ import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, L
 import type { LucideIcon } from 'lucide-react';
 import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
+import AppModal from '../components/AppModal';
 import useAppToast from '../hooks/useAppToast';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useFormState } from '../context/FormStateContext';
@@ -1669,80 +1670,65 @@ async function loadData() {
         </div>
       )}
 
-      {/* Add Currency Modal */}
-      {showAddModal && (
-        <div
-          className="app-modal-overlay"
-        >
-          <div
-            className="app-modal"
-            style={{ maxWidth: '500px' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="btn-close-x" onClick={() => setShowAddModal(false)} aria-label="Close">
-              &times;
-            </button>
-            <h2 className="app-modal-title">Add New Currency</h2>
-            <form onSubmit={handleAddCurrency}>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Currency Code *
-                </label>
-                <input
-                  className="app-control"
-                  type="text"
-                  required
-                  maxLength={3}
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g., USD"
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Currency Name *
-                </label>
-                <input
-                  className="app-control"
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., US Dollar"
-                />
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <label className="app-settings-label">
-                  Symbol *
-                </label>
-                <input
-                  className="app-control"
-                  type="text"
-                  required
-                  value={formData.symbol}
-                  onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
-                  placeholder="e.g., $"
-                />
-              </div>
-              <div className="app-modal-actions">
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn btn-primary"
-                  type="submit"
-                >
-                  Add Currency
-                </button>
-              </div>
-            </form>
+      <AppModal open={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Currency" maxWidth={500}>
+        <form onSubmit={handleAddCurrency}>
+          <div style={{ marginBottom: '16px' }}>
+            <label className="app-settings-label">
+              Currency Code *
+            </label>
+            <input
+              className="app-control"
+              type="text"
+              required
+              maxLength={3}
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+              placeholder="e.g., USD"
+            />
           </div>
-        </div>
-      )}
+          <div style={{ marginBottom: '16px' }}>
+            <label className="app-settings-label">
+              Currency Name *
+            </label>
+            <input
+              className="app-control"
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., US Dollar"
+            />
+          </div>
+          <div style={{ marginBottom: '16px' }}>
+            <label className="app-settings-label">
+              Symbol *
+            </label>
+            <input
+              className="app-control"
+              type="text"
+              required
+              value={formData.symbol}
+              onChange={(e) => setFormData({ ...formData, symbol: e.target.value })}
+              placeholder="e.g., $"
+            />
+          </div>
+          <div className="app-modal-actions">
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => setShowAddModal(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="btn btn-primary"
+              type="submit"
+            >
+              Add Currency
+            </button>
+          </div>
+        </form>
+      </AppModal>
 
     </div>
   );

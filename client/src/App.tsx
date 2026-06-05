@@ -106,6 +106,41 @@ function setNativeInputValue(input: HTMLInputElement, value: string) {
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function isElectronApp() {
+  return typeof window !== 'undefined' && window.electronAPI?.isElectron === true;
+}
+
+function enableElectronInputFocusFix() {
+  if (!isElectronApp()) {
+    return () => {};
+  }
+
+  const handleMouseDown = (event: MouseEvent) => {
+    const target = event.target;
+    if (
+      !(target instanceof HTMLInputElement
+        || target instanceof HTMLTextAreaElement
+        || target instanceof HTMLSelectElement)
+    ) {
+      return;
+    }
+
+    if (target.disabled || target.readOnly) {
+      return;
+    }
+
+    // Chromium/Electron can show a focused field that ignores keyboard input
+    // until the window is alt-tabbed. Forcing focus on mousedown fixes it.
+    if (document.activeElement !== target) {
+      event.preventDefault();
+      target.focus();
+    }
+  };
+
+  document.addEventListener('mousedown', handleMouseDown, true);
+  return () => document.removeEventListener('mousedown', handleMouseDown, true);
+}
+
 function enableSpreadsheetStyleNumberInputs() {
   // Capture the prototype descriptor once so we can build a per-element override
   // that blocks React's reconciler from reverting type="text" back to type="number"
@@ -139,6 +174,7 @@ function enableSpreadsheetStyleNumberInputs() {
     // corrupts Electron/Chromium's native caret state, making the field appear
     // focused but unresponsive to keyboard input until the window is alt-tabbed.
     requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
       // Guard: field may have lost focus before the frame ran — do not mutate.
       if (target.dataset.originalInputType !== 'number') return;
 
@@ -172,6 +208,7 @@ function enableSpreadsheetStyleNumberInputs() {
       } catch {
         // Ignore
       }
+      });
     });
   };
 
@@ -676,9 +713,11 @@ export default function App() {
   useEffect(() => {
     window.localStorage.removeItem('priceright-theme');
     const cleanupMathInputs = enableSpreadsheetStyleNumberInputs();
+    const cleanupElectronFocus = enableElectronInputFocusFix();
 
     return () => {
       cleanupMathInputs();
+      cleanupElectronFocus();
     };
   }, []);
 

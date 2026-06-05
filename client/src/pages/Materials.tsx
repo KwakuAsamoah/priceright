@@ -16,6 +16,7 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
+import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 
 interface Material {
   id: number;
@@ -221,18 +222,7 @@ function parseCsvText(text: string) {
     .filter((line) => line.length > 0);
 }
 
-type ParsedImportPreviewRow = {
-  rowNumber: number;
-  name: string;
-  category: string;
-  unit: string;
-  currencyCode: string;
-  bulkPriceRaw: string;
-  bulkQuantityRaw: string;
-  supplierType: string;
-  errors: string[];
-  parsed: ImportMaterialRow | null;
-};
+type ParsedImportPreviewRow = ParsedMaterialImportRow;
 
 interface MaterialsPageProps {
   materialType?: 'primary' | 'intermediate';
@@ -414,93 +404,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     setImportRuntimeError('');
   }
 
-  function parseImportCsv(fileText: string): ParsedImportPreviewRow[] {
-    try {
-      const allLines = parseCsvText(fileText).map((line) => line.trim());
-      const nonEmpty = allLines.filter((line) => line.length > 0 && !line.startsWith('#'));
-
-      if (nonEmpty.length === 0) return [];
-
-      const firstCells = parseCsvLine(nonEmpty[0]).map((v) => v.trim().toLowerCase());
-      const firstLooksLikeHeader =
-        firstCells[0] === 'material name' &&
-        firstCells[1] === 'category' &&
-        firstCells[2] === 'unit';
-
-      const dataLines = firstLooksLikeHeader ? nonEmpty.slice(1) : nonEmpty;
-      const lineOffset = firstLooksLikeHeader ? 2 : 1;
-
-      const result: ParsedImportPreviewRow[] = [];
-
-      for (let index = 0; index < dataLines.length; index++) {
-        const line = dataLines[index];
-        const cells = parseCsvLine(line);
-
-        // Skip blank rows (all cells empty)
-        if (cells.every((c) => c.trim() === '')) continue;
-
-        const rowNumber = index + lineOffset;
-        const errors: string[] = [];
-
-        const name = (cells[0] || '').trim();
-        const category = (cells[1] || '').trim();
-        const unit = (cells[2] || '').trim();
-        const currencyCode = (cells[3] || '').trim().toUpperCase();
-        const rawBulkPrice = (cells[4] || '').trim();
-        const rawBulkQty = (cells[5] || '').trim();
-        const supplierTypeRaw = (cells[6] || '').trim();
-
-        if (!name) errors.push('Material Name is required.');
-        if (!category) errors.push('Category is required.');
-        if (!unit) errors.push('Unit is required.');
-
-        const bulkPriceNum = rawBulkPrice === '' ? NaN : parseFloat(rawBulkPrice.replace(/,/g, ''));
-        if (rawBulkPrice === '') {
-          errors.push('Bulk Price is required');
-        } else if (isNaN(bulkPriceNum) || bulkPriceNum <= 0) {
-          errors.push(`Bulk Price "${rawBulkPrice}" must be a positive number`);
-        }
-
-        const bulkQtyNum = rawBulkQty === '' ? NaN : parseFloat(rawBulkQty.replace(/,/g, ''));
-        if (rawBulkQty === '') {
-          errors.push('Bulk Quantity is required');
-        } else if (isNaN(bulkQtyNum) || bulkQtyNum <= 0) {
-          errors.push(`Bulk Quantity "${rawBulkQty}" must be a positive number`);
-        }
-
-        const supplierType = supplierTypeRaw || 'Local';
-        if (supplierTypeRaw && !['local', 'foreign'].includes(supplierTypeRaw.toLowerCase())) {
-          errors.push('Supplier Type must be Local or Foreign.');
-        }
-
-        const parsed: ImportMaterialRow | null =
-          errors.length === 0
-            ? { name, category, unit, currencyCode, bulkPrice: bulkPriceNum, bulkQuantity: bulkQtyNum, supplierType }
-            : null;
-
-        result.push({
-          rowNumber,
-          name,
-          category,
-          unit,
-          currencyCode,
-          bulkPriceRaw: rawBulkPrice,
-          bulkQuantityRaw: rawBulkQty,
-          supplierType,
-          errors,
-          parsed,
-        });
-      }
-
-      return result;
-    } catch (err) {
-      setImportRuntimeError(
-        `Failed to read file: ${err instanceof Error ? err.message : 'Unknown error'}`
-      );
-      return [];
-    }
-  }
-
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -509,33 +412,23 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     setImportResult(null);
     setImportRuntimeError('');
 
-    const extension = (file.name.split('.').pop() || '').toLowerCase();
-    if (extension !== 'csv') {
-      setImportPreview([]);
-      setImportRuntimeError('Only CSV files are supported for materials import.');
-      return;
-    }
+    try {
+      const rows = await parseMaterialImportFile(file, parseCsvLine, parseCsvText);
 
-    const textReader = new FileReader();
-    textReader.onload = (event) => {
-      try {
-        const text = String(event.target?.result || '');
-        const rows = parseImportCsv(text);
-
-        if (rows.length > MAX_IMPORT_ROWS) {
-          setImportPreview(rows);
-          setImportRuntimeError(`CSV has ${rows.length} rows. Maximum supported is ${MAX_IMPORT_ROWS}.`);
-          return;
-        }
-
+      if (rows.length > MAX_IMPORT_ROWS) {
         setImportPreview(rows);
-      } catch (error) {
-        console.error('Error reading CSV file:', error);
-        setImportPreview([]);
-        setImportRuntimeError('Error reading CSV file. Please check the format.');
+        setImportRuntimeError(`File has ${rows.length} rows. Maximum supported is ${MAX_IMPORT_ROWS}.`);
+        return;
       }
-    };
-    textReader.readAsText(file);
+
+      setImportPreview(rows);
+    } catch (error) {
+      console.error('Error reading import file:', error);
+      setImportPreview([]);
+      setImportRuntimeError(
+        error instanceof Error ? error.message : 'Error reading import file. Please check the format.',
+      );
+    }
   }
 
   async function handleImport() {
@@ -2152,15 +2045,15 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 >
                   <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
                   <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>
-                    Upload materials CSV
+                    Upload materials file
                   </div>
                   <div style={{ fontSize: '16px', color: '#64748b' }}>
-                    Use the standard template for best results.
+                    CSV or Excel (.xlsx) from the import template.
                   </div>
                   <input
                     id="file-upload"
                     type="file"
-                    accept=".csv"
+                    accept=".csv,.xlsx,.xls"
                     onChange={handleFileUpload}
                     style={{ display: 'none' }}
                   />
@@ -2168,8 +2061,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
 
                 <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                  <div style={{ fontSize: '15px', color: '#475569' }}>Columns: Material Name, Category, Unit, Purchase Currency, Bulk Price, Bulk Quantity, Supplier Type.</div>
-                  <div style={{ fontSize: '15px', color: '#475569' }}>Supplier Type accepts Local or Foreign. Currency can be blank to use base currency.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Required columns: Material Name, Category, Unit, Bulk Price, Bulk Quantity, Currency Code.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Optional: SKU, Supplier (use Local or Foreign), Description. Keep row 1 as headers.</div>
                 </div>
 
 

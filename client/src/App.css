@@ -583,10 +583,12 @@
   z-index: 3000;
   display: flex;
   flex-direction: column;
+  pointer-events: none;
 }
 
 .app-help-panel.is-open {
   transform: translateX(0);
+  pointer-events: auto;
 }
 
 .app-help-panel-header {
