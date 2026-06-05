@@ -1,6 +1,6 @@
 {
   "name": "priceright",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
@@ -11,9 +11,12 @@
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npx tsc -p tsconfig.json && node -e \"require('fs').writeFileSync('../server-dist/package.json', JSON.stringify({type:'module'}))\"",
     "generate:templates": "node scripts/generate-templates.js",
-    "rebuild:native": "npx @electron/rebuild -v 32.3.3 -a x64 -m server",
+    "rebuild:native": "node scripts/install-electron-sqlite.js",
+    "rebuild:server-dev": "npm rebuild better-sqlite3 --prefix server",
+    "verify:electron-native": "node scripts/verify-packaged-native.js",
     "electron:dev": "electron electron/main.js",
-    "electron:build": "npm run rebuild:native && npm run build:client && npm run build:server && electron-builder"
+    "electron:build": "npm run rebuild:native && npm run build:client && npm run build:server && electron-builder",
+    "electron:publish": "npm run electron:build -- --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.3",

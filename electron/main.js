@@ -590,10 +590,10 @@ app.whenReady().then(async () => {
       await startServer();
     } catch (error) {
       console.error('[server] failed to start:', error);
-      dialog.showErrorBox(
-        'PriceRight - Startup Error',
-        'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.'
-      );
+      const detail = error?.code === 'ERR_DLOPEN_FAILED'
+        ? 'A required native module was built for the wrong platform.\n\nPlease download the latest version from priceright.app or contact support@priceright.app.'
+        : 'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.';
+      dialog.showErrorBox('PriceRight - Startup Error', detail);
       app.quit();
       return;
     }

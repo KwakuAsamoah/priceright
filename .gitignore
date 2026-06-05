@@ -13,5 +13,10 @@ client-dist/
 server/demo-mode.json
 scripts/*
 !scripts/generate-templates.js
+!scripts/electron-before-pack.js
+!scripts/electron-after-pack.js
+!scripts/install-electron-sqlite.js
+!scripts/verify-sqlite-electron.js
+!scripts/verify-packaged-native.js
 temp-*.cjs
 temp-*.js

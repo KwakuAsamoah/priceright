@@ -39,6 +39,9 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: PriceRight
 
+beforePack: scripts/electron-before-pack.js
+afterPack: scripts/electron-after-pack.js
+
 publish:
   provider: github
   owner: KwakuAsamoah
