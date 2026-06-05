@@ -125,7 +125,14 @@ function enableElectronInputFocusFix() {
       return;
     }
 
-    if (target.disabled || target.readOnly) {
+    if (target.disabled) {
+      return;
+    }
+
+    if (
+      (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+      && target.readOnly
+    ) {
       return;
     }
 
