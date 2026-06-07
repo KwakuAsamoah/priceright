@@ -1275,25 +1275,13 @@ export default function Reports() {
                       setReportData(null);
                       setError(null);
                     }}
-                    style={{
-                      width: '100%',
-                      maxWidth: '100%',
-                      boxSizing: 'border-box',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      backgroundColor: isActive ? '#111827' : '#fff',
-                      color: isActive ? '#fff' : '#0f172a',
-                      textAlign: 'left',
-                      padding: '10px',
-                      cursor: 'pointer',
-                      whiteSpace: 'normal',
-                    }}
+                    className={`app-panel-tab ${isActive ? 'is-active' : ''}`}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
                       <strong style={{ fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap' }}>{report.name}</strong>
                     </div>
-                    <div style={{ fontSize: '13px', marginTop: '5px', color: isActive ? '#d1d5db' : '#64748b', whiteSpace: 'normal', overflow: 'visible', lineHeight: 1.4 }}>
+                    <div className="app-panel-tab-description">
                       {report.description}
                     </div>
                   </button>

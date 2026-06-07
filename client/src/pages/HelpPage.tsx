@@ -100,17 +100,8 @@ export default function HelpPage() {
                           key={article.id}
                           type="button"
                           onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
-                          style={{
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            backgroundColor: active ? '#0f172a' : '#ffffff',
-                            color: active ? '#ffffff' : '#334155',
-                            padding: '8px 10px',
-                            textAlign: 'left',
-                            fontSize: '14px',
-                            fontWeight: active ? 700 : 600,
-                            cursor: 'pointer',
-                          }}
+                          className={`app-panel-tab ${active ? 'is-active' : ''}`}
+                          style={{ padding: '8px 10px' }}
                         >
                           {article.title}
                         </button>

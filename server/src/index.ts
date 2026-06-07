@@ -1062,7 +1062,6 @@ app.post('/api/materials', async (req, res) => {
       bulkPrice,
       purchaseCurrencyId,
       supplier,
-      supplierType,
       materialType,
       overheadPercentage,
       marginPercentage,
@@ -1126,7 +1125,7 @@ app.post('/api/materials', async (req, res) => {
       intermediateCostMode: normalizedIntermediateCostMode,
       yieldPercentage: normalizedYield,
       calculatedCostPerUnit: unitPrice,
-      supplier: supplier ?? supplierType ?? '',
+      supplier: '',
     }).returning();
     
     // Save price history
@@ -1180,7 +1179,7 @@ app.put('/api/materials/:id', async (req, res) => {
     const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
     const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
     const calculatedCostPerUnit = Number(req.body?.calculatedCostPerUnit ?? existing.calculatedCostPerUnit ?? existing.unitPrice ?? 0);
-    const supplier = req.body?.supplier ?? req.body?.supplierType ?? existing.supplier;
+    const supplier = '';
     const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
 
     const shouldRecalculatePrice =
@@ -1516,14 +1515,6 @@ app.post('/api/materials/import', async (req, res) => {
     );
 
     const normalizeString = (value: unknown) => String(value ?? '').trim();
-    const normalizeSupplierType = (value: unknown): 'Local' | 'Foreign' | null => {
-      const raw = normalizeString(value);
-      if (!raw) return 'Local';
-      const lowered = raw.toLowerCase();
-      if (lowered === 'local') return 'Local';
-      if (lowered === 'foreign') return 'Foreign';
-      return null;
-    };
 
     const errors: Array<{ row: number; name: string; error: string }> = [];
     const historyRows: Array<{
@@ -1545,7 +1536,6 @@ app.post('/api/materials/import', async (req, res) => {
       const currencyCodeInput = normalizeString(row.currencyCode).toUpperCase();
       const bulkPrice = Number(row.bulkPrice);
       const bulkQuantity = Number(row.bulkQuantity);
-      const supplierType = normalizeSupplierType(row.supplierType);
 
       if (!name) {
         errors.push({ row: rowNumber, name: '', error: 'Material name is required' });
@@ -1565,10 +1555,6 @@ app.post('/api/materials/import', async (req, res) => {
       }
       if (!Number.isFinite(bulkQuantity) || bulkQuantity <= 0) {
         errors.push({ row: rowNumber, name, error: 'Bulk quantity must be a positive number' });
-        continue;
-      }
-      if (!supplierType) {
-        errors.push({ row: rowNumber, name, error: 'Supplier type must be Local or Foreign' });
         continue;
       }
 
@@ -1619,7 +1605,7 @@ app.post('/api/materials/import', async (req, res) => {
             priceInBaseCurrency,
             unitPrice,
             calculatedCostPerUnit: unitPrice,
-            supplier: supplierType,
+            supplier: '',
             isActive: true,
             updatedAt: new Date(),
             overheadPercentage: Number(existing.overheadPercentage || 0),
@@ -1654,7 +1640,7 @@ app.post('/api/materials/import', async (req, res) => {
           marginPercentage: 0,
           yieldPercentage: 100,
           calculatedCostPerUnit: unitPrice,
-          supplier: supplierType,
+          supplier: '',
           isActive: true,
         }).returning();
 

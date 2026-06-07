@@ -1,26 +1,26 @@
-Material Name,Category,Unit,Purchase Currency,Bulk Price,Bulk Quantity,Supplier Type
-Raw Peanuts,Nuts & Seeds,Kg,GHS,320.00,50,Local
-Palm Oil (Crude),Oils & Fats,L,GHS,187.50,25,Local
-Sugar (Refined),Sweeteners,Kg,GHS,275.00,50,Local
-Cocoa Beans (Dried),Cocoa,Kg,GHS,562.50,25,Local
-Corn (Dried),Grains & Cereals,Kg,GHS,380.00,100,Local
-Cassava (Dried Chips),Roots & Tubers,Kg,GHS,290.00,100,Local
-Rice (Local Milled),Grains & Cereals,Kg,GHS,375.00,50,Local
-Salt (Iodised),Seasonings,Kg,GHS,62.50,25,Local
-Milk Powder (Full Fat),Dairy,Kg,GHS,675.00,25,Local
-Tomato Paste (Concentrate),Tomato Products,Kg,GHS,504.00,24,Local
-Onion Powder,Seasonings,Kg,GHS,350.00,10,Local
-Pepper (Ground Chilli),Seasonings,Kg,GHS,420.00,10,Local
-Citric Acid,Food Additives,Kg,GHS,175.00,5,Local
-Sodium Benzoate,Food Additives,Kg,GHS,130.00,5,Local
-Vegetable Oil (Refined),Oils & Fats,L,GHS,260.00,20,Local
-Wheat Flour,Grains & Cereals,Kg,GHS,400.00,50,Local
-Ginger (Ground),Seasonings,Kg,GHS,225.00,5,Local
-Garlic Powder,Seasonings,Kg,GHS,275.00,5,Local
-Water (Treated),Utilities,L,GHS,15.00,1000,Local
-Packaging Film (Roll),Packaging,m,GHS,850.00,1,Local
-PET Jar 250g (with lid),Packaging,Ea,GHS,650.00,500,Local
-PET Jar 400g (with lid),Packaging,Ea,GHS,875.00,500,Local
-Sachet Film 100g,Packaging,Ea,GHS,180.00,1000,Local
-Carton Box (Export),Packaging,Ea,GHS,320.00,100,Local
-Label (Printed),Packaging,Ea,GHS,85.00,1000,Local
+Material Name,Category,Unit,Purchase Currency,Bulk Price,Bulk Quantity
+Raw Peanuts,Nuts & Seeds,Kg,GHS,320.00,50
+Palm Oil (Crude),Oils & Fats,L,GHS,187.50,25
+Sugar (Refined),Sweeteners,Kg,GHS,275.00,50
+Cocoa Beans (Dried),Cocoa,Kg,GHS,562.50,25
+Corn (Dried),Grains & Cereals,Kg,GHS,380.00,100
+Cassava (Dried Chips),Roots & Tubers,Kg,GHS,290.00,100
+Rice (Local Milled),Grains & Cereals,Kg,GHS,375.00,50
+Salt (Iodised),Seasonings,Kg,GHS,62.50,25
+Milk Powder (Full Fat),Dairy,Kg,GHS,675.00,25
+Tomato Paste (Concentrate),Tomato Products,Kg,GHS,504.00,24
+Onion Powder,Seasonings,Kg,GHS,350.00,10
+Pepper (Ground Chilli),Seasonings,Kg,GHS,420.00,10
+Citric Acid,Food Additives,Kg,GHS,175.00,5
+Sodium Benzoate,Food Additives,Kg,GHS,130.00,5
+Vegetable Oil (Refined),Oils & Fats,L,GHS,260.00,20
+Wheat Flour,Grains & Cereals,Kg,GHS,400.00,50
+Ginger (Ground),Seasonings,Kg,GHS,225.00,5
+Garlic Powder,Seasonings,Kg,GHS,275.00,5
+Water (Treated),Utilities,L,GHS,15.00,1000
+Packaging Film (Roll),Packaging,m,GHS,850.00,1
+PET Jar 250g (with lid),Packaging,Ea,GHS,650.00,500
+PET Jar 400g (with lid),Packaging,Ea,GHS,875.00,500
+Sachet Film 100g,Packaging,Ea,GHS,180.00,1000
+Carton Box (Export),Packaging,Ea,GHS,320.00,100
+Label (Printed),Packaging,Ea,GHS,85.00,1000

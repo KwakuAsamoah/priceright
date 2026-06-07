@@ -44,7 +44,7 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
     {
       number: '1',
       title: 'Add your materials',
-      description: 'Enter your raw materials, suppliers, and current prices.',
+      description: 'Enter your raw materials and current prices.',
       color: '#0F2847',
     },
     {

@@ -913,7 +913,7 @@ app.get('/api/materials', async (req, res) => {
 });
 app.post('/api/materials', async (req, res) => {
     try {
-        const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier, supplierType, materialType, overheadPercentage, marginPercentage, intermediateCostMode, yieldPercentage, calculatedCostPerUnit, } = req.body;
+        const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier, materialType, overheadPercentage, marginPercentage, intermediateCostMode, yieldPercentage, calculatedCostPerUnit, } = req.body;
         const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
         const baseCurrency = await resolveBaseCurrency();
         // Get exchange rate
@@ -965,7 +965,7 @@ app.post('/api/materials', async (req, res) => {
             intermediateCostMode: normalizedIntermediateCostMode,
             yieldPercentage: normalizedYield,
             calculatedCostPerUnit: unitPrice,
-            supplier: supplier ?? supplierType ?? '',
+            supplier: '',
         }).returning();
         // Save price history
         await getActiveDb().insert(materialPriceHistory).values({
@@ -1014,7 +1014,7 @@ app.put('/api/materials/:id', async (req, res) => {
         const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
         const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
         const calculatedCostPerUnit = Number(req.body?.calculatedCostPerUnit ?? existing.calculatedCostPerUnit ?? existing.unitPrice ?? 0);
-        const supplier = req.body?.supplier ?? req.body?.supplierType ?? existing.supplier;
+        const supplier = '';
         const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
         const shouldRecalculatePrice = req.body?.bulkQuantity !== undefined
             || req.body?.bulkPrice !== undefined
@@ -1302,17 +1302,6 @@ app.post('/api/materials/import', async (req, res) => {
             .where(eq(materials.materialType, 'primary'));
         const existingMaterialByName = new Map(existingPrimaryMaterials.map((material) => [String(material.name || '').trim().toLowerCase(), material]));
         const normalizeString = (value) => String(value ?? '').trim();
-        const normalizeSupplierType = (value) => {
-            const raw = normalizeString(value);
-            if (!raw)
-                return 'Local';
-            const lowered = raw.toLowerCase();
-            if (lowered === 'local')
-                return 'Local';
-            if (lowered === 'foreign')
-                return 'Foreign';
-            return null;
-        };
         const errors = [];
         const historyRows = [];
         let imported = 0;
@@ -1326,7 +1315,6 @@ app.post('/api/materials/import', async (req, res) => {
             const currencyCodeInput = normalizeString(row.currencyCode).toUpperCase();
             const bulkPrice = Number(row.bulkPrice);
             const bulkQuantity = Number(row.bulkQuantity);
-            const supplierType = normalizeSupplierType(row.supplierType);
             if (!name) {
                 errors.push({ row: rowNumber, name: '', error: 'Material name is required' });
                 continue;
@@ -1345,10 +1333,6 @@ app.post('/api/materials/import', async (req, res) => {
             }
             if (!Number.isFinite(bulkQuantity) || bulkQuantity <= 0) {
                 errors.push({ row: rowNumber, name, error: 'Bulk quantity must be a positive number' });
-                continue;
-            }
-            if (!supplierType) {
-                errors.push({ row: rowNumber, name, error: 'Supplier type must be Local or Foreign' });
                 continue;
             }
             const resolvedCurrencyCode = currencyCodeInput || baseCurrency.code;
@@ -1391,7 +1375,7 @@ app.post('/api/materials/import', async (req, res) => {
                     priceInBaseCurrency,
                     unitPrice,
                     calculatedCostPerUnit: unitPrice,
-                    supplier: supplierType,
+                    supplier: '',
                     isActive: true,
                     updatedAt: new Date(),
                     overheadPercentage: Number(existing.overheadPercentage || 0),
@@ -1425,7 +1409,7 @@ app.post('/api/materials/import', async (req, res) => {
                     marginPercentage: 0,
                     yieldPercentage: 100,
                     calculatedCostPerUnit: unitPrice,
-                    supplier: supplierType,
+                    supplier: '',
                     isActive: true,
                 }).returning();
                 const createdMaterial = created[0];

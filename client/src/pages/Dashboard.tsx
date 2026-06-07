@@ -5,6 +5,7 @@ import {
   CheckCircle,
   Clock,
   FileText,
+  Layers,
   LayoutDashboard,
   Package,
   RefreshCw,
@@ -53,6 +54,10 @@ interface ProductCostSnapshot {
 
 interface Material {
   id: number;
+  materialType?: string | null;
+  unitPrice?: number | string | null;
+  calculatedCostPerUnit?: number | string | null;
+  isActive?: boolean;
   purchaseCurrencyId?: number | null;
   purchaseCurrencyCode?: string | null;
   purchaseCurrencySymbol?: string | null;
@@ -465,10 +470,11 @@ export default function Dashboard() {
   }, [products, productionCostByProductId]);
 
   const materialCounts = useMemo(() => {
+    const primaryMaterials = materials.filter((material) => material.materialType !== 'intermediate');
     const byCode: Record<string, number> = {};
     let baseCount = 0;
 
-    materials.forEach((material) => {
+    primaryMaterials.forEach((material) => {
       const code = (material.purchaseCurrencyCode || '').trim().toUpperCase();
       if (!code || code === baseCurrencyCode.toUpperCase()) {
         baseCount += 1;
@@ -484,12 +490,29 @@ export default function Dashboard() {
       .join(' · ');
 
     return {
-      total: materials.length,
+      total: primaryMaterials.length,
       baseCount,
       foreignSummary: foreignSummary || 'No foreign currency purchases',
       foreignByCode: byCode,
     };
   }, [materials, baseCurrencyCode]);
+
+  const intermediateMaterialCounts = useMemo(() => {
+    const intermediateMaterials = materials.filter((material) => material.materialType === 'intermediate');
+    const active = intermediateMaterials.filter((material) => material.isActive !== false).length;
+    const inactive = intermediateMaterials.length - active;
+    const zeroCostCount = intermediateMaterials.filter((material) => {
+      const cost = toNumber(material.unitPrice ?? material.calculatedCostPerUnit);
+      return cost <= 0;
+    }).length;
+
+    return {
+      total: intermediateMaterials.length,
+      active,
+      inactive,
+      zeroCostCount,
+    };
+  }, [materials]);
 
 
 
@@ -698,7 +721,7 @@ export default function Dashboard() {
           }
           .dashboard-stat-grid {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 12px;
           }
           .dashboard-widget-grid {
@@ -829,10 +852,25 @@ export default function Dashboard() {
             </div>
             <div className="dashboard-stat-title">Total Raw Materials</div>
             <div className="dashboard-stat-value">{materialCounts.total}</div>
-            <div className="dashboard-stat-hint">Inventory currency mix overview</div>
+            <div className="dashboard-stat-hint">Primary materials inventory overview</div>
             <div className="dashboard-stat-sub">{materialCounts.foreignSummary}</div>
             <div className="dashboard-stat-sub" style={{ marginTop: '4px' }}>{materialCounts.baseCount} purchased at {baseCurrencyCode} base rate</div>
           </div>
+
+          <button className="app-card dashboard-stat-card" onClick={() => navigate('/materials?tab=intermediate')} title="Open intermediate materials">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle('#7C3AED')}><Layers size={20} color="#ffffff" /></div>
+            </div>
+            <div className="dashboard-stat-title">Intermediate Materials</div>
+            <div className="dashboard-stat-value">{intermediateMaterialCounts.total}</div>
+            <div className="dashboard-stat-hint">Click to open intermediate materials</div>
+            <div className="dashboard-stat-sub">{intermediateMaterialCounts.active} active · {intermediateMaterialCounts.inactive} inactive</div>
+            {intermediateMaterialCounts.zeroCostCount > 0 && (
+              <div className="dashboard-stat-sub" style={{ marginTop: '4px', color: '#b45309' }}>
+                {intermediateMaterialCounts.zeroCostCount} need BOM or cost recalculation
+              </div>
+            )}
+          </button>
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/products')} title="Open Products">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1209,7 +1247,7 @@ export default function Dashboard() {
       <style>{`
         .dashboard-stat-grid {
           display: grid;
-          grid-template-columns: repeat(6, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
           gap: 12px;
         }
         .dashboard-stat-card {

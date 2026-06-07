@@ -26,6 +26,13 @@
   --color-info: #0369a1;
   --color-info-soft: #e0f2fe;
 
+  --color-tab-active-bg: #2563eb;
+  --color-tab-active-text: #ffffff;
+  --color-tab-active-border: #1d4ed8;
+  --color-nav-active-bg: #2563eb;
+  --color-choice-tab-active-bg: #ea580c;
+  --color-choice-tab-active-text: #ffffff;
+  --color-choice-tab-active-border: #c2410c;
   --color-header-bg: #0F2847;
   --color-header-border: #0F2847;
   --color-header-text: #f8fafc;
@@ -168,11 +175,89 @@ textarea {
 }
 
 .app-section-tab.is-active {
-  color: #0F2847 !important;
-  font-weight: 600;
-  border-bottom-color: #0F2847 !important;
+  color: var(--color-tab-active-text) !important;
+  font-weight: 700;
+  border-bottom-color: var(--color-tab-active-bg) !important;
+  background: var(--color-tab-active-bg) !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.app-choice-tabs {
+  display: inline-flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.app-choice-tab {
+  border: none !important;
   background: transparent !important;
-  box-shadow: none;
+  color: #64748b !important;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-choice-tab:hover:not(.is-active) {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+.app-choice-tab.is-active {
+  color: var(--color-choice-tab-active-text) !important;
+  background: var(--color-choice-tab-active-bg) !important;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.28);
+}
+
+.app-choice-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-panel-tab {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  padding: 10px;
+  cursor: pointer;
+  white-space: normal;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.app-panel-tab:hover:not(.is-active) {
+  border-color: #93c5fd;
+  background: #f8fafc;
+}
+
+.app-panel-tab.is-active {
+  background: var(--color-tab-active-bg);
+  border-color: var(--color-tab-active-border);
+  color: var(--color-tab-active-text);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.app-panel-tab-description {
+  font-size: 13px;
+  margin-top: 5px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.app-panel-tab.is-active .app-panel-tab-description {
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .materials-shell .materials-tab-panel > .app-page > .app-page-header,

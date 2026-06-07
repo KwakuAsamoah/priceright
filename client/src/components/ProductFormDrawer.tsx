@@ -415,23 +415,25 @@ export default function ProductFormDrawer({
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Production Mode</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px' }}>
-                    <input
-                      type="radio"
-                      checked={formData.productionMode === 'single'}
-                      onChange={() => setFormData({ ...formData, productionMode: 'single', batchYield: '1' })}
-                    />
+                <div className="app-choice-tabs" role="tablist" aria-label="Production mode">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={formData.productionMode === 'single'}
+                    className={`app-choice-tab ${formData.productionMode === 'single' ? 'is-active' : ''}`}
+                    onClick={() => setFormData({ ...formData, productionMode: 'single', batchYield: '1' })}
+                  >
                     Single
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '15px' }}>
-                    <input
-                      type="radio"
-                      checked={formData.productionMode === 'batch'}
-                      onChange={() => setFormData({ ...formData, productionMode: 'batch', batchYield: formData.batchYield || '1' })}
-                    />
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={formData.productionMode === 'batch'}
+                    className={`app-choice-tab ${formData.productionMode === 'batch' ? 'is-active' : ''}`}
+                    onClick={() => setFormData({ ...formData, productionMode: 'batch', batchYield: formData.batchYield || '1' })}
+                  >
                     Batch
-                  </label>
+                  </button>
                 </div>
               </div>
               {formData.productionMode === 'batch' && (

@@ -83,7 +83,6 @@ type MaterialColumnKey =
   | 'unit'
   | 'unitCost'
   | 'bulkPricing'
-  | 'supplier'
   | 'status'
   | 'actions';
 
@@ -93,7 +92,6 @@ const MATERIAL_COLUMN_OPTIONS: Array<{ key: MaterialColumnKey; label: string }> 
   { key: 'unit', label: 'Unit' },
   { key: 'unitCost', label: 'Unit Cost' },
   { key: 'bulkPricing', label: 'Bulk Pricing' },
-  { key: 'supplier', label: 'Supplier' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: 'Actions' },
 ];
@@ -308,7 +306,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     bulkQuantity: '',
     bulkPrice: '',
     purchaseCurrencyId: 0,
-    supplier: '',
   });
 
   useEffect(() => {
@@ -380,6 +377,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         unit: resolvedUnit,
         bulkQuantity: parseFloat(formData.bulkQuantity),
         bulkPrice: parseFloat(formData.bulkPrice),
+        supplier: '',
       };
 
       if (editingMaterial) {
@@ -492,7 +490,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         currencyCode: '',
         bulkPrice: '',
         bulkQuantity: '',
-        supplierType: '',
       };
 
       return [
@@ -503,7 +500,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         source.currencyCode || '',
         source.bulkPrice,
         source.bulkQuantity,
-        source.supplierType || '',
         failure.error,
       ];
     });
@@ -511,7 +507,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     const date = new Date().toISOString().split('T')[0];
     downloadCsv(
       `materials-import-failures-${date}.csv`,
-      ['Row', 'Material Name', 'Category', 'Unit', 'Purchase Currency', 'Bulk Price', 'Bulk Quantity', 'Supplier Type', 'Error'],
+      ['Row', 'Material Name', 'Category', 'Unit', 'Purchase Currency', 'Bulk Price', 'Bulk Quantity', 'Error'],
       rows
     );
   }
@@ -525,7 +521,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     if (error.includes('Material Name is required')) return 'Enter a name in column A (Material Name).';
     if (error.includes('Category is required')) return 'Enter a category in column B (Category).';
     if (error.includes('Unit is required')) return 'Enter a unit in column C (Unit). Example: Kg, L, Ea.';
-    if (error.includes('Supplier Type')) return 'Enter either Local or Foreign in column G (Supplier Type).';
     return 'Check the CSV format and correct this row.';
   }
 
@@ -540,14 +535,13 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       row.currencyCode,
       row.bulkPriceRaw,
       row.bulkQuantityRaw,
-      row.supplierType,
       row.errors.join('; '),
       row.errors.map(getHowToFix).join('; '),
     ]);
     const date = new Date().toISOString().split('T')[0];
     downloadCsv(
       `materials-import-errors-${date}.csv`,
-      ['Line #', 'Material Name', 'Category', 'Unit', 'Currency', 'Bulk Price', 'Bulk Quantity', 'Supplier Type', 'Error', 'How to Fix'],
+      ['Line #', 'Material Name', 'Category', 'Unit', 'Currency', 'Bulk Price', 'Bulk Quantity', 'Error', 'How to Fix'],
       rows
     );
   }
@@ -574,14 +568,13 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
       'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
-      'Supplier': material.supplier,
       'Description': material.description || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const columnWidths = [
       { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 25 }, { wch: 30 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 30 },
     ];
     worksheet['!cols'] = columnWidths;
 
@@ -622,7 +615,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
       'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
-      'Supplier': material.supplier,
       'Status': material.isActive ? 'Active' : 'Inactive',
       'Description': material.description || '',
     }));
@@ -630,7 +622,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet['!cols'] = [
       { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 25 }, { wch: 12 }, { wch: 30 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -681,13 +673,12 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       Number(material.bulkPrice || 0).toFixed(2),
       material.purchaseCurrencyCode,
       Number(material.unitPrice || 0).toFixed(2),
-      material.supplier,
       material.isActive ? 'Active' : 'Inactive',
     ]);
 
     downloadCsv(
       `materials-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Bulk Price', 'Currency', 'Unit Cost', 'Supplier', 'Status'],
+      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Bulk Price', 'Currency', 'Unit Cost', 'Status'],
       rows
     );
 
@@ -715,7 +706,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
             <td style="text-align:right;">${Number(material.bulkPrice || 0).toFixed(2)}</td>
             <td>${material.purchaseCurrencyCode}</td>
             <td style="text-align:right;">${Number(material.unitPrice || 0).toFixed(2)}</td>
-            <td>${material.supplier}</td>
             <td>${material.isActive ? 'Active' : 'Inactive'}</td>
           </tr>
         `
@@ -742,7 +732,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           <table>
             <thead>
               <tr>
-                <th>Material</th><th>SKU</th><th>Category</th><th>Unit</th><th>Bulk Qty</th><th>Bulk Price</th><th>Currency</th><th>Unit Cost</th><th>Supplier</th><th>Status</th>
+                <th>Material</th><th>SKU</th><th>Category</th><th>Unit</th><th>Bulk Qty</th><th>Bulk Price</th><th>Currency</th><th>Unit Cost</th><th>Status</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -818,7 +808,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         bulkQuantity: parseFloat(material.bulkQuantity),
         bulkPrice: parseFloat(material.bulkPrice),
         purchaseCurrencyId: material.purchaseCurrencyId,
-        supplier: material.supplier,
+        supplier: '',
       });
 
       await loadData();
@@ -969,7 +959,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       bulkQuantity: material.bulkQuantity,
       bulkPrice: material.bulkPrice,
       purchaseCurrencyId: material.purchaseCurrencyId,
-      supplier: material.supplier,
     });
     setShowAddModal(true);
   }
@@ -1012,7 +1001,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       bulkQuantity: '',
       bulkPrice: '',
       purchaseCurrencyId: currencies[0]?.id || 0,
-      supplier: '',
     });
   }
 
@@ -1037,8 +1025,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
           searchTerm === '' ||
           material.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           material.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          material.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          material.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+          material.description?.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesSearch;
       })
       .sort((a, b) => {
@@ -1517,10 +1504,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
                   }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
                   {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
-                  {isMaterialColumnVisible('supplier') && <th onClick={() => {
-                    setSortField('supplier');
-                    setSortOrder((prev) => (sortField === 'supplier' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '100px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Supplier</th>}
                   {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
                   {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
@@ -1560,7 +1543,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                         {parseFloat(material.bulkPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('supplier') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{material.supplier}</td>}
                     {isMaterialColumnVisible('status') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
                         {material.isActive ? 'Active' : 'Inactive'}
@@ -1686,10 +1668,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>SKU</div>
                 <div style={{ fontWeight: 600 }}>{detailMaterial.sku || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Supplier</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.supplier || '—'}</div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Description</div>
@@ -1950,20 +1928,6 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                     </select>
                   </div>
                 </div>
-
-                <div>
-                  <label className="app-settings-label">
-                    Supplier *
-                  </label>
-                  <input
-                    className="app-control"
-                    type="text"
-                    required
-                    value={formData.supplier}
-                    onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
               </div>
 
               <div className="app-modal-actions" style={{ marginTop: '24px' }}>
@@ -2062,7 +2026,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
                   <div style={{ fontSize: '15px', color: '#475569' }}>Required columns: Material Name, Category, Unit, Bulk Price, Bulk Quantity, Currency Code.</div>
-                  <div style={{ fontSize: '15px', color: '#475569' }}>Optional: SKU, Supplier (use Local or Foreign), Description. Keep row 1 as headers.</div>
+                  <div style={{ fontSize: '15px', color: '#475569' }}>Optional: SKU, Description. Keep row 1 as headers.</div>
                 </div>
 
 

@@ -23,6 +23,7 @@ import { OnboardingBar } from './components/OnboardingBar';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
+import PriceRightLogoIcon from './components/PriceRightLogoIcon';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
 import PINScreen from './components/PINScreen';
 import { LicenceGate } from './components/LicenceGate';
@@ -531,26 +532,7 @@ function AppLayout({ children }: { children: ReactNode }) {
             <div className="app-brand-wrap">
               <div className="app-brand-row">
                 <div className="app-brand-icon" aria-hidden="true">
-                  <svg className="app-brand-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <defs>
-                      <linearGradient id="prBrandBg" x1="7" y1="5" x2="29" y2="31" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#123a5c" />
-                        <stop offset="1" stopColor="#2563eb" />
-                      </linearGradient>
-                    </defs>
-                    <rect width="36" height="36" rx="10" fill="url(#prBrandBg)" />
-                    <rect x="0.5" y="0.5" width="35" height="35" rx="9.5" stroke="rgba(255, 255, 255, 0.12)" />
-                    <rect x="10" y="19" width="4.5" height="7" rx="1.2" fill="rgba(255, 255, 255, 0.88)" />
-                    <rect x="15.8" y="15" width="4.5" height="11" rx="1.2" fill="rgba(255, 255, 255, 0.94)" />
-                    <rect x="21.5" y="11" width="4.5" height="15" rx="1.2" fill="#ffffff" />
-                    <path
-                      d="M12 24.5h14"
-                      stroke="#34d399"
-                      strokeWidth="1.75"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="26.5" cy="12.5" r="2" fill="#38bdf8" stroke="#ffffff" strokeWidth="1" />
-                  </svg>
+                  <PriceRightLogoIcon />
                 </div>
                 <div className="app-brand-text">
                   <div className="app-brand-title">PriceRight</div>
@@ -688,8 +670,8 @@ function AuthenticatedApp() {
       children: [
         { index: true, element: <Dashboard /> },
         { path: 'materials', element: <MaterialsPage /> },
-        { path: 'materials/primary', element: <Navigate to="materials" replace /> },
-        { path: 'materials/intermediate', element: <Navigate to="materials" replace /> },
+        { path: 'materials/primary', element: <Navigate to="/materials?tab=primary" replace /> },
+        { path: 'materials/intermediate', element: <Navigate to="/materials?tab=intermediate" replace /> },
         { path: 'products', element: <Products /> },
         { path: 'products/:id', element: <ProductDetail /> },
         { path: 'intermediate-materials/:id', element: <IntermediateDetail /> },

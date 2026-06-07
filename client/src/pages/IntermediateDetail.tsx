@@ -17,7 +17,7 @@ export default function IntermediateDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const backTo = (location.state as IntermediateDetailLocationState | null)?.from || '/materials';
+  const backTo = (location.state as IntermediateDetailLocationState | null)?.from || '/materials?tab=intermediate';
   const materialId = Number(id);
 
   const [material, setMaterial] = useState<MaterialRecord | null>(null);
@@ -154,7 +154,7 @@ export default function IntermediateDetail() {
               <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>{material.sku || 'No SKU'}</div>
             </div>
           </div>
-          <button className="btn btn-primary btn-sm" type="button" onClick={() => navigate('/materials', { state: { editMaterialId: material.id } })}>
+          <button className="btn btn-primary btn-sm" type="button" onClick={() => navigate('/materials?tab=intermediate', { state: { editMaterialId: material.id } })}>
             Edit
           </button>
         </div>
@@ -173,15 +173,9 @@ export default function IntermediateDetail() {
                     <div style={{ fontWeight: 600 }}>{material.category || '—'}</div>
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Unit</div>
-                    <div style={{ fontWeight: 600 }}>{material.unit || '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Supplier</div>
-                    <div style={{ fontWeight: 600 }}>{material.supplier || '—'}</div>
-                  </div>
+                <div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Unit</div>
+                  <div style={{ fontWeight: 600 }}>{material.unit || '—'}</div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div>

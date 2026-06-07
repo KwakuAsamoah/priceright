@@ -231,8 +231,8 @@ export const helpArticles: HelpArticle[] = [
       the instructions on the Instructions sheet.</p>
 
       <p>Each row is one material. You need the material name, category, unit,
-      bulk price, and bulk quantity. Currency and supplier type are optional
-      and default to GHS and Local if left blank.</p>
+      bulk price, and bulk quantity. Currency defaults to your base currency
+      if left blank.</p>
 
       <p>Save the filled file as a CSV (File → Save As → CSV UTF-8) and upload
       it in the import dialog. PriceRight shows you a preview and highlights

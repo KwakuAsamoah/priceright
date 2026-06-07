@@ -1198,10 +1198,12 @@ async function loadData() {
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
             Switch between your real data and the built-in Savanna Bakes sample data.
           </p>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div className="app-choice-tabs" role="tablist" aria-label="Data mode">
             <button
               type="button"
-              className={`btn ${!isDemoMode ? 'btn-primary' : 'btn-secondary'}`}
+              role="tab"
+              aria-selected={!isDemoMode}
+              className={`app-choice-tab ${!isDemoMode ? 'is-active' : ''}`}
               disabled={!isDemoMode}
               onClick={() => !isDemoMode ? null : handleDemoModeToggle()}
             >
@@ -1209,7 +1211,9 @@ async function loadData() {
             </button>
             <button
               type="button"
-              className={`btn ${isDemoMode ? 'btn-primary' : 'btn-secondary'}`}
+              role="tab"
+              aria-selected={isDemoMode}
+              className={`app-choice-tab ${isDemoMode ? 'is-active' : ''}`}
               disabled={isDemoMode}
               onClick={() => isDemoMode ? null : handleDemoModeToggle()}
             >

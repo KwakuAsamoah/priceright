@@ -10,7 +10,6 @@ export type ParsedMaterialImportRow = {
   currencyCode: string;
   bulkPriceRaw: string;
   bulkQuantityRaw: string;
-  supplierType: string;
   errors: string[];
   parsed: ImportMaterialRow | null;
 };
@@ -71,20 +70,6 @@ function isSkippableImportRow(row: Record<string, unknown>): boolean {
   return false;
 }
 
-function resolveSupplierType(row: Record<string, unknown>): string {
-  const supplierTypeRaw = getMaterialImportField(row, ['Supplier Type', 'supplierType']);
-  if (supplierTypeRaw) {
-    return supplierTypeRaw;
-  }
-
-  const supplierRaw = getMaterialImportField(row, ['Supplier', 'supplier']);
-  if (['local', 'foreign'].includes(supplierRaw.toLowerCase())) {
-    return supplierRaw;
-  }
-
-  return 'Local';
-}
-
 function parseLegacyPositionalRow(cells: string[], rowNumber: number): ParsedMaterialImportRow {
   const errors: string[] = [];
 
@@ -94,8 +79,6 @@ function parseLegacyPositionalRow(cells: string[], rowNumber: number): ParsedMat
   const currencyCode = (cells[3] || '').trim().toUpperCase();
   const rawBulkPrice = (cells[4] || '').trim();
   const rawBulkQty = (cells[5] || '').trim();
-  const supplierTypeRaw = (cells[6] || '').trim();
-  const supplierType = supplierTypeRaw || 'Local';
 
   if (!name) errors.push('Material Name is required.');
   if (!category) errors.push('Category is required.');
@@ -115,10 +98,6 @@ function parseLegacyPositionalRow(cells: string[], rowNumber: number): ParsedMat
     errors.push(`Bulk Quantity "${rawBulkQty}" must be a positive number`);
   }
 
-  if (supplierTypeRaw && !['local', 'foreign'].includes(supplierTypeRaw.toLowerCase())) {
-    errors.push('Supplier Type must be Local or Foreign.');
-  }
-
   const parsed: ImportMaterialRow | null =
     errors.length === 0
       ? {
@@ -128,7 +107,6 @@ function parseLegacyPositionalRow(cells: string[], rowNumber: number): ParsedMat
           currencyCode,
           bulkPrice: bulkPriceNum,
           bulkQuantity: bulkQtyNum,
-          supplierType,
         }
       : null;
 
@@ -140,7 +118,6 @@ function parseLegacyPositionalRow(cells: string[], rowNumber: number): ParsedMat
     currencyCode,
     bulkPriceRaw: rawBulkPrice,
     bulkQuantityRaw: rawBulkQty,
-    supplierType,
     errors,
     parsed,
   };
@@ -158,11 +135,6 @@ export function parseMaterialImportRecord(
   const currencyCode = getMaterialImportField(row, ['Purchase Currency', 'Currency Code', 'currencyCode', 'currency']).toUpperCase();
   const rawBulkPrice = getMaterialImportField(row, ['Bulk Price', 'bulkPrice']);
   const rawBulkQty = getMaterialImportField(row, ['Bulk Quantity', 'bulkQuantity']);
-  const supplierType = resolveSupplierType(row);
-  const supplierTypeRaw = getMaterialImportField(row, ['Supplier Type', 'supplierType'])
-    || (['local', 'foreign'].includes(getMaterialImportField(row, ['Supplier', 'supplier']).toLowerCase())
-      ? getMaterialImportField(row, ['Supplier', 'supplier'])
-      : '');
 
   if (!name) errors.push('Material Name is required.');
   if (!category) errors.push('Category is required.');
@@ -182,10 +154,6 @@ export function parseMaterialImportRecord(
     errors.push(`Bulk Quantity "${rawBulkQty}" must be a positive number`);
   }
 
-  if (supplierTypeRaw && !['local', 'foreign'].includes(supplierTypeRaw.toLowerCase())) {
-    errors.push('Supplier Type must be Local or Foreign.');
-  }
-
   const parsed: ImportMaterialRow | null =
     errors.length === 0
       ? {
@@ -195,7 +163,6 @@ export function parseMaterialImportRecord(
           currencyCode,
           bulkPrice: bulkPriceNum,
           bulkQuantity: bulkQtyNum,
-          supplierType,
         }
       : null;
 
@@ -207,7 +174,6 @@ export function parseMaterialImportRecord(
     currencyCode,
     bulkPriceRaw: rawBulkPrice,
     bulkQuantityRaw: rawBulkQty,
-    supplierType,
     errors,
     parsed,
   };

@@ -28,7 +28,6 @@ interface MaterialFormState {
   overheadPercentage: string;
   marginPercentage: string;
   yieldPercentage: string;
-  supplier: string;
 }
 
 const emptyForm: MaterialFormState = {
@@ -42,7 +41,6 @@ const emptyForm: MaterialFormState = {
   overheadPercentage: '0',
   marginPercentage: '0',
   yieldPercentage: '100',
-  supplier: '',
 };
 
 const formSectionStyle = {
@@ -72,7 +70,7 @@ const compactControlStyle = {
   fontSize: '14px',
 } as const;
 
-type SortField = 'name' | 'category' | 'unitPrice' | 'supplier';
+type SortField = 'name' | 'category' | 'unitPrice';
 type SortOrder = 'asc' | 'desc';
 
 type IntermediateColumnKey = 'material' | 'unit' | 'yield' | 'overhead' | 'unitCost' | 'status' | 'actions';
@@ -356,7 +354,6 @@ export default function IntermediateMaterials() {
         material.name,
         material.sku,
         material.category,
-        material.supplier,
       ]
         .map((value) => String(value || '').toLowerCase())
         .join(' ');
@@ -377,10 +374,7 @@ export default function IntermediateMaterials() {
         return sortOrder === 'asc' ? delta : -delta;
       }
 
-      if (sortField === 'supplier') {
-        leftValue = String(left.supplier || '');
-        rightValue = String(right.supplier || '');
-      } else if (sortField === 'category') {
+      if (sortField === 'category') {
         leftValue = String(left.category || '');
         rightValue = String(right.category || '');
       } else {
@@ -432,11 +426,11 @@ export default function IntermediateMaterials() {
 
   useEffect(() => {
     const locationState = location.state as { editMaterialId?: number } | null;
-    if (locationState?.editMaterialId) {
-      const targetMaterial = materials.find((m) => m.id === locationState.editMaterialId);
-      if (targetMaterial) {
-        openEditMaterialForm(targetMaterial);
-      }
+    if (!locationState?.editMaterialId) return;
+
+    const targetMaterial = materials.find((m) => m.id === locationState.editMaterialId);
+    if (targetMaterial) {
+      openEditMaterialForm(targetMaterial);
       window.history.replaceState({}, '', window.location.href);
     }
   }, [location.state, materials]);
@@ -491,7 +485,6 @@ export default function IntermediateMaterials() {
       overheadPercentage: String(material.overheadPercentage || '0'),
       marginPercentage: String(material.marginPercentage || '0'),
       yieldPercentage: String(material.yieldPercentage || '100'),
-      supplier: String(material.supplier || ''),
     });
     setStatusText('');
   }
@@ -539,7 +532,7 @@ export default function IntermediateMaterials() {
       marginPercentage: Number(overrides?.marginPercentage ?? material.marginPercentage ?? 0),
       yieldPercentage: Number(overrides?.yieldPercentage ?? material.yieldPercentage ?? 100),
       calculatedCostPerUnit: Number(overrides?.calculatedCostPerUnit ?? material.unitPrice ?? material.calculatedCostPerUnit ?? 0),
-      supplier: String(overrides?.supplier ?? material.supplier ?? ''),
+      supplier: '',
       isActive: Boolean(overrides?.isActive ?? material.isActive),
       materialType: 'intermediate' as const,
     };
@@ -573,6 +566,7 @@ export default function IntermediateMaterials() {
         marginPercentage: Number(form.marginPercentage || 0),
         yieldPercentage: form.intermediateCostMode === 'completed_output' ? 100 : Number(form.yieldPercentage || 100),
         calculatedCostPerUnit: costSnapshot.costPerUnit,
+        supplier: '',
       };
 
       if (selectedMaterial) {
@@ -703,7 +697,7 @@ export default function IntermediateMaterials() {
         bulkQuantity: Number(material.bulkQuantity || 1),
         bulkPrice: Number(material.bulkPrice || 0),
         purchaseCurrencyId: Number(material.purchaseCurrencyId || 0),
-        supplier: String(material.supplier || ''),
+        supplier: '',
         materialType: 'intermediate',
         overheadPercentage: Number(material.overheadPercentage || 0),
         marginPercentage: Number(material.marginPercentage || 0),
@@ -778,7 +772,6 @@ export default function IntermediateMaterials() {
       Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2),
       Number(material.unitPrice || 0).toFixed(2),
       (Number(material.unitPrice || material.calculatedCostPerUnit || 0) * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
-      material.supplier || '',
       material.isActive ? 'Active' : 'Inactive',
     ]);
   }
@@ -787,7 +780,7 @@ export default function IntermediateMaterials() {
     const date = new Date().toISOString().split('T')[0];
     downloadCsv(
       `intermediate-materials-${date}.csv`,
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
       buildExportRows(filteredMaterials),
     );
     showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to CSV`, 'success');
@@ -796,7 +789,7 @@ export default function IntermediateMaterials() {
   function handleExportFilteredMaterialsExcel() {
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
       ...buildExportRows(filteredMaterials),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Intermediate Materials');
@@ -819,7 +812,6 @@ export default function IntermediateMaterials() {
         <td>${material.category}</td>
         <td>${material.unit}</td>
         <td>${Number(material.unitPrice || 0).toFixed(2)}</td>
-        <td>${material.supplier || ''}</td>
         <td>${material.isActive ? 'Active' : 'Inactive'}</td>
       </tr>
     `).join('');
@@ -845,7 +837,6 @@ export default function IntermediateMaterials() {
                 <th>Category</th>
                 <th>Unit</th>
                 <th>Unit Cost</th>
-                <th>Supplier</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -907,7 +898,7 @@ export default function IntermediateMaterials() {
 
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Supplier', 'Status'],
+      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
       ...buildExportRows(targets),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Intermediate');
@@ -992,7 +983,6 @@ export default function IntermediateMaterials() {
       const overheadPercentage = Number(row['Overhead %'] || row['overheadPercentage'] || 0);
       const marginPercentage = Number(row['Margin %'] || row['marginPercentage'] || 0);
       const yieldPercentage = Number(row['Yield %'] || row['yieldPercentage'] || 100);
-      const supplier = String(row['Supplier'] || row['supplier'] || '').trim() || 'Unknown';
       const description = String(row['Description'] || row['description'] || '').trim();
 
       if (!name) {
@@ -1018,7 +1008,7 @@ export default function IntermediateMaterials() {
           bulkQuantity,
           bulkPrice: 0,
           purchaseCurrencyId: 0,
-          supplier,
+          supplier: '',
           materialType: 'intermediate',
           overheadPercentage,
           marginPercentage,
@@ -1060,7 +1050,6 @@ export default function IntermediateMaterials() {
         source['Overhead %'] || source['overheadPercentage'] || '',
         source['Margin %'] || source['marginPercentage'] || '',
         source['Yield %'] || source['yieldPercentage'] || '',
-        source['Supplier'] || source['supplier'] || '',
         source['Description'] || source['description'] || '',
         failure.reason,
       ];
@@ -1069,7 +1058,7 @@ export default function IntermediateMaterials() {
     const date = new Date().toISOString().split('T')[0];
     downloadCsv(
       `intermediate-materials-import-failures-${date}.csv`,
-      ['Row Number', 'Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Supplier', 'Description', 'Failure Reason'],
+      ['Row Number', 'Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Description', 'Failure Reason'],
       rows
     );
   }
@@ -1327,7 +1316,7 @@ export default function IntermediateMaterials() {
                   <tr
                     key={material.id}
                     style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa', cursor: 'pointer' }}
-                    onClick={() => navigate(`/intermediate-materials/${material.id}`)}
+                    onClick={() => navigate(`/intermediate-materials/${material.id}`, { state: { from: '/materials?tab=intermediate' } })}
                   >
                     <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                       <input
@@ -1475,28 +1464,16 @@ export default function IntermediateMaterials() {
                       ) : null}
                     </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={fieldLabelStyle}>Supplier</label>
-                      <input
-                        className="app-input"
-                        type="text"
-                        value={form.supplier}
-                        onChange={(e) => setForm((prev) => ({ ...prev, supplier: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={fieldLabelStyle}>Unit *</label>
-                      <input
-                        className="app-input"
-                        type="text"
-                        required
-                        value={form.unit}
-                        onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
-                    </div>
+                  <div>
+                    <label style={fieldLabelStyle}>Unit *</label>
+                    <input
+                      className="app-input"
+                      type="text"
+                      required
+                      value={form.unit}
+                      onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))}
+                      style={fieldInputStyle}
+                    />
                   </div>
                   <div>
                     <label style={fieldLabelStyle}>Description</label>
@@ -1516,20 +1493,26 @@ export default function IntermediateMaterials() {
                   <div>
                     <label style={fieldLabelStyle}>Costing Method</label>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        className={`btn btn-sm ${form.intermediateCostMode === 'completed_output' ? 'btn-primary' : 'btn-ghost'}`}
-                        type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
-                      >
-                        Completed output
-                      </button>
-                      <button
-                        className={`btn btn-sm ${form.intermediateCostMode === 'yield' ? 'btn-primary' : 'btn-ghost'}`}
-                        type="button"
-                        onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
-                      >
-                        Yield-based
-                      </button>
+                      <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
+                        <button
+                          className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={form.intermediateCostMode === 'completed_output'}
+                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
+                        >
+                          Completed output
+                        </button>
+                        <button
+                          className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={form.intermediateCostMode === 'yield'}
+                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
+                        >
+                          Yield-based
+                        </button>
+                      </div>
                     </div>
                     <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>
                       {form.intermediateCostMode === 'completed_output'

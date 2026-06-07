@@ -164,42 +164,15 @@ export default function ProductTabs({
   return (
     <div>
       {/* Tab Header Buttons */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '0',
-          borderBottom: '2px solid #e2e8f0',
-          backgroundColor: 'white',
-        }}
-      >
+      <div className="app-section-tabs" role="tablist" aria-label="Product detail sections">
         {TAB_BUTTONS.map((tab) => (
           <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => onTabChange(tab.id as any)}
-            style={{
-              padding: '12px 16px',
-              backgroundColor: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid #0F2847' : '2px solid transparent',
-              color: activeTab === tab.id ? '#0F2847' : '#64748b',
-              fontSize: '14px',
-              fontWeight: activeTab === tab.id ? '700' : '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              marginBottom: '-2px',
-            }}
-            onMouseEnter={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.backgroundColor = '#f1f5f9';
-                e.currentTarget.style.color = '#1e293b';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTab !== tab.id) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.color = '#64748b';
-              }
-            }}
+            className={`app-section-tab ${activeTab === tab.id ? 'is-active' : ''}`}
           >
             {tab.label}
           </button>

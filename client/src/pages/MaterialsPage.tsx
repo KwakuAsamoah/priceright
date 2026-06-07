@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Materials from './Materials';
 import IntermediateMaterials from './IntermediateMaterials';
 import MaterialsAnalysisTab from '../components/MaterialsAnalysisTab';
@@ -6,8 +7,16 @@ import { currenciesApi, exchangeRatesApi, materialsApi } from '../api';
 
 type MaterialTab = 'primary' | 'intermediate' | 'analysis';
 
+function parseMaterialTab(value: string | null): MaterialTab {
+  if (value === 'intermediate' || value === 'analysis' || value === 'primary') {
+    return value;
+  }
+  return 'primary';
+}
+
 export default function MaterialsPage() {
-  const [activeTab, setActiveTab] = useState<MaterialTab>('primary');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<MaterialTab>(() => parseMaterialTab(searchParams.get('tab')));
   const [analysisLoaded, setAnalysisLoaded] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisMaterials, setAnalysisMaterials] = useState<any[]>([]);
@@ -39,16 +48,19 @@ export default function MaterialsPage() {
 
   function handleTabChange(tab: MaterialTab) {
     setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
     if (tab === 'analysis') {
       void ensureAnalysisDataLoaded();
     }
   }
 
   useEffect(() => {
-    if (activeTab === 'analysis') {
+    const urlTab = parseMaterialTab(searchParams.get('tab'));
+    setActiveTab(urlTab);
+    if (urlTab === 'analysis') {
       void ensureAnalysisDataLoaded();
     }
-  }, [activeTab]);
+  }, [searchParams]);
 
   return (
     <div className="app-page materials-shell">

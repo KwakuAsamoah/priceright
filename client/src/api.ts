@@ -103,7 +103,6 @@ export interface ImportMaterialRow {
   currencyCode?: string;
   bulkPrice: number;
   bulkQuantity: number;
-  supplierType?: string;
 }
 
 export interface ImportResult {
