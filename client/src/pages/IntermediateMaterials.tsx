@@ -1378,42 +1378,25 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         </div>
 
         {isFormOpen ? (
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.6)',
-              zIndex: 1200,
-              display: 'flex',
-              justifyContent: 'flex-end',
-            }}
-          >
+          <div className="app-drawer-overlay">
             <div
-              style={{
-                backgroundColor: 'white',
-                width: 'min(720px, 100%)',
-                height: '100%',
-                overflowY: 'auto',
-                padding: '24px',
-                boxShadow: '-12px 0 24px rgba(15, 23, 42, 0.12)',
-                display: 'grid',
-                gap: 16,
-              }}
+              className="app-drawer-panel"
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="app-drawer-panel__scroll">
+              <div className="app-drawer-header">
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0F2847' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
-                  <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Update material details and cost settings inline</div>
+                  <h3>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                  <div className="app-drawer-header__subtitle">Update material details and cost settings inline</div>
                 </div>
-                <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
+                <button className="btn btn-danger-solid btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
               </div>
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
             <div>
               <h3 className="app-form-section-title">Material Details</h3>
             </div>
-            <form onSubmit={handleMaterialSubmit}>
+            <form id="intermediate-material-form" onSubmit={handleMaterialSubmit}>
               <div style={formSectionStyle}>
                 <h3 className="app-form-section-title">Basic Info</h3>
                 <div style={{ display: 'grid', gap: '12px' }}>
@@ -1760,22 +1743,34 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>{formatMoney(liveCost.optimalPrice)}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: '14px', color: '#475569', marginBottom: '12px' }}>
+                <div style={{ fontSize: '14px', color: '#475569' }}>
                   Current stored unit cost: {formatMoney(Number(selectedMaterial?.unitPrice || 0))}
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}>
-                    {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
-                  </button>
-                  <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Cancel</button>
-                  {selectedMaterial ? <button className="btn btn-outline btn-sm" type="button" onClick={() => void recalculateSelected()}>Recalculate Cost</button> : null}
                 </div>
               </div>
             </form>
-            {statusText ? <div style={{ fontSize: 12, color: '#0f766e' }}>{statusText}</div> : null}
+            {statusText ? <div style={{ fontSize: 12, color: '#0f766e', marginTop: 8 }}>{statusText}</div> : null}
+              </div>
+              </div>
+              <div className="app-drawer-footer">
+                <button
+                  className="btn btn-primary btn-sm"
+                  type="submit"
+                  form="intermediate-material-form"
+                  disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}
+                >
+                  {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
+                </button>
+                {selectedMaterial ? (
+                  <button className="btn btn-info btn-sm" type="button" onClick={() => void recalculateSelected()}>
+                    Recalculate Cost
+                  </button>
+                ) : null}
+                <button className="btn btn-danger-solid btn-sm" type="button" onClick={closeMaterialForm}>
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
         ) : null}
 
         {showImportModal ? (

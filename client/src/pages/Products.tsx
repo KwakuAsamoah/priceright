@@ -2295,13 +2295,13 @@ export default function Products() {
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-secondary"
+                className="btn btn-danger-solid"
                 onClick={() => setShowBulkDeleteModal(false)}
               >
-                Cancel
+                Close
               </button>
               <button
-                className="btn btn-danger"
+                className="btn btn-danger-solid"
                 onClick={handleConfirmBulkDelete}
               >
                 Delete {selectedProducts.size}
@@ -2408,16 +2408,11 @@ export default function Products() {
             </div>
 
             <div className="app-modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowBulkApproveModal(false)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => setShowBulkApproveModal(false)}>Close</button>
               <button
-                className="btn"
+                className="btn btn-primary"
                 onClick={handleConfirmBulkApprove}
                 disabled={!isBulkApproveMarkupValid}
-                style={{
-                  backgroundColor: isBulkApproveMarkupValid ? '#111111' : '#9ca3af',
-                  color: 'white',
-                  cursor: isBulkApproveMarkupValid ? 'pointer' : 'not-allowed',
-                }}
               >
                 Approve {selectedProducts.size} Products {'->'}
               </button>
@@ -2454,15 +2449,11 @@ export default function Products() {
             </div>
 
             <div className="app-modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowBulkRejectModal(false)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => setShowBulkRejectModal(false)}>Close</button>
               <button
-                className="btn btn-danger"
+                className="btn btn-danger-solid"
                 onClick={handleConfirmBulkReject}
                 disabled={selectedApprovedCount === 0}
-                style={{
-                  backgroundColor: selectedApprovedCount > 0 ? '#c62828' : '#94a3b8',
-                  cursor: selectedApprovedCount > 0 ? 'pointer' : 'not-allowed',
-                }}
               >
                 Reject {selectedApprovedCount} Products
               </button>
@@ -2511,13 +2502,13 @@ export default function Products() {
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-secondary"
+                className="btn btn-danger-solid"
                 onClick={() => {
                   setShowCategoryModal(false);
                   setBulkCategoryValue('');
                 }}
               >
-                Cancel
+                Close
               </button>
               <button
                 className="btn btn-primary"

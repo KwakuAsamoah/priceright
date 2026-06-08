@@ -153,28 +153,31 @@ textarea {
   overflow-x: auto;
 }
 
-.app-section-tab {
+.app-section-tab,
+.app-page .app-section-tab {
   border: none !important;
   background: transparent !important;
   border-bottom: 2px solid transparent !important;
   margin-bottom: -1px;
-  padding: 10px 16px;
-  border-radius: 8px 8px 0 0;
+  padding: 10px 16px !important;
+  border-radius: 8px 8px 0 0 !important;
   cursor: pointer;
-  font-size: var(--font-size-md);
-  font-weight: 400;
+  font-size: var(--font-size-md) !important;
+  font-weight: 400 !important;
   color: #64748b !important;
   text-decoration: none;
-  white-space: nowrap;
+  white-space: nowrap !important;
   transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.app-section-tab:hover {
+.app-section-tab:hover,
+.app-page .app-section-tab:hover:not(.is-active) {
   color: var(--color-text) !important;
   background: rgba(15, 40, 71, 0.04) !important;
 }
 
-.app-section-tab.is-active {
+.app-section-tab.is-active,
+.app-page .app-section-tab.is-active {
   color: var(--color-tab-active-text) !important;
   font-weight: 700;
   border-bottom-color: var(--color-tab-active-bg) !important;
@@ -193,25 +196,28 @@ textarea {
   border: 1px solid #e2e8f0;
 }
 
-.app-choice-tab {
+.app-choice-tab,
+.app-page .app-choice-tab {
   border: none !important;
   background: transparent !important;
   color: #64748b !important;
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
   transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.app-choice-tab:hover:not(.is-active) {
+.app-choice-tab:hover:not(.is-active),
+.app-page .app-choice-tab:hover:not(.is-active) {
   color: #0f172a !important;
   background: rgba(255, 255, 255, 0.85) !important;
 }
 
-.app-choice-tab.is-active {
+.app-choice-tab.is-active,
+.app-page .app-choice-tab.is-active {
   color: var(--color-choice-tab-active-text) !important;
   background: var(--color-choice-tab-active-bg) !important;
   box-shadow: 0 4px 12px rgba(234, 88, 12, 0.28);
@@ -222,30 +228,35 @@ textarea {
   cursor: not-allowed;
 }
 
-.app-panel-tab {
+.app-panel-tab,
+.app-page .app-panel-tab {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #ffffff;
-  color: #0f172a;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
   text-align: left;
-  padding: 10px;
+  padding: 10px !important;
   cursor: pointer;
-  white-space: normal;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  white-space: normal !important;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.app-panel-tab:hover:not(.is-active) {
-  border-color: #93c5fd;
-  background: #f8fafc;
+.app-panel-tab:hover:not(.is-active),
+.app-page .app-panel-tab:hover:not(.is-active) {
+  border-color: #93c5fd !important;
+  background: #f8fafc !important;
 }
 
-.app-panel-tab.is-active {
-  background: var(--color-tab-active-bg);
-  border-color: var(--color-tab-active-border);
-  color: var(--color-tab-active-text);
+.app-panel-tab.is-active,
+.app-page .app-panel-tab.is-active {
+  background: var(--color-tab-active-bg) !important;
+  border-color: var(--color-tab-active-border) !important;
+  color: var(--color-tab-active-text) !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
 }
 
@@ -661,17 +672,14 @@ textarea {
   box-shadow: 0 0 0 3px rgba(15, 40, 71, 0.08);
 }
 
-/* ── Base button reset — applied to all page buttons ── */
+/* ── Base button reset — applied to action buttons, not tabs ── */
 .btn,
-.app-page button {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab) {
   font-family: inherit;
   border-radius: 8px !important;
   padding: 7px 14px !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  border: none !important;
-  background: #F1F5F9 !important;
-  color: #0F2847 !important;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -683,87 +691,137 @@ textarea {
   gap: 6px;
 }
 
-.btn:hover,
-.app-page button:hover {
+/* Default appearance — buttons without a colour variant (tabs excluded) */
+.btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x),
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab) {
+  border: none !important;
+  background: #F1F5F9 !important;
+  color: #0F2847 !important;
+}
+
+.btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):hover,
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab):hover {
   background: #E2E8F0 !important;
 }
 
 .btn:disabled,
-.app-page button:disabled {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab):disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-/* Primary */
-.btn-primary {
+/* Primary — navy save / submit */
+.btn-primary,
+.app-page .btn-primary {
   background: #0F2847 !important;
   color: #ffffff !important;
   border: none !important;
 }
 
-.btn-primary:hover {
+.btn-primary:hover,
+.app-page .btn-primary:hover {
   background: #1a3a5c !important;
+  color: #ffffff !important;
 }
 
 /* Secondary */
-.btn-secondary {
+.btn-secondary,
+.app-page .btn-secondary {
   background: #F1F5F9 !important;
   color: #0F2847 !important;
   border: 1px solid #E2E8F0 !important;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover,
+.app-page .btn-secondary:hover {
   background: #E2E8F0 !important;
 }
 
 /* Outline */
-.btn-outline {
+.btn-outline,
+.app-page .btn-outline {
   background: #ffffff !important;
   color: #0F2847 !important;
   border: 1.5px solid #E2E8F0 !important;
 }
 
-.btn-outline:hover {
+.btn-outline:hover,
+.app-page .btn-outline:hover {
   border-color: #0F2847 !important;
   background: #F8FAFC !important;
 }
 
 /* Ghost */
-.btn-ghost {
+.btn-ghost,
+.app-page .btn-ghost {
   background: transparent !important;
   color: #475569 !important;
   border: none !important;
 }
 
-.btn-ghost:hover {
+.btn-ghost:hover,
+.app-page .btn-ghost:hover {
   background: #F1F5F9 !important;
   color: #0F2847 !important;
 }
 
-/* Danger */
-.btn-danger {
+/* Danger — outlined destructive */
+.btn-danger,
+.app-page .btn-danger {
   background: #ffffff !important;
   color: #DC2626 !important;
   border: 1.5px solid #FECACA !important;
 }
 
-.btn-danger:hover {
+.btn-danger:hover,
+.app-page .btn-danger:hover {
   background: #FEF2F2 !important;
   border-color: #DC2626 !important;
 }
 
 /* Success — intentional green, do not change */
-.btn-success {
+.btn-success,
+.app-page .btn-success {
   background: var(--color-success) !important;
   color: #ffffff !important;
   border: none !important;
 }
 
 /* Warning — intentional warm, do not change */
-.btn-warning {
+.btn-warning,
+.app-page .btn-warning {
   background: var(--color-warning-soft) !important;
   color: var(--color-warning-text) !important;
   border: 1px solid #fcd34d !important;
+}
+
+/* Solid danger — red close / dismiss */
+.btn-danger-solid,
+.app-page .btn-danger-solid {
+  background: #DC2626 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.btn-danger-solid:hover,
+.app-page .btn-danger-solid:hover {
+  background: #B91C1C !important;
+  color: #ffffff !important;
+}
+
+/* Info — blue utility actions (recalculate, refresh) */
+.btn-info,
+.app-page .btn-info {
+  background: #EFF6FF !important;
+  color: #1D4ED8 !important;
+  border: 1.5px solid #BFDBFE !important;
+}
+
+.btn-info:hover,
+.app-page .btn-info:hover {
+  background: #DBEAFE !important;
+  border-color: #93C5FD !important;
+  color: #1D4ED8 !important;
 }
 
 /* Sizes */
@@ -1166,6 +1224,7 @@ textarea {
 
 .app-modal-title {
   margin: 0 0 16px;
+  padding-right: 36px;
   font-size: 16px;
   font-weight: 700;
   color: #0F2847;
@@ -1189,6 +1248,100 @@ textarea {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Detail side panel (materials, etc.) */
+.app-detail-panel {
+  position: relative;
+  padding: 18px;
+  padding-top: 44px;
+}
+
+.app-detail-panel__header {
+  margin-bottom: 16px;
+}
+
+.app-detail-panel__header h2 {
+  margin: 0 0 6px;
+}
+
+.app-detail-panel__subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+.app-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Right-hand drawer (intermediate materials, products) */
+.app-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  z-index: 1200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-drawer-panel {
+  background: #ffffff;
+  width: min(720px, 100%);
+  height: 100%;
+  box-shadow: -12px 0 24px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.app-drawer-panel--narrow {
+  width: min(640px, 100%);
+}
+
+.app-drawer-panel__scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.app-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.app-drawer-header h2,
+.app-drawer-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F2847;
+}
+
+.app-drawer-header__subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.app-drawer-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.04);
 }
 
 /* Standard close button — used on all modals, drawers, alerts, toasts, and banners */

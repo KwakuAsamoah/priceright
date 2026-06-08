@@ -1663,6 +1663,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       {/* Detail Panel */}
       {detailMaterial && !showAddModal && (
         <div
+          className="app-detail-panel"
           style={{
             position: 'fixed',
             right: 0,
@@ -1673,7 +1674,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             boxShadow: '-6px 0 18px rgba(2,6,23,0.08)',
             zIndex: 1200,
             overflowY: 'auto',
-            padding: '18px',
           }}
           role="dialog"
           aria-label="Material details"
@@ -1682,18 +1682,20 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             className="btn-close-x"
             onClick={() => setDetailMaterial(null)}
             aria-label="Close"
-            style={{ position: 'absolute', right: '12px', top: '8px' }}
           >
             ×
           </button>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-            <div>
-              <h2 style={{ margin: '0 0 6px 0' }}>{detailMaterial.name}</h2>
-              <div style={{ color: '#64748b', fontSize: '14px' }}>Material detail view</div>
+          <div className="app-detail-panel__header">
+            <h2>{detailMaterial.name}</h2>
+            <p className="app-detail-panel__subtitle">Material detail view</p>
+            <div className="app-action-bar">
+              <button className="btn btn-primary btn-sm" type="button" onClick={() => openEditFromDetail(detailMaterial)}>
+                Edit
+              </button>
+              <button className="btn btn-danger-solid btn-sm" type="button" onClick={() => setDetailMaterial(null)}>
+                Close
+              </button>
             </div>
-            <button className="btn btn-primary btn-sm" type="button" onClick={() => openEditFromDetail(detailMaterial)}>
-              Edit
-            </button>
           </div>
 
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
@@ -1974,14 +1976,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
               <div className="app-modal-actions" style={{ marginTop: '24px' }}>
                 <button
-                  className="btn btn-secondary"
+                  className="btn btn-danger-solid"
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingMaterial(null);
                   }}
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   className="btn btn-primary"
@@ -2361,7 +2363,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-secondary"
+                className="btn btn-danger-solid"
                 onClick={() => {
                   setShowUsageModal(false);
                   setSelectedMaterialForUsage(null);
@@ -2429,18 +2431,17 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-secondary"
+                className="btn btn-danger-solid"
                 onClick={() => setShowDeleteModal(false)}
               >
-                Cancel
+                Close
               </button>
               <button
-                className="btn btn-danger"
+                className="btn btn-danger-solid"
                 onClick={handleConfirmDelete}
                 disabled={usageData.canDelete.length === 0}
                 style={{
-                  backgroundColor: usageData.canDelete.length === 0 ? '#94a3b8' : '#dc2626',
-                  cursor: usageData.canDelete.length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: usageData.canDelete.length === 0 ? 0.55 : 1,
                 }}
               >
                 {usageData.canDelete.length === 0 ? 'Cannot Delete' : `Delete ${usageData.canDelete.length}`}
@@ -2500,23 +2501,19 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-secondary"
+                className="btn btn-danger-solid"
                 onClick={() => {
                   setShowCategoryModal(false);
                   setBulkCategoryValue('');
                   setBulkCustomCategoryValue('');
                 }}
               >
-                Cancel
+                Close
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleBulkCategoryChange}
                 disabled={!normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue)}
-                style={{
-                  backgroundColor: normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue) ? '#3b82f6' : '#94a3b8',
-                  cursor: normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue) ? 'pointer' : 'not-allowed',
-                }}
               >
                 Apply
               </button>

@@ -313,40 +313,26 @@ export default function ProductFormDrawer({
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+      <div className="app-drawer-overlay">
       <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.6)',
-        zIndex: 1200,
-        display: 'flex',
-        justifyContent: 'flex-end',
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: 'white',
-          width: 'min(640px, 100%)',
-          height: '100%',
-          overflowY: 'auto',
-          padding: '24px',
-          boxShadow: '-12px 0 24px rgba(15, 23, 42, 0.12)',
-          position: 'relative',
-        }}
+        className="app-drawer-panel app-drawer-panel--narrow"
         onClick={(e) => e.stopPropagation()}
       >
         <button className="btn-close-x" onClick={onClose} aria-label="Close">
           &times;
         </button>
-        <div style={{ marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0F2847' }}>{product ? 'Edit Product' : 'Add Product'}</h2>
-          <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Update product details and BOM inline</div>
+        <div className="app-drawer-panel__scroll">
+        <div className="app-drawer-header" style={{ paddingRight: 36 }}>
+          <div>
+            <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
+            <div className="app-drawer-header__subtitle">Update product details and BOM inline</div>
+          </div>
+          <button className="btn btn-danger-solid btn-sm" type="button" onClick={onClose}>
+            Close
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form id="product-form-drawer" onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
             <h3 className="app-form-section-title">Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -707,23 +693,25 @@ export default function ProductFormDrawer({
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{ padding: '10px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', fontWeight: '600', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', backgroundColor: saving ? '#94a3b8' : '#1e40af', color: 'white', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}
-            >
-              {saving ? 'Saving...' : 'Save Product'}
-            </button>
-          </div>
         </form>
+        </div>
+        <div className="app-drawer-footer">
+          <button
+            className="btn btn-primary"
+            type="submit"
+            form="product-form-drawer"
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save Product'}
+          </button>
+          <button
+            className="btn btn-danger-solid"
+            type="button"
+            onClick={onClose}
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
     </>
