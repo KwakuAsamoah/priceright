@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { usePageRefresh } from '../context/RefreshContext';
+import { useMaterialDataSync } from '../context/MaterialDataSyncContext';
 import Materials from './Materials';
 import IntermediateMaterials from './IntermediateMaterials';
 import MaterialsAnalysisTab from '../components/MaterialsAnalysisTab';
@@ -22,6 +24,7 @@ export default function MaterialsPage() {
   const [analysisMaterials, setAnalysisMaterials] = useState<any[]>([]);
   const [analysisCurrencies, setAnalysisCurrencies] = useState<any[]>([]);
   const [analysisExchangeRates, setAnalysisExchangeRates] = useState<any[]>([]);
+  const { notifyMaterialsDataChanged } = useMaterialDataSync();
 
   async function ensureAnalysisDataLoaded() {
     if (analysisLoaded || analysisLoading) return;
@@ -46,11 +49,42 @@ export default function MaterialsPage() {
     }
   }
 
+  async function reloadAnalysisData() {
+    setAnalysisLoading(true);
+    try {
+      const [materials, currencies, exchangeRates] = await Promise.all([
+        materialsApi.getAll('all', 'primary'),
+        currenciesApi.getAll(),
+        exchangeRatesApi.getAll(),
+      ]);
+      setAnalysisMaterials(Array.isArray(materials) ? materials : []);
+      setAnalysisCurrencies(Array.isArray(currencies) ? currencies : []);
+      setAnalysisExchangeRates(Array.isArray(exchangeRates) ? exchangeRates : []);
+      setAnalysisLoaded(true);
+    } catch {
+      setAnalysisMaterials([]);
+      setAnalysisCurrencies([]);
+      setAnalysisExchangeRates([]);
+      setAnalysisLoaded(true);
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }
+
+  usePageRefresh('materials-analysis', () => {
+    if (activeTab === 'analysis') {
+      void reloadAnalysisData();
+    }
+  });
+
   function handleTabChange(tab: MaterialTab) {
     setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
     if (tab === 'analysis') {
       void ensureAnalysisDataLoaded();
+    }
+    if (tab === 'intermediate') {
+      notifyMaterialsDataChanged();
     }
   }
 
@@ -60,7 +94,10 @@ export default function MaterialsPage() {
     if (urlTab === 'analysis') {
       void ensureAnalysisDataLoaded();
     }
-  }, [searchParams]);
+    if (urlTab === 'intermediate') {
+      notifyMaterialsDataChanged();
+    }
+  }, [searchParams, notifyMaterialsDataChanged]);
 
   return (
     <div className="app-page materials-shell">
@@ -92,16 +129,12 @@ export default function MaterialsPage() {
         </div>
 
         <div className="materials-tab-panel" style={{ minHeight: 0 }}>
-        {activeTab === 'primary' && (
-          <div>
-            <Materials materialType="primary" />
-          </div>
-        )}
-        {activeTab === 'intermediate' && (
-          <div>
-            <IntermediateMaterials />
-          </div>
-        )}
+        <div style={{ display: activeTab === 'primary' ? 'block' : 'none' }}>
+          <Materials materialType="primary" />
+        </div>
+        <div style={{ display: activeTab === 'intermediate' ? 'block' : 'none' }}>
+          <IntermediateMaterials />
+        </div>
         {activeTab === 'analysis' && (
           <div>
             <div style={{ display: 'grid', gap: '8px' }}>

@@ -7,7 +7,9 @@ import AppToast from '../components/AppToast';
 import AppModal from '../components/AppModal';
 import useAppToast from '../hooks/useAppToast';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
-import { useFormState } from '../context/FormStateContext';
+import { useRegisterFormOpen } from '../context/FormStateContext';
+import { useMaterialDataSync } from '../context/MaterialDataSyncContext';
+import { usePageRefresh } from '../context/RefreshContext';
 import { useDemoMode } from '../context/DemoModeContext';
 import { useBaseCurrencyContext } from '../context/BaseCurrencyContext';
 
@@ -127,7 +129,6 @@ export default function Settings() {
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState('');
   const [defaultOverhead, setDefaultOverhead] = useState('30');
-  const { setHasOpenForm } = useFormState();
   const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
@@ -168,16 +169,9 @@ export default function Settings() {
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
+  const { notifyMaterialsDataChanged } = useMaterialDataSync();
 
-  useEffect(() => {
-    setHasOpenForm(showAddModal || showResetModal);
-  }, [showAddModal, showResetModal, setHasOpenForm]);
-
-  useEffect(() => {
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+  useRegisterFormOpen('settings', showAddModal || showResetModal);
 
   const [resetStep, setResetStep] = useState<1 | 2>(1);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -229,6 +223,8 @@ export default function Settings() {
   useEffect(() => {
     loadData();
   }, []);
+
+  usePageRefresh('settings', () => loadData());
 
   useEffect(() => {
     if (!rateSaveBanner) {
@@ -606,9 +602,10 @@ async function loadData() {
       
       setEditingRate(null);
       setRateValue('');
-      // Note: Materials and Products pages will reflect recalculated values
-      // on their next load. Users should refresh those pages after a rate change.
       loadData();
+      if (!response.recalculationFailed && (summary?.materialsUpdated ?? 0) > 0) {
+        notifyMaterialsDataChanged();
+      }
     } catch (error) {
       console.error('Error updating rate:', error);
       setRateSaveBanner({

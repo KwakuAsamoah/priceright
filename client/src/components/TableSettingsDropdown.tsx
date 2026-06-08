@@ -17,6 +17,9 @@ interface TableSettingsDropdownProps {
   onApproveAllEligible?: () => void;
   approveAllEligibleLabel?: string;
   disableApproveAllEligible?: boolean;
+  /** Controlled open state — use instead of programmatically clicking the trigger button. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export default function TableSettingsDropdown({
@@ -28,10 +31,25 @@ export default function TableSettingsDropdown({
   onApproveAllEligible,
   approveAllEligibleLabel = 'Approve all eligible',
   disableApproveAllEligible = false,
+  open: controlledOpen,
+  onOpenChange,
 }: TableSettingsDropdownProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
 
-  const handleClose = useCallback(() => setOpen(false), []);
+  const setOpen = useCallback((next: boolean | ((prev: boolean) => boolean)) => {
+    const resolved = typeof next === 'function'
+      ? next(isControlled ? (controlledOpen ?? false) : internalOpen)
+      : next;
+    if (isControlled) {
+      onOpenChange?.(resolved);
+    } else {
+      setInternalOpen(resolved);
+    }
+  }, [controlledOpen, internalOpen, isControlled, onOpenChange]);
+
+  const handleClose = useCallback(() => setOpen(false), [setOpen]);
   const containerRef = useOutsideClick(open, handleClose);
 
   return (

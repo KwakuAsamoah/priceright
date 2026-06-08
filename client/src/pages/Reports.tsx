@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { usePageRefresh } from '../context/RefreshContext';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -292,34 +293,27 @@ export default function Reports() {
 
   const selectedMeta = REPORT_METADATA.find((item) => item.key === selectedReport) || null;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadCategories() {
-      try {
-        const products = (await productsApi.getAll('all')) as ProductRow[];
-        if (cancelled) return;
-        const categories = Array.from(
-          new Set(
-            products
-              .map((product) => String(product.category || '').trim())
-              .filter((category) => category.length > 0)
-          )
-        ).sort((a, b) => a.localeCompare(b));
-        setAvailableCategories(categories);
-      } catch {
-        if (!cancelled) {
-          setAvailableCategories([]);
-        }
-      }
+  const loadCategories = useCallback(async () => {
+    try {
+      const products = (await productsApi.getAll('all')) as ProductRow[];
+      const categories = Array.from(
+        new Set(
+          products
+            .map((product) => String(product.category || '').trim())
+            .filter((category) => category.length > 0)
+        )
+      ).sort((a, b) => a.localeCompare(b));
+      setAvailableCategories(categories);
+    } catch {
+      setAvailableCategories([]);
     }
-
-    loadCategories();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
+
+  usePageRefresh('reports', () => loadCategories());
 
   const generatedRowsCount = useMemo(() => {
     if (!reportData) return 0;

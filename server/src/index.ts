@@ -1211,6 +1211,11 @@ app.put('/api/materials/:id', async (req, res) => {
     const unitPrice = materialType === 'intermediate'
       ? calculatedCostPerUnit
       : priceInBaseCurrency / normalizedBulkQuantity;
+
+    const previousUnitPrice = Number(existing.unitPrice || 0);
+    const primaryCostChanged = materialType === 'primary'
+      && Math.abs(Number(unitPrice) - previousUnitPrice) > 0.000001;
+    const shouldRunCostCascade = shouldRecalculatePrice || primaryCostChanged;
     
     // Update material
     await getActiveDb().update(materials).set({
@@ -1238,7 +1243,12 @@ app.put('/api/materials/:id', async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(materials.id, materialId));
 
-    if (shouldRecalculatePrice) {
+    let cascadeSummary: {
+      intermediateUpdatedIds: number[];
+      productsNowNeedsReviewIds: number[];
+    } | null = null;
+
+    if (shouldRunCostCascade) {
       await getActiveDb().insert(materialPriceHistory).values({
         materialId,
         purchaseCurrencyId: resolvedPurchaseCurrencyId,
@@ -1247,9 +1257,14 @@ app.put('/api/materials/:id', async (req, res) => {
       });
 
       if (materialType === 'intermediate') {
-        await recalculateIntermediateMaterialWithCascade(materialId);
+        const summary = await recalculateIntermediateMaterialWithCascade(materialId);
+        const parentIds = await propagateIntermediateCostToParents(materialId);
+        cascadeSummary = {
+          intermediateUpdatedIds: summary.recalculated ? [materialId, ...parentIds] : parentIds,
+          productsNowNeedsReviewIds: summary.productsNowNeedsReviewIds,
+        };
       } else {
-        await propagatePrimaryMaterialChange(materialId);
+        cascadeSummary = await propagatePrimaryMaterialChange(materialId);
       }
 
       const purchaseCurrencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, resolvedPurchaseCurrencyId));
@@ -1273,13 +1288,18 @@ app.put('/api/materials/:id', async (req, res) => {
           currency: purchaseCurrencyCode,
           oldGhsPrice: Number(existing.priceInBaseCurrency || 0),
           newGhsPrice: Number(updatedMaterial.priceInBaseCurrency || 0),
+          intermediatesRecalculated: cascadeSummary?.intermediateUpdatedIds?.length ?? 0,
         },
         performedBy: await getCurrentUserName(),
       });
     }
     
     const updated = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
-    res.json(updated[0]);
+    res.json({
+      ...updated[0],
+      intermediatesRecalculated: cascadeSummary?.intermediateUpdatedIds?.length ?? 0,
+      productsNeedingReview: cascadeSummary?.productsNowNeedsReviewIds?.length ?? 0,
+    });
   } catch (error) {
     console.error('Error updating material:', error);
     res.status(500).json({ error: 'Failed to update material' });
@@ -1525,6 +1545,7 @@ app.post('/api/materials/import', async (req, res) => {
     }> = [];
     let imported = 0;
     let updated = 0;
+    const priceChangedMaterialIds: number[] = [];
 
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index] || {};
@@ -1621,6 +1642,7 @@ app.post('/api/materials/import', async (req, res) => {
           priceInBaseCurrency,
         });
 
+        priceChangedMaterialIds.push(existing.id);
         updated += 1;
       } else {
         const created = await getActiveDb().insert(materials).values({
@@ -1670,6 +1692,10 @@ app.post('/api/materials/import', async (req, res) => {
     for (let index = 0; index < historyRows.length; index += HISTORY_BATCH_SIZE) {
       const batch = historyRows.slice(index, index + HISTORY_BATCH_SIZE);
       await getActiveDb().insert(materialPriceHistory).values(batch);
+    }
+
+    for (const materialId of priceChangedMaterialIds) {
+      await propagatePrimaryMaterialChange(materialId);
     }
 
     const skipped = errors.length;
@@ -2167,6 +2193,34 @@ async function recalculateIntermediateMaterialWithCascade(intermediateMaterialId
   };
 }
 
+async function propagateIntermediateCostToParents(
+  materialId: number,
+  visited = new Set<number>(),
+): Promise<number[]> {
+  if (visited.has(materialId)) {
+    return [];
+  }
+  visited.add(materialId);
+
+  const parentLinks = await db
+    .select({ intermediateMaterialId: intermediateMaterialBom.intermediateMaterialId })
+    .from(intermediateMaterialBom)
+    .where(eq(intermediateMaterialBom.componentMaterialId, materialId));
+
+  const parentIds = Array.from(new Set(parentLinks.map((link) => link.intermediateMaterialId)));
+  const updatedIds: number[] = [];
+
+  for (const parentId of parentIds) {
+    const summary = await recalculateIntermediateMaterialWithCascade(parentId);
+    if (summary.recalculated) {
+      updatedIds.push(parentId);
+      updatedIds.push(...await propagateIntermediateCostToParents(parentId, visited));
+    }
+  }
+
+  return updatedIds;
+}
+
 async function propagatePrimaryMaterialChange(materialId: number): Promise<{ reviewedProductIds: number[]; productsNowNeedsReviewIds: number[]; intermediateUpdatedIds: number[] }> {
   const reviewedProductIds = new Set<number>();
   const productsNowNeedsReviewIds = new Set<number>();
@@ -2185,10 +2239,15 @@ async function propagatePrimaryMaterialChange(materialId: number): Promise<{ rev
     .where(eq(intermediateMaterialBom.componentMaterialId, materialId));
 
   const intermediateIds = Array.from(new Set(intermediateLinks.map((link) => link.intermediateMaterialId)));
+  const allIntermediateUpdatedIds = new Set<number>();
 
   for (const intermediateId of intermediateIds) {
     const summary = await recalculateIntermediateMaterialWithCascade(intermediateId);
     if (summary.recalculated) {
+      allIntermediateUpdatedIds.add(intermediateId);
+      for (const parentId of await propagateIntermediateCostToParents(intermediateId)) {
+        allIntermediateUpdatedIds.add(parentId);
+      }
       for (const productId of summary.reviewedProductIds) {
         reviewedProductIds.add(productId);
       }
@@ -2201,7 +2260,7 @@ async function propagatePrimaryMaterialChange(materialId: number): Promise<{ rev
   return {
     reviewedProductIds: Array.from(reviewedProductIds),
     productsNowNeedsReviewIds: Array.from(productsNowNeedsReviewIds),
-    intermediateUpdatedIds: intermediateIds,
+    intermediateUpdatedIds: Array.from(allIntermediateUpdatedIds),
   };
 }
 
@@ -4637,7 +4696,11 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
     }
 
     const summary = await recalculateIntermediateMaterialWithCascade(materialId);
-    res.json(summary);
+    const parentIds = await propagateIntermediateCostToParents(materialId);
+    res.json({
+      ...summary,
+      parentIntermediatesRecalculated: parentIds.length,
+    });
   } catch (error) {
     console.error('Error recalculating intermediate material cost:', error);
     res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });

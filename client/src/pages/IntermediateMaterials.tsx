@@ -1,7 +1,9 @@
 import * as XLSX from 'xlsx';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useFormState } from '../context/FormStateContext';
+import { useRegisterFormOpen } from '../context/FormStateContext';
+import { usePageRefresh } from '../context/RefreshContext';
+import { useOnMaterialsDataChanged } from '../context/MaterialDataSyncContext';
 import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
@@ -293,22 +295,18 @@ export default function IntermediateMaterials() {
     skipped: number;
     errors: Array<{ row: number; name: string; reason: string }>;
   } | null>(null);
-  const { setHasOpenForm } = useFormState();
   const navigate = useNavigate();
   const location = useLocation();
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
+  const consumedEditMaterialIdRef = useRef<number | null>(null);
+  const loadDataSeqRef = useRef(0);
+  const selectedIdRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal);
-  }, [isFormOpen, showImportModal, showIntermediateImportModal, setHasOpenForm]);
+  selectedIdRef.current = selectedId;
 
-  useEffect(() => {
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+  useRegisterFormOpen('intermediate-materials', isFormOpen || showImportModal || showIntermediateImportModal);
 
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
-  const intermediatesTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
 
   function toggleSelectAll(checked: boolean) {
     if (checked) {
@@ -388,10 +386,7 @@ export default function IntermediateMaterials() {
   }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
 
   function openIntermediateTableSettings() {
-    const trigger = intermediatesTableSettingsAnchorRef.current?.querySelector('button');
-    if (trigger instanceof HTMLButtonElement) {
-      trigger.click();
-    }
+    setTableSettingsOpen(true);
   }
 
   function isIntermediateColumnVisible(key: IntermediateColumnKey) {
@@ -424,16 +419,23 @@ export default function IntermediateMaterials() {
     void loadData();
   }, []);
 
+  const reloadIntermediateData = useCallback(() => loadData(), []);
+
+  usePageRefresh('materials-intermediate', reloadIntermediateData);
+  useOnMaterialsDataChanged(reloadIntermediateData);
+
   useEffect(() => {
     const locationState = location.state as { editMaterialId?: number } | null;
-    if (!locationState?.editMaterialId) return;
+    const editId = locationState?.editMaterialId;
+    if (!editId || consumedEditMaterialIdRef.current === editId) return;
 
-    const targetMaterial = materials.find((m) => m.id === locationState.editMaterialId);
-    if (targetMaterial) {
-      openEditMaterialForm(targetMaterial);
-      window.history.replaceState({}, '', window.location.href);
-    }
-  }, [location.state, materials]);
+    const targetMaterial = materials.find((m) => m.id === editId);
+    if (!targetMaterial) return;
+
+    consumedEditMaterialIdRef.current = editId;
+    openEditMaterialForm(targetMaterial);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: {} });
+  }, [location.state, materials, navigate, location.pathname, location.search]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -446,12 +448,15 @@ export default function IntermediateMaterials() {
   }, [selectedId]);
 
   async function loadData() {
+    const seq = ++loadDataSeqRef.current;
     const [intermediateData, componentData, settingsData, currenciesData] = await Promise.all([
       materialsApi.getAll('all', 'intermediate'),
       materialsApi.getAll('active', 'all'),
       settingsApi.getAll(),
       currenciesApi.getAll(),
     ]);
+
+    if (seq !== loadDataSeqRef.current) return;
 
     const safeIntermediate = Array.isArray(intermediateData) ? intermediateData : [];
     const safeComponents = Array.isArray(componentData) ? componentData : [];
@@ -463,6 +468,11 @@ export default function IntermediateMaterials() {
     setComponents(safeComponents);
     setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
     setBaseCurrencyMissing(safeCurrencies.length === 0 || !baseCurrencySetting?.settingValue);
+
+    const activeSelectedId = selectedIdRef.current;
+    if (activeSelectedId) {
+      void loadBom(activeSelectedId);
+    }
   }
 
   async function loadBom(materialId: number) {
@@ -540,6 +550,7 @@ export default function IntermediateMaterials() {
 
   async function saveMaterial() {
     setSaving(true);
+    const materialIdBeingEdited = selectedId;
     try {
       const resolvedCategory = normalizeChoiceValue(form.category, materialCustomCategoryValue);
       if (!resolvedCategory) {
@@ -554,14 +565,18 @@ export default function IntermediateMaterials() {
         setForm((prev) => ({ ...prev, bulkQuantity: String(resolvedBulkQuantity) }));
       }
 
+      const editingMaterial = materialIdBeingEdited
+        ? materials.find((m) => m.id === materialIdBeingEdited) ?? null
+        : null;
+
       const payload = {
         ...form,
         category: resolvedCategory,
         materialType: 'intermediate' as const,
         intermediateCostMode: form.intermediateCostMode,
         bulkQuantity: resolvedBulkQuantity,
-        bulkPrice: Number(selectedMaterial?.bulkPrice || 0),
-        purchaseCurrencyId: Number(selectedMaterial?.purchaseCurrencyId || 1),
+        bulkPrice: Number(editingMaterial?.bulkPrice || 0),
+        purchaseCurrencyId: Number(editingMaterial?.purchaseCurrencyId || 1),
         overheadPercentage: Number(form.overheadPercentage || 0),
         marginPercentage: Number(form.marginPercentage || 0),
         yieldPercentage: form.intermediateCostMode === 'completed_output' ? 100 : Number(form.yieldPercentage || 100),
@@ -569,9 +584,8 @@ export default function IntermediateMaterials() {
         supplier: '',
       };
 
-      if (selectedMaterial) {
-        await materialsApi.update(selectedMaterial.id, payload);
-        await materialsApi.recalculateIntermediateCost(selectedMaterial.id);
+      if (materialIdBeingEdited) {
+        await materialsApi.update(materialIdBeingEdited, payload);
       } else {
         const created = await materialsApi.create(payload);
         if (created?.id) {
@@ -581,15 +595,13 @@ export default function IntermediateMaterials() {
       }
 
       await loadData();
-      const nextSelectedId = selectedMaterial?.id ?? createdId ?? null;
+      const nextSelectedId = materialIdBeingEdited ?? createdId ?? null;
       if (nextSelectedId) {
         setSelectedId(nextSelectedId);
-      }
-      if (nextSelectedId) {
         await loadBom(nextSelectedId);
       }
       setStatusText('Saved intermediate material.');
-      showToastMessage(selectedMaterial ? 'Intermediate material updated' : 'Intermediate material created', 'success');
+      showToastMessage(materialIdBeingEdited ? 'Intermediate material updated' : 'Intermediate material created', 'success');
     } catch (error: any) {
       const message = error?.message || 'Failed to save intermediate material';
       setStatusText(message);
@@ -682,7 +694,13 @@ export default function IntermediateMaterials() {
     return candidate;
   }
 
-  async function handleDuplicateMaterial(material: MaterialRecord) {
+  async function handleDuplicateMaterial(materialId: number) {
+    const material = materials.find((item) => item.id === materialId);
+    if (!material) {
+      showToastMessage('Material not found. Refresh the list and try again.', 'error');
+      return;
+    }
+
     try {
       const existingNames = new Set(materials.map((item) => (item.name || '').trim().toLowerCase()));
       const duplicatedName = buildDuplicateName(material.name, existingNames);
@@ -1218,23 +1236,19 @@ export default function IntermediateMaterials() {
                 ]}
               />
 
-              <div
-                ref={intermediatesTableSettingsAnchorRef}
-                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-                aria-hidden="true"
-              >
-                <TableSettingsDropdown
-                  columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
-                    key: columnKey,
-                    label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
-                    visible: isIntermediateColumnVisible(columnKey),
-                  }))}
-                  onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
-                  onResetColumns={resetIntermediateColumns}
-                  density={tableDensity}
-                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-                />
-              </div>
+              <TableSettingsDropdown
+                open={tableSettingsOpen}
+                onOpenChange={setTableSettingsOpen}
+                columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
+                  key: columnKey,
+                  label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
+                  visible: isIntermediateColumnVisible(columnKey),
+                }))}
+                onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
+                onResetColumns={resetIntermediateColumns}
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              />
             </div>
           </div>
         </div>
@@ -1349,7 +1363,7 @@ export default function IntermediateMaterials() {
                         <OverflowMenu
                           ariaLabel={`More actions for ${material.name}`}
                           items={[
-                            { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicateMaterial(material) },
+                            { label: 'Duplicate', icon: Copy, onClick: () => void handleDuplicateMaterial(material.id) },
                             { label: 'Delete', icon: Trash2, onClick: () => handleDeleteMaterial(material), danger: true },
                           ]}
                         />
@@ -1391,7 +1405,9 @@ export default function IntermediateMaterials() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0F2847' }}>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
-                  <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>Update material details and cost settings inline</div>
+                  <div style={{ color: '#64748b', fontSize: '14px', marginTop: '4px' }}>
+                    Unit costs update automatically when raw material prices change. Products using this material are flagged for review separately.
+                  </div>
                 </div>
                 <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
               </div>
@@ -1748,14 +1764,19 @@ export default function IntermediateMaterials() {
                   </div>
                 </div>
                 <div style={{ fontSize: '14px', color: '#475569', marginBottom: '12px' }}>
-                  Current stored unit cost: {formatMoney(Number(selectedMaterial?.unitPrice || 0))}
+                  Live unit cost: {formatMoney(liveCost.costPerUnit)}
+                  {selectedMaterial ? (
+                    <span style={{ color: '#64748b', marginLeft: '8px' }}>
+                      (stored: {formatMoney(Number(selectedMaterial.unitPrice || 0))})
+                    </span>
+                  ) : null}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}>
                     {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
                   </button>
                   <button className="btn btn-outline btn-sm" type="button" onClick={closeMaterialForm}>Cancel</button>
-                  {selectedMaterial ? <button className="btn btn-outline btn-sm" type="button" onClick={() => void recalculateSelected()}>Recalculate Cost</button> : null}
+                  {selectedMaterial ? <button className="btn btn-outline btn-sm" type="button" onClick={() => void recalculateSelected()}>Refresh cost</button> : null}
                 </div>
               </div>
             </form>
