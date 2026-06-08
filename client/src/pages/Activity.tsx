@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { usePageRefresh } from '../context/RefreshContext';
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -328,6 +329,8 @@ export default function Activity() {
   useEffect(() => {
     void fetchEntries(0, false);
   }, [fetchEntries]);
+
+  usePageRefresh('activity', () => fetchEntries(0, false));
 
   const canLoadMore = entries.length < total;
 

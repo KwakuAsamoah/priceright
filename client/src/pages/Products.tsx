@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { useFormState } from '../context/FormStateContext';
+import { useRegisterFormOpen } from '../context/FormStateContext';
+import { usePageRefresh } from '../context/RefreshContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
@@ -364,18 +365,10 @@ export default function Products() {
   const productsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
-  const { setHasOpenForm } = useFormState();
   const { registerUndo } = useUndoAction();
+  const loadDataSeqRef = useRef(0);
 
-  useEffect(() => {
-    setHasOpenForm(showDrawer || showImportModal);
-  }, [showDrawer, showImportModal, setHasOpenForm]);
-
-  useEffect(() => {
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+  useRegisterFormOpen('products', showDrawer || showImportModal);
 
   const [isApprovingAll, setIsApprovingAll] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'analysis'>('products');
@@ -423,6 +416,8 @@ export default function Products() {
     loadData();
   }, []);
 
+  usePageRefresh('products', () => loadData());
+
   useEffect(() => {
     if (focusProductId == null) return;
     const target = products.find((product) => product.id === focusProductId);
@@ -453,6 +448,7 @@ export default function Products() {
   }
 
   async function loadData() {
+    const seq = ++loadDataSeqRef.current;
     try {
       setLoading(true);
       const [productsData, materialsData, currenciesData, settingsData] = await Promise.all([
@@ -461,6 +457,8 @@ export default function Products() {
         currenciesApi.getAll(),
         settingsApi.getAll(),
       ]);
+
+      if (seq !== loadDataSeqRef.current) return;
 
       const safeProducts = Array.isArray(productsData) ? productsData : [];
       const safeMaterials = Array.isArray(materialsData) ? materialsData : [];
@@ -482,6 +480,8 @@ export default function Products() {
         })
       );
 
+      if (seq !== loadDataSeqRef.current) return;
+
       const productsWithPricing: ProductPricing[] = safeProducts.map((product: Product) => {
         const cost = costEntries.find((entry) => entry.productId === product.id)?.cost || null;
         const perUnit = cost
@@ -499,14 +499,19 @@ export default function Products() {
         };
       });
 
+      if (seq !== loadDataSeqRef.current) return;
+
       setProducts(productsWithPricing);
       setMaterials(safeMaterials);
     } catch (error) {
+      if (seq !== loadDataSeqRef.current) return;
       console.error('Error loading products:', error);
       setProducts([]);
       setMaterials([]);
     } finally {
-      setLoading(false);
+      if (seq === loadDataSeqRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -520,7 +525,13 @@ export default function Products() {
     setShowDrawer(true);
   }
 
-  async function handleDuplicateProduct(product: ProductPricing) {
+  async function handleDuplicateProduct(productId: number) {
+    const product = products.find((item) => item.id === productId);
+    if (!product) {
+      showToastMessage('Product not found. Refresh the list and try again.', 'error');
+      return;
+    }
+
     try {
       const existingNames = new Set(products.map((item) => (item.name || '').trim().toLowerCase()));
       const duplicatedName = buildDuplicateName(product.name, existingNames);
@@ -2146,7 +2157,7 @@ export default function Products() {
                                 items={[
                                   { label: 'View details', icon: ExternalLink, onClick: () => openProductDetail(product.id) },
                                   { label: 'Edit product', icon: Pencil, onClick: () => handleEdit(product) },
-                                  { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicateProduct(product) },
+                                  { label: 'Duplicate', icon: Copy, onClick: () => void handleDuplicateProduct(product.id) },
                                   { type: 'divider', key: `state-divider-${product.id}` },
                                   product.isActive
                                     ? { label: 'Set inactive', icon: EyeOff, onClick: () => handleToggleProductActive(product) }

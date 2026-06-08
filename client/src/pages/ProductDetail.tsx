@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePageRefresh } from '../context/RefreshContext';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, X } from 'lucide-react';
 import { productsApi, materialsApi, activityLogApi, type ActivityEntry } from '../api';
@@ -188,6 +189,11 @@ export default function ProductDetail() {
     loadData();
     loadMaterials();
   }, [productId]);
+
+  usePageRefresh('product-detail', () => {
+    loadData();
+    loadMaterials();
+  });
 
   useEffect(() => {
     let cancelled = false;

@@ -77,12 +77,16 @@ export default function ProductFormDrawer({
   const [materialHighlightedIndex, setMaterialHighlightedIndex] = useState(0);
   const materialInputRef = useRef<HTMLInputElement>(null);
   const [tempBomMaterials, setTempBomMaterials] = useState<BOMMaterial[]>([]);
+  const bomLoadSeqRef = useRef(0);
   const [editingBomId, setEditingBomId] = useState<number | null>(null);
   const [editingQuantity, setEditingQuantity] = useState('');
   const [newCategoryValue, setNewCategoryValue] = useState('');
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      bomLoadSeqRef.current += 1;
+      return;
+    }
 
     if (product) {
       const productCategory = (product.category || '').trim();
@@ -101,17 +105,21 @@ export default function ProductFormDrawer({
         currentSellingPrice: product.currentSellingPrice?.toString() || '0',
       });
       setNewCategoryValue(hasKnownCategory ? '' : productCategory);
-      loadExistingBOM(product.id);
+      void loadExistingBOM(product.id);
     } else {
+      bomLoadSeqRef.current += 1;
       resetForm();
     }
-  }, [isOpen, product, defaultOverhead, defaultProfitMargin]);
+  }, [isOpen, product, defaultOverhead, defaultProfitMargin, categoryOptions]);
 
   async function loadExistingBOM(productId: number) {
+    const seq = ++bomLoadSeqRef.current;
     try {
       const bom = await productsApi.getBOM(productId);
+      if (seq !== bomLoadSeqRef.current) return;
       setTempBomMaterials(bom);
     } catch (error) {
+      if (seq !== bomLoadSeqRef.current) return;
       console.error('Error loading BOM:', error);
       setTempBomMaterials([]);
     }
@@ -274,15 +282,16 @@ export default function ProductFormDrawer({
 
       let productId: number;
 
-      if (product) {
-        await productsApi.update(product.id, productData);
-        productId = product.id;
+      const editingProductId = product?.id;
+      if (editingProductId) {
+        await productsApi.update(editingProductId, productData);
+        productId = editingProductId;
       } else {
         const result = await productsApi.create(productData);
         productId = result.id;
       }
 
-      if (product) {
+      if (editingProductId) {
         const existingBom = await productsApi.getBOM(productId);
         for (const item of existingBom) {
           await productsApi.removeMaterialFromBOM(productId, item.id);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { usePageRefresh } from '../context/RefreshContext';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -192,6 +193,8 @@ export default function Dashboard() {
     loadDashboardData(isMounted);
     return () => { isMounted = false; };
   }, []);
+
+  usePageRefresh('dashboard', () => loadDashboardData(true));
 
   async function loadDashboardData(isMounted = true) {
     try {

@@ -1,6 +1,8 @@
 import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useFormState } from '../context/FormStateContext';
+import { useRegisterFormOpen } from '../context/FormStateContext';
+import { usePageRefresh } from '../context/RefreshContext';
+import { useMaterialDataSync } from '../context/MaterialDataSyncContext';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
@@ -276,22 +278,15 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const [bulkCustomCategoryValue, setBulkCustomCategoryValue] = useState('');
-  const materialsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
+  const loadDataSeqRef = useRef(0);
+  const [tableSettingsOpen, setTableSettingsOpen] = useState(false);
   const [usageData, setUsageData] = useState<UsageCheckResult | null>(null);
   const [loadingUsageCheck, setLoadingUsageCheck] = useState(false);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
-  const { setHasOpenForm } = useFormState();
+  const { notifyMaterialsDataChanged } = useMaterialDataSync();
   useUndoAction();
 
-  useEffect(() => {
-    setHasOpenForm(showAddModal || showImportModal || showCategoryModal);
-  }, [showAddModal, showImportModal, showCategoryModal, setHasOpenForm]);
-
-  useEffect(() => {
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+  useRegisterFormOpen('materials-primary', showAddModal || showImportModal || showCategoryModal);
 
   const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
   const [materialCustomUnitValue, setMaterialCustomUnitValue] = useState('');
@@ -312,6 +307,8 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     loadData(selectedStatus);
   }, [selectedStatus]);
 
+  usePageRefresh('materials-primary', () => loadData(selectedStatus));
+
   useEffect(() => {
     if (recentlySavedCurrencyId == null) return;
     const timeout = window.setTimeout(() => setRecentlySavedCurrencyId(null), 2000);
@@ -325,6 +322,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   }, [exchangeRateNotice]);
 
   async function loadData(statusFilter: 'all' | 'active' | 'inactive' = selectedStatus) {
+    const seq = ++loadDataSeqRef.current;
     try {
       const [materialsData, currenciesData, settingsData, exchangeRatesData] = await Promise.all([
         materialsApi.getAll(statusFilter, materialType),
@@ -332,6 +330,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         settingsApi.getAll(),
         exchangeRatesApi.getAll(),
       ]);
+
+      if (seq !== loadDataSeqRef.current) return;
+
       const safeMaterials = Array.isArray(materialsData) ? materialsData : [];
       const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
       const safeExchangeRates = Array.isArray(exchangeRatesData) ? exchangeRatesData : [];
@@ -352,11 +353,14 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         setFormData((prev) => ({ ...prev, purchaseCurrencyId: safeCurrencies[0].id }));
       }
     } catch (error) {
+      if (seq !== loadDataSeqRef.current) return;
       console.error('Error loading data:', error);
       setMaterials([]);
       setCurrencies([]);
     } finally {
-      setLoading(false);
+      if (seq === loadDataSeqRef.current) {
+        setLoading(false);
+      }
     }
   }
 
@@ -381,14 +385,35 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       };
 
       if (editingMaterial) {
-        await materialsApi.update(editingMaterial.id, payload);
+        const updated = await materialsApi.update(editingMaterial.id, payload);
+        setShowAddModal(false);
+        setEditingMaterial(null);
+        resetForm();
+        await loadData(selectedStatus);
+        notifyMaterialsDataChanged();
+
+        const intermediateCount = Number(updated?.intermediatesRecalculated || 0);
+        const reviewCount = Number(updated?.productsNeedingReview || 0);
+        if (intermediateCount > 0) {
+          const reviewNote = reviewCount > 0
+            ? ` ${reviewCount} product${reviewCount === 1 ? '' : 's'} flagged for price review.`
+            : '';
+          showToastMessage(
+            `Material saved. ${intermediateCount} intermediate cost${intermediateCount === 1 ? '' : 's'} updated automatically.${reviewNote}`,
+            'success',
+          );
+        } else {
+          showToastMessage('Material saved.', 'success');
+        }
       } else {
         await materialsApi.create(payload);
+        setShowAddModal(false);
+        setEditingMaterial(null);
+        resetForm();
+        await loadData(selectedStatus);
+        notifyMaterialsDataChanged();
+        showToastMessage('Material saved.', 'success');
       }
-      setShowAddModal(false);
-      setEditingMaterial(null);
-      resetForm();
-      loadData(selectedStatus);
     } catch (error) {
       console.error('Error saving material:', error);
       showToastMessage('Failed to save material', 'error');
@@ -451,6 +476,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       const response = await materialsApi.importMaterials(validRows);
       setImportResult(response);
       await loadData(selectedStatus);
+      notifyMaterialsDataChanged();
 
       if (response.skipped === 0) {
         setShowImportModal(false);
@@ -793,7 +819,13 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
     }
   }
 
-  async function handleDuplicate(material: Material) {
+  async function handleDuplicate(materialId: number) {
+    const material = materials.find((item) => item.id === materialId);
+    if (!material) {
+      showToastMessage('Material not found. Refresh the list and try again.', 'error');
+      return;
+    }
+
     try {
       const existingNames = new Set(materials.map((item) => (item.name || '').trim().toLowerCase()));
       const duplicatedName = buildDuplicateName(material.name, existingNames);
@@ -1101,6 +1133,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       setRecentlySavedCurrencyId(currencyId);
       setExchangeRateNotice(`Exchange rate updated. ${materialsUpdated} materials recalculated.`);
       await loadData(selectedStatus);
+      notifyMaterialsDataChanged();
     } catch (error) {
       console.error('Error updating exchange rate:', error);
       showToastMessage('Failed to update exchange rate', 'error');
@@ -1126,10 +1159,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
   } as const;
 
   function openMaterialsTableSettings() {
-    const trigger = materialsTableSettingsAnchorRef.current?.querySelector('button');
-    if (trigger instanceof HTMLButtonElement) {
-      trigger.click();
-    }
+    setTableSettingsOpen(true);
   }
 
   function isMaterialColumnVisible(key: MaterialColumnKey) {
@@ -1269,23 +1299,19 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                 ]}
               />
 
-              <div
-                ref={materialsTableSettingsAnchorRef}
-                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-                aria-hidden="true"
-              >
-                <TableSettingsDropdown
-                  columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
-                    key: column.key,
-                    label: column.label,
-                    visible: isMaterialColumnVisible(column.key),
-                  }))}
-                  onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
-                  onResetColumns={resetMaterialColumns}
-                  density={tableDensity}
-                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-                />
-              </div>
+              <TableSettingsDropdown
+                open={tableSettingsOpen}
+                onOpenChange={setTableSettingsOpen}
+                columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
+                  key: column.key,
+                  label: column.label,
+                  visible: isMaterialColumnVisible(column.key),
+                }))}
+                onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
+                onResetColumns={resetMaterialColumns}
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              />
             </div>
           </div>
         </div>
@@ -1572,7 +1598,7 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
                           items={[
                             { label: 'View usage', icon: BarChart2, onClick: () => handleViewMaterialUsage(material) },
                             { label: 'Price history', icon: Clock3, onClick: () => handleViewPriceHistory(material) },
-                            { label: 'Duplicate', icon: Copy, onClick: () => handleDuplicate(material) },
+                            { label: 'Duplicate', icon: Copy, onClick: () => void handleDuplicate(material.id) },
                             { type: 'divider', key: `state-divider-${material.id}` },
                             material.isActive
                               ? { label: 'Set inactive', icon: EyeOff, onClick: () => handleToggleMaterialActive(material) }

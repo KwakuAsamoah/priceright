@@ -1,10 +1,12 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, type ReactNode, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterProvider } from 'react-router-dom';
 import { createHashRouter } from 'react-router';
-import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
+import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, RefreshCw, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
+import { RefreshProvider, useRefresh, usePageRefresh } from './context/RefreshContext';
+import { MaterialDataSyncProvider } from './context/MaterialDataSyncContext';
 import { BaseCurrencyContext } from './context/BaseCurrencyContext';
 import Dashboard from './pages/Dashboard';
 import MaterialsPage from './pages/MaterialsPage';
@@ -154,6 +156,7 @@ function enableSpreadsheetStyleNumberInputs() {
   // that blocks React's reconciler from reverting type="text" back to type="number"
   // while the user is actively editing a math expression.
   const typePropDesc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'type');
+  let activeMathInput: HTMLInputElement | null = null;
 
   /**
    * Remove the per-element type override so the prototype setter is restored.
@@ -163,62 +166,6 @@ function enableSpreadsheetStyleNumberInputs() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (input as any).type;
   }
-
-  const handleFocusIn = (event: FocusEvent) => {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
-      return;
-    }
-
-    if (target.dataset.noMathShortcuts === 'true' || target.type !== 'number') {
-      return;
-    }
-
-    target.dataset.originalInputType = 'number';
-    target.inputMode = 'decimal';
-
-    // Defer the DOM type mutation so Electron's internal focus cycle completes
-    // before we touch the element. Synchronous type-switching during focusin
-    // corrupts Electron/Chromium's native caret state, making the field appear
-    // focused but unresponsive to keyboard input until the window is alt-tabbed.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-      // Guard: field may have lost focus before the frame ran — do not mutate.
-      if (target.dataset.originalInputType !== 'number') return;
-
-      // Install a per-element property override so React's controlled-input
-      // reconciler cannot revert type="text" back to type="number" on re-renders.
-      if (typePropDesc?.get && typePropDesc?.set) {
-        const protoGet = typePropDesc.get as (this: HTMLInputElement) => string;
-        const protoSet = typePropDesc.set as (this: HTMLInputElement, v: string) => void;
-        Object.defineProperty(target, 'type', {
-          configurable: true,
-          enumerable: true,
-          get() { return protoGet.call(this); },
-          set(value: string) {
-            // Block React from switching back to 'number' while in math mode.
-            if (value === 'number' && (this as HTMLInputElement).dataset.originalInputType === 'number') return;
-            protoSet.call(this, value);
-          },
-        });
-      }
-
-      try {
-        target.type = 'text';
-      } catch {
-        // Ignore browsers that do not allow changing the type dynamically.
-      }
-
-      // Select the entire current value so the first keystroke replaces it
-      // rather than appending (prevents "05" from typing "5" into a field showing "0").
-      try {
-        target.select();
-      } catch {
-        // Ignore
-      }
-      });
-    });
-  };
 
   const finalizeInput = (input: HTMLInputElement) => {
     if (input.dataset.originalInputType !== 'number') {
@@ -240,6 +187,90 @@ function enableSpreadsheetStyleNumberInputs() {
     if (resolvedValue !== null && resolvedValue !== input.value) {
       setNativeInputValue(input, resolvedValue);
     }
+
+    if (activeMathInput === input) {
+      activeMathInput = null;
+    }
+  };
+
+  const finalizeAllMathInputs = () => {
+    document.querySelectorAll<HTMLInputElement>('input[data-original-input-type="number"]').forEach((input) => {
+      finalizeInput(input);
+    });
+    activeMathInput = null;
+  };
+
+  const handleFocusIn = (event: FocusEvent) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    if (activeMathInput && activeMathInput !== target) {
+      finalizeInput(activeMathInput);
+    }
+
+    if (target.dataset.noMathShortcuts === 'true') {
+      return;
+    }
+
+    // Already in math-edit mode (focusout did not run, e.g. modal closed).
+    if (target.dataset.originalInputType === 'number') {
+      activeMathInput = target;
+      return;
+    }
+
+    if (target.type !== 'number') {
+      return;
+    }
+
+    target.dataset.originalInputType = 'number';
+    target.inputMode = 'decimal';
+
+    // Defer the DOM type mutation so Electron's internal focus cycle completes
+    // before we touch the element. Synchronous type-switching during focusin
+    // corrupts Electron/Chromium's native caret state, making the field appear
+    // focused but unresponsive to keyboard input until the window is alt-tabbed.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Guard: field may have lost focus before the frame ran — do not mutate.
+        if (target.dataset.originalInputType !== 'number') return;
+        if (document.activeElement !== target) return;
+
+        // Install a per-element property override so React's controlled-input
+        // reconciler cannot revert type="text" back to type="number" on re-renders.
+        if (typePropDesc?.get && typePropDesc?.set) {
+          const protoGet = typePropDesc.get as (this: HTMLInputElement) => string;
+          const protoSet = typePropDesc.set as (this: HTMLInputElement, v: string) => void;
+          Object.defineProperty(target, 'type', {
+            configurable: true,
+            enumerable: true,
+            get() { return protoGet.call(this); },
+            set(value: string) {
+              // Block React from switching back to 'number' while in math mode.
+              if (value === 'number' && (this as HTMLInputElement).dataset.originalInputType === 'number') return;
+              protoSet.call(this, value);
+            },
+          });
+        }
+
+        try {
+          target.type = 'text';
+        } catch {
+          // Ignore browsers that do not allow changing the type dynamically.
+        }
+
+        activeMathInput = target;
+
+        // Select the entire current value so the first keystroke replaces it
+        // rather than appending (prevents "05" from typing "5" into a field showing "0").
+        try {
+          target.select();
+        } catch {
+          // Ignore
+        }
+      });
+    });
   };
 
   const handleFocusOut = (event: FocusEvent) => {
@@ -262,6 +293,7 @@ function enableSpreadsheetStyleNumberInputs() {
 
         releaseTextMode(target);
         delete target.dataset.originalInputType;
+        if (activeMathInput === target) activeMathInput = null;
 
         try {
           target.type = 'number';
@@ -277,6 +309,7 @@ function enableSpreadsheetStyleNumberInputs() {
     if (event.key === 'Escape') {
       releaseTextMode(target);
       delete target.dataset.originalInputType;
+      if (activeMathInput === target) activeMathInput = null;
 
       try {
         target.type = 'number';
@@ -288,14 +321,23 @@ function enableSpreadsheetStyleNumberInputs() {
     }
   };
 
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      finalizeAllMathInputs();
+    }
+  };
+
   document.addEventListener('focusin', handleFocusIn);
   document.addEventListener('focusout', handleFocusOut);
   document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   return () => {
+    finalizeAllMathInputs();
     document.removeEventListener('focusin', handleFocusIn);
     document.removeEventListener('focusout', handleFocusOut);
     document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
   };
 }
 
@@ -310,9 +352,68 @@ function AppLayout({ children }: { children: ReactNode }) {
 
   const { isDemoMode } = useDemoMode();
   const { hasOpenForm } = useFormState();
+  const { isRefreshing, requestRefresh } = useRefresh();
   const { resumeOnboarding } = useOnboarding();
   const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+
+  const refreshNavCounts = useCallback(async () => {
+    try {
+      const [mats, prods, levels] = await Promise.all([
+        materialsApi.getAll('active'),
+        productsApi.getAll(),
+        priceLevelRulesApi.getAll(),
+      ]);
+      setNavCounts({
+        materials: Array.isArray(mats) ? mats.length : 0,
+        products: Array.isArray(prods) ? prods.length : 0,
+        priceLevels: Array.isArray(levels) ? levels.length : 0,
+      });
+
+      const demoStatus = await demoModeApi.get();
+      if (!demoStatus?.demoMode) {
+        const [allCurrencies, allSettings] = await Promise.all([
+          currenciesApi.getAll(),
+          settingsApi.getAll(),
+        ]);
+        const baseCurrencySetting = Array.isArray(allSettings)
+          ? allSettings.find((s: { settingKey: string; settingValue: string }) => s.settingKey === 'baseCurrency')
+          : undefined;
+        setBaseCurrencyMissing(
+          !Array.isArray(allCurrencies) ||
+          allCurrencies.length === 0 ||
+          !baseCurrencySetting?.settingValue
+        );
+      } else {
+        setBaseCurrencyMissing(false);
+      }
+    } catch {
+      // fail silently — counts are non-critical
+    }
+  }, []);
+
+  usePageRefresh('app-nav', () => refreshNavCounts());
+
+  async function handleRefreshClick(event: ReactMouseEvent) {
+    if (event.shiftKey) {
+      window.location.reload();
+      return;
+    }
+    await requestRefresh();
+  }
+
+  useEffect(() => {
+    function handleRefreshShortcut(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.key.toLowerCase() !== 'd') {
+        return;
+      }
+      event.preventDefault();
+      void requestRefresh();
+    }
+
+    window.addEventListener('keydown', handleRefreshShortcut);
+    return () => window.removeEventListener('keydown', handleRefreshShortcut);
+  }, [requestRefresh]);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -338,48 +439,8 @@ function AppLayout({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchCounts() {
-      try {
-        const [mats, prods, levels] = await Promise.all([
-          materialsApi.getAll('active'),
-          productsApi.getAll(),
-          priceLevelRulesApi.getAll(),
-        ]);
-        if (!cancelled) {
-          setNavCounts({
-            materials: Array.isArray(mats) ? mats.length : 0,
-            products: Array.isArray(prods) ? prods.length : 0,
-            priceLevels: Array.isArray(levels) ? levels.length : 0,
-          });
-        }
-        // Check base currency — fetch demo mode directly from API to avoid stale context state
-        if (!cancelled) {
-          const demoStatus = await demoModeApi.get();
-          if (!demoStatus?.demoMode && !cancelled) {
-            const [allCurrencies, allSettings] = await Promise.all([
-              currenciesApi.getAll(),
-              settingsApi.getAll(),
-            ]);
-            const baseCurrencySetting = Array.isArray(allSettings)
-              ? allSettings.find((s: { settingKey: string; settingValue: string }) => s.settingKey === 'baseCurrency')
-              : undefined;
-            setBaseCurrencyMissing(
-              !Array.isArray(allCurrencies) ||
-              allCurrencies.length === 0 ||
-              !baseCurrencySetting?.settingValue
-            );
-          } else if (!cancelled) {
-            setBaseCurrencyMissing(false);
-          }
-        }
-      } catch {
-        // fail silently — counts are non-critical
-      }
-    }
-    void fetchCounts();
-    return () => { cancelled = true; };
-  }, [location.pathname, isDemoMode]);
+    void refreshNavCounts();
+  }, [location.pathname, isDemoMode, refreshNavCounts]);
   const [isUnlocked, setIsUnlocked] = useState(() => {
     if (skipPIN) return true;
     try {
@@ -588,6 +649,16 @@ function AppLayout({ children }: { children: ReactNode }) {
                 <NotificationBell variant="sidebar" />
                 <button
                   type="button"
+                  className={`app-sidebar-action-btn${isRefreshing ? ' is-spinning' : ''}`}
+                  onClick={(event) => void handleRefreshClick(event)}
+                  title="Refresh data from database (Ctrl+Shift+D). Shift+click to reload app."
+                  aria-label="Refresh data from database"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw size={14} />
+                </button>
+                <button
+                  type="button"
                   className="app-sidebar-action-btn"
                   onClick={handleExit}
                   title="Lock and exit"
@@ -691,7 +762,11 @@ function AuthenticatedApp() {
     <UndoActionProvider>
       <DemoModeProvider>
         <FormStateProvider>
-          <RouterProvider router={router} />
+          <MaterialDataSyncProvider>
+            <RefreshProvider>
+              <RouterProvider router={router} />
+            </RefreshProvider>
+          </MaterialDataSyncProvider>
         </FormStateProvider>
       </DemoModeProvider>
     </UndoActionProvider>

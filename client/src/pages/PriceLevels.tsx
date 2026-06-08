@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
-import { useFormState } from '../context/FormStateContext';
+import { useRegisterFormOpen } from '../context/FormStateContext';
+import { usePageRefresh } from '../context/RefreshContext';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
@@ -278,17 +279,8 @@ export default function PriceLevels() {
   const [wizardApplyAllType, setWizardApplyAllType] = useState<OverrideType>('rule_discount');
   const [wizardApplyAllValue, setWizardApplyAllValue] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
-  const { setHasOpenForm } = useFormState();
 
-  useEffect(() => {
-    setHasOpenForm(showAddProductsModal || showWizard || showExportModal);
-  }, [showAddProductsModal, showWizard, showExportModal, setHasOpenForm]);
-
-  useEffect(() => {
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+  useRegisterFormOpen('price-levels', showAddProductsModal || showWizard || showExportModal);
 
   const [selectedExportProductIds, setSelectedExportProductIds] = useState<Set<number>>(new Set());
   const [staleBannerDismissed, setStaleBannerDismissed] = useState(false);
@@ -473,6 +465,8 @@ export default function PriceLevels() {
   useEffect(() => {
     void loadInitialData();
   }, []);
+
+  usePageRefresh('price-levels', () => loadInitialData());
 
   useEffect(() => {
     if (selectedLevel) {

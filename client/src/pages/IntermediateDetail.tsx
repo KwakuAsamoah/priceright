@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePageRefresh } from '../context/RefreshContext';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { materialsApi, type IntermediateBomItemRecord, type MaterialRecord } from '../api';
@@ -25,57 +26,58 @@ export default function IntermediateDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadData() {
-      if (!Number.isFinite(materialId) || materialId <= 0) {
-        if (!active) return;
-        setError('Intermediate material not found');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const [materialsData, bomData] = await Promise.all([
-          materialsApi.getAll('all', 'intermediate'),
-          materialsApi.getIntermediateBom(materialId),
-        ]);
-
-        if (!active) return;
-
-        const resolvedMaterials = Array.isArray(materialsData) ? materialsData : [];
-        const foundMaterial = resolvedMaterials.find((item) => Number(item.id) === materialId) || null;
-
-        if (!foundMaterial) {
-          setMaterial(null);
-          setBomItems([]);
-          setError('Intermediate material not found');
-        } else {
-          setMaterial(foundMaterial);
-          setBomItems(Array.isArray(bomData) ? bomData : []);
-          setError(null);
-        }
-      } catch {
-        if (!active) return;
-        setMaterial(null);
-        setBomItems([]);
-        setError('Failed to load intermediate material');
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
+  const loadMaterialDetail = useCallback(async (isActive: () => boolean = () => true) => {
+    if (!Number.isFinite(materialId) || materialId <= 0) {
+      if (!isActive()) return;
+      setError('Intermediate material not found');
+      setLoading(false);
+      return;
     }
 
-    void loadData();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [materialsData, bomData] = await Promise.all([
+        materialsApi.getAll('all', 'intermediate'),
+        materialsApi.getIntermediateBom(materialId),
+      ]);
+
+      if (!isActive()) return;
+
+      const resolvedMaterials = Array.isArray(materialsData) ? materialsData : [];
+      const foundMaterial = resolvedMaterials.find((item) => Number(item.id) === materialId) || null;
+
+      if (!foundMaterial) {
+        setMaterial(null);
+        setBomItems([]);
+        setError('Intermediate material not found');
+      } else {
+        setMaterial(foundMaterial);
+        setBomItems(Array.isArray(bomData) ? bomData : []);
+        setError(null);
+      }
+    } catch {
+      if (!isActive()) return;
+      setMaterial(null);
+      setBomItems([]);
+      setError('Failed to load intermediate material');
+    } finally {
+      if (isActive()) {
+        setLoading(false);
+      }
+    }
+  }, [materialId]);
+
+  useEffect(() => {
+    let active = true;
+    void loadMaterialDetail(() => active);
     return () => {
       active = false;
     };
-  }, [materialId]);
+  }, [loadMaterialDetail]);
+
+  usePageRefresh('intermediate-detail', () => loadMaterialDetail());
 
   const liveCost = useMemo(() => {
     if (!material) return null;
