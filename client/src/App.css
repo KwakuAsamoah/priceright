@@ -161,11 +161,26 @@
   overflow: visible;
 }
 
+.app-sidebar-bottom-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
 .app-sidebar-bottom-label {
   font-size: 11px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.3);
   letter-spacing: 0.02em;
+}
+
+.app-sidebar-bottom-version {
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.22);
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .app-sidebar-bottom-actions {

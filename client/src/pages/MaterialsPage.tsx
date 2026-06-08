@@ -22,6 +22,11 @@ export default function MaterialsPage() {
   const [analysisMaterials, setAnalysisMaterials] = useState<any[]>([]);
   const [analysisCurrencies, setAnalysisCurrencies] = useState<any[]>([]);
   const [analysisExchangeRates, setAnalysisExchangeRates] = useState<any[]>([]);
+  const [intermediateRefreshKey, setIntermediateRefreshKey] = useState(0);
+
+  function notifyIntermediateMaterialsRefresh() {
+    setIntermediateRefreshKey((current) => current + 1);
+  }
 
   async function ensureAnalysisDataLoaded() {
     if (analysisLoaded || analysisLoading) return;
@@ -52,6 +57,9 @@ export default function MaterialsPage() {
     if (tab === 'analysis') {
       void ensureAnalysisDataLoaded();
     }
+    if (tab === 'intermediate') {
+      notifyIntermediateMaterialsRefresh();
+    }
   }
 
   useEffect(() => {
@@ -59,6 +67,9 @@ export default function MaterialsPage() {
     setActiveTab(urlTab);
     if (urlTab === 'analysis') {
       void ensureAnalysisDataLoaded();
+    }
+    if (urlTab === 'intermediate') {
+      notifyIntermediateMaterialsRefresh();
     }
   }, [searchParams]);
 
@@ -92,16 +103,12 @@ export default function MaterialsPage() {
         </div>
 
         <div className="materials-tab-panel" style={{ minHeight: 0 }}>
-        {activeTab === 'primary' && (
-          <div>
-            <Materials materialType="primary" />
-          </div>
-        )}
-        {activeTab === 'intermediate' && (
-          <div>
-            <IntermediateMaterials />
-          </div>
-        )}
+        <div style={{ display: activeTab === 'primary' ? 'block' : 'none' }}>
+          <Materials materialType="primary" onPrimaryCostChange={notifyIntermediateMaterialsRefresh} />
+        </div>
+        <div style={{ display: activeTab === 'intermediate' ? 'block' : 'none' }}>
+          <IntermediateMaterials refreshKey={intermediateRefreshKey} isActive={activeTab === 'intermediate'} />
+        </div>
         {activeTab === 'analysis' && (
           <div>
             <div style={{ display: 'grid', gap: '8px' }}>

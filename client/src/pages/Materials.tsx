@@ -6,6 +6,7 @@ import OverflowMenu from '../components/OverflowMenu';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl } from '../api';
+import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -224,9 +225,11 @@ type ParsedImportPreviewRow = ParsedMaterialImportRow;
 
 interface MaterialsPageProps {
   materialType?: 'primary' | 'intermediate';
+  onPrimaryCostChange?: () => void;
 }
 
-export default function Materials({ materialType = 'primary' }: MaterialsPageProps) {
+export default function Materials({ materialType = 'primary', onPrimaryCostChange }: MaterialsPageProps) {
+  const { notifyMaterialCostsChanged } = useMaterialCostSync();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
@@ -371,17 +374,48 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
         return;
       }
 
+      const resolvedPurchaseCurrencyId = Number(formData.purchaseCurrencyId || 0);
+      if (!Number.isInteger(resolvedPurchaseCurrencyId) || resolvedPurchaseCurrencyId <= 0) {
+        showToastMessage('Please select a purchase currency', 'error');
+        return;
+      }
+
+      const resolvedBulkQuantity = parseFloat(formData.bulkQuantity);
+      const resolvedBulkPrice = parseFloat(formData.bulkPrice);
+      if (!Number.isFinite(resolvedBulkQuantity) || resolvedBulkQuantity <= 0) {
+        showToastMessage('Please enter a valid bulk quantity', 'error');
+        return;
+      }
+      if (!Number.isFinite(resolvedBulkPrice) || resolvedBulkPrice < 0) {
+        showToastMessage('Please enter a valid bulk price', 'error');
+        return;
+      }
+
       const payload = {
         ...formData,
         category: resolvedCategory,
         unit: resolvedUnit,
-        bulkQuantity: parseFloat(formData.bulkQuantity),
-        bulkPrice: parseFloat(formData.bulkPrice),
+        bulkQuantity: resolvedBulkQuantity,
+        bulkPrice: resolvedBulkPrice,
+        purchaseCurrencyId: resolvedPurchaseCurrencyId,
         supplier: '',
       };
 
       if (editingMaterial) {
-        await materialsApi.update(editingMaterial.id, payload);
+        const updateResult = await materialsApi.update(editingMaterial.id, payload);
+        const intermediatesUpdated = Number(updateResult?.intermediateMaterialsUpdated || 0);
+
+        notifyMaterialCostsChanged();
+        onPrimaryCostChange?.();
+
+        if (intermediatesUpdated > 0) {
+          showToastMessage(
+            `Material saved. ${intermediatesUpdated} intermediate material${intermediatesUpdated === 1 ? '' : 's'} recalculated.`,
+            'success',
+          );
+        } else {
+          showToastMessage('Material saved', 'success');
+        }
       } else {
         await materialsApi.create(payload);
       }
@@ -389,9 +423,9 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       setEditingMaterial(null);
       resetForm();
       loadData(selectedStatus);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving material:', error);
-      showToastMessage('Failed to save material', 'error');
+      showToastMessage(error?.message || 'Failed to save material', 'error');
     }
   }
 
@@ -451,6 +485,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       const response = await materialsApi.importMaterials(validRows);
       setImportResult(response);
       await loadData(selectedStatus);
+      if (response.updated > 0) {
+        notifyMaterialCostsChanged();
+        onPrimaryCostChange?.();
+      }
 
       if (response.skipped === 0) {
         setShowImportModal(false);
@@ -1101,6 +1139,10 @@ export default function Materials({ materialType = 'primary' }: MaterialsPagePro
       setRecentlySavedCurrencyId(currencyId);
       setExchangeRateNotice(`Exchange rate updated. ${materialsUpdated} materials recalculated.`);
       await loadData(selectedStatus);
+      if (materialsUpdated > 0) {
+        notifyMaterialCostsChanged();
+        onPrimaryCostChange?.();
+      }
     } catch (error) {
       console.error('Error updating exchange rate:', error);
       showToastMessage('Failed to update exchange rate', 'error');

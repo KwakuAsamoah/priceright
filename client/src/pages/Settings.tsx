@@ -906,6 +906,43 @@ async function loadData() {
               </div>
             </div>
 
+            <div className="app-card app-settings-card">
+              <h2>About</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Application version and product information.
+              </p>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  padding: '12px 14px',
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>PriceRight</div>
+                  <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
+                    Pricing management for food manufacturers
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    color: '#0F2847',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  v{import.meta.env.VITE_APP_VERSION}
+                </div>
+              </div>
+            </div>
+
             </>
             )}
 

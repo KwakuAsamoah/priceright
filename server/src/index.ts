@@ -495,7 +495,12 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', version: '1.0.0' });
+  res.json({
+    status: 'ok',
+    version: '1.0.0',
+    runtime: process.env.ELECTRON === 'true' ? 'electron' : 'dev',
+    databaseFile: path.basename(DATABASE_FILE_PATH),
+  });
 });
 
 app.get('/api/demo-mode', (_req, res) => {
@@ -1165,6 +1170,7 @@ app.put('/api/materials/:id', async (req, res) => {
     }
 
     const existing = existingRows[0];
+    const previousUnitPrice = Number(existing.unitPrice || 0);
     const name = req.body?.name ?? existing.name;
     const sku = req.body?.sku ?? existing.sku;
     const description = req.body?.description ?? existing.description;
@@ -1173,7 +1179,10 @@ app.put('/api/materials/:id', async (req, res) => {
     const unit = req.body?.unit ?? existing.unit;
     const bulkQuantity = Number(req.body?.bulkQuantity ?? existing.bulkQuantity);
     const bulkPrice = Number(req.body?.bulkPrice ?? existing.bulkPrice);
-    const purchaseCurrencyId = Number(req.body?.purchaseCurrencyId ?? existing.purchaseCurrencyId);
+    const purchaseCurrencyIdInput = Number(req.body?.purchaseCurrencyId ?? existing.purchaseCurrencyId);
+    const purchaseCurrencyId = purchaseCurrencyIdInput > 0
+      ? purchaseCurrencyIdInput
+      : Number(existing.purchaseCurrencyId);
     const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage ?? 0);
     const marginPercentage = Number(req.body?.marginPercentage ?? existing.marginPercentage ?? 0);
     const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
@@ -1238,19 +1247,35 @@ app.put('/api/materials/:id', async (req, res) => {
       updatedAt: new Date(),
     }).where(eq(materials.id, materialId));
 
+    const unitPriceChanged = Math.abs(unitPrice - previousUnitPrice) > 0.0001;
+    let intermediateMaterialsUpdated = 0;
+
+    if (materialType === 'primary' && (shouldRecalculatePrice || unitPriceChanged)) {
+      try {
+        const cascadeSummary = await propagatePrimaryMaterialChange(materialId);
+        intermediateMaterialsUpdated = cascadeSummary.intermediateUpdatedIds.length;
+      } catch (propagateError) {
+        console.error('[materials] Failed to cascade intermediate costs after primary update:', materialId, propagateError);
+      }
+    } else if (materialType === 'intermediate' && (shouldRecalculatePrice || unitPriceChanged)) {
+      try {
+        await recalculateIntermediateMaterialWithCascade(materialId);
+      } catch (recalcError) {
+        console.error('[materials] Failed to recalculate intermediate material after update:', materialId, recalcError);
+      }
+    }
+
     if (shouldRecalculatePrice) {
+      if (!Number.isInteger(resolvedPurchaseCurrencyId) || resolvedPurchaseCurrencyId <= 0) {
+        return res.status(400).json({ error: 'A valid purchase currency is required before saving price changes' });
+      }
+
       await getActiveDb().insert(materialPriceHistory).values({
         materialId,
         purchaseCurrencyId: resolvedPurchaseCurrencyId,
         priceInPurchaseCurrency,
         priceInBaseCurrency,
       });
-
-      if (materialType === 'intermediate') {
-        await recalculateIntermediateMaterialWithCascade(materialId);
-      } else {
-        await propagatePrimaryMaterialChange(materialId);
-      }
 
       const purchaseCurrencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, resolvedPurchaseCurrencyId));
       const purchaseCurrencyCode = purchaseCurrencyRows[0]?.code || '';
@@ -1268,7 +1293,7 @@ app.put('/api/materials/:id', async (req, res) => {
         action: 'material.cost_updated',
         details: {
           materialName: updatedMaterial.name,
-          oldUnitPrice: Number(existing.unitPrice || 0),
+          oldUnitPrice: previousUnitPrice,
           newUnitPrice: Number(updatedMaterial.unitPrice || 0),
           currency: purchaseCurrencyCode,
           oldGhsPrice: Number(existing.priceInBaseCurrency || 0),
@@ -1279,7 +1304,10 @@ app.put('/api/materials/:id', async (req, res) => {
     }
     
     const updated = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
-    res.json(updated[0]);
+    res.json({
+      ...updated[0],
+      intermediateMaterialsUpdated,
+    });
   } catch (error) {
     console.error('Error updating material:', error);
     res.status(500).json({ error: 'Failed to update material' });
@@ -1525,6 +1553,7 @@ app.post('/api/materials/import', async (req, res) => {
     }> = [];
     let imported = 0;
     let updated = 0;
+    const updatedMaterialIds: number[] = [];
 
     for (let index = 0; index < rows.length; index += 1) {
       const row = rows[index] || {};
@@ -1621,6 +1650,7 @@ app.post('/api/materials/import', async (req, res) => {
           priceInBaseCurrency,
         });
 
+        updatedMaterialIds.push(existing.id);
         updated += 1;
       } else {
         const created = await getActiveDb().insert(materials).values({
@@ -1670,6 +1700,15 @@ app.post('/api/materials/import', async (req, res) => {
     for (let index = 0; index < historyRows.length; index += HISTORY_BATCH_SIZE) {
       const batch = historyRows.slice(index, index + HISTORY_BATCH_SIZE);
       await getActiveDb().insert(materialPriceHistory).values(batch);
+    }
+
+    const uniqueUpdatedMaterialIds = Array.from(new Set(updatedMaterialIds));
+    for (const materialId of uniqueUpdatedMaterialIds) {
+      try {
+        await propagatePrimaryMaterialChange(materialId);
+      } catch (propagateErr) {
+        console.error('[import] Intermediate cost cascade failed for material', materialId, propagateErr);
+      }
     }
 
     const skipped = errors.length;
@@ -2143,7 +2182,60 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
   return { recalculated: true, unitPrice: calculatedUnitPrice };
 }
 
-async function recalculateIntermediateMaterialWithCascade(intermediateMaterialId: number): Promise<{ intermediateMaterialId: number; recalculated: boolean; affectedProducts: number; productsNowNeedsReview: number; reviewedProductIds: number[]; productsNowNeedsReviewIds: number[] }> {
+async function cascadeIntermediateCostsFrom(
+  rootComponentMaterialId: number,
+): Promise<{ reviewedProductIds: number[]; productsNowNeedsReviewIds: number[]; intermediateUpdatedIds: number[] }> {
+  const reviewedProductIds = new Set<number>();
+  const productsNowNeedsReviewIds = new Set<number>();
+  const intermediateUpdatedIds: number[] = [];
+  const visited = new Set<number>();
+  const queue: number[] = [rootComponentMaterialId];
+
+  while (queue.length > 0) {
+    const componentMaterialId = queue.shift()!;
+
+    const intermediateLinks = await db
+      .select({ intermediateMaterialId: intermediateMaterialBom.intermediateMaterialId })
+      .from(intermediateMaterialBom)
+      .where(eq(intermediateMaterialBom.componentMaterialId, componentMaterialId));
+
+    const dependentIds = Array.from(new Set(intermediateLinks.map((link) => link.intermediateMaterialId)));
+
+    for (const intermediateId of dependentIds) {
+      if (visited.has(intermediateId)) continue;
+      visited.add(intermediateId);
+
+      const recalc = await recalculateIntermediateMaterialCost(intermediateId);
+      if (!recalc.recalculated) continue;
+
+      intermediateUpdatedIds.push(intermediateId);
+
+      try {
+        const reviewSummary = await setNeedsReviewForMaterial(intermediateId);
+        for (const productId of reviewSummary.reviewedProductIds) {
+          reviewedProductIds.add(productId);
+        }
+        for (const productId of reviewSummary.productsNowNeedsReviewIds) {
+          productsNowNeedsReviewIds.add(productId);
+        }
+      } catch (reviewError) {
+        console.error('[materials] Product review failed for intermediate:', intermediateId, reviewError);
+      }
+
+      queue.push(intermediateId);
+    }
+  }
+
+  return {
+    reviewedProductIds: Array.from(reviewedProductIds),
+    productsNowNeedsReviewIds: Array.from(productsNowNeedsReviewIds),
+    intermediateUpdatedIds,
+  };
+}
+
+async function recalculateIntermediateMaterialWithCascade(
+  intermediateMaterialId: number,
+): Promise<{ intermediateMaterialId: number; recalculated: boolean; affectedProducts: number; productsNowNeedsReview: number; reviewedProductIds: number[]; productsNowNeedsReviewIds: number[] }> {
   const recalc = await recalculateIntermediateMaterialCost(intermediateMaterialId);
   if (!recalc.recalculated) {
     return {
@@ -2156,14 +2248,39 @@ async function recalculateIntermediateMaterialWithCascade(intermediateMaterialId
     };
   }
 
-  const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
+  const reviewedProductIds = new Set<number>();
+  const productsNowNeedsReviewIds = new Set<number>();
+
+  try {
+    const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
+    for (const productId of reviewSummary.reviewedProductIds) {
+      reviewedProductIds.add(productId);
+    }
+    for (const productId of reviewSummary.productsNowNeedsReviewIds) {
+      productsNowNeedsReviewIds.add(productId);
+    }
+  } catch (reviewError) {
+    console.error('[materials] Product review failed for intermediate:', intermediateMaterialId, reviewError);
+  }
+
+  const cascadeSummary = await cascadeIntermediateCostsFrom(intermediateMaterialId);
+  for (const productId of cascadeSummary.reviewedProductIds) {
+    reviewedProductIds.add(productId);
+  }
+  for (const productId of cascadeSummary.productsNowNeedsReviewIds) {
+    productsNowNeedsReviewIds.add(productId);
+  }
+
+  const reviewed = Array.from(reviewedProductIds);
+  const needsReview = Array.from(productsNowNeedsReviewIds);
+
   return {
     intermediateMaterialId,
     recalculated: true,
-    affectedProducts: reviewSummary.reviewedProductIds.length,
-    productsNowNeedsReview: reviewSummary.productsNowNeedsReviewIds.length,
-    reviewedProductIds: reviewSummary.reviewedProductIds,
-    productsNowNeedsReviewIds: reviewSummary.productsNowNeedsReviewIds,
+    affectedProducts: reviewed.length,
+    productsNowNeedsReview: needsReview.length,
+    reviewedProductIds: reviewed,
+    productsNowNeedsReviewIds: needsReview,
   };
 }
 
@@ -2171,37 +2288,30 @@ async function propagatePrimaryMaterialChange(materialId: number): Promise<{ rev
   const reviewedProductIds = new Set<number>();
   const productsNowNeedsReviewIds = new Set<number>();
 
-  const directSummary = await setNeedsReviewForMaterial(materialId);
-  for (const productId of directSummary.reviewedProductIds) {
+  try {
+    const directSummary = await setNeedsReviewForMaterial(materialId);
+    for (const productId of directSummary.reviewedProductIds) {
+      reviewedProductIds.add(productId);
+    }
+    for (const productId of directSummary.productsNowNeedsReviewIds) {
+      productsNowNeedsReviewIds.add(productId);
+    }
+  } catch (reviewError) {
+    console.error('[materials] Product review failed for material:', materialId, reviewError);
+  }
+
+  const cascadeSummary = await cascadeIntermediateCostsFrom(materialId);
+  for (const productId of cascadeSummary.reviewedProductIds) {
     reviewedProductIds.add(productId);
   }
-  for (const productId of directSummary.productsNowNeedsReviewIds) {
+  for (const productId of cascadeSummary.productsNowNeedsReviewIds) {
     productsNowNeedsReviewIds.add(productId);
-  }
-
-  const intermediateLinks = await db
-    .select({ intermediateMaterialId: intermediateMaterialBom.intermediateMaterialId })
-    .from(intermediateMaterialBom)
-    .where(eq(intermediateMaterialBom.componentMaterialId, materialId));
-
-  const intermediateIds = Array.from(new Set(intermediateLinks.map((link) => link.intermediateMaterialId)));
-
-  for (const intermediateId of intermediateIds) {
-    const summary = await recalculateIntermediateMaterialWithCascade(intermediateId);
-    if (summary.recalculated) {
-      for (const productId of summary.reviewedProductIds) {
-        reviewedProductIds.add(productId);
-      }
-      for (const productId of summary.productsNowNeedsReviewIds) {
-        productsNowNeedsReviewIds.add(productId);
-      }
-    }
   }
 
   return {
     reviewedProductIds: Array.from(reviewedProductIds),
     productsNowNeedsReviewIds: Array.from(productsNowNeedsReviewIds),
-    intermediateUpdatedIds: intermediateIds,
+    intermediateUpdatedIds: cascadeSummary.intermediateUpdatedIds,
   };
 }
 
@@ -4641,6 +4751,41 @@ app.post('/api/materials/:id/recalculate-cost', async (req, res) => {
   } catch (error) {
     console.error('Error recalculating intermediate material cost:', error);
     res.status(500).json({ error: 'Failed to recalculate intermediate material cost' });
+  }
+});
+
+app.post('/api/materials/:id/cascade-intermediate-costs', async (req, res) => {
+  try {
+    const materialId = Number(req.params.id);
+    if (!Number.isInteger(materialId)) {
+      return res.status(400).json({ error: 'Invalid material id' });
+    }
+
+    const rows = await getActiveDb().select().from(materials).where(eq(materials.id, materialId));
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Material not found' });
+    }
+
+    const material = rows[0];
+    if (material.materialType === 'intermediate') {
+      const summary = await recalculateIntermediateMaterialWithCascade(materialId);
+      return res.json({
+        materialId,
+        materialType: material.materialType,
+        intermediateUpdatedIds: summary.recalculated ? [materialId] : [],
+        ...summary,
+      });
+    }
+
+    const summary = await propagatePrimaryMaterialChange(materialId);
+    res.json({
+      materialId,
+      materialType: material.materialType,
+      ...summary,
+    });
+  } catch (error) {
+    console.error('Error cascading intermediate material costs:', error);
+    res.status(500).json({ error: 'Failed to cascade intermediate material costs' });
   }
 });
 

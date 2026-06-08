@@ -16,6 +16,7 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
+import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 
 interface MaterialFormState {
   name: string;
@@ -250,7 +251,13 @@ function toSafePositiveNumber(rawValue: string, fallback: number) {
   return numericValue;
 }
 
-export default function IntermediateMaterials() {
+interface IntermediateMaterialsProps {
+  refreshKey?: number;
+  isActive?: boolean;
+}
+
+export default function IntermediateMaterials({ refreshKey = 0, isActive = true }: IntermediateMaterialsProps) {
+  const { version: materialCostVersion } = useMaterialCostSync();
   const [materials, setMaterials] = useState<MaterialRecord[]>([]);
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -422,7 +429,13 @@ export default function IntermediateMaterials() {
 
   useEffect(() => {
     void loadData();
-  }, []);
+  }, [refreshKey, materialCostVersion]);
+
+  useEffect(() => {
+    if (isActive) {
+      void loadData();
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const locationState = location.state as { editMaterialId?: number } | null;

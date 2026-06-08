@@ -31,6 +31,7 @@ import { TrialBanner } from './components/TrialBanner';
 import { UpdateModal } from './components/UpdateModal';
 import { NotificationBell } from './components/NotificationBell';
 import { NotificationProvider } from './context/NotificationContext';
+import { MaterialCostSyncProvider } from './context/MaterialCostSyncContext';
 import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
@@ -582,7 +583,10 @@ function AppLayout({ children }: { children: ReactNode }) {
             </nav>
 
             <div className="app-sidebar-bottom">
-              <span className="app-sidebar-bottom-label">PriceRight</span>
+              <div className="app-sidebar-bottom-label-wrap">
+                <span className="app-sidebar-bottom-label">PriceRight</span>
+                <span className="app-sidebar-bottom-version">v{import.meta.env.VITE_APP_VERSION}</span>
+              </div>
               <div className="app-sidebar-bottom-actions">
                 <DemoModeBanner />
                 <NotificationBell variant="sidebar" />
@@ -691,7 +695,9 @@ function AuthenticatedApp() {
     <UndoActionProvider>
       <DemoModeProvider>
         <FormStateProvider>
-          <RouterProvider router={router} />
+          <MaterialCostSyncProvider>
+            <RouterProvider router={router} />
+          </MaterialCostSyncProvider>
         </FormStateProvider>
       </DemoModeProvider>
     </UndoActionProvider>

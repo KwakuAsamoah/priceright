@@ -101,7 +101,7 @@ let serverModulePromise = null;
 async function startServer() {
   const serverEntry = isProd
     ? path.join(process.resourcesPath, 'server-dist', 'index.js')
-    : path.join(__dirname, '..', 'server', 'src', 'index.ts');
+    : path.join(__dirname, '..', 'server-dist', 'index.js');
 
   const serverEnv = {
     ...process.env,
@@ -115,8 +115,9 @@ async function startServer() {
     LICENCE_SERVER_URL: LICENCE_SERVER_URL,
   };
 
+  Object.assign(process.env, serverEnv);
+
   if (isProd) {
-    Object.assign(process.env, serverEnv);
     if (!serverModulePromise) {
       serverModulePromise = import(pathToFileURL(serverEntry).href);
     }
@@ -124,27 +125,16 @@ async function startServer() {
     return;
   }
 
-  const devTsxCli = path.join(__dirname, '..', 'server', 'node_modules', 'tsx', 'dist', 'cli.mjs');
-  const executable = process.execPath;
-  const args = [devTsxCli, serverEntry];
+  if (!fs.existsSync(serverEntry)) {
+    throw new Error(
+      'server-dist/index.js not found. Run "npm run build:server" before starting Electron.',
+    );
+  }
 
-  serverProcess = spawn(executable, args, {
-    env: serverEnv,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
-
-  serverProcess.stdout.on('data', (d) => {
-    console.log('[server]', d.toString().trim());
-  });
-
-  serverProcess.stderr.on('data', (d) => {
-    console.error('[server]', d.toString().trim());
-  });
-
-  serverProcess.on('exit', (code, signal) => {
-    console.log(`[server] exited with code=${code} signal=${signal || 'none'}`);
-  });
+  if (!serverModulePromise) {
+    serverModulePromise = import(pathToFileURL(serverEntry).href);
+  }
+  await serverModulePromise;
 }
 
 function waitForServer(maxAttempts = 40) {
@@ -181,20 +171,34 @@ function waitForServer(maxAttempts = 40) {
   });
 }
 
-function checkServerOnce() {
+function fetchHealthStatus() {
   return new Promise((resolve) => {
     const req = http.get(`http://localhost:${SERVER_PORT}/api/health`, (res) => {
-      const healthy = res.statusCode === 200;
-      res.resume();
-      resolve(healthy);
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          resolve(null);
+          return;
+        }
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(null);
+        }
+      });
     });
 
-    req.on('error', () => resolve(false));
+    req.on('error', () => resolve(null));
     req.setTimeout(1000, () => {
       req.destroy();
-      resolve(false);
+      resolve(null);
     });
   });
+}
+
+function checkServerOnce() {
+  return fetchHealthStatus().then((health) => Boolean(health?.status === 'ok'));
 }
 
 function createWindow() {
@@ -223,10 +227,14 @@ function createWindow() {
     } else {
       mainWindow.loadFile(localBuiltIndex);
     }
-  } else if (fs.existsSync(localBuiltIndex)) {
-    mainWindow.loadFile(localBuiltIndex);
   } else {
-    mainWindow.loadURL('http://localhost:5173');
+    const devClientUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    mainWindow.webContents.on('did-fail-load', (_event, _code, _desc, validatedURL) => {
+      if (validatedURL === devClientUrl && fs.existsSync(localBuiltIndex)) {
+        mainWindow.loadFile(localBuiltIndex);
+      }
+    });
+    mainWindow.loadURL(devClientUrl);
   }
 
   mainWindow.once('ready-to-show', () => {
@@ -564,7 +572,19 @@ ipcMain.handle('validate-licence', async (_event, key) => {
 });
 
 app.whenReady().then(async () => {
-  const serverAlreadyRunning = await checkServerOnce();
+  const existingHealth = await fetchHealthStatus();
+  const serverAlreadyRunning = existingHealth?.status === 'ok';
+
+  if (serverAlreadyRunning && existingHealth?.runtime !== 'electron') {
+    dialog.showErrorBox(
+      'PriceRight - Wrong Server Running',
+      'A development server is already running on port 3000.\n\n'
+        + 'The desktop app needs its own server to load your saved data from AppData.\n\n'
+        + 'Please close any "npm run dev:server" terminal, then restart PriceRight.'
+    );
+    app.quit();
+    return;
+  }
 
   // Copy demo.db from package resources to userData, replacing if version changed
   const DEMO_DB_VERSION = '1.0.1';

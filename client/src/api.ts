@@ -403,6 +403,13 @@ export const materialsApi = {
     });
     return parseResponse(res);
   },
+  cascadeIntermediateCosts: async (materialId: number) => {
+    const res = await fetch(`${API_BASE}/materials/${materialId}/cascade-intermediate-costs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return parseResponse(res);
+  },
   importMaterials: async (materials: ImportMaterialRow[]): Promise<ImportResult> => {
     const res = await fetch(`${API_BASE}/materials/import`, {
       method: 'POST',
