@@ -10,6 +10,8 @@ node_modules/
 client/node_modules/
 server/node_modules/
 client-dist/
+
+# Local runtime state
 server/demo-mode.json
 scripts/*
 !scripts/generate-templates.js

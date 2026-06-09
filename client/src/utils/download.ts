@@ -8,7 +8,6 @@ export async function downloadFile(url: string, filename: string): Promise<void>
   if (window.electronAPI?.isElectron) {
     try {
       const result = await window.electronAPI.downloadFile(url, filename);
-      console.log('[download] result:', result);
       if (!result.success && !result.canceled) {
         console.error('Download failed:', result.error);
       }
