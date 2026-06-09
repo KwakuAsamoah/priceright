@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 8 June 2026
-**Current version:** 1.0.16
+**Last updated:** 9 June 2026
+**Current version:** 1.0.17
 **Active branch:** main
 
 ---
@@ -61,6 +61,7 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.14 | Jun 2026 | Intermediate material auto-recalc cascade fix |
 | v1.0.15 | Jun 2026 | Drawer/modal button UX, tab highlights |
 | v1.0.16 | Jun 2026 | New app icon, branding updates |
+| v1.0.17 | Jun 2026 | Hotfix — sidebar logo path for Electron `file://` |
 
 ---
 
@@ -119,6 +120,7 @@ TypeScript, Node.js/Express, SQLite.
 - [x] Notification bell for app updates
 - [x] Demo pill in sidebar footer
 - [x] Power button exit
+- [x] Red arrow app icon (sidebar, favicon, Windows taskbar via `icon.ico`)
 
 ---
 
@@ -164,6 +166,43 @@ TypeScript, Node.js/Express, SQLite.
 | Materials.tsx 2458 lines — maintenance risk | Low | Future refactor |
 | console.log in download.ts line 11 | Low | Remove before marketing |
 | demo-mode.json committed as local state | Low | Pending fix |
+| v1.0.16 sidebar logo broken in packaged app | High | **Fixed in v1.0.17** (`1109771`) |
+
+---
+
+## Engineer Handoff — v1.0.16 → v1.0.17 Logo Regression
+
+**Reported:** 9 Jun 2026 — sidebar showed broken-image placeholder after v1.0.16 install.
+
+**Symptom:** `PriceRightLogoIcon` `<img>` failed to load in production Electron only; dev via Vite (`localhost:5173`) could appear fine.
+
+**Root cause:**
+- `client/vite.config.ts` sets `base: './'` (required for `loadFile()` / hash router in Electron).
+- v1.0.16 introduced `src="/priceright-icon.png"` (absolute URL).
+- Packaged app loads `file:///.../client-dist/index.html`; absolute `/priceright-icon.png` resolves to filesystem root, not `client-dist/`.
+- Asset file **was** present in `client-dist/priceright-icon.png` (copied from `client/public/` by Vite) — path resolution was wrong, not a missing file.
+
+**Fix (commit `1109771`):**
+```tsx
+// client/src/components/PriceRightLogoIcon.tsx
+const brandIconUrl = `${import.meta.env.BASE_URL}priceright-icon.png`;
+```
+Also `client/index.html` favicon → `./priceright-icon.png`.
+
+**Prevention:** For any static asset in Electron + Vite builds, always use `import.meta.env.BASE_URL` or import from `src/assets/` — never root-absolute `/...` paths.
+
+**Releases:**
+| Version | GitHub | Notes |
+|---------|--------|-------|
+| v1.0.16 | github.com/KwakuAsamoah/priceright/releases/tag/v1.0.16 | Logo assets added; **broken sidebar in prod** |
+| v1.0.17 | github.com/KwakuAsamoah/priceright/releases/tag/v1.0.17 | Hotfix; mark **Latest** |
+
+**Installer:** `dist-electron/PriceRight-Setup-1.0.17.exe` (~105 MB)
+
+**Open follow-ups for engineering:**
+1. Replace hardcoded `localhost:3000` in Settings/LockScreen with `API_BASE` or IPC.
+2. Optimise/remove legacy 1 MB `priceright-logo-icon.png` / wordmark in `client/public/`.
+3. Add smoke test: launch packaged build and assert sidebar logo image `naturalWidth > 0`.
 
 ---
 
@@ -178,6 +217,7 @@ TypeScript, Node.js/Express, SQLite.
 | Resend for email | Free tier sufficient, verified domain support |
 | Paystack for payments | Ghana-first, supports mobile money, no USD fees |
 | Public GitHub repo | Required for auto-updater to work without token management |
+| Vite `base: './'` for Electron | Relative asset URLs required when using `loadFile()`; absolute `/` paths break `file://` |
 
 ---
 
