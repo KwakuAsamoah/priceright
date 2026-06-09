@@ -1,0 +1,79 @@
+---
+description: Novice-friendly operator steps for PriceRight — include when the user must run commands or shut down
+alwaysApply: true
+---
+
+# PriceRight — operator instructions for the user
+
+The project owner is a **coding novice**. Whenever you ask them to run a command, test a build, install an update, or shut down dev tools, include the relevant steps below in plain language. Do not assume they know terminals, git, or Electron.
+
+## When to include instructions
+
+- Before asking them to run `npm run dev`, `npm run electron:build`, or `git pull`
+- Before asking them to install a new `.exe` release
+- When ending a session or when a build may fail due to locked files
+- After pushing a release — tell them how to install it
+
+Keep steps short, numbered, and Windows/PowerShell-specific.
+
+## Shut down dev (end of session)
+
+1. Save work in PriceRight and close the app window
+2. In Cursor Terminal, focus the tab running a command and press **Ctrl+C** (type **Y** if prompted)
+3. Close Cursor when done
+
+## Stop before building or updating installer
+
+1. Quit the **installed** PriceRight app completely (including system tray)
+2. Stop **all** terminals running `npm run dev` or `electron:dev` (**Ctrl+C**)
+3. Then run build commands
+
+If build fails with `EBUSY` or "file in use", something is still running — repeat steps 1–2.
+
+## Two modes (explain when relevant)
+
+| Mode | How | Data |
+|------|-----|------|
+| Installed app | `PriceRight-Setup-x.x.xx.exe` from GitHub Releases | `%APPDATA%\PriceRight\priceright.db` |
+| Dev mode | `npm run dev` → http://localhost:5173 | Separate dev DB under `server/priceright.db` |
+
+## Before testing changes in dev
+
+```powershell
+cd C:\Users\HP\priceright
+git pull
+npm run dev
+```
+
+Only run `npm install` in root/client/server if dependencies changed.
+
+## Before installing a desktop update
+
+1. Quit PriceRight
+2. Download latest `.exe` from https://github.com/KwakuAsamoah/priceright/releases
+3. Run installer (overwrites in place; data is kept)
+
+## Build new installer (releases)
+
+```powershell
+cd C:\Users\HP\priceright
+npm run electron:build
+```
+
+Output: `dist-electron/PriceRight-Setup-{version}.exe`
+
+## Regenerate app icon (after logo source changes)
+
+Replace `electron/icons/logo-source.png`, then:
+
+```powershell
+npm run generate:icon
+```
+
+Rebuild client/desktop for icon to appear everywhere.
+
+## Tone
+
+- Use complete sentences, not jargon-only bullets
+- Say **what** each step does in one short phrase when helpful
+- Offer to walk them through if something fails

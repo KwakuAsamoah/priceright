@@ -5,27 +5,24 @@ const pngToIcoModule = require('png-to-ico');
 const pngToIco = pngToIcoModule.default || pngToIcoModule;
 
 const sizes = [16, 32, 48, 64, 128, 256];
-const baseColor = '#0f172a';
 const outputDir = path.join(__dirname, 'icons');
+const sourcePath = path.join(outputDir, 'logo-source.png');
 
 async function createPng(size) {
-  const svg = `
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="${size}" height="${size}" fill="${baseColor}" rx="${Math.round(size * 0.18)}" ry="${Math.round(size * 0.18)}"/>
-      <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle"
-            font-family="Segoe UI, Arial, sans-serif"
-            font-size="${Math.round(size * 0.44)}"
-            font-weight="700"
-            fill="#ffffff">PR</text>
-    </svg>
-  `;
-
   const pngPath = path.join(outputDir, `icon-${size}.png`);
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(pngPath);
+  await sharp(sourcePath)
+    .resize(size, size, { fit: 'cover' })
+    .png({ compressionLevel: 9 })
+    .toFile(pngPath);
   return pngPath;
 }
 
 async function main() {
+  if (!fs.existsSync(sourcePath)) {
+    console.error(`Missing logo source: ${sourcePath}`);
+    process.exit(1);
+  }
+
   fs.mkdirSync(outputDir, { recursive: true });
 
   const pngFiles = [];
