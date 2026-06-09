@@ -131,7 +131,7 @@ TypeScript, Node.js/Express, SQLite.
 - [ ] Paystack live mode — complete business verification
 - [ ] Code obfuscation — protect business logic
 - [x] Fix hardcoded localhost:3000 in Settings and LockScreen
-- [ ] Compress logo PNG assets (~2MB in client/public)
+- [x] Compress logo PNG assets (~2MB in client/public)
 
 ## Pending — Medium Priority
 
@@ -161,7 +161,7 @@ TypeScript, Node.js/Express, SQLite.
 |-------|----------|--------|
 | Hardcoded localhost:3000 in Settings backup/restore | Medium | Fixed v1.0.17 |
 | Hardcoded localhost:3000 in LockScreen | Medium | Fixed v1.0.17 |
-| Logo PNG assets ~2MB in client/public | Low | Pending optimisation |
+| Logo PNG assets ~2MB in client/public | Low | Fixed v1.0.18 |
 | Products.tsx 2525 lines — maintenance risk | Low | Future refactor |
 | Materials.tsx 2458 lines — maintenance risk | Low | Future refactor |
 | console.log in download.ts line 11 | Low | Remove before marketing |
@@ -201,7 +201,7 @@ Also `client/index.html` favicon → `./priceright-icon.png`.
 
 **Open follow-ups for engineering:**
 1. Replace hardcoded `localhost:3000` in Settings/LockScreen with `API_BASE` or IPC.
-2. Optimise/remove legacy 1 MB `priceright-logo-icon.png` / wordmark in `client/public/`.
+2. ~~Optimise/remove legacy 1 MB `priceright-logo-icon.png` / wordmark in `client/public/`.~~ Done — files removed.
 3. Add smoke test: launch packaged build and assert sidebar logo image `naturalWidth > 0`.
 
 ---
