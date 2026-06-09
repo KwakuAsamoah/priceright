@@ -3,11 +3,13 @@ type PriceRightLogoIconProps = {
   className?: string;
 };
 
+const brandIconUrl = `${import.meta.env.BASE_URL}priceright-icon.png`;
+
 export default function PriceRightLogoIcon({ size = 36, className = 'app-brand-logo' }: PriceRightLogoIconProps) {
   return (
     <img
       className={className}
-      src="/priceright-icon.png"
+      src={brandIconUrl}
       width={size}
       height={size}
       alt=""
