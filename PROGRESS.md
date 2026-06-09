@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 8 June 2026
-**Current version:** 1.0.15
+**Current version:** 1.0.16
 **Active branch:** main
 
 ---
@@ -60,6 +60,7 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.13 | Jun 2026 | Version bump |
 | v1.0.14 | Jun 2026 | Intermediate material auto-recalc cascade fix |
 | v1.0.15 | Jun 2026 | Drawer/modal button UX, tab highlights |
+| v1.0.16 | Jun 2026 | New app icon, branding updates |
 
 ---
 
@@ -124,7 +125,7 @@ TypeScript, Node.js/Express, SQLite.
 ## Pending — High Priority
 
 - [ ] Deploy landing page to Hostinger
-- [ ] Commit and release new logo (v1.0.16)
+- [x] Commit and release new logo (v1.0.16)
 - [ ] Paystack live mode — complete business verification
 - [ ] Code obfuscation — protect business logic
 - [ ] Fix hardcoded localhost:3000 in Settings and LockScreen
@@ -148,7 +149,7 @@ TypeScript, Node.js/Express, SQLite.
 - [ ] Clean up dead schema tables (customers, special_pricing)
 - [ ] Multi-user/network version planning
 - [ ] Cloud version architecture planning
-- [ ] Final logo decision and implementation
+- [x] Final logo decision and implementation
 
 ---
 
