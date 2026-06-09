@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE } from '../api';
 
 export function LockScreen({
   email,
@@ -42,7 +43,7 @@ export function LockScreen({
   async function handleExport() {
     setExporting(true);
     try {
-      const response = await fetch('http://localhost:3000/api/backup');
+      const response = await fetch(`${API_BASE}/backup`);
       if (!response.ok) throw new Error('Failed');
       const buffer = await response.arrayBuffer();
       const bytes = new Uint8Array(buffer);

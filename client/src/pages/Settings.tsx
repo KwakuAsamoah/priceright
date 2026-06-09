@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
+import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
 import AppModal from '../components/AppModal';
 import useAppToast from '../hooks/useAppToast';
@@ -367,7 +367,7 @@ async function loadData() {
       const filename = `priceright_backup_${date}.db`;
 
       if (window.electronAPI?.isElectron) {
-        const response = await fetch('http://localhost:3000/api/backup/download');
+        const response = await fetch(`${API_BASE}/backup/download`);
         if (!response.ok) throw new Error('Backup download failed');
         const arrayBuffer = await response.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
@@ -384,7 +384,7 @@ async function loadData() {
         }
       } else {
         const link = document.createElement('a');
-        link.href = 'http://localhost:3000/api/backup/download';
+        link.href = `${API_BASE}/backup/download`;
         link.download = filename;
         document.body.appendChild(link);
         link.click();
@@ -441,7 +441,7 @@ async function loadData() {
       );
       if (!confirmed) { setIsRestoring(false); return; }
 
-      const response = await fetch('http://localhost:3000/api/backup/restore', {
+      const response = await fetch(`${API_BASE}/backup/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: base64Data }),
@@ -466,7 +466,7 @@ async function loadData() {
     setIsResetting(true);
     setResetError(null);
     try {
-      const response = await fetch('http://localhost:3000/api/reset/live', { method: 'POST' });
+      const response = await fetch(`${API_BASE}/reset/live`, { method: 'POST' });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'Reset failed');
