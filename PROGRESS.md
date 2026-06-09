@@ -130,7 +130,7 @@ TypeScript, Node.js/Express, SQLite.
 - [x] Commit and release new logo (v1.0.16)
 - [ ] Paystack live mode — complete business verification
 - [ ] Code obfuscation — protect business logic
-- [ ] Fix hardcoded localhost:3000 in Settings and LockScreen
+- [x] Fix hardcoded localhost:3000 in Settings and LockScreen
 - [ ] Compress logo PNG assets (~2MB in client/public)
 
 ## Pending — Medium Priority
@@ -159,8 +159,8 @@ TypeScript, Node.js/Express, SQLite.
 
 | Issue | Severity | Status |
 |-------|----------|--------|
-| Hardcoded localhost:3000 in Settings backup/restore | Medium | Pending fix |
-| Hardcoded localhost:3000 in LockScreen | Medium | Pending fix |
+| Hardcoded localhost:3000 in Settings backup/restore | Medium | Fixed v1.0.17 |
+| Hardcoded localhost:3000 in LockScreen | Medium | Fixed v1.0.17 |
 | Logo PNG assets ~2MB in client/public | Low | Pending optimisation |
 | Products.tsx 2525 lines — maintenance risk | Low | Future refactor |
 | Materials.tsx 2458 lines — maintenance risk | Low | Future refactor |
