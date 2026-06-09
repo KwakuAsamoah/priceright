@@ -164,8 +164,8 @@ TypeScript, Node.js/Express, SQLite.
 | Logo PNG assets ~2MB in client/public | Low | Fixed v1.0.18 |
 | Products.tsx 2525 lines — maintenance risk | Low | Future refactor |
 | Materials.tsx 2458 lines — maintenance risk | Low | Future refactor |
-| console.log in download.ts line 11 | Low | Remove before marketing |
-| demo-mode.json committed as local state | Low | Pending fix |
+| console.log in download.ts line 11 | Low | Fixed v1.0.18 |
+| demo-mode.json committed as local state | Low | Fixed v1.0.18 |
 | v1.0.16 sidebar logo broken in packaged app | High | **Fixed in v1.0.17** (`1109771`) |
 
 ---
