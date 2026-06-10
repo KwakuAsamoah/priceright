@@ -100,17 +100,25 @@ textarea {
 }
 
 .app-page {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   background-color: var(--color-bg) !important;
   color: var(--color-text);
-  overflow-x: clip;
+  overflow: hidden;
 }
 
 .app-page-header {
+  flex-shrink: 0;
   background-color: #ffffff;
   border-bottom: 1px solid #E2E8F0;
   padding: 12px var(--space-page) 16px;
+}
+
+.app-page-header .app-section-tabs {
+  margin-top: 12px;
 }
 
 .app-page-title {
@@ -131,6 +139,9 @@ textarea {
 }
 
 .app-page-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
   width: 100%;
   max-width: 100%;
   padding: 16px var(--space-page);
@@ -322,7 +333,45 @@ textarea {
 }
 
 .app-filter-card {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #ffffff;
   margin-bottom: 16px;
+}
+
+.app-exchange-rate-strip {
+  position: sticky;
+  top: var(--app-sticky-toolbar-offset, 72px);
+  z-index: 9;
+  background: #f8fafc;
+}
+
+.app-exchange-rate-notice {
+  position: sticky;
+  top: calc(var(--app-sticky-toolbar-offset, 72px) + 52px);
+  z-index: 8;
+}
+
+.app-page-content > .app-section-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 11;
+  background: var(--color-bg);
+}
+
+.materials-tab-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.materials-tab-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
 }
 
 .app-filter-row {
@@ -398,8 +447,8 @@ textarea {
 
 .app-bulk-bar-sticky {
   position: sticky;
-  top: 8px;
-  z-index: 15;
+  top: var(--app-sticky-toolbar-offset, 72px);
+  z-index: 12;
 }
 
 .app-bulk-count-wrap {
@@ -1013,8 +1062,8 @@ textarea {
 }
 
 .app-table-wrap.app-table-sticky {
-  max-height: calc(100vh - 280px);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .app-table {

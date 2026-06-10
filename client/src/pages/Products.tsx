@@ -1587,36 +1587,31 @@ export default function Products() {
             <h1 className="app-page-title">Products</h1>
           </div>
         </div>
+        <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
+          <button
+            type="button"
+            onClick={() => setActiveTab('products')}
+            className={`app-section-tab ${activeTab === 'products' ? 'is-active' : ''}`}
+            role="tab"
+            aria-selected={activeTab === 'products'}
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('analysis')}
+            className={`app-section-tab ${activeTab === 'analysis' ? 'is-active' : ''}`}
+            role="tab"
+            aria-selected={activeTab === 'analysis'}
+          >
+            Analysis
+          </button>
+        </div>
       </div>
 
-      {/* Base currency warning */}
-
-      <div className="app-page-content app-page-content-tight" style={{ paddingBottom: '0' }}>
-      <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
-        <button
-          type="button"
-          onClick={() => setActiveTab('products')}
-          className={`app-section-tab ${activeTab === 'products' ? 'is-active' : ''}`}
-          role="tab"
-          aria-selected={activeTab === 'products'}
-        >
-          Products
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('analysis')}
-          className={`app-section-tab ${activeTab === 'analysis' ? 'is-active' : ''}`}
-          role="tab"
-          aria-selected={activeTab === 'analysis'}
-        >
-          Analysis
-        </button>
-      </div>
-      </div>
-
+      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
       {activeTab === 'products' && (
       <>
-      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
         <div className="app-card app-filter-card" style={{ padding: '6px 8px' }}>
           <div className="products-toolbar-row" style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
             <div className="products-toolbar-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
@@ -1722,8 +1717,6 @@ export default function Products() {
             </div>
           </div>
         </div>
-      </div>
-      <div className="app-page-content" style={{ paddingTop: 0, gap: '8px' }}>
         {shouldShowNeedsReviewBanner && (
           <div
             style={{
@@ -1759,9 +1752,6 @@ export default function Products() {
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
             }}
           >
             <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
@@ -1893,7 +1883,7 @@ export default function Products() {
               </div>
             )
           ) : (
-            <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+            <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
               <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
@@ -2166,15 +2156,13 @@ export default function Products() {
             </div>
           )}
         </div>
-      </div>
       </>
       )}
 
       {activeTab === 'analysis' && (
-        <div className="app-page-content" style={{ paddingTop: 0, gap: '8px' }}>
-          <ProductsAnalysisTab products={products} />
-        </div>
+        <ProductsAnalysisTab products={products} />
       )}
+      </div>
 
       <ProductFormDrawer
         isOpen={showDrawer}

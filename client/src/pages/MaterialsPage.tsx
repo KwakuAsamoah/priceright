@@ -77,9 +77,6 @@ export default function MaterialsPage() {
     <div className="app-page materials-shell">
       <div className="app-page-header">
         <h1 className="app-page-title">Materials</h1>
-      </div>
-
-      <div className="app-page-content app-page-content-tight">
         <div className="app-section-tabs" role="tablist" aria-label="Material workflows">
         {([
           { key: 'primary', label: 'Primary' },
@@ -101,8 +98,10 @@ export default function MaterialsPage() {
           );
         })}
         </div>
+      </div>
 
-        <div className="materials-tab-panel" style={{ minHeight: 0 }}>
+      <div className="app-page-content app-page-content-tight">
+        <div className="materials-tab-panel">
         <div style={{ display: activeTab === 'primary' ? 'block' : 'none' }}>
           <Materials materialType="primary" onPrimaryCostChange={notifyIntermediateMaterialsRefresh} />
         </div>

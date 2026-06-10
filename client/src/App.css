@@ -282,8 +282,9 @@
 .app-main {
   width: calc(100% - 260px);
   margin-left: 260px;
-  min-height: 100vh;
-  overflow-x: clip;
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 @keyframes demo-pulse {

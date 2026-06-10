@@ -1202,11 +1202,9 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
   if (loading) {
     return (
-      <div className="app-page">
-        <div className="app-page-content" style={{ gap: '20px' }}>
-          <div className="app-card app-loading-state">
-            <div className="app-loading-title">Loading materials...</div>
-          </div>
+      <div className="materials-tab-body">
+        <div className="app-card app-loading-state">
+          <div className="app-loading-title">Loading materials...</div>
         </div>
       </div>
     );
@@ -1217,11 +1215,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   ).length;
 
   return (
-    <div className="app-page">
+    <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
 
-      {/* Search and Filters */}
-      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+      <div className="materials-tab-body">
         <div className="app-card app-filter-card" style={{ padding: '8px 10px' }}>
           <div style={{ minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
@@ -1335,8 +1332,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         {materialType === 'primary' && foreignCurrencyRates.length > 0 && (
           <>
             <div
+              className="app-exchange-rate-strip"
               style={{
-                backgroundColor: '#f8fafc',
                 border: '1px solid #e8e8e8',
                 borderRadius: '8px',
                 padding: '10px 16px',
@@ -1412,6 +1409,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             {exchangeRateNotice && (
               <div
+                className="app-exchange-rate-notice"
                 style={{
                   marginTop: '-2px',
                   backgroundColor: '#f0fdf4',
@@ -1441,9 +1439,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
             }}
           >
             <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
@@ -1516,7 +1511,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
           </div>
 
-          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+          <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -2649,6 +2644,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }

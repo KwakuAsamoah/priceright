@@ -347,7 +347,7 @@ export default function Activity() {
 
       <div className="app-page-content" style={{ gap: '12px' }}>
         <>
-            <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
+            <div className="app-card app-filter-card" style={{ display: 'grid', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(140px, 1fr))', gap: '10px' }}>
                 <div>
                   <label className="app-settings-label">Entity type</label>

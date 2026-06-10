@@ -1248,7 +1248,7 @@ export default function Reports() {
       </div>
 
       <div className="app-page-content">
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', minHeight: 0 }}>
           <aside
             className="app-card report-selector-panel"
             style={{
@@ -1294,7 +1294,7 @@ export default function Reports() {
             </div>
           </aside>
 
-          <section className="report-viewer-panel" style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <section className="report-viewer-panel" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
             {!selectedReport && (
               <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
                 <div style={{ textAlign: 'center', color: '#64748b' }}>

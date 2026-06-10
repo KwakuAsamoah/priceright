@@ -1161,8 +1161,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const formatMoney = (amount: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
 
   return (
-    <div className="app-page">
-      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+    <>
+      <div className="materials-tab-body">
         <div className="app-card app-filter-card" style={{ padding: '8px 10px' }}>
           <div style={{ minHeight: '48px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
@@ -1298,7 +1298,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             <h2 style={{ margin: 0 }}>Intermediate Materials ({filteredMaterials.length})</h2>
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
           </div>
-          <div className="app-table-wrap app-table-sticky" style={{ maxHeight: 'calc(100vh - 210px)', zoom: `${zoomPercent}%` }}>
+          <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
@@ -2046,6 +2046,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         )}
       </div>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-    </div>
+    </>
   );
 }
