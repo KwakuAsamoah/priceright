@@ -1611,7 +1611,7 @@ export default function Products() {
 
       <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
       {activeTab === 'products' && (
-      <>
+      <div className="materials-tab-body">
         <div className="app-card app-filter-card" style={{ padding: '6px 8px' }}>
           <div className="products-toolbar-row" style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
             <div className="products-toolbar-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
@@ -2156,7 +2156,7 @@ export default function Products() {
             </div>
           )}
         </div>
-      </>
+      </div>
       )}
 
       {activeTab === 'analysis' && (

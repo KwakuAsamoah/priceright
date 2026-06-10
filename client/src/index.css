@@ -145,8 +145,8 @@ textarea {
   width: 100%;
   max-width: 100%;
   padding: 16px var(--space-page);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 16px;
   min-width: 0;
 }
@@ -154,6 +154,8 @@ textarea {
 .app-page-content-tight {
   gap: 16px;
   padding-top: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-section-tabs {
@@ -337,20 +339,26 @@ textarea {
   top: 0;
   z-index: 10;
   background: #ffffff;
-  margin-bottom: 16px;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 12px;
+  margin-bottom: 0;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
 }
 
 .app-exchange-rate-strip {
   position: sticky;
-  top: var(--app-sticky-toolbar-offset, 72px);
+  top: var(--app-sticky-toolbar-offset, 68px);
   z-index: 9;
-  background: #f8fafc;
+  background: #F8FAFC;
+  border-bottom: 1px solid #F1F5F9;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.05);
 }
 
 .app-exchange-rate-notice {
   position: sticky;
-  top: calc(var(--app-sticky-toolbar-offset, 72px) + 52px);
+  top: calc(var(--app-sticky-toolbar-offset, 68px) + 52px);
   z-index: 8;
+  background: #f0fdf4;
 }
 
 .app-page-content > .app-section-tabs {
@@ -362,16 +370,19 @@ textarea {
 
 .materials-tab-panel {
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   gap: 8px;
 }
 
 .materials-tab-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   min-width: 0;
+  min-height: 0;
+  flex: 1;
 }
 
 .app-filter-row {
@@ -447,7 +458,7 @@ textarea {
 
 .app-bulk-bar-sticky {
   position: sticky;
-  top: var(--app-sticky-toolbar-offset, 72px);
+  top: var(--app-sticky-toolbar-offset, 68px);
   z-index: 12;
 }
 
@@ -469,6 +480,17 @@ textarea {
 
 .app-data-card {
   padding: 16px;
+  background: #ffffff;
+  position: relative;
+  z-index: 1;
+}
+
+.materials-tab-body > .app-data-card,
+.app-page-content > .app-data-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-empty-state {
@@ -1063,7 +1085,11 @@ textarea {
 
 .app-table-wrap.app-table-sticky {
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .app-table {
@@ -1176,8 +1202,9 @@ textarea {
 .app-table-wrap.app-table-sticky .app-table thead th {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 8;
   background: #F8FAFC;
+  border-bottom: 2px solid #E2E8F0;
 }
 
 .app-table td,

@@ -723,6 +723,26 @@ async function loadData() {
       {/* Header */}
       <div className="app-page-header">
         <h1 className="app-page-title">Settings</h1>
+        <div className="app-section-tabs" role="tablist" aria-label="Settings sections">
+          {SETTINGS_TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className={`app-section-tab ${isActive ? 'is-active' : ''}`}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => handleTabChange(tab.key)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="app-page-content" style={{ paddingTop: '24px' }}>
@@ -754,27 +774,6 @@ async function loadData() {
             )}
           </div>
         )}
-
-        <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ marginBottom: '6px' }}>
-          {SETTINGS_TABS.map((tab) => {
-            const isActive = activeTab === tab.key;
-            const TabIcon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className={`app-section-tab ${isActive ? 'is-active' : ''}`}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => handleTabChange(tab.key)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
 
         {(activeTab === 'general' || activeTab === 'pricing' || activeTab === 'master-data') && (
         <div className="app-settings-grid">
