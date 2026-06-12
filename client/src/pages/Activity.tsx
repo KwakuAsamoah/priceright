@@ -5,6 +5,7 @@ import {
   CheckCheck,
   CheckCircle2,
   CheckSquare,
+  Clock,
   Clock3,
   PlusCircle,
   Tag,
@@ -345,7 +346,7 @@ export default function Activity() {
         <div className="app-page-subtitle">Complete record of all actions across the app</div>
       </div>
 
-      <div className="app-page-content" style={{ gap: '12px' }}>
+      <div className="app-page-content app-page-content--data">
         <>
             <div className="app-card app-filter-card" style={{ display: 'grid', gap: '10px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(140px, 1fr))', gap: '10px' }}>
@@ -405,11 +406,24 @@ export default function Activity() {
               ) : error ? (
                 <div style={{ padding: '16px', color: '#b91c1c', fontSize: '15px' }}>{error}</div>
               ) : entries.length === 0 ? (
-                <div style={{ minHeight: '260px', display: 'grid', placeItems: 'center' }}>
-                  <div style={{ textAlign: 'center', color: '#64748b' }}>
-                    <Clock3 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '12px' }} />
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#0F2847', marginBottom: '6px' }}>No activity recorded yet.</div>
-                    <div style={{ fontSize: '15px' }}>Actions across the app will appear here.</div>
+                <div className="app-empty-state" style={{ minHeight: '260px' }}>
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: '#F1F5F9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}>
+                    <Clock size={24} color="#94a3b8" />
+                  </div>
+                  <div className="app-empty-state-title">
+                    No activity yet
+                  </div>
+                  <div className="app-empty-state-text">
+                    Actions in PriceRight are recorded here — approvals, price changes, material updates, and more.
                   </div>
                 </div>
               ) : (

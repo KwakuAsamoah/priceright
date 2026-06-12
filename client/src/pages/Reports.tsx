@@ -1247,7 +1247,7 @@ export default function Reports() {
         <h1 className="app-page-title">Reporting Centre</h1>
       </div>
 
-      <div className="app-page-content">
+      <div className="app-page-content app-page-content--data">
         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', minHeight: 0 }}>
           <aside
             className="app-card report-selector-panel"
@@ -1297,10 +1297,25 @@ export default function Reports() {
           <section className="report-viewer-panel" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
             {!selectedReport && (
               <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
-                <div style={{ textAlign: 'center', color: '#64748b' }}>
-                  <BarChart2 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '10px' }} />
-                  <div style={{ fontSize: '20px', fontWeight: 600, color: '#0F2847' }}>Select a report to get started</div>
-                  <div style={{ fontSize: '15px', marginTop: '5px' }}>Choose from the list on the left</div>
+                <div className="app-empty-state">
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: '#F1F5F9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}>
+                    <BarChart2 size={24} color="#94a3b8" />
+                  </div>
+                  <div className="app-empty-state-title">
+                    Select a report
+                  </div>
+                  <div className="app-empty-state-text">
+                    Choose a report from the list on the left to view your pricing and cost analysis.
+                  </div>
                 </div>
               </div>
             )}

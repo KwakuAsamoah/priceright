@@ -1868,7 +1868,7 @@ export default function Products() {
               <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '6px 6px', fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <th style={{ fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={selectedProducts.size === filteredProducts.length && filteredProducts.length > 0}
@@ -1879,18 +1879,18 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    {isProductColumnVisible('name') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
-                    {isProductColumnVisible('materialCost') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal' }}>Production Cost</th>}
+                    {isProductColumnVisible('name') && <th style={{ fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
+                    {isProductColumnVisible('materialCost') && <th style={{ fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal' }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
-                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
+                      <th style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
                     )}
-                    {isProductColumnVisible('priceExpires') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
+                    {isProductColumnVisible('priceExpires') && <th style={{ fontWeight: '700', width: '104px', textAlign: 'left', whiteSpace: 'nowrap' }}>Valid until</th>}
                     {isProductColumnVisible('sellingPrice') && (
-                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
+                      <th style={{ fontWeight: '700', width: '92px', textAlign: 'right', whiteSpace: 'normal' }} title="The approved base price you are currently charging before customer-level adjustments. PriceRight shows whether this is above or below your optimal price.">Approved base price</th>
                     )}
                     {isProductColumnVisible('profitOnCost') && (
                       <th
-                        style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Markup %
@@ -1900,7 +1900,7 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('profitOnSales') && (
                       <th
-                        style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Gross Margin %
@@ -1909,7 +1909,7 @@ export default function Products() {
                       </th>
                     )}
                     {isProductColumnVisible('status') && (
-                      <th style={{ padding: '6px 6px', fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <th style={{ fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           Status
                           {needsReviewCount > 0 && (
@@ -1927,7 +1927,7 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    {isProductColumnVisible('actions') && <th style={{ padding: '6px 6px', fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
+                    {isProductColumnVisible('actions') && <th style={{ fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>

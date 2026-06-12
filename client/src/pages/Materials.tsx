@@ -1483,7 +1483,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
+                  <th style={{ textAlign: 'center', fontWeight: '700', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>
                     <input
                       type="checkbox"
                       checked={selectedMaterials.size === filteredMaterials.length && filteredMaterials.length > 0}
@@ -1494,23 +1494,23 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  <th style={{ padding: '6px 6px', textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
+                  <th style={{ textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
                   {isMaterialColumnVisible('material') && <th onClick={() => {
                     setSortField('name');
                     setSortOrder((prev) => (sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
+                  }} style={{ textAlign: 'left', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
                   {isMaterialColumnVisible('category') && <th onClick={() => {
                     setSortField('category');
                     setSortOrder((prev) => (sortField === 'category' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
-                  {isMaterialColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  }} style={{ textAlign: 'left', fontWeight: '700', width: '88px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Category</th>}
+                  {isMaterialColumnVisible('unit') && <th style={{ textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isMaterialColumnVisible('unitCost') && <th onClick={() => {
                     setSortField('unitPrice');
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
-                  {isMaterialColumnVisible('bulkPricing') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
-                  {isMaterialColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isMaterialColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  }} style={{ textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  {isMaterialColumnVisible('status') && <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isMaterialColumnVisible('actions') && <th style={{ textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>

@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
 import AppBadge from '../components/AppBadge';
@@ -1304,7 +1304,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '6px 6px', width: '32px', textAlign: 'center' }}>
+                  <th style={{ width: '32px', textAlign: 'center' }}>
                     <input
                       type="checkbox"
                       checked={filteredMaterials.length > 0 && filteredMaterials.every((material) => selectedIds.has(material.id))}
@@ -1317,13 +1317,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  {isIntermediateColumnVisible('material') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
-                  {isIntermediateColumnVisible('unit') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
-                  {isIntermediateColumnVisible('yield') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
-                  {isIntermediateColumnVisible('overhead') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
-                  {isIntermediateColumnVisible('unitCost') && <th style={{ padding: '6px 6px', textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
-                  {isIntermediateColumnVisible('status') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isIntermediateColumnVisible('actions') && <th style={{ padding: '6px 6px', textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  {isIntermediateColumnVisible('material') && <th style={{ textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
+                  {isIntermediateColumnVisible('unit') && <th style={{ textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
+                  {isIntermediateColumnVisible('yield') && <th style={{ textAlign: 'right', fontWeight: '700', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
+                  {isIntermediateColumnVisible('overhead') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
+                  {isIntermediateColumnVisible('unitCost') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
+                  {isIntermediateColumnVisible('status') && <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
+                  {isIntermediateColumnVisible('actions') && <th style={{ textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1375,7 +1375,36 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               </tbody>
             </table>
 
-            {filteredMaterials.length === 0 ? <div className="app-empty-state">No intermediate materials found.</div> : null}
+            {filteredMaterials.length === 0 ? (
+              <div className="app-empty-state">
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: '#F1F5F9',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                }}>
+                  <Layers size={24} color="#94a3b8" />
+                </div>
+                <div className="app-empty-state-title">
+                  No intermediate materials yet
+                </div>
+                <div className="app-empty-state-text">
+                  Intermediate materials are recipes built from your primary materials. Add one to get started.
+                </div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ marginTop: '16px' }}
+                  type="button"
+                  onClick={openNewMaterialForm}
+                >
+                  + Add intermediate material
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -1385,8 +1414,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               className="app-drawer-panel"
               onClick={(e) => e.stopPropagation()}
             >
+              <button className="btn-close-x" type="button" onClick={closeMaterialForm} aria-label="Close">
+                &times;
+              </button>
               <div className="app-drawer-panel__scroll">
-              <div className="app-drawer-header">
+              <div className="app-drawer-header" style={{ paddingRight: 36 }}>
                 <div>
                   <h3>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
                   <div className="app-drawer-header__subtitle">Update material details and cost settings inline</div>

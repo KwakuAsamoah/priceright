@@ -1293,13 +1293,13 @@ export default function PriceLevels() {
           <h1 className="app-page-title">Price levels</h1>
           <div className="app-page-subtitle">Manage level-specific product pricing and approval workflow.</div>
         </div>
-        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '20px' }}>
+        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px' }}>
           <Plus size={14} strokeWidth={2} />
           New price level
         </AppButton>
       </div>
 
-      <div className="app-page-content" style={{ gap: '16px' }}>
+      <div className="app-page-content app-page-content--data">
         <div style={{ display: 'grid', gridTemplateColumns: '340px minmax(0, 1fr)', gap: '16px', minHeight: '540px', alignItems: 'start' }}>
           <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>

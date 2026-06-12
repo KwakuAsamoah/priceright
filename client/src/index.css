@@ -176,11 +176,21 @@ textarea {
   flex-direction: column;
 }
 
+.app-page-content--data,
 .materials-shell .app-page-content,
 .products-shell .app-page-content {
   padding: 8px var(--space-page);
   gap: 8px;
+}
+
+.materials-shell .app-page-content,
+.products-shell .app-page-content {
   overflow: hidden;
+}
+
+.settings-page .app-page-content {
+  padding: 16px var(--space-page);
+  gap: 16px;
 }
 
 .app-section-tabs {
@@ -1476,18 +1486,19 @@ textarea {
 }
 
 .app-modal-title {
-  margin: 0 0 16px;
+  margin: 0 0 4px;
   padding-right: 36px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: #0F2847;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .app-modal-subtitle {
-  margin: 0 0 20px;
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
 }
 
 /* Keep all table body text consistent across pages, including nested value/name wrappers. */

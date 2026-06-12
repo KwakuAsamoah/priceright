@@ -746,7 +746,7 @@ async function loadData() {
         </div>
       </div>
 
-      <div className="app-page-content" style={{ paddingTop: '24px' }}>
+      <div className="app-page-content">
         {rateSaveBanner && (
           <div
             style={{
