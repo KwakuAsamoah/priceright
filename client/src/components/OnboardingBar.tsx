@@ -6,7 +6,7 @@ const STEPS = [
     number: 1,
     title: 'Add your materials',
     instruction:
-      'Add your raw materials with their unit costs. Everything else builds from here.',
+      'Set your base currency in Settings → Currencies & Rates first, then add your raw materials with their unit costs. Everything else builds from here.',
     nextLabel: 'Done — go to Products →',
   },
   {

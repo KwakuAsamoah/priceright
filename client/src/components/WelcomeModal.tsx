@@ -42,6 +42,12 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
 
   const steps = [
     {
+      number: '0',
+      title: 'Set your base currency',
+      description: 'Go to Settings → Currencies & Rates and choose your base currency first.',
+      color: '#0F2847',
+    },
+    {
       number: '1',
       title: 'Add your materials',
       description: 'Enter your raw materials and current prices.',
@@ -81,7 +87,7 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
           <h2 id="welcome-modal-title" className="welcome-modal-title">Welcome to PriceRight</h2>
           <p className="welcome-modal-subtitle" style={{ maxWidth: '420px', margin: '8px auto 0' }}>
             You are minutes away from knowing your true production cost.
-            Here is how to get started:
+            Set your base currency first, then follow these steps:
           </p>
         </div>
 
@@ -100,7 +106,7 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
         </div>
 
         <div className="welcome-modal-tip">
-          💡 Tip: Start with Materials — everything else builds from your material costs.
+          💡 Tip: Set your base currency in Settings → Currencies & Rates before adding materials.
         </div>
 
         <div className="welcome-modal-actions welcome-modal-actions-onboarding">

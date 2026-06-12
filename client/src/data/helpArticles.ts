@@ -20,6 +20,13 @@ export const helpArticles: HelpArticle[] = [
       It helps you calculate the true cost of every product you make, set profitable
       approved base prices, and manage what different customers pay — all in one place.</p>
 
+      <p>PriceRight works for any product manufacturer anywhere in the world.
+      Whether you make food products, cosmetics, crafts, or any other manufactured
+      goods — if you need to know your true production cost, PriceRight can help.</p>
+
+      <p><strong>Before you begin:</strong> go to <strong>Settings → Currencies &amp; Rates</strong>
+      and set your base currency. This is required before adding materials or products.</p>
+
       <p>Before PriceRight, most businesses rely on spreadsheets that get out of date,
       are hard to share, and don't automatically update when costs change. PriceRight
       connects everything — your raw material costs, Bill of materials,
@@ -47,7 +54,7 @@ export const helpArticles: HelpArticle[] = [
     title: 'Using the sample data files',
     keywords: ['sample', 'sample data', 'demo files', 'import sample', 'getting started', 'example data', 'try', 'explore'],
     content: `
-      <p>PriceRight includes three sample data files designed for a Ghanaian food manufacturer. Use them to explore all features with realistic data before entering your own.</p>
+      <p>PriceRight includes three sample data files designed as a realistic food-manufacturing example. Use them to explore all features with realistic data before entering your own.</p>
 
       <p>Go to Settings in the Setup section and find the Sample data section. Download each file and import them in this exact order:</p>
 
@@ -74,8 +81,13 @@ export const helpArticles: HelpArticle[] = [
       material costs are ready. Follow these steps in order — each one builds
       on the last.</p>
 
-      <p>If you want to explore PriceRight before entering your own data, download the sample data files from Settings under Sample data. Import them in order — raw materials first, then intermediate materials, then products — and the app will be populated with a realistic set of Ghanaian food manufacturer data you can use to try every feature.</p>
+      <p>If you want to explore PriceRight before entering your own data, download the sample data files from Settings under Sample data. Import them in order — raw materials first, then intermediate materials, then products — and the app will be populated with a realistic sample dataset you can use to try every feature.</p>
       <ol>
+        <li><strong>Set your base currency.</strong> Go to <strong>Settings → Currencies &amp; Rates</strong>.
+        Click <strong>Add currency</strong>, enter your local currency code (for example USD, GBP, NGN, KES, EUR, or GHS),
+        and mark it as the base currency. Every cost and price in PriceRight is calculated in this currency.
+        You cannot change it easily later, so set it correctly first.</li>
+
         <li><strong>Add your raw materials.</strong> Go to Materials. Select the Primary tab.
         Add every ingredient, packaging item, and component you use. For each material
         you need the name, category, unit, bulk purchase quantity, and the price you
@@ -116,6 +128,10 @@ export const helpArticles: HelpArticle[] = [
       <p>PriceRight follows a five-step workflow from costing to export. Each step
       builds on the previous one so your prices remain consistent.</p>
 
+      <p><strong>Before you start:</strong> set your base currency in
+      <strong>Settings → Currencies &amp; Rates</strong>. All costs and prices are
+      calculated in that currency.</p>
+
       <ol>
         <li><strong>Add materials with costs.</strong> Enter bulk quantity, bulk price,
         and currency so each material has an accurate unit cost.</li>
@@ -153,13 +169,13 @@ export const helpArticles: HelpArticle[] = [
       much you pay for that bulk quantity. PriceRight divides the bulk price by the
       bulk quantity to calculate the unit cost automatically.</p>
 
-      <p>For example, if you buy sugar in 50kg bags for GHS 320, enter Bulk Quantity
-      as 50 and Bulk Price as 320. PriceRight calculates the unit cost as GHS 6.40
+      <p>For example, if you buy sugar in 50kg bags for 320.00 in your base currency, enter Bulk Quantity
+      as 50 and Bulk Price as 320. PriceRight calculates the unit cost as 6.40
       per kg.</p>
 
       <p>If you buy a material in a foreign currency like USD, select USD as the
       purchase currency. PriceRight uses the current exchange rate to convert it
-      to GHS automatically. When you update the exchange rate, all affected material
+      to your base currency automatically. When you update the exchange rate, all affected material
       costs recalculate instantly.</p>
 
       <p>For the category field, you can type a new category or select an existing
@@ -177,13 +193,13 @@ export const helpArticles: HelpArticle[] = [
       depends on it.</p>
 
       <p><strong>Bulk Price</strong> is the total amount you pay for the purchase.
-      If you pay GHS 480 for a box of 24 bottles, enter 480.</p>
+      If you pay 480.00 for a box of 24 bottles, enter 480.</p>
 
       <p><strong>Bulk Quantity</strong> is how many units you receive. In the same
       example, enter 24.</p>
 
       <p>PriceRight calculates Unit Price as Bulk Price divided by Bulk Quantity.
-      GHS 480 ÷ 24 = GHS 20 per bottle.</p>
+      480.00 ÷ 24 = 20.00 per bottle.</p>
 
       <p>Use the unit that makes sense for how you measure the material in your
       recipes. If your recipe uses grams but you buy in kilograms, it is usually
@@ -195,19 +211,19 @@ export const helpArticles: HelpArticle[] = [
     id: 'foreign-currencies',
     section: 'Raw Materials',
     title: 'Using foreign currencies',
-    keywords: ['currency', 'USD', 'exchange rate', 'foreign', 'GHS', 'convert'],
+    keywords: ['currency', 'USD', 'exchange rate', 'foreign', 'base currency', 'convert'],
     content: `
       <p>PriceRight supports multiple currencies. When you buy materials in USD,
       EUR, GBP, or any other currency, you can record the price in that currency
-      and PriceRight converts it to GHS using the exchange rate you configure.</p>
+      and PriceRight converts it to your base currency using the exchange rate you configure.</p>
 
       <p>To set up a currency, go to <strong>Settings</strong> and open the
       <strong>Currencies &amp; Rates</strong> tab. Add the currency code and current
-      rate. For example, USD at 15.50 means 1 USD = GHS 15.50.</p>
+      rate. For example, if your base currency is GHS, USD at 15.50 means 1 USD = 15.50 GHS.</p>
 
       <p>When you add or edit a material, select the purchase currency from the
       dropdown. PriceRight stores both the original foreign currency price and
-      the GHS equivalent.</p>
+      the base-currency equivalent.</p>
 
         <p>When you update an exchange rate, PriceRight recalculates material costs in
         that currency first. Any affected products then recalculate and can move to
@@ -292,7 +308,7 @@ export const helpArticles: HelpArticle[] = [
     section: 'Raw Materials',
     title: 'How to cost an intermediate material',
     keywords: [
-      'intermediate cost', 'overhead', 'profit margin', 'transfer price',
+      'intermediate cost', 'overhead', 'markup', 'transfer price',
       'roasted peanut', 'internal production', 'double counting'
     ],
     content: `
@@ -313,9 +329,9 @@ export const helpArticles: HelpArticle[] = [
       overhead.</p>
 
       <p><strong>Example:</strong> Roasted Peanut made from raw groundnuts
-      (GHS 8.00), cooking oil (GHS 1.50), and salt (GHS 0.20) gives a unit
-      cost of GHS 9.70. When this goes into a finished product like Peanut
-      Butter, the GHS 9.70 is treated as a raw material cost and the finished
+      (8.00), cooking oil (1.50), and salt (0.20) gives a unit
+      cost of 9.70. When this goes into a finished product like peanut
+      butter, the 9.70 is treated as a raw material cost and the finished
       product's own overhead and profit are applied on top.</p>
 
       <h3>Approach 2 — Raw material cost plus overhead (recommended)</h3>
@@ -330,11 +346,11 @@ export const helpArticles: HelpArticle[] = [
       and prevents the finished product's overhead percentage from having to
       cover two different production processes at once.</p>
 
-      <p><strong>Example:</strong> Roasted Peanut raw material cost is GHS 9.70.
+      <p><strong>Example:</strong> Roasted Peanut raw material cost is 9.70.
       The roasting process has its own overhead of 15% — electricity for the
       roasting equipment and labour for the roasting team. Overhead adds
-      GHS 1.46, giving a unit cost of GHS 11.16. When this goes into a
-      finished product, GHS 11.16 is the input cost and the finished product's
+      1.46, giving a unit cost of 11.16. When this goes into a
+      finished product, 11.16 is the input cost and the finished product's
       own overhead applies on top of that.</p>
 
       <p>This is the recommended approach for most intermediate materials
@@ -440,15 +456,15 @@ export const helpArticles: HelpArticle[] = [
   {
     id: 'overhead-and-margin',
     section: 'Products',
-    title: 'Understanding overhead and margin',
-    keywords: ['overhead', 'margin', 'profit margin', 'markup', 'cost', 'percentage'],
+    title: 'Understanding overhead, markup and gross margin',
+    keywords: ['overhead', 'margin', 'markup', 'gross margin', 'cost', 'percentage'],
     content: `
       <p><strong>Overhead</strong> is the percentage added to your material costs
       to cover indirect production expenses — electricity, water, rent, equipment
       maintenance, and production labour.</p>
 
-      <p>If your monthly overhead costs are GHS 5,000 and your monthly material
-      spend is GHS 20,000, your overhead rate is 25%. Set this in
+      <p>If your monthly overhead costs are 5,000 and your monthly material
+      spend is 20,000 (both in your base currency), your overhead rate is 25%. Set this in
       <strong>Settings</strong> under the <strong>Pricing Engine</strong> tab.</p>
 
       <p>PriceRight applies overhead as a percentage of
@@ -464,12 +480,12 @@ export const helpArticles: HelpArticle[] = [
         Optimal price = Production cost × (1 + Markup%)
       </p>
 
-      <p>Example: if production cost is GHS 2.41 and markup is 20%, then
-      markup profit is GHS 0.48 and optimal price is GHS 2.89.</p>
+      <p>Example: if production cost is 2.41 and markup is 20%, then
+      markup profit is 0.48 and optimal price is 2.89.</p>
 
       <p>The app also shows what this means as <strong>Gross Margin %</strong>,
       which is profit as a percentage of the selling
-      price. At GHS 2.89 with GHS 2.41 cost, gross margin is 16.7%.</p>
+      price. At 2.89 with 2.41 cost, gross margin is 16.7%.</p>
 
       <p>Both numbers are useful:</p>
       <ul>
@@ -492,7 +508,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>Approval is the step where you set the product's official
       <strong>Approved base price</strong>. PriceRight calculates an <strong>Optimal price</strong>
-      from your <strong>Production cost</strong>, overhead, and margin settings, but the
+      from your <strong>Production cost</strong>, overhead, and markup settings, but the
       price is not official until you approve it.</p>
 
       <p>Use this workflow:</p>
@@ -540,7 +556,7 @@ export const helpArticles: HelpArticle[] = [
       exchange rates change.</p>
 
       <p><strong>2) Optimal price</strong> is what the system recommends you charge.
-      It covers production cost, overhead, and target margin.</p>
+      It covers production cost, overhead, and target markup.</p>
 
       <p><strong>3) Approved base price</strong> is the price you commit to after
       review. It can match the optimal price or differ when you set a custom value
@@ -617,10 +633,10 @@ export const helpArticles: HelpArticle[] = [
       see updated <strong>Production cost</strong>, last approved value, and new
       <strong>Optimal price</strong>. Then choose:</p>
       <ol>
-        <li><strong>Accept new price</strong> to approve at the new <strong>Optimal price</strong>.</li>
+        <li><strong>Approve Optimal Price</strong> to approve at the new <strong>Optimal price</strong>.</li>
         <li><strong>Keep current price</strong> to re-approve at the existing
         <strong>Approved base price</strong> when you want to absorb the change.</li>
-        <li><strong>Set custom price</strong> to approve a specific amount.</li>
+        <li><strong>Approve Custom</strong> to approve a specific amount you enter in the <strong>Custom Price</strong> field.</li>
       </ol>
 
       <p>When you approve a new base price, rule-based prices in
@@ -731,7 +747,7 @@ export const helpArticles: HelpArticle[] = [
       shows an amber stale warning. Export still works, and you can decide to
       review custom entries first or export as-is.</p>
 
-      <p>Products with no approved base value can appear with GHS 0.00, so confirm
+      <p>Products with no approved base value can appear with 0.00 in your base currency, so confirm
       approvals before sending a final customer list.</p>
 
       <p>Excel is recommended when you need a spreadsheet for sharing or editing.
@@ -744,14 +760,14 @@ export const helpArticles: HelpArticle[] = [
     title: 'Converting price lists to other currencies',
     keywords: ['currency', 'price list currency', 'USD price list', 'convert', 'foreign currency'],
     content: `
-      <p>PriceRight works in GHS as the base currency. Exported price lists from
-      Price Levels show GHS prices.</p>
+      <p>PriceRight works in your base currency. Exported price lists from
+      Price Levels show prices in that currency.</p>
 
       <p>If a customer pays in USD or another currency, use the
       <strong>Currency Exposure</strong> report in the Pricing section to understand
       your foreign currency exposure.</p>
 
-      <p>For price lists in other currencies, export the GHS price list to Excel,
+      <p>For price lists in other currencies, export the price list to Excel in your base currency,
       then apply the current exchange rate manually in your worksheet.</p>
 
       <p>Currency still matters for costing because exchange-rate changes update
@@ -814,23 +830,26 @@ export const helpArticles: HelpArticle[] = [
     id: 'low-margin-report',
     section: 'Reports and Analysis',
     title: 'Understanding the Low Margin report',
-    keywords: ['low margin', 'margin report', 'realised margin', 'threshold', 'profit margin'],
+    keywords: ['low margin', 'margin report', 'realised margin', 'threshold', 'markup'],
     content: `
-      <p>The Low Margin report identifies products where your actual
-      realised margin — based on your Approved base price versus your
-      production cost — falls below a threshold you set.</p>
+      <p>The Low Margin report identifies products where your realised gross margin
+      falls below a threshold you set. The report compares each product's realised
+      gross margin against your target markup percentage. A product is flagged as
+      low margin when its gross margin falls below the target threshold.</p>
 
-      <p>This is different from your target margin. A product might have
-      a 20% target set in PriceRight but if it was approved at a lower
-      price, the actual margin could be below 15%. This report catches
-      that.</p>
+      <p>This is different from your target markup. A product might have a 20% markup
+      set in PriceRight, but if it was approved at a lower price, the realised gross
+      margin could be below 15%. This report catches that.</p>
+
+      <p>Markup % is the target set on the product. Gross Margin % is what is
+      actually realised at the approved base price. The report compares the two.</p>
 
       <p>Go to Reports, select Low Margin Report, set your threshold
       (default is 15%), and click Generate Report. Products are sorted
       from worst margin to best.</p>
 
       <p>The <strong>Gap column</strong> shows the difference between the
-      realised margin and your target margin. A large negative gap means
+      realised gross margin and your target markup. A large negative gap means
       the product is significantly underperforming and probably needs a
       price review.</p>`,
   },
@@ -848,12 +867,12 @@ export const helpArticles: HelpArticle[] = [
       <p>Go to Reports and select Currency Exposure Report, then click
       Generate Report.</p>
 
-      <p>The report shows each currency with the total GHS value of
+      <p>The report shows each currency with the total value in your base currency of
       materials purchased in that currency and the exposure percentage.
       Expand any currency row to see the individual materials.</p>
 
-      <p>If 60% of your material costs are in USD, a 10% cedi depreciation
-      effectively increases your production costs by 6% on average. Use
+      <p>If 60% of your material costs are in USD, a 10% depreciation in your local
+      currency effectively increases your production costs by 6% on average. Use
       this report to understand that risk and make informed pricing
       decisions when exchange rates move.</p>`,
   },
