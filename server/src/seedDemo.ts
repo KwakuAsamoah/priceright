@@ -111,6 +111,8 @@ CREATE TABLE activity_log (
   entity_id INTEGER,
   entity_name TEXT,
   performed_by TEXT,
+  user_id INTEGER NOT NULL DEFAULT 1,
+  user_name TEXT NOT NULL DEFAULT 'Admin',
   details TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
@@ -328,7 +330,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
        custom_price,status,approved_by,approved_at,justification,created_at,updated_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?)
   `);
-  const insLog = db.prepare('INSERT INTO activity_log (action,entity_type,entity_id,entity_name,performed_by,details,created_at) VALUES (?,?,?,?,?,?,?)');
+  const insLog = db.prepare('INSERT INTO activity_log (action,entity_type,entity_id,entity_name,performed_by,user_id,user_name,details,created_at) VALUES (?,?,?,?,?,?,?,?,?)');
 
   const txn = db.transaction(() => {
     // ── Currencies ──────────────────────────────────────────────────────────
@@ -631,6 +633,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
         approvedGrossMargins.push(realisedMargin);
         insLog.run(
           'product.approved', 'product', prodId, pd.name, 'Admin',
+          1, 'Admin',
           JSON.stringify({
             approvedPrice,
             productionCost: Math.round(productionCost * 100) / 100,
@@ -680,6 +683,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
         );
         insLog.run(
           'price_level_item.approved', 'price_level_item', prodId, pd.name, 'Admin',
+          1, 'Admin',
           JSON.stringify({ levelName: levelDefs[li].name, adjPct }),
           now,
         );

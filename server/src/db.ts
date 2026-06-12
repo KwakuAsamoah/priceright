@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
 import { seedDemoData } from './seedDemo.js';
+import { migrateActivityLog } from './migrations/add-user-id-to-activity-log.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -258,6 +259,8 @@ function ensureSchemaTables() {
 			action TEXT NOT NULL,
 			details TEXT,
 			performed_by TEXT,
+			user_id INTEGER NOT NULL DEFAULT 1,
+			user_name TEXT NOT NULL DEFAULT 'Admin',
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
@@ -290,6 +293,8 @@ function ensureSchemaTables() {
 			action TEXT NOT NULL,
 			details TEXT,
 			performed_by TEXT,
+			user_id INTEGER NOT NULL DEFAULT 1,
+			user_name TEXT NOT NULL DEFAULT 'Admin',
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`;
@@ -477,6 +482,8 @@ function ensureSchemaTables() {
 }
 
 ensureSchemaTables();
+migrateActivityLog(sqlite);
+migrateActivityLog(demoSqlite);
 
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;

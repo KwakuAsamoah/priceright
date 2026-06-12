@@ -169,6 +169,8 @@ export interface ActivityEntry {
   action: string;
   details: Record<string, unknown> | null;
   performedBy: string | null;
+  userId?: number;
+  userName?: string;
   createdAt: number;
 }
 

@@ -208,6 +208,8 @@ export const activityLog = sqliteTable('activity_log', {
   action: text('action').notNull(),
   details: text('details'),
   performedBy: text('performed_by'),
+  userId: integer('user_id').notNull().default(1),
+  userName: text('user_name').notNull().default('Admin'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
 });
 

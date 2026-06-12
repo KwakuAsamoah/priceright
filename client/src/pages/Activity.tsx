@@ -463,7 +463,7 @@ export default function Activity() {
 
                         <div style={{ textAlign: 'right', minWidth: '140px' }}>
                           <div title={absoluteTime} style={{ fontSize: '14px', color: '#334155' }}>{relativeTime}</div>
-                          <div style={{ marginTop: '2px', fontSize: '14px', color: '#94a3b8' }}>{entry.performedBy || currentUserName || 'Admin'}</div>
+                          <div style={{ marginTop: '2px', fontSize: '14px', color: '#94a3b8' }}>{entry.userName || entry.performedBy || currentUserName || 'Admin'}</div>
                         </div>
                       </div>
                     );

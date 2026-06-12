@@ -69,6 +69,8 @@ async function logActivity(params: {
       action: params.action,
       details: params.details ? JSON.stringify(params.details) : null,
       performedBy: params.performedBy ?? 'Admin',
+      userId: 1,
+      userName: 'Admin',
       createdAt: new Date(),
     });
   } catch (err) {
