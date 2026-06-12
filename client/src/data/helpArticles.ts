@@ -153,6 +153,105 @@ export const helpArticles: HelpArticle[] = [
       including approvals, cost changes, and exchange-rate updates.</p>`,
   },
 
+  {
+    id: 'onboarding-guide',
+    title: 'Using the setup guide',
+    section: 'Getting Started',
+    keywords: ['onboarding', 'setup guide', 'getting started', 'welcome', 'first steps'],
+    content: `
+      <p>When you launch PriceRight for the first time, a welcome screen appears
+      with an overview of the steps to get started.</p>
+
+      <p>Click <strong>Start with Materials</strong> to begin the guided setup. A green guide bar
+      appears at the top of the screen and walks you through each step in order.</p>
+
+      <p>The four steps are:</p>
+      <ol>
+        <li><strong>Add your materials</strong> — enter your raw materials with costs</li>
+        <li><strong>Build your products</strong> — create products with a bill of materials</li>
+        <li><strong>Approve your prices</strong> — review calculated costs and set prices</li>
+        <li><strong>Set up a price level</strong> — organise prices for your customers</li>
+      </ol>
+
+      <p>The guide bar shows your progress and a Next button to move to the next step when you are ready.</p>
+
+      <p>Click <strong>Skip guide</strong> at any time to dismiss the guide and explore the app on your own.</p>
+
+      <p>If you close the app mid-guide, the guide resumes automatically when you reopen it.</p>
+
+      <p>To restart the guide, go to <strong>Settings → General</strong> and reset the onboarding status.</p>`,
+  },
+
+  {
+    id: 'auto-updater',
+    title: 'App updates and the notification bell',
+    section: 'Getting Started',
+    keywords: ['update', 'auto-update', 'notification', 'bell', 'new version', 'upgrade'],
+    content: `
+      <p>PriceRight updates itself automatically when a new version is available.
+      You do not need to reinstall the app.</p>
+
+      <p><strong>How updates work:</strong></p>
+      <ol>
+        <li>PriceRight checks for updates 10 seconds after launching</li>
+        <li>If an update is available, it downloads silently in the background while you continue working</li>
+        <li>A blue pulsing dot appears on the notification bell at the bottom of the sidebar while downloading</li>
+        <li>When the download is complete, the dot turns green</li>
+        <li>Click the bell to open the notification panel</li>
+        <li>The panel shows the new version number and a summary of what is new</li>
+        <li>Click <strong>Restart and update</strong> to install the update</li>
+        <li>The app restarts and opens on the new version</li>
+      </ol>
+
+      <p>Click <strong>Later</strong> to dismiss the panel. The green dot remains on the bell so you can update whenever you are ready.</p>
+
+      <p>Your data is never affected by an update.</p>`,
+  },
+
+  {
+    id: 'restoring-from-backup',
+    title: 'Restoring your data from a backup',
+    section: 'Getting Started',
+    keywords: ['restore', 'backup', 'recovery', 'data loss', 'restore backup'],
+    content: `
+      <p>If you need to recover your data from a backup, follow these steps.</p>
+
+      <p><strong>When to restore:</strong></p>
+      <ul>
+        <li>Your data was accidentally deleted</li>
+        <li>You want to go back to a previous state</li>
+        <li>You are moving to a new computer</li>
+      </ul>
+
+      <p><strong>How to restore:</strong></p>
+      <ol>
+        <li>Go to <strong>Settings → Data &amp; Backups</strong></li>
+        <li>Click <strong>Restore from backup</strong></li>
+        <li>Select your backup file (files end in .db)</li>
+        <li>A confirmation dialog appears — read it carefully. Restoring will replace your current data.</li>
+        <li>Click Confirm to proceed</li>
+        <li>PriceRight restarts automatically with your restored data</li>
+      </ol>
+
+      <p><strong>Where to find your backup files:</strong> Backups are saved wherever you chose when creating the backup. The default location is your Documents folder.</p>
+
+      <p><strong>Important notes:</strong></p>
+      <ul>
+        <li>Restoring replaces ALL current data with the backup data</li>
+        <li>This cannot be undone</li>
+        <li>Create a backup of your current data before restoring if you want to keep it</li>
+        <li>Demo data is not affected by restore — only your live data</li>
+      </ul>
+
+      <p><strong>Moving to a new computer:</strong></p>
+      <ol>
+        <li>Create a backup on the old computer</li>
+        <li>Copy the backup file to the new computer (USB drive or cloud storage)</li>
+        <li>Install PriceRight on the new computer</li>
+        <li>Follow the restore steps above</li>
+      </ol>`,
+  },
+
   // ── RAW MATERIALS ──────────────────────────────────────────────────────────
 
   {
@@ -272,6 +371,52 @@ export const helpArticles: HelpArticle[] = [
   },
 
   {
+    id: 'import-templates-overview',
+    title: 'Importing data with templates',
+    section: 'Raw Materials',
+    keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload'],
+    content: `
+      <p>PriceRight provides Excel templates for importing materials and products in bulk. This is faster than adding items one by one.</p>
+
+      <p><strong>Available templates:</strong></p>
+      <ul>
+        <li><strong>Materials import template</strong> — for primary raw materials</li>
+        <li><strong>Products import template</strong> — for products with their full bill of materials</li>
+      </ul>
+
+      <p><strong>How to download a template:</strong></p>
+      <ol>
+        <li>Go to the relevant page (Materials or Products)</li>
+        <li>Click <strong>+ Add → Import from CSV</strong></li>
+        <li>Click <strong>Download template</strong> in the import panel</li>
+      </ol>
+
+      <p><strong>How to fill in the template:</strong></p>
+      <ul>
+        <li>Open the template in Excel</li>
+        <li>The first sheet has instructions</li>
+        <li>Fill in your data in the Import Data sheet</li>
+        <li>Do not change the column headers</li>
+        <li>Save as Excel (.xlsx) or CSV</li>
+      </ul>
+
+      <p><strong>How to import:</strong></p>
+      <ol>
+        <li>Click <strong>+ Add → Import from CSV</strong></li>
+        <li>Click <strong>Choose file</strong> and select your completed template</li>
+        <li>Review the preview — check for any errors highlighted in red</li>
+        <li>Click Import to complete</li>
+      </ol>
+
+      <p><strong>Tips:</strong></p>
+      <ul>
+        <li>Import materials before products since products reference materials</li>
+        <li>Material names in the products template must exactly match the names in your materials list</li>
+        <li>Intermediate materials must be imported separately via the Intermediate tab</li>
+      </ul>`,
+  },
+
+  {
     id: 'intermediate-materials',
     section: 'Products',
     title: 'Intermediate materials',
@@ -388,6 +533,31 @@ export const helpArticles: HelpArticle[] = [
       material under the Materials → Intermediate tab. Leave Overhead % at zero
       for Approach 1. Enter your overhead rate and leave Markup % at zero
       for Approach 2. Enter both for Approach 3.</p>`,
+  },
+
+  {
+    id: 'materials-analysis-tab',
+    title: 'Using the Materials Analysis tab',
+    section: 'Raw Materials',
+    keywords: ['materials analysis', 'analysis', 'cost breakdown', 'supplier analysis', 'currency exposure', 'material trends'],
+    content: `
+      <p>The Materials Analysis tab provides an overview of your raw material costs and purchasing patterns.</p>
+
+      <p>To open it, go to <strong>Materials</strong> and click the <strong>Analysis</strong> tab.</p>
+
+      <p>The tab contains several panels:</p>
+
+      <p><strong>Cost distribution</strong> — shows how your total material spend is split across categories. Use this to identify which categories drive the most cost.</p>
+
+      <p><strong>Currency exposure</strong> — shows how many materials are purchased in each currency. Materials purchased in foreign currencies are exposed to exchange rate risk.</p>
+
+      <p><strong>Supplier concentration</strong> — shows how many materials come from each supplier. A high concentration from one supplier is a supply chain risk.</p>
+
+      <p><strong>Price change history</strong> — shows recent price changes across your materials. Use this to track cost increases over time.</p>
+
+      <p><strong>Unit cost comparison</strong> — compares unit costs across materials in the same category.</p>
+
+      <p>Click on any panel element to navigate to the related materials.</p>`,
   },
 
   // ── PRODUCTS ───────────────────────────────────────────────────────────────
@@ -645,6 +815,43 @@ export const helpArticles: HelpArticle[] = [
       so you can review those entries manually.</p>`,
   },
 
+  {
+    id: 'price-expiry',
+    title: 'Understanding price expiry',
+    section: 'Pricing and Approvals',
+    keywords: ['price expiry', 'expiry', 'expires', 'valid until', 'expired', 'renew price', 'price validity'],
+    content: `
+      <p>Approved prices can have an expiry date. After this date, the price is flagged as
+      <strong>Needs review</strong> and must be re-approved before it can be included in an export.</p>
+
+      <p><strong>Setting an expiry date:</strong> When approving a price, you can optionally set a
+      <strong>valid until</strong> date. Leave it blank for a price that never expires.</p>
+
+      <p><strong>Where expiry dates appear:</strong></p>
+      <ul>
+        <li><strong>Products list</strong> — the Valid until column shows the date. Dates within 7 days are shown in amber. Expired dates are shown in red.</li>
+        <li><strong>Product detail</strong> — the pricing panel shows the expiry date and a countdown in days.</li>
+        <li><strong>Dashboard</strong> — the Approval Workload card shows products with expired or expiring prices.</li>
+      </ul>
+
+      <p><strong>What happens when a price expires:</strong></p>
+      <ul>
+        <li>The product status changes to <strong>Needs review</strong> automatically</li>
+        <li>The product cannot be included in a price level export until re-approved</li>
+        <li>You will see the product flagged in the Dashboard and Products list</li>
+      </ul>
+
+      <p><strong>To renew an expired price:</strong></p>
+      <ol>
+        <li>Click on the product to open the detail page</li>
+        <li>Click <strong>Update price</strong> in the pricing panel</li>
+        <li>Review the current optimal price</li>
+        <li>Approve with a new expiry date</li>
+      </ol>
+
+      <p><strong>Best practice:</strong> Set expiry dates that match your price review cycle — monthly, quarterly, or annually depending on how often your input costs change.</p>`,
+  },
+
   // ── PRICE LEVELS AND EXPORTS ───────────────────────────────────────────────
 
   {
@@ -672,6 +879,42 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Once the prices inside a level are approved, you can export that
       level as a price list in Excel or PDF format for sharing.</p>`,
+  },
+
+  {
+    id: 'price-level-wizard',
+    title: 'Creating your first price level',
+    section: 'Price Levels and Exports',
+    keywords: ['price level', 'wizard', 'create price level', 'new price level', 'customer pricing', 'setup wizard'],
+    content: `
+      <p>When you create your first price level, PriceRight walks you through a four-step wizard.</p>
+
+      <p>To start, click <strong>Price levels</strong> in the sidebar, then click
+      <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>.</p>
+
+      <p><strong>Step 1 — Name your price level</strong><br />
+      Give the level a descriptive name such as Retail, Wholesale, Export, or a specific customer name. Add an optional description.</p>
+
+      <p><strong>Step 2 — Set pricing rules</strong><br />
+      Choose how prices in this level are calculated:</p>
+      <ul>
+        <li><strong>Percentage markup:</strong> add a percentage on top of the approved base price</li>
+        <li><strong>Percentage discount:</strong> reduce the approved base price by a percentage</li>
+        <li><strong>No default rule:</strong> set prices individually per product</li>
+      </ul>
+
+      <p><strong>Step 3 — Add products</strong><br />
+      Select which products to include in this price level. You can add all products or select specific ones. Each product shows its base price and the calculated level price based on your rule.</p>
+
+      <p><strong>Step 4 — Review and confirm</strong><br />
+      Review the complete price list before saving. Check that all prices look correct. Click Confirm to create the level.</p>
+
+      <p><strong>After creating the level:</strong></p>
+      <ul>
+        <li>You can edit individual product prices to override the default rule</li>
+        <li>Approve the level prices before exporting</li>
+        <li>Export as Excel or PDF to share with customers</li>
+      </ul>`,
   },
 
   {
@@ -875,6 +1118,66 @@ export const helpArticles: HelpArticle[] = [
       currency effectively increases your production costs by 6% on average. Use
       this report to understand that risk and make informed pricing
       decisions when exchange rates move.</p>`,
+  },
+
+  {
+    id: 'price-list-summary-report',
+    title: 'Price List Summary report',
+    section: 'Reports and Analysis',
+    keywords: ['price list summary', 'report', 'price lists', 'coverage', 'export coverage'],
+    content: `
+      <p>The Price List Summary report gives an overview of all your price levels and how many products are covered in each.</p>
+
+      <p>To run it, go to <strong>Reports</strong> and select <strong>Price List Summary</strong> from the list.</p>
+
+      <p>The report shows:</p>
+      <ul>
+        <li>Each price level by name</li>
+        <li>Number of products in the level</li>
+        <li>Number of products with approved prices in the level</li>
+        <li>Number of products pending approval in the level</li>
+        <li>Whether the level is ready to export</li>
+      </ul>
+
+      <p>Use this report to identify price levels that are incomplete before sharing them with customers.</p>
+
+      <p>A level is ready to export when all products in it have approved prices.</p>
+
+      <p>Click <strong>Export</strong> to download the report as an Excel file.</p>`,
+  },
+
+  {
+    id: 'approval-history-report',
+    title: 'Approval History report',
+    section: 'Reports and Analysis',
+    keywords: ['approval history', 'report', 'price approvals', 'history', 'audit trail'],
+    content: `
+      <p>The Approval History report shows a complete record of every price approval in your system.</p>
+
+      <p>To run it, go to <strong>Reports</strong> and select <strong>Approval History</strong> from the list.</p>
+
+      <p>The report shows:</p>
+      <ul>
+        <li>Product name</li>
+        <li>Approved price</li>
+        <li>Production cost at time of approval</li>
+        <li>Markup % at approval</li>
+        <li>Gross Margin % at approval</li>
+        <li>Approved by (user)</li>
+        <li>Approved on (date)</li>
+        <li>Valid until (expiry date)</li>
+      </ul>
+
+      <p><strong>Use this report for:</strong></p>
+      <ul>
+        <li>Auditing pricing decisions over time</li>
+        <li>Comparing how prices have changed across approval cycles</li>
+        <li>Providing a pricing history to management or auditors</li>
+      </ul>
+
+      <p>Filter by date range to focus on a specific period.</p>
+
+      <p>Click <strong>Export</strong> to download as Excel.</p>`,
   },
 
   // ── ACTIVITY AND HISTORY ──────────────────────────────────────────────────
