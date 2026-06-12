@@ -1804,7 +1804,7 @@ export default function PriceLevels() {
                         </div>
                       )}
 
-                      <a href="/activity?entityType=price_level_item" style={{ fontSize: '14px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+                      <a href="/activity?entityType=price_level_item" style={{ fontSize: '14px', color: '#0F2847', textDecoration: 'none', fontWeight: 600 }}>
                         View full activity log
                       </a>
                     </div>
@@ -1936,7 +1936,7 @@ export default function PriceLevels() {
                     <button
                       type="button"
                       onClick={() => toggleExportSelectAll(true)}
-                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
+                      style={{ border: 'none', background: 'none', padding: 0, color: '#0F2847', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
                     >
                       Select all
                     </button>
@@ -1944,7 +1944,7 @@ export default function PriceLevels() {
                     <button
                       type="button"
                       onClick={() => toggleExportSelectAll(false)}
-                      style={{ border: 'none', background: 'none', padding: 0, color: '#2563eb', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
+                      style={{ border: 'none', background: 'none', padding: 0, color: '#0F2847', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
                     >
                       Deselect all
                     </button>

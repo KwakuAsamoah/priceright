@@ -771,7 +771,7 @@ async function loadData() {
             </button>
             <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
             {rateSaveBanner.reminder && (
-              <div style={{ marginTop: '6px', fontSize: '14px', color: '#334155' }}>{rateSaveBanner.reminder}</div>
+              <div style={{ marginTop: '6px', fontSize: '14px', color: '#475569' }}>{rateSaveBanner.reminder}</div>
             )}
           </div>
         )}
@@ -1362,7 +1362,7 @@ async function loadData() {
           </p>
           <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
             <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
-            <ol style={{ fontSize: '15px', color: '#0369a1', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
+            <ol style={{ fontSize: '15px', color: '#0F2847', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
               <li>Download and import <strong>Sample Materials</strong> first</li>
               <li>Download and import <strong>Sample Intermediates</strong> second</li>
               <li>Download and import <strong>Sample Products</strong> last</li>
@@ -1376,7 +1376,7 @@ async function loadData() {
                 <Package size={18} style={{ color: '#94a3b8' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample raw materials</div>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample raw materials</div>
                 <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
               </div>
               <a
@@ -1397,7 +1397,7 @@ async function loadData() {
                 <Layers size={18} style={{ color: '#94a3b8' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample intermediate materials</div>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample intermediate materials</div>
                 <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
               </div>
               <a
@@ -1418,7 +1418,7 @@ async function loadData() {
                 <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>Sample products with ingredients</div>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample products with ingredients</div>
                 <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
               </div>
               <a
@@ -1671,7 +1671,7 @@ async function loadData() {
                 <p style={{ marginTop: '8px', color: '#475569' }}>
                   This will permanently delete everything in your live database:
                 </p>
-                <ul style={{ marginTop: '12px', color: '#334155' }}>
+                <ul style={{ marginTop: '12px', color: '#475569' }}>
                   <li>All materials and intermediate materials</li>
                   <li>All products and bills of materials</li>
                   <li>All price levels and price lists</li>

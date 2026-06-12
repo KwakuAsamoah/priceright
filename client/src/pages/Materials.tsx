@@ -1533,7 +1533,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       <div style={{ fontWeight: '600', fontSize: '14px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                     </td>}
                     {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span style={{ fontSize: '13px', color: '#334155' }}>{material.category}</span>
+                      <span style={{ fontSize: '13px', color: '#475569' }}>{material.category}</span>
                     </td>}
                     {isMaterialColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
                     {isMaterialColumnVisible('unitCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
@@ -1700,7 +1700,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Unit cost</div>
-                <div style={{ fontWeight: 800, fontSize: '18px', color: '#0f172a' }}>{detailMaterial.baseCurrencySymbol}{Number(detailMaterial.unitPrice || 0).toFixed(2)}</div>
+                <div style={{ fontWeight: 800, fontSize: '18px', color: '#0F2847' }}>{detailMaterial.baseCurrencySymbol}{Number(detailMaterial.unitPrice || 0).toFixed(2)}</div>
               </div>
             </div>
           </div>
@@ -2293,13 +2293,13 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             </p>
 
             {loadingMaterialUsage ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#334155', padding: '10px 0 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569', padding: '10px 0 18px' }}>
                 <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
                 Loading usage data...
               </div>
             ) : selectedMaterialUsage && selectedMaterialUsage.productCount > 0 ? (
               <div style={{ marginBottom: '18px' }}>
-                <div style={{ fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 600, color: '#0F2847', marginBottom: '8px' }}>
                   Used in {selectedMaterialUsage.productCount} product{selectedMaterialUsage.productCount !== 1 ? 's' : ''}
                 </div>
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '260px', overflowY: 'auto' }}>
@@ -2310,7 +2310,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         padding: '10px 12px',
                         borderBottom: index === selectedMaterialUsage.products.length - 1 ? 'none' : '1px solid #f1f5f9',
                         fontSize: '16px',
-                        color: '#1e293b',
+                        color: '#0F2847',
                       }}
                     >
                       {productName}
@@ -2319,7 +2319,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 </div>
               </div>
             ) : (
-              <div style={{ marginBottom: '18px', padding: '14px', borderRadius: '8px', backgroundColor: '#f8fafc', color: '#334155' }}>
+              <div style={{ marginBottom: '18px', padding: '14px', borderRadius: '8px', backgroundColor: '#f8fafc', color: '#475569' }}>
                 This material is not currently used in any product BOM.
               </div>
             )}

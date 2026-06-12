@@ -119,7 +119,7 @@ export default function IntermediateDetail() {
       <div className="app-page">
         <div className="app-page-content" style={{ padding: '24px' }}>
           <div style={{ padding: '24px', borderRadius: '12px', backgroundColor: '#ffffff', boxShadow: '0 1px 4px rgba(15, 23, 42, 0.08)' }}>
-            <div style={{ fontSize: '16px', color: '#1e293b' }}>Loading intermediate material...</div>
+            <div style={{ fontSize: '16px', color: '#0F2847' }}>Loading intermediate material...</div>
           </div>
         </div>
       </div>
@@ -290,7 +290,7 @@ export default function IntermediateDetail() {
           </div>
 
           <div style={{ display: 'grid', gap: '16px' }}>
-            <div style={{ backgroundColor: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '14px', padding: '20px' }}>
+            <div style={{ backgroundColor: 'rgba(15, 40, 71, 0.05)', border: '1px solid #E2E8F0', borderRadius: '14px', padding: '20px' }}>
               <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, marginBottom: '14px' }}>Production settings</h2>
               <div style={{ display: 'grid', gap: '14px' }}>
                 <div>

@@ -1367,7 +1367,7 @@ export default function Dashboard() {
           gap: 6px;
           font-size: 14px;
           font-weight: 700;
-          color: #1d4ed8;
+          color: #16A34A;
           letter-spacing: 0.2px;
         }
         .dashboard-quick-actions-title::before {
@@ -1377,17 +1377,17 @@ export default function Dashboard() {
         }
         .dashboard-quick-actions-sub {
           font-size: 13px;
-          color: #334155;
+          color: #475569;
         }
         .dashboard-quick-card {
           padding: 16px;
           grid-column: span 2;
-          border: 1px solid #bfdbfe;
-          background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-          border-left: 4px solid #2563eb;
+          border: 1px solid rgba(22, 163, 74, 0.2);
+          background: linear-gradient(135deg, rgba(22, 163, 74, 0.06) 0%, rgba(22, 163, 74, 0.12) 100%);
+          border-left: 4px solid #16A34A;
           position: relative;
           overflow: hidden;
-          box-shadow: 0 0 0 1px #93c5fd inset, 0 8px 22px rgba(37, 99, 235, 0.14);
+          box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.12) inset, 0 8px 22px rgba(15, 40, 71, 0.08);
         }
         .dashboard-quick-card::after {
           content: '';
@@ -1397,7 +1397,7 @@ export default function Dashboard() {
           border-radius: 999px;
           right: -70px;
           top: -70px;
-          background: rgba(59, 130, 246, 0.18);
+          background: rgba(22, 163, 74, 0.12);
           pointer-events: none;
         }
         .dashboard-quick-actions-buttons {
@@ -1409,14 +1409,14 @@ export default function Dashboard() {
           justify-content: flex-start;
           font-weight: 600;
           background: #ffffff;
-          border-color: #93c5fd;
-          color: #1e3a8a;
-          box-shadow: inset 0 0 0 1px #dbeafe;
+          border-color: #E2E8F0;
+          color: #0F2847;
+          box-shadow: inset 0 0 0 1px rgba(15, 40, 71, 0.04);
           transition: background-color 0.15s ease, border-color 0.15s ease;
         }
         .dashboard-quick-actions-buttons .btn:hover {
-          background: #dbeafe;
-          border-color: #60a5fa;
+          background: rgba(15, 40, 71, 0.05);
+          border-color: #0F2847;
         }
         .dashboard-quick-actions-buttons .quick-action-products {
           background: #dcfce7;

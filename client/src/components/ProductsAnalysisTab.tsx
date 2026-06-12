@@ -285,7 +285,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
   return (
     <div style={{ display: 'grid', gap: '14px' }}>
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Pricing health</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Pricing health</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
           {[
             {
@@ -358,7 +358,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
       </div>
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a', marginBottom: '2px' }}>Margin distribution</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847', marginBottom: '2px' }}>Margin distribution</div>
         <div style={{ display: 'grid', gap: '8px' }}>
           {bandData.map((item) => {
             const isSelected = selectedBand === item.key;
@@ -400,7 +400,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Products by margin</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Products by margin</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -530,7 +530,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#1a1a1a' }}>Price level coverage</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Price level coverage</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"

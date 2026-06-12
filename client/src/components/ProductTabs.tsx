@@ -116,7 +116,7 @@ function getActivityVisual(action: string) {
     return { Icon: AlertTriangle, color: '#d97706' };
   }
   if (action === 'material.cost_updated') {
-    return { Icon: TrendingUp, color: '#2563eb' };
+    return { Icon: TrendingUp, color: '#475569' };
   }
   return { Icon: Clock3, color: '#64748b' };
 }
@@ -253,7 +253,7 @@ export default function ProductTabs({
           <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <div style={{ fontSize: '14px', fontWeight: 700 }}>Recent activity</div>
-              <Link to={activityViewAllHref} style={{ fontSize: '13px', color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
+              <Link to={activityViewAllHref} style={{ fontSize: '13px', color: '#0F2847', textDecoration: 'none', fontWeight: 600 }}>
                 View all activity
               </Link>
             </div>
@@ -269,7 +269,7 @@ export default function ProductTabs({
                   return (
                     <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
                       <visual.Icon size={14} style={{ color: visual.color }} />
-                      <div style={{ fontSize: '13px', color: '#334155', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
+                      <div style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
                         {describeProductActivity(entry.action, entry.details)}
                       </div>
                       <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>

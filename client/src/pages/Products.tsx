@@ -2484,13 +2484,9 @@ export default function Products() {
                 Close
               </button>
               <button
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={handleBulkCategoryChange}
                 disabled={!bulkCategoryValue}
-                style={{
-                  backgroundColor: bulkCategoryValue ? '#3b82f6' : '#94a3b8',
-                  cursor: bulkCategoryValue ? 'pointer' : 'not-allowed',
-                }}
               >
                 Apply
               </button>
@@ -2590,7 +2586,7 @@ export default function Products() {
                 </div>
 
                 {importing && (
-                  <div style={{ marginBottom: '12px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
+                  <div style={{ marginBottom: '12px', backgroundColor: 'rgba(22, 163, 74, 0.08)', color: '#0F2847', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
                     Importing {new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} product{new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size !== 1 ? 's' : ''}. Please wait...
                   </div>
                 )}

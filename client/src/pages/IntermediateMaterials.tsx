@@ -1255,33 +1255,40 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               color: '#ffffff',
               padding: '10px 16px',
               borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
             }}
           >
-            <div className="app-bulk-count-wrap">
-              <span className="app-bulk-count">{selectedIds.size} selected</span>
-            </div>
+            <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
+              {selectedIds.size} selected
+            </span>
             <button
               onClick={handleBulkDelete}
-              className="btn btn-danger"
+              className="btn btn-danger-solid btn-sm"
               disabled={bulkDeleting}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <Trash2 size={14} strokeWidth={2} />
               {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}
             </button>
-            <button onClick={() => void handleBulkSetActiveState(true)} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#2e7d32' }}>
+            <button onClick={() => void handleBulkSetActiveState(true)} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Eye size={14} strokeWidth={2} />
               Set Active
             </button>
-            <button onClick={() => void handleBulkSetActiveState(false)} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={() => void handleBulkSetActiveState(false)} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <EyeOff size={14} strokeWidth={2} />
               Set Inactive
             </button>
-            <button onClick={handleBulkExport} className="btn btn-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={handleBulkExport} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <FileSpreadsheet size={14} strokeWidth={2} />
               Export Excel
             </button>
-            <button onClick={() => setSelectedIds(new Set())} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="btn btn-ghost btn-sm"
+              style={{ marginLeft: 'auto', color: '#e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
               <X size={14} strokeWidth={2} />
               Clear
             </button>

@@ -432,9 +432,9 @@
 .welcome-modal-tip {
   padding: 10px 12px;
   border-radius: 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  color: #1e40af;
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.2);
+  color: #0F2847;
   font-size: 13px;
   line-height: 1.45;
   margin-bottom: 16px;
@@ -479,7 +479,7 @@
 
 .welcome-modal-body {
   margin: 18px 0 20px;
-  color: #334155;
+  color: #475569;
   line-height: 1.65;
   text-align: left;
 }
@@ -496,7 +496,7 @@
 .welcome-modal-progress-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #111111, #2563eb);
+  background: linear-gradient(90deg, #0F2847, #16A34A);
 }
 
 .welcome-modal-step-count {

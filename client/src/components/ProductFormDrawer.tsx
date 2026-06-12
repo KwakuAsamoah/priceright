@@ -506,7 +506,8 @@ export default function ProductFormDrawer({
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    border: '1px solid ' + (materialDropdownOpen ? '#3b82f6' : '#e2e8f0'),
+                    border: '1px solid ' + (materialDropdownOpen ? '#0F2847' : '#e2e8f0'),
+                    boxShadow: materialDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
                     fontSize: '16px',
                     transition: 'border-color 0.2s',
                   }}
@@ -536,7 +537,7 @@ export default function ProductFormDrawer({
                         style={{
                           padding: '10px 12px',
                           cursor: 'pointer',
-                          backgroundColor: index === materialHighlightedIndex ? '#f0f9ff' : 'white',
+                          backgroundColor: index === materialHighlightedIndex ? 'rgba(15, 40, 71, 0.05)' : 'white',
                           borderBottom: '1px solid #f1f5f9',
                           display: 'flex',
                           justifyContent: 'space-between',
@@ -608,7 +609,7 @@ export default function ProductFormDrawer({
                               value={editingQuantity}
                               onChange={(e) => setEditingQuantity(e.target.value)}
                               autoFocus
-                              style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #1e40af' }}
+                              style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0' }}
                             />
                           ) : (
                             `${item.quantity.toFixed(3)} ${item.unit}`
@@ -626,14 +627,14 @@ export default function ProductFormDrawer({
                               <button
                                 type="button"
                                 onClick={() => handleSaveBomEdit(item.id)}
-                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                className="btn btn-success btn-sm"
                               >
                                 Save
                               </button>
                               <button
                                 type="button"
                                 onClick={handleCancelBomEdit}
-                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                className="btn btn-ghost btn-sm"
                               >
                                 Cancel
                               </button>
@@ -643,14 +644,14 @@ export default function ProductFormDrawer({
                               <button
                                 type="button"
                                 onClick={() => handleEditBomItem(item.id, item.quantity.toString())}
-                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#eff6ff', color: '#1e40af', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                className="btn btn-secondary btn-sm"
                               >
                                 Edit
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveMaterialFromTemp(item.id)}
-                                style={{ padding: '4px 8px', fontSize: '13px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                className="btn btn-danger btn-sm"
                               >
                                 Delete
                               </button>
@@ -692,7 +693,7 @@ export default function ProductFormDrawer({
                 <span style={{ fontWeight: '600' }}>GHS {liveCost.profitAmount.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#1e40af', fontWeight: '700' }}>Optimal Price</span>
+                <span style={{ color: '#0F2847', fontWeight: '700' }}>Optimal Price</span>
                 <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
               </div>
             </div>

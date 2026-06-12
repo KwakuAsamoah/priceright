@@ -8,8 +8,8 @@
   --color-input-border: #cbd5e1;
   --color-text: #0f172a;
   --color-text-secondary: #64748b;
-  --color-accent: #2563eb;
-  --color-accent-strong: #1d4ed8;
+  --color-accent: #16A34A;
+  --color-accent-strong: #15803d;
 
   --color-success: #16a34a;
   --color-success-soft: #dcfce7;
@@ -23,12 +23,12 @@
   --color-warning-soft: #fef3c7;
   --color-warning-text: #92400e;
 
-  --color-info: #0369a1;
-  --color-info-soft: #e0f2fe;
+  --color-info: #0F2847;
+  --color-info-soft: rgba(15, 40, 71, 0.08);
 
-  --color-tab-active-bg: #2563eb;
+  --color-tab-active-bg: #16A34A;
   --color-tab-active-text: #ffffff;
-  --color-tab-active-border: #1d4ed8;
+  --color-tab-active-border: #15803d;
   --color-nav-active-bg: rgba(255, 255, 255, 0.13);
   --color-choice-tab-active-bg: #ea580c;
   --color-choice-tab-active-text: #ffffff;
@@ -1018,19 +1018,19 @@ textarea {
   color: #ffffff !important;
 }
 
-/* Info — blue utility actions (recalculate, refresh) */
+/* Info — utility actions (recalculate, refresh) */
 .btn-info,
 .app-page .btn-info {
-  background: #EFF6FF !important;
-  color: #1D4ED8 !important;
-  border: 1.5px solid #BFDBFE !important;
+  background: rgba(15, 40, 71, 0.05) !important;
+  color: #0F2847 !important;
+  border: 1.5px solid #E2E8F0 !important;
 }
 
 .btn-info:hover,
 .app-page .btn-info:hover {
-  background: #DBEAFE !important;
-  border-color: #93C5FD !important;
-  color: #1D4ED8 !important;
+  background: rgba(15, 40, 71, 0.08) !important;
+  border-color: #0F2847 !important;
+  color: #0F2847 !important;
 }
 
 /* Sizes */
@@ -1118,9 +1118,9 @@ textarea {
 }
 
 .app-badge-blue {
-  background: #EFF6FF;
-  color: #2563EB;
-  border-color: #BFDBFE;
+  background: rgba(15, 40, 71, 0.06);
+  color: #0F2847;
+  border-color: rgba(15, 40, 71, 0.12);
 }
 
 .app-badge-navy {
@@ -1158,9 +1158,9 @@ textarea {
 }
 
 .app-badge-info {
-  background: #EFF6FF;
-  color: #2563EB;
-  border-color: #BFDBFE;
+  background: rgba(15, 40, 71, 0.06);
+  color: #0F2847;
+  border-color: rgba(15, 40, 71, 0.12);
 }
 
 .app-badge-muted,

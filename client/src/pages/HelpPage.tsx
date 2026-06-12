@@ -120,7 +120,7 @@ export default function HelpPage() {
             <button
               type="button"
               onClick={() => navigate(from)}
-              style={{ border: 0, background: 'transparent', color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', cursor: 'pointer', fontWeight: 600 }}
+              style={{ border: 0, background: 'transparent', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', cursor: 'pointer', fontWeight: 600 }}
             >
               <ArrowLeft size={16} strokeWidth={2} />
               Exit Help
@@ -143,7 +143,7 @@ export default function HelpPage() {
             style={{
               border: '1px solid #e2e8f0',
               background: '#ffffff',
-              color: previousArticle ? '#334155' : '#94a3b8',
+              color: previousArticle ? '#475569' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
               fontSize: '14px',
@@ -170,7 +170,7 @@ export default function HelpPage() {
             style={{
               border: '1px solid #e2e8f0',
               background: '#ffffff',
-              color: nextArticle ? '#334155' : '#94a3b8',
+              color: nextArticle ? '#475569' : '#94a3b8',
               borderRadius: '8px',
               padding: '6px 10px',
               fontSize: '14px',

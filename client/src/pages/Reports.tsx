@@ -1160,7 +1160,7 @@ export default function Reports() {
                   <td>
                     <div style={{ width: '100%', minWidth: '200px' }}>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, Math.max(0, row.exposurePct))}%`, height: '100%', backgroundColor: '#334155' }} />
+                        <div style={{ width: `${Math.min(100, Math.max(0, row.exposurePct))}%`, height: '100%', backgroundColor: '#0F2847' }} />
                       </div>
                       <div style={{ marginTop: '4px', fontWeight: 600 }}>{formatPct(row.exposurePct)}</div>
                     </div>
@@ -1299,7 +1299,7 @@ export default function Reports() {
               <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
                 <div style={{ textAlign: 'center', color: '#64748b' }}>
                   <BarChart2 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '10px' }} />
-                  <div style={{ fontSize: '20px', fontWeight: 600, color: '#334155' }}>Select a report to get started</div>
+                  <div style={{ fontSize: '20px', fontWeight: 600, color: '#0F2847' }}>Select a report to get started</div>
                   <div style={{ fontSize: '15px', marginTop: '5px' }}>Choose from the list on the left</div>
                 </div>
               </div>

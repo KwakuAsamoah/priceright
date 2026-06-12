@@ -99,9 +99,9 @@ function resolveEntryVisual(action: string): EntryVisual {
     case 'product.needs_review':
       return { Icon: AlertTriangle, color: '#d97706' };
     case 'material.cost_updated':
-      return { Icon: TrendingUp, color: '#2563eb' };
+      return { Icon: TrendingUp, color: '#475569' };
     case 'material.created':
-      return { Icon: PlusCircle, color: '#2563eb' };
+      return { Icon: PlusCircle, color: '#475569' };
     case 'exchange_rate.updated':
       return { Icon: ArrowLeftRight, color: '#7c3aed' };
     case 'price_level.created':
@@ -408,7 +408,7 @@ export default function Activity() {
                 <div style={{ minHeight: '260px', display: 'grid', placeItems: 'center' }}>
                   <div style={{ textAlign: 'center', color: '#64748b' }}>
                     <Clock3 size={48} strokeWidth={1.6} style={{ opacity: 0.6, marginBottom: '12px' }} />
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>No activity recorded yet.</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#0F2847', marginBottom: '6px' }}>No activity recorded yet.</div>
                     <div style={{ fontSize: '15px' }}>Actions across the app will appear here.</div>
                   </div>
                 </div>
