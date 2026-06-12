@@ -117,8 +117,26 @@ textarea {
   padding: 12px var(--space-page) 16px;
 }
 
+.materials-shell .app-page-header,
+.products-shell .app-page-header {
+  padding: 0 var(--space-page);
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #ffffff;
+  flex-shrink: 0;
+}
+
 .app-page-header .app-section-tabs {
   margin-top: 12px;
+}
+
+.materials-shell .app-page-header .app-section-tabs,
+.products-shell .app-page-header .app-section-tabs {
+  margin-top: 0;
+  border-bottom: none;
+  flex: 1;
 }
 
 .app-page-title {
@@ -128,6 +146,18 @@ textarea {
   font-weight: 700;
   line-height: 1.2;
   color: #0F2847;
+}
+
+.materials-shell .app-page-title,
+.products-shell .app-page-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0F2847;
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  margin: 0;
+  white-space: nowrap;
 }
 
 .app-page-subtitle {
@@ -156,6 +186,13 @@ textarea {
   padding-top: 20px;
   display: flex;
   flex-direction: column;
+}
+
+.materials-shell .app-page-content,
+.products-shell .app-page-content {
+  padding: 8px var(--space-page);
+  gap: 0;
+  overflow: hidden;
 }
 
 .app-section-tabs {
@@ -196,6 +233,42 @@ textarea {
   border-bottom-color: var(--color-tab-active-bg) !important;
   background: var(--color-tab-active-bg) !important;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+}
+
+.materials-shell .app-section-tab,
+.materials-shell .app-page .app-section-tab,
+.products-shell .app-section-tab,
+.products-shell .app-page .app-section-tab {
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #64748b !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  margin-bottom: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.materials-shell .app-section-tab:hover,
+.materials-shell .app-page .app-section-tab:hover:not(.is-active),
+.products-shell .app-section-tab:hover,
+.products-shell .app-page .app-section-tab:hover:not(.is-active) {
+  color: #0F2847 !important;
+  background: transparent !important;
+}
+
+.materials-shell .app-section-tab.is-active,
+.materials-shell .app-page .app-section-tab.is-active,
+.products-shell .app-section-tab.is-active,
+.products-shell .app-page .app-section-tab.is-active {
+  color: #0F2847 !important;
+  border-bottom-color: #0F2847 !important;
+  font-weight: 600 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .app-choice-tabs {
@@ -373,16 +446,21 @@ textarea {
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: 8px;
+  gap: 0;
 }
 
 .materials-tab-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
   min-width: 0;
   min-height: 0;
   flex: 1;
+}
+
+.materials-shell .app-card.app-data-card,
+.products-shell .app-card.app-data-card {
+  border-radius: 8px;
 }
 
 .app-filter-row {
@@ -491,6 +569,78 @@ textarea {
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.app-data-card-header {
+  padding: 6px 12px;
+  border-bottom: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: #ffffff;
+  flex-wrap: wrap;
+}
+
+.app-data-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F2847;
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.app-toolbar-input {
+  flex: 1;
+  max-width: 220px;
+  height: 26px;
+  border: 0.5px solid #E2E8F0;
+  border-radius: 5px;
+  padding: 0 8px;
+  font-size: 12px;
+  background: #F8FAFC;
+  min-width: 120px;
+}
+
+.app-toolbar-select {
+  width: 80px;
+  height: 26px;
+  border: 0.5px solid #E2E8F0;
+  border-radius: 5px;
+  font-size: 12px;
+  background: #F8FAFC;
+  padding: 0 6px;
+}
+
+.app-toolbar-rate-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 4px;
+  flex-wrap: wrap;
+}
+
+.app-toolbar-rate-code {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.app-toolbar-rate-badge {
+  background: #F1F5F9;
+  border: 0.5px solid #E2E8F0;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-data-card-header-spacer {
+  flex: 1;
+  min-width: 8px;
 }
 
 .app-empty-state {
@@ -1086,10 +1236,12 @@ textarea {
 .app-table-wrap.app-table-sticky {
   overflow-x: auto;
   overflow-y: auto;
-  max-height: calc(100vh - 300px);
+  max-height: none;
   position: relative;
   flex: 1;
   min-height: 0;
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
 .app-table {
@@ -1122,6 +1274,20 @@ textarea {
   width: 0;
   height: 0;
   border-style: solid;
+}
+
+.materials-shell .app-table th,
+.materials-shell .app-page table th,
+.products-shell .app-table th,
+.products-shell .app-page table th {
+  padding: 5px 12px !important;
+}
+
+.materials-shell .app-table td,
+.materials-shell .app-page table td,
+.products-shell .app-table td,
+.products-shell .app-page table td {
+  padding: 5px 12px !important;
 }
 
 .app-table th,

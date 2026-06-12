@@ -100,12 +100,12 @@ export default function MaterialsPage() {
         </div>
       </div>
 
-      <div className="app-page-content app-page-content-tight">
+      <div className="app-page-content">
         <div className="materials-tab-panel">
-        <div style={{ display: activeTab === 'primary' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'primary' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <Materials materialType="primary" onPrimaryCostChange={notifyIntermediateMaterialsRefresh} />
         </div>
-        <div style={{ display: activeTab === 'intermediate' ? 'block' : 'none' }}>
+        <div style={{ display: activeTab === 'intermediate' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <IntermediateMaterials refreshKey={intermediateRefreshKey} isActive={activeTab === 'intermediate'} />
         </div>
         {activeTab === 'analysis' && (

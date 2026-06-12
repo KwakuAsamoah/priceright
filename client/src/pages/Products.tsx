@@ -1520,12 +1520,6 @@ export default function Products() {
     return Number.isFinite(value) && value >= -50 && value <= 200;
   })();
 
-  const compactControlStyle = {
-    minHeight: '28px',
-    padding: '4px 6px',
-    fontSize: '13px',
-  } as const;
-
   function openProductsTableSettings() {
     const trigger = productsTableSettingsAnchorRef.current?.querySelector('button');
     if (trigger instanceof HTMLButtonElement) {
@@ -1580,14 +1574,10 @@ export default function Products() {
   }
 
   return (
-    <div className="app-page">
+    <div className="app-page products-shell">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div className="app-page-header" style={{ paddingBottom: '10px' }}>
-        <div className="app-header-row">
-          <div>
-            <h1 className="app-page-title">Products</h1>
-          </div>
-        </div>
+      <div className="app-page-header">
+        <h1 className="app-page-title">Products</h1>
         <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
           <button
             type="button"
@@ -1610,114 +1600,9 @@ export default function Products() {
         </div>
       </div>
 
-      <div className="app-page-content" style={{ gap: '8px', paddingTop: '8px' }}>
+      <div className="app-page-content">
       {activeTab === 'products' && (
       <div className="materials-tab-body">
-        <div className="app-card app-filter-card" style={{ padding: '6px 8px' }}>
-          <div className="products-toolbar-row" style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', flexWrap: 'wrap' }}>
-            <div className="products-toolbar-filters" style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0, flex: 1, flexWrap: 'wrap' }}>
-              <div className="app-filter-search" style={{ minWidth: '160px', flex: '1 1 210px' }}>
-                <input
-                  className="app-control"
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  style={compactControlStyle}
-                />
-              </div>
-              <select
-                className="app-control app-filter-select"
-                value={selectedApprovalStatus}
-                onChange={(e) => setSelectedApprovalStatus(e.target.value)}
-                style={{ ...compactControlStyle, width: '128px', flex: '0 1 128px' }}
-              >
-                {APPROVAL_STATUS_OPTIONS.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="products-toolbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '100%' }}>
-              <ActionDropdown
-                label="+ Add"
-                buttonClassName="btn btn-primary btn-sm"
-                disabled={baseCurrencyMissing}
-                disabledTitle="Set a base currency first in Settings"
-                items={[
-                  {
-                    key: 'add-single',
-                    label: 'Add single product',
-                    icon: <Plus size={14} strokeWidth={2} />,
-                    onSelect: handleAddProduct,
-                  },
-                  { key: 'divider-add', type: 'divider' as const },
-                  {
-                    key: 'import-csv',
-                    label: 'Import from CSV',
-                    icon: <Upload size={14} strokeWidth={2} />,
-                    onSelect: () => setShowImportModal(true),
-                  },
-                ]}
-              />
-
-              <ActionDropdown
-                label="More"
-                buttonClassName="btn btn-ghost btn-sm"
-                items={[
-                  {
-                    key: 'export-excel',
-                    label: 'Export to Excel',
-                    onSelect: handleExportToExcel,
-                    icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-                  },
-                  {
-                    key: 'export-csv',
-                    label: 'Export to CSV',
-                    onSelect: handleExportFilteredProductsCsv,
-                    icon: <FileText size={13} strokeWidth={2} />,
-                  },
-                  {
-                    key: 'print',
-                    label: 'Print',
-                    onSelect: handlePrintFilteredProducts,
-                    icon: <Printer size={13} strokeWidth={2} />,
-                  },
-                  { key: 'divider-1', type: 'divider' },
-                  {
-                    key: 'table-settings',
-                    label: 'Table settings',
-                    onSelect: openProductsTableSettings,
-                    icon: <Settings2 size={13} strokeWidth={2} />,
-                  },
-                ]}
-              />
-
-              <div
-                ref={productsTableSettingsAnchorRef}
-                style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-                aria-hidden="true"
-              >
-                <TableSettingsDropdown
-                  columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
-                    key: column.key,
-                    label: column.label,
-                    visible: isProductColumnVisible(column.key),
-                  }))}
-                  onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
-                  onResetColumns={resetProductColumns}
-                  density={tableDensity}
-                  onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-                  onApproveAllEligible={handleApproveAllEligible}
-                  approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
-                  disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
         {shouldShowNeedsReviewBanner && (
           <div
             style={{
@@ -1855,9 +1740,101 @@ export default function Products() {
         )}
 
         <div className="app-card app-data-card" style={{ padding: 0 }} ref={productsTableRef}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0 }}>Products ({filteredProducts.length})</h2>
+          <div className="app-data-card-header">
+            <span className="app-data-card-title">Products ({filteredProducts.length})</span>
+            <input
+              className="app-toolbar-input"
+              type="search"
+              placeholder="Search products..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            <select
+              className="app-toolbar-select"
+              style={{ width: '110px' }}
+              value={selectedApprovalStatus}
+              onChange={(e) => setSelectedApprovalStatus(e.target.value)}
+            >
+              {APPROVAL_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <div className="app-data-card-header-spacer" />
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            <ActionDropdown
+              label="+ Add"
+              buttonClassName="btn btn-primary btn-sm"
+              disabled={baseCurrencyMissing}
+              disabledTitle="Set a base currency first in Settings"
+              items={[
+                {
+                  key: 'add-single',
+                  label: 'Add single product',
+                  icon: <Plus size={14} strokeWidth={2} />,
+                  onSelect: handleAddProduct,
+                },
+                { key: 'divider-add', type: 'divider' as const },
+                {
+                  key: 'import-csv',
+                  label: 'Import from CSV',
+                  icon: <Upload size={14} strokeWidth={2} />,
+                  onSelect: () => setShowImportModal(true),
+                },
+              ]}
+            />
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
+                {
+                  key: 'export-excel',
+                  label: 'Export to Excel',
+                  onSelect: handleExportToExcel,
+                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'export-csv',
+                  label: 'Export to CSV',
+                  onSelect: handleExportFilteredProductsCsv,
+                  icon: <FileText size={13} strokeWidth={2} />,
+                },
+                {
+                  key: 'print',
+                  label: 'Print',
+                  onSelect: handlePrintFilteredProducts,
+                  icon: <Printer size={13} strokeWidth={2} />,
+                },
+                { key: 'divider-1', type: 'divider' },
+                {
+                  key: 'table-settings',
+                  label: 'Table settings',
+                  onSelect: openProductsTableSettings,
+                  icon: <Settings2 size={13} strokeWidth={2} />,
+                },
+              ]}
+            />
+            <div
+              ref={productsTableSettingsAnchorRef}
+              style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+              aria-hidden="true"
+            >
+              <TableSettingsDropdown
+                columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
+                  key: column.key,
+                  label: column.label,
+                  visible: isProductColumnVisible(column.key),
+                }))}
+                onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
+                onResetColumns={resetProductColumns}
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+                onApproveAllEligible={handleApproveAllEligible}
+                approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
+                disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
+              />
+            </div>
           </div>
           {filteredProducts.length === 0 ? (
             products.length === 0 ? (
