@@ -83,7 +83,7 @@ export const helpArticles: HelpArticle[] = [
 
         <li><strong>Build your products.</strong> Go to Products. Create each product and
         add its Bill of Materials — which materials go into it and how much of each.
-        Set the overhead percentage and profit on cost. PriceRight calculates the
+        Set the overhead percentage and Markup %. PriceRight calculates the
         optimal price automatically.</li>
 
         <li><strong>Approve prices.</strong> Still on Products, review the optimal price
@@ -275,7 +275,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>To create an intermediate material, go to Materials and select the
       Intermediate tab, then click Add Intermediate Material. Set the overhead
-      percentage, optional profit on cost, batch yield, and then build its BOM
+      percentage, optional Markup %, batch yield, and then build its BOM
       from primary materials.</p>
 
       <p>The calculated unit cost is then available as an input when building
@@ -338,7 +338,7 @@ export const helpArticles: HelpArticle[] = [
 
       <h3>Approach 3 — Raw material cost plus overhead plus profit</h3>
       <p>The intermediate material is fully costed as if it were a finished
-      product — with its own overhead and its own profit on cost. Use this
+      product — with its own overhead and its own Markup %. Use this
       approach in two situations: when you also sell this intermediate material
       externally to other businesses, or when you want to track the
       profitability of the intermediate production step separately from
@@ -347,7 +347,7 @@ export const helpArticles: HelpArticle[] = [
       <p><strong>Example:</strong> If your business sells Roasted Peanuts in
       bulk to other manufacturers as well as using them in your own products,
       you need a full cost including profit so you know what to charge external
-      buyers. Set the profit on cost on the intermediate material to match your
+      buyers. Set the Markup % on the intermediate material to match your
       target for that product.</p>
 
       <h3>Which approach to choose</h3>
@@ -357,7 +357,7 @@ export const helpArticles: HelpArticle[] = [
         costs — electricity, labour, equipment — that are separate from the
         finished product? If yes, add overhead.</li>
         <li>Do you sell this intermediate material externally, or do you need
-        to track its profitability independently? If yes, add profit on cost.</li>
+        to track its profitability independently? If yes, add Markup %.</li>
       </ul>
 
       <p>If the answer to both questions is no, use Approach 1. If the first
@@ -366,7 +366,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>In PriceRight, set this when creating or editing an intermediate
       material under the Materials → Intermediate tab. Leave Overhead % at zero
-      for Approach 1. Enter your overhead rate and leave Profit on cost % at zero
+      for Approach 1. Enter your overhead rate and leave Markup % at zero
       for Approach 2. Enter both for Approach 3.</p>`,
   },
 
@@ -389,8 +389,8 @@ export const helpArticles: HelpArticle[] = [
       your recipe produces. If you make 12 bottles of sauce from one batch,
       enter 12.</p>
 
-      <p>Set the Overhead percentage and Profit on cost percentage. Overhead covers
-      your indirect costs. Profit on cost is the percentage added on top of
+      <p>Set the Overhead percentage and Markup %. Overhead covers
+      your indirect costs. Markup % is the percentage added on top of
       production cost.</p>
 
       <p>Then build the Bill of Materials. Search for each material and enter
@@ -451,8 +451,8 @@ export const helpArticles: HelpArticle[] = [
       <strong>Production cost</strong> when calculating the
       <strong>Optimal price</strong>.</p>
 
-      <p>In PriceRight, the percentage you set as <strong>Profit on cost</strong>
-      is applied as <strong>profit on cost (markup)</strong>. That means the
+      <p>In PriceRight, the percentage you set as <strong>Markup %</strong>
+      is applied as markup on production cost. That means the
       system adds this percentage on top of production cost to suggest the
       <strong>Optimal price</strong>.</p>
 
@@ -461,20 +461,20 @@ export const helpArticles: HelpArticle[] = [
       </p>
 
       <p>Example: if production cost is GHS 2.41 and markup is 20%, then
-      profit on cost is GHS 0.48 and optimal price is GHS 2.89.</p>
+      markup profit is GHS 0.48 and optimal price is GHS 2.89.</p>
 
-      <p>The app also shows what this means as <strong>profit on sales
-      (gross margin)</strong>, which is profit as a percentage of the selling
+      <p>The app also shows what this means as <strong>Gross Margin %</strong>,
+      which is profit as a percentage of the selling
       price. At GHS 2.89 with GHS 2.41 cost, gross margin is 16.7%.</p>
 
       <p>Both numbers are useful:</p>
       <ul>
-        <li><strong>Profit on cost (markup)</strong> tells you how much you are adding above what you spent.</li>
-        <li><strong>Profit on sales (gross margin)</strong> is what banks, investors, and distributors typically ask about.</li>
+        <li><strong>Markup %</strong> tells you how much you are adding above what you spent.</li>
+        <li><strong>Gross Margin %</strong> is what banks, investors, and distributors typically ask about.</li>
       </ul>
 
-      <p>The <strong>Markup %</strong> column in Products shows profit on cost.
-      Open any product to see both markup and profit on sales at the suggested
+      <p>The <strong>Markup %</strong> column in Products shows markup on cost.
+      Open any product to see both Markup % and Gross Margin % at the suggested
       price.</p>`,
   },
 
@@ -849,7 +849,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>The log records product base price approvals and rejections, products moved to <strong>Needs review</strong>, material cost updates, materials created, exchange-rate updates, price levels created or deleted, price level item approvals and rejections, and bulk price level approvals.</p>
 
-      <p>Each entry shows an action icon, a clear description, the time, and the person who performed the action. Descriptions include practical detail such as old and new prices, <strong>profit on sales (gross margin)</strong>, production cost values, and affected product counts where relevant.</p>
+      <p>Each entry shows an action icon, a clear description, the time, and the person who performed the action. Descriptions include practical detail such as old and new prices, <strong>Gross Margin %</strong>, production cost values, and affected product counts where relevant.</p>
 
       <p>Use filters at the top to narrow results by entity type, action group, and date range. Entity type includes Products, Materials, Price Levels, and Exchange Rates. Action groups include Approvals, Rejections, Cost changes, Created, and Deleted.</p>
 

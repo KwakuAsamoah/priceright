@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { materialsApi, type IntermediateBomItemRecord, type MaterialRecord } from '../api';
 import AppBadge from '../components/AppBadge';
+import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 
 interface IntermediateDetailLocationState {
   from?: string;
@@ -273,7 +274,10 @@ export default function IntermediateDetail() {
                   <span style={{ fontWeight: 700 }}>{formatMoney(liveCost?.costPerUnit ?? 0)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Profit on cost ({toNumber(material.marginPercentage).toFixed(0)}%):</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Markup % ({toNumber(material.marginPercentage).toFixed(0)}%):
+                    <MarkupInfoTooltip />
+                  </span>
                   <span style={{ fontWeight: 600 }}>{formatMoney(liveCost?.profitAmount ?? 0)}</span>
                 </div>
                 <div style={{ borderTop: '1px solid #e2e8f0', margin: '8px 0' }} />
@@ -314,7 +318,10 @@ export default function IntermediateDetail() {
                     <div style={{ fontWeight: 600 }}>{toNumber(material.overheadPercentage).toFixed(1)}%</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Profit on cost %</div>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', display: 'inline-flex', alignItems: 'center' }}>
+                      Markup %
+                      <MarkupInfoTooltip />
+                    </div>
                     <div style={{ fontWeight: 600 }}>{toNumber(material.marginPercentage).toFixed(1)}%</div>
                   </div>
                 </div>

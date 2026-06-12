@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
+import { MarkupInfoTooltip } from './ProfitTooltips';
 
 interface Product {
   id: number;
@@ -235,7 +236,10 @@ export default function ProductTabs({
                       <span style={{ fontWeight: '700' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100)).toFixed(2)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Profit on cost ({product.profitMargin}%):</span>
+                      <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                        Markup % ({product.profitMargin}%):
+                        <MarkupInfoTooltip />
+                      </span>
                       <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100) * (product.profitMargin / 100)).toFixed(2)}</span>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useFormState } from '../context/FormStateContext';
 import { useDemoMode } from '../context/DemoModeContext';
 import { useBaseCurrencyContext } from '../context/BaseCurrencyContext';
+import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 
 interface Currency {
   id: number;
@@ -512,10 +513,10 @@ async function loadData() {
   async function handleSaveDefaultProfitMargin() {
     try {
       await settingsApi.save({ settingKey: 'defaultProfitMargin', settingValue: defaultProfitMargin });
-      showToastMessage('Default profit on cost saved successfully!', 'success');
+      showToastMessage('Default Markup % saved successfully!', 'success');
     } catch (error) {
       console.error('Error saving default profit margin:', error);
-      showToastMessage('Failed to save default profit on cost', 'error');
+      showToastMessage('Failed to save default Markup %', 'error');
     }
   }
 
@@ -947,14 +948,18 @@ async function loadData() {
 
             {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
-              <h2>Default Profit on Cost</h2>
+              <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Default Markup %
+                <MarkupInfoTooltip />
+              </h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
                 Applied automatically when creating a new product. Can be overridden per product.
               </p>
               <div className="app-settings-row-end">
                 <div style={{ flex: 1 }}>
-                  <label className="app-settings-label">
-                    Default profit on cost (%)
+                  <label className="app-settings-label" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Default Markup %
+                    <MarkupInfoTooltip />
                   </label>
                   <div style={{ position: 'relative' }}>
                     <input

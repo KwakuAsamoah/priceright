@@ -8,6 +8,7 @@ import ProductTabs from '../components/ProductTabs';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
 import AppToast from '../components/AppToast';
+import { GrossMarginInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
 
 // ─── local types ────────────────────────────────────────────────────────────
 
@@ -651,11 +652,17 @@ export default function ProductDetail() {
                 <span style={{ fontWeight: 600 }}>{product.overheadPercentage}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Target profit on cost:</span>
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                  Target Markup %:
+                  <MarkupInfoTooltip />
+                </span>
                 <span style={{ fontWeight: 600 }}>{product.profitMargin}%</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Profit on cost ({product.profitMargin}%):</span>
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                  Markup % ({product.profitMargin}%):
+                  <MarkupInfoTooltip />
+                </span>
                 <span className="money-value" style={{ fontWeight: 600 }}>GHS {profitOnCostAmount.toFixed(2)}</span>
               </div>
               {(product.otherDirectCosts ?? 0) > 0 && (
@@ -670,7 +677,10 @@ export default function ProductDetail() {
               </div>
               {grossMarginAtOptimal !== null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
-                  <span>Profit on sales at this price:</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    Gross Margin % at this price:
+                    <GrossMarginInfoTooltip />
+                  </span>
                   <span style={{ fontWeight: 600 }}>{grossMarginAtOptimal.toFixed(1)}%</span>
                 </div>
               )}
@@ -736,7 +746,10 @@ export default function ProductDetail() {
                 <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', margin: '10px 0' }} />
                 <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Profit on cost:</span>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                      Markup %:
+                      <MarkupInfoTooltip />
+                    </span>
                     <span style={{ fontWeight: 700 }}>
                       {product.approvedPrice && productionCost
                         ? (((Number(product.approvedPrice) - productionCost) / productionCost) * 100).toFixed(1)
@@ -744,7 +757,10 @@ export default function ProductDetail() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Profit on sales:</span>
+                    <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                      Gross Margin %:
+                      <GrossMarginInfoTooltip />
+                    </span>
                     <span style={{ fontWeight: 700 }}>
                       {product.approvedPrice && productionCost
                         ? (((Number(product.approvedPrice) - productionCost) / Number(product.approvedPrice)) * 100).toFixed(1)

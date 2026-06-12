@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { productsApi } from '../api';
 import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
+import { MarkupInfoTooltip } from './ProfitTooltips';
 
 interface Product {
   id: number;
@@ -452,8 +453,9 @@ export default function ProductFormDrawer({
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title="Profit on cost (markup). A value of 20 means add 20% on top of production cost when calculating optimal price.">
-                    Profit on cost (%) *
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>
+                    Markup % *
+                    <MarkupInfoTooltip />
                   </label>
                   <input
                     type="number"
@@ -683,7 +685,10 @@ export default function ProductFormDrawer({
                 <span style={{ fontWeight: '700' }}>GHS {liveCost.totalCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Profit on cost ({formData.profitMargin}%)</span>
+                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                  Markup % ({formData.profitMargin}%)
+                  <MarkupInfoTooltip />
+                </span>
                 <span style={{ fontWeight: '600' }}>GHS {liveCost.profitAmount.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

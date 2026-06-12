@@ -20,6 +20,7 @@ import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
+import { GrossMarginInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
 
 interface Product {
   id: number;
@@ -89,8 +90,8 @@ const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = 
   { key: 'optimalPrice', label: 'Optimal Price' },
   { key: 'priceExpires', label: 'Valid until' },
   { key: 'sellingPrice', label: 'Approved base price' },
-  { key: 'profitOnCost', label: 'Profit on cost' },
-  { key: 'profitOnSales', label: 'Profit on sales' },
+  { key: 'profitOnCost', label: 'Markup %' },
+  { key: 'profitOnSales', label: 'Gross Margin %' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: 'Actions' },
 ];
@@ -750,8 +751,8 @@ export default function Products() {
       'Overhead %': product.overheadPercentage.toFixed(2),
       'Total Cost': product.totalCost.toFixed(2),
       'Valid until': normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-      'Profit on cost (%)': profitOnCost != null ? profitOnCost.toFixed(1) : '—',
-      'Profit on sales (%)': profitOnSales != null ? profitOnSales.toFixed(1) : '—',
+      'Markup %': profitOnCost != null ? profitOnCost.toFixed(1) : '—',
+      'Gross Margin %': profitOnSales != null ? profitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
       'Approved base price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
       'Status': calculatePricingAnalysis(product).label,
@@ -1118,7 +1119,7 @@ export default function Products() {
       'Production Mode',
       'Batch Yield',
       'Overhead %',
-      'Profit on cost %',
+      'Markup %',
       'Approved base price',
       'Material Name',
       'Quantity',
@@ -1136,7 +1137,7 @@ export default function Products() {
         source['Production Mode'] || source['productionMode'] || '',
         source['Batch Yield'] || source['batchYield'] || '',
         source['Overhead %'] || source['Overhead'] || source['overhead'] || source['overheadPercentage'] || '',
-        source['Profit on cost %'] || source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
+        source['Markup %'] || source['Profit on cost %'] || source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
         source['Approved base price'] || source['currentSellingPrice'] || '',
         source['Material Name'] || source['materialName'] || '',
         source['Quantity'] || source['quantity'] || '',
@@ -1157,7 +1158,7 @@ export default function Products() {
       'Production Mode',
       'Batch Yield',
       'Overhead %',
-      'Profit on cost %',
+      'Markup %',
       'Approved base price',
       'Material Name',
       'Quantity',
@@ -1184,8 +1185,8 @@ export default function Products() {
       'Optimal Price',
       'Valid until',
       'Approved base price',
-      'Profit on cost (%)',
-      'Profit on sales (%)',
+      'Markup %',
+      'Gross Margin %',
       'Variance (GHS)',
       'Variance (%)',
       'Pricing Status',
@@ -1415,7 +1416,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Profit on cost %', 'Profit on sales %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Markup %', 'Gross Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1487,7 +1488,7 @@ export default function Products() {
           <table>
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Total Cost</th><th>Optimal Price</th><th>Valid until</th><th>Approved base price</th><th>Profit on cost (%)</th><th>Profit on sales (%)</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
+                <th>Product</th><th>SKU</th><th>Total Cost</th><th>Optimal Price</th><th>Valid until</th><th>Approved base price</th><th>Markup %</th><th>Gross Margin %</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
@@ -1910,17 +1911,21 @@ export default function Products() {
                     {isProductColumnVisible('profitOnCost') && (
                       <th
                         style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
-                        title="Markup percentage: (approved base price - production cost) / production cost."
                       >
-                        Profit on cost
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          Markup %
+                          <MarkupInfoTooltip position="bottom" />
+                        </span>
                       </th>
                     )}
                     {isProductColumnVisible('profitOnSales') && (
                       <th
                         style={{ padding: '6px 6px', fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
-                        title="Gross margin percentage: (approved base price - production cost) / approved base price."
                       >
-                        Profit on sales
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          Gross Margin %
+                          <GrossMarginInfoTooltip position="bottom" />
+                        </span>
                       </th>
                     )}
                     {isProductColumnVisible('status') && (
@@ -2623,7 +2628,12 @@ export default function Products() {
                           <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Overhead %</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Profit on cost %</th>
+                          <th style={{ padding: '8px', textAlign: 'left' }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              Markup %
+                              <MarkupInfoTooltip position="bottom" />
+                            </span>
+                          </th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Approved base price</th>
                         </tr>
                       </thead>
@@ -2633,7 +2643,7 @@ export default function Products() {
                             <td style={{ padding: '8px' }}>{row['Product Name'] || row['name'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
+                            <td style={{ padding: '8px' }}>{row['Markup %'] || row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
                           </tr>
                         ))}

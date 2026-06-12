@@ -12,6 +12,7 @@ import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import TableZoomControl from '../components/TableZoomControl';
 import { materialsApi, currenciesApi, settingsApi, templateUrl, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
+import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { readImportDataRows } from '../utils/importWorkbook';
@@ -1574,7 +1575,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       />
                     </div>
                     <div>
-                      <label style={fieldLabelStyle}>Profit on cost % *</label>
+                      <label style={{ ...fieldLabelStyle, display: 'inline-flex', alignItems: 'center' }}>
+                        Markup % *
+                        <MarkupInfoTooltip />
+                      </label>
                       <input
                         className="app-input"
                         type="number"
