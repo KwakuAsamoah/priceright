@@ -38,7 +38,6 @@ export default function HelpPage() {
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
     contentScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [articleId]);
 
@@ -57,173 +56,135 @@ export default function HelpPage() {
   const currentSection = selectedArticle?.section || 'Article Index';
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)', height: '100vh', backgroundColor: '#f8fafc' }}>
-      <aside style={{ backgroundColor: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #e2e8f0' }}>
-          <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '10px', color: '#0f172a' }}>
-            Help Articles
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #dbe2ea', borderRadius: '8px', padding: '0 10px', color: '#64748b' }}>
-            <Search size={13} strokeWidth={2} />
-            <input
-              type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search help articles..."
-              style={{ border: 0, outline: 'none', width: '100%', padding: '8px 0', fontSize: '14px', background: 'transparent' }}
-            />
-          </label>
-        </div>
-
-        <div style={{ overflowY: 'auto', padding: '12px', flex: 1 }}>
-          {sections.length === 0 ? (
-            <div style={{ fontSize: '14px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <BookOpen size={14} strokeWidth={2} /> No matching articles.
-            </div>
-          ) : (
-            sections.map((section) => (
-              <section key={section} style={{ marginBottom: '14px' }}>
-                <button
-                  type="button"
-                  onClick={() => setExpandedSections((current) => ({ ...current, [section]: !current[section] }))}
-                  style={{ width: '100%', border: 0, background: 'transparent', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0 8px', fontSize: '14px', fontWeight: 700, color: '#0f172a', cursor: 'pointer' }}
-                >
-                  <span>{section}</span>
-                  <span>{expandedSections[section] === false ? '+' : '−'}</span>
-                </button>
-                {expandedSections[section] !== false && (
-                  <div style={{ display: 'grid', gap: '6px' }}>
-                    {groupedArticles[section].map((article) => {
-                      const active = selectedArticle?.id === article.id;
-                      return (
-                        <button
-                          key={article.id}
-                          type="button"
-                          onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
-                          className={`app-panel-tab ${active ? 'is-active' : ''}`}
-                        >
-                          {article.title}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
-            ))
-          )}
-        </div>
-      </aside>
-
-      <section style={{ minWidth: 0, display: 'grid', gridTemplateRows: '56px auto minmax(0, 1fr)', backgroundColor: '#ffffff' }}>
-        <div style={{ height: '56px', borderBottom: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr minmax(0, 2fr) 1fr', alignItems: 'center', gap: '12px', padding: '0 18px' }}>
-          <div>
-            <button
-              type="button"
-              onClick={() => navigate(from)}
-              style={{ border: 0, background: 'transparent', color: '#475569', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', cursor: 'pointer', fontWeight: 600 }}
-            >
-              <ArrowLeft size={16} strokeWidth={2} />
-              Exit Help
-            </button>
-          </div>
-          <div style={{ textAlign: 'center', fontWeight: 700, fontSize: '20px', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {currentTitle}
-          </div>
-          <div style={{ textAlign: 'right', fontSize: '15px', color: '#64748b' }}>
-            {currentSection}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 18px', borderBottom: '1px solid #f0f0f0', marginBottom: '16px', gap: '12px' }}>
+    <div className="help-page">
+      <header className="help-page__header">
+        <div className="help-page__header-top">
           <button
             type="button"
+            className="help-page__exit"
+            onClick={() => navigate(from)}
+          >
+            <ArrowLeft size={16} strokeWidth={2} />
+            Exit Help
+          </button>
+          <h1 className="help-page__title">{currentTitle}</h1>
+          <div className="help-page__breadcrumb">{currentSection}</div>
+        </div>
+
+        <div className="help-page__header-nav">
+          <button
+            type="button"
+            className="help-page__nav-btn"
             onClick={() => previousArticle && navigate(`/help/${previousArticle.id}`, { state: { from } })}
             disabled={!previousArticle}
             title={previousArticle?.title || ''}
-            style={{
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
-              color: previousArticle ? '#475569' : '#94a3b8',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: previousArticle ? 'pointer' : 'not-allowed',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
           >
             <ArrowLeft size={14} strokeWidth={2} />
             Previous article
           </button>
 
-          <div style={{ fontSize: '14px', color: '#888', fontWeight: 400 }}>
+          <div className="help-page__nav-count">
             {selectedIndex >= 0 ? `${selectedIndex + 1} of ${helpArticles.length} articles` : `0 of ${helpArticles.length} articles`}
           </div>
 
           <button
             type="button"
+            className="help-page__nav-btn"
             onClick={() => nextArticle && navigate(`/help/${nextArticle.id}`, { state: { from } })}
             disabled={!nextArticle}
             title={nextArticle?.title || ''}
-            style={{
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
-              color: nextArticle ? '#475569' : '#94a3b8',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: nextArticle ? 'pointer' : 'not-allowed',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
           >
             Next article
             <ArrowRight size={14} strokeWidth={2} />
           </button>
         </div>
+      </header>
 
-        <div ref={contentScrollRef} style={{ overflowY: 'auto', backgroundColor: '#f8fafc' }}>
+      <div className="help-page__body">
+        <aside className="help-page__sidebar">
+          <div className="help-page__sidebar-search">
+            <div className="help-page__sidebar-title">Help Articles</div>
+            <label className="help-page__search">
+              <Search size={13} strokeWidth={2} />
+              <input
+                type="text"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search help articles..."
+              />
+            </label>
+          </div>
+
+          <nav className="help-page__nav-list" aria-label="Help articles">
+            {sections.length === 0 ? (
+              <div className="help-page__nav-empty">
+                <BookOpen size={14} strokeWidth={2} /> No matching articles.
+              </div>
+            ) : (
+              sections.map((section) => (
+                <section key={section} className="help-page__nav-section">
+                  <button
+                    type="button"
+                    className="help-page__section-toggle"
+                    onClick={() => setExpandedSections((current) => ({ ...current, [section]: !current[section] }))}
+                  >
+                    <span>{section}</span>
+                    <span aria-hidden="true">{expandedSections[section] === false ? '+' : '−'}</span>
+                  </button>
+                  {expandedSections[section] !== false && (
+                    <div className="help-page__section-articles">
+                      {groupedArticles[section].map((article) => {
+                        const active = selectedArticle?.id === article.id;
+                        return (
+                          <button
+                            key={article.id}
+                            type="button"
+                            onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
+                            className={`app-panel-tab ${active ? 'is-active' : ''}`}
+                          >
+                            {article.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              ))
+            )}
+          </nav>
+        </aside>
+
+        <div ref={contentScrollRef} className="help-page__content">
           {selectedArticle ? (
-            <div style={{ maxWidth: '760px', margin: '0 auto', padding: '48px 64px 32px' }}>
-              <div style={{ marginBottom: '32px', fontSize: '15px', color: '#64748b' }}>Help → {selectedArticle.section}</div>
-              <h1 style={{ margin: '0 0 8px', fontWeight: 700, fontSize: '26px', color: '#0f172a' }}>
-                {selectedArticle.title}
-              </h1>
+            <article className="help-page__article">
+              <div className="help-page__article-meta">Help → {selectedArticle.section}</div>
+              <h2 className="help-page__article-title">{selectedArticle.title}</h2>
               <div className="help-article-body" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
-            </div>
+            </article>
           ) : (
-            <div style={{ minHeight: '100%', display: 'grid', placeItems: 'center', padding: '32px' }}>
-              <div style={{ textAlign: 'center', maxWidth: '760px' }}>
-                <BookOpen size={48} strokeWidth={1.8} color="#94a3b8" style={{ marginBottom: '16px' }} />
-                <h1 style={{ margin: 0, fontWeight: 700, fontSize: '26px', color: '#0f172a' }}>
-                  PriceRight Help &amp; Guide
-                </h1>
-                <p style={{ margin: '10px 0 22px', fontSize: '16px', color: '#64748b' }}>
-                  Select an article from the left to get started, or search for a topic above.
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '10px', textAlign: 'left' }}>
-                  {firstArticlePerSection.map((article) => (
-                    <button
-                      key={article.id}
-                      type="button"
-                      onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
-                      style={{ border: '1px solid #dbe2ea', borderRadius: '10px', backgroundColor: '#ffffff', padding: '10px 12px', cursor: 'pointer' }}
-                    >
-                      <div style={{ fontSize: '13px', letterSpacing: '0.04em', color: '#64748b', marginBottom: '3px' }}>{article.section}</div>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{article.title}</div>
-                    </button>
-                  ))}
-                </div>
+            <div className="help-page__index">
+              <BookOpen size={48} strokeWidth={1.8} color="#94a3b8" />
+              <h2 className="help-page__index-title">PriceRight Help &amp; Guide</h2>
+              <p className="help-page__index-subtitle">
+                Select an article from the left to get started, or search for a topic above.
+              </p>
+              <div className="help-page__index-grid">
+                {firstArticlePerSection.map((article) => (
+                  <button
+                    key={article.id}
+                    type="button"
+                    className="help-page__index-card"
+                    onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
+                  >
+                    <div className="help-page__index-card-section">{article.section}</div>
+                    <div className="help-page__index-card-title">{article.title}</div>
+                  </button>
+                ))}
               </div>
             </div>
           )}
         </div>
-
-      </section>
+      </div>
     </div>
   );
 }

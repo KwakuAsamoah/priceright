@@ -780,6 +780,260 @@ textarea {
   color: var(--color-text-primary, #1a1a1a);
 }
 
+.help-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #f8fafc;
+}
+
+.help-page__header {
+  flex-shrink: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 20px;
+}
+
+.help-page__header-top {
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 2fr) 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.help-page__exit {
+  border: 0;
+  background: transparent;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  cursor: pointer;
+  font-weight: 600;
+  justify-self: start;
+}
+
+.help-page__title {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: 20px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.help-page__breadcrumb {
+  text-align: right;
+  font-size: 15px;
+  color: #64748b;
+  justify-self: end;
+}
+
+.help-page__header-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.help-page__nav-btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-page__nav-btn:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.help-page__nav-count {
+  font-size: 14px;
+  color: #888888;
+  font-weight: 400;
+}
+
+.help-page__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.help-page__sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #ffffff;
+  border-right: 1px solid #e2e8f0;
+}
+
+.help-page__sidebar-search {
+  flex-shrink: 0;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.help-page__sidebar-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.help-page__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #64748b;
+}
+
+.help-page__search input {
+  border: 0;
+  outline: none;
+  width: 100%;
+  padding: 8px 0;
+  font-size: 14px;
+  background: transparent;
+}
+
+.help-page__nav-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 12px 0;
+}
+
+.help-page__nav-empty {
+  padding: 0 12px;
+  font-size: 14px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-page__nav-section {
+  margin-bottom: 18px;
+  padding: 0 12px;
+}
+
+.help-page__section-toggle {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #475569;
+  cursor: pointer;
+}
+
+.help-page__section-articles {
+  display: grid;
+  gap: 6px;
+}
+
+.help-page__content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 24px 32px;
+  background-color: #f8fafc;
+}
+
+.help-page__article {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.help-page__article-meta {
+  margin-bottom: 12px;
+  font-size: 15px;
+  color: #64748b;
+}
+
+.help-page__article-title {
+  margin: 0 0 24px;
+  font-weight: 700;
+  font-size: 26px;
+  color: #0f172a;
+}
+
+.help-page__index {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  text-align: center;
+}
+
+.help-page__index-title {
+  margin: 16px 0 10px;
+  font-weight: 700;
+  font-size: 26px;
+  color: #0f172a;
+}
+
+.help-page__index-subtitle {
+  margin: 0 0 22px;
+  font-size: 16px;
+  color: #64748b;
+}
+
+.help-page__index-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  text-align: left;
+  max-width: 760px;
+}
+
+.help-page__index-card {
+  border: 1px solid #dbe2ea;
+  border-radius: 10px;
+  background-color: #ffffff;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.help-page__index-card-section {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 3px;
+}
+
+.help-page__index-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
 .app-mr-add-card {
   margin-bottom: 20px;
 }
