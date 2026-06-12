@@ -152,30 +152,6 @@ function formatRateValue(value: number) {
   return Number(value || 0).toFixed(2);
 }
 
-function getCurrencyFlag(code: string) {
-  const map: Record<string, string> = {
-    USD: 'US',
-    EUR: 'EU',
-    GBP: 'GB',
-    CAD: 'CA',
-    AUD: 'AU',
-    JPY: 'JP',
-    CNY: 'CN',
-    ZAR: 'ZA',
-    NGN: 'NG',
-    KES: 'KE',
-  };
-
-  const countryCode = map[(code || '').toUpperCase()];
-  if (!countryCode || countryCode.length !== 2) return '';
-
-  return countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
-    .join('');
-}
-
 function parseDateInput(value: string | number | null | undefined): Date | null {
   if (value == null) return null;
   const asDate = new Date(value);
@@ -1096,7 +1072,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
           rate,
           displayRate: Number(rate?.rateToBase || 1),
           lastUpdatedAt: parseDateInput(rate?.effectiveDate || rate?.updatedAt),
-          flag: getCurrencyFlag(currency.code),
         };
       });
   }, [baseCurrencyCode, currencies, exchangeRates]);
@@ -1240,7 +1215,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   margin: '0 4px',
                 }}
               />
-              {foreignCurrencyRates.map(({ currency, displayRate, flag }) => {
+              {foreignCurrencyRates.map(({ currency, displayRate }) => {
                 const isEditing = editingRateCurrencyId === currency.id;
                 const isSaving = savingRateCurrencyId === currency.id;
                 const isSaved = recentlySavedCurrencyId === currency.id;
@@ -1262,7 +1237,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     >
                       {currency.code}
                     </span>
-                    {flag ? <span aria-label={`${currency.code} flag`}>{flag}</span> : null}
                     {isEditing ? (
                       <>
                         <input
