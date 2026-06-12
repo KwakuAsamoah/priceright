@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Wrench, Lock } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
@@ -54,7 +54,7 @@ interface RateSaveBanner {
   reminder?: string;
 }
 
-type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups' | 'advanced';
+type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups';
 
 const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
   { key: 'general', label: 'General', icon: Settings2 },
@@ -62,7 +62,6 @@ const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }
   { key: 'currencies', label: 'Currencies & Rates', icon: WalletCards },
   { key: 'master-data', label: 'Master Data', icon: ListTree },
   { key: 'data-backups', label: 'Data & Backups', icon: Database },
-  { key: 'advanced', label: 'Advanced', icon: Wrench },
 ];
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -193,7 +192,6 @@ export default function Settings() {
       || urlTab === 'currencies'
       || urlTab === 'master-data'
       || urlTab === 'data-backups'
-      || urlTab === 'advanced'
     ) {
       return urlTab;
     }
@@ -208,7 +206,6 @@ export default function Settings() {
       || urlTab === 'currencies'
       || urlTab === 'master-data'
       || urlTab === 'data-backups'
-      || urlTab === 'advanced'
     ) {
       setActiveTab(urlTab);
     }
@@ -1645,18 +1642,6 @@ async function loadData() {
           </div>
         </div>
         </>
-        )}
-
-        {activeTab === 'advanced' && (
-        <div className="app-card app-settings-card">
-          <h2>Advanced</h2>
-          <p className="app-page-subtitle" style={{ marginBottom: '8px' }}>
-            This section is reserved for maintenance and advanced operational controls.
-          </p>
-          <div style={{ fontSize: '14px', color: '#475569' }}>
-            Add future items here, such as audit tools, migration helpers, and diagnostics.
-          </div>
-        </div>
         )}
       </div>
 
