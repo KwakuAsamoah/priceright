@@ -29,7 +29,7 @@
   --color-tab-active-bg: #2563eb;
   --color-tab-active-text: #ffffff;
   --color-tab-active-border: #1d4ed8;
-  --color-nav-active-bg: #2563eb;
+  --color-nav-active-bg: rgba(255, 255, 255, 0.13);
   --color-choice-tab-active-bg: #ea580c;
   --color-choice-tab-active-text: #ffffff;
   --color-choice-tab-active-border: #c2410c;
@@ -193,75 +193,39 @@ textarea {
 
 .app-section-tab,
 .app-page .app-section-tab {
-  border: none !important;
-  background: transparent !important;
-  border-bottom: 2px solid transparent !important;
-  margin-bottom: -1px;
-  padding: 10px 16px !important;
-  border-radius: 8px 8px 0 0 !important;
+  padding: 8px 18px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+  border-top: none;
+  border-left: none;
+  border-right: none;
   cursor: pointer;
-  font-size: var(--font-size-md) !important;
-  font-weight: 400 !important;
-  color: #64748b !important;
+  white-space: nowrap;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
   text-decoration: none;
-  white-space: nowrap !important;
-  transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .app-section-tab:hover,
 .app-page .app-section-tab:hover {
-  color: #16A34A !important;
-  background: rgba(15, 40, 71, 0.04) !important;
+  color: #16A34A;
+  background: rgba(22, 163, 74, 0.03);
 }
 
 .app-section-tab.is-active,
 .app-page .app-section-tab.is-active {
-  color: #16A34A !important;
+  color: #16A34A;
+  border-bottom: 3px solid #16A34A;
   font-weight: 700;
-  border-bottom: 3px solid #16A34A !important;
-  background: rgba(22, 163, 74, 0.05) !important;
-  border-radius: 6px 6px 0 0 !important;
+  background: rgba(22, 163, 74, 0.05);
+  border-radius: 6px 6px 0 0;
   box-shadow: none;
-}
-
-.materials-shell .app-section-tab,
-.materials-shell .app-page .app-section-tab,
-.products-shell .app-section-tab,
-.products-shell .app-page .app-section-tab {
-  padding: 8px 18px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  color: #64748b !important;
-  border-bottom: 2px solid transparent !important;
-  border-radius: 0 !important;
-  margin-bottom: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  display: flex !important;
-  align-items: center !important;
-  cursor: pointer !important;
-  white-space: nowrap !important;
-  transition: color 0.15s !important;
-}
-
-.materials-shell .app-section-tab:hover,
-.materials-shell .app-page .app-section-tab:hover,
-.products-shell .app-section-tab:hover,
-.products-shell .app-page .app-section-tab:hover {
-  color: #16A34A !important;
-  background: transparent !important;
-}
-
-.materials-shell .app-section-tab.is-active,
-.materials-shell .app-page .app-section-tab.is-active,
-.products-shell .app-section-tab.is-active,
-.products-shell .app-page .app-section-tab.is-active {
-  color: #16A34A !important;
-  border-bottom: 3px solid #16A34A !important;
-  font-weight: 700 !important;
-  background: rgba(22, 163, 74, 0.05) !important;
-  border-radius: 6px 6px 0 0 !important;
-  box-shadow: none !important;
 }
 
 .app-choice-tabs {
@@ -312,42 +276,48 @@ textarea {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  border: 1px solid #e2e8f0 !important;
-  border-radius: 10px !important;
-  background: #ffffff !important;
-  color: #0f172a !important;
-  text-align: left;
-  padding: 10px !important;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: inherit !important;
-  font-weight: inherit !important;
-  white-space: normal !important;
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.15s;
+  text-align: left;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
 }
 
 .app-panel-tab:hover:not(.is-active),
 .app-page .app-panel-tab:hover:not(.is-active) {
-  border-color: #93c5fd !important;
-  background: #f8fafc !important;
+  background: rgba(22, 163, 74, 0.04);
+  color: #0F2847;
 }
 
 .app-panel-tab.is-active,
 .app-page .app-panel-tab.is-active {
-  background: var(--color-tab-active-bg) !important;
-  border-color: var(--color-tab-active-border) !important;
-  color: var(--color-tab-active-text) !important;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  background: rgba(22, 163, 74, 0.08);
+  color: #16A34A;
+  border-left: 3px solid #16A34A;
+  padding-left: 11px;
+  font-weight: 600;
+  box-shadow: none;
 }
 
 .app-panel-tab-description {
   font-size: 13px;
-  margin-top: 5px;
+  margin-top: 0;
   color: #64748b;
   line-height: 1.4;
 }
 
 .app-panel-tab.is-active .app-panel-tab-description {
-  color: rgba(255, 255, 255, 0.85);
+  color: #64748b;
 }
 
 .materials-shell .materials-tab-panel > .app-page > .app-page-header,
@@ -913,7 +883,7 @@ textarea {
 
 /* ── Base button reset — applied to action buttons, not tabs ── */
 .btn,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab) {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab) {
   font-family: inherit;
   border-radius: 8px !important;
   padding: 7px 14px !important;
@@ -932,19 +902,19 @@ textarea {
 
 /* Default appearance — buttons without a colour variant (tabs excluded) */
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x),
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab) {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab) {
   border: none !important;
   background: #F1F5F9 !important;
   color: #0F2847 !important;
 }
 
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):hover,
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab):hover {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):hover {
   background: #E2E8F0 !important;
 }
 
 .btn:disabled,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.pricing-console-tab):disabled {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

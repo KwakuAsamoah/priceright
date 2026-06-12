@@ -101,7 +101,6 @@ export default function HelpPage() {
                           type="button"
                           onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
                           className={`app-panel-tab ${active ? 'is-active' : ''}`}
-                          style={{ padding: '8px 10px' }}
                         >
                           {article.title}
                         </button>
