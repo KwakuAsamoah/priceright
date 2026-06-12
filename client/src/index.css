@@ -209,18 +209,19 @@ textarea {
 }
 
 .app-section-tab:hover,
-.app-page .app-section-tab:hover:not(.is-active) {
-  color: var(--color-text) !important;
+.app-page .app-section-tab:hover {
+  color: #16A34A !important;
   background: rgba(15, 40, 71, 0.04) !important;
 }
 
 .app-section-tab.is-active,
 .app-page .app-section-tab.is-active {
-  color: var(--color-tab-active-text) !important;
+  color: #16A34A !important;
   font-weight: 700;
-  border-bottom-color: var(--color-tab-active-bg) !important;
-  background: var(--color-tab-active-bg) !important;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  border-bottom: 3px solid #16A34A !important;
+  background: rgba(22, 163, 74, 0.05) !important;
+  border-radius: 6px 6px 0 0 !important;
+  box-shadow: none;
 }
 
 .materials-shell .app-section-tab,
@@ -244,10 +245,10 @@ textarea {
 }
 
 .materials-shell .app-section-tab:hover,
-.materials-shell .app-page .app-section-tab:hover:not(.is-active),
+.materials-shell .app-page .app-section-tab:hover,
 .products-shell .app-section-tab:hover,
-.products-shell .app-page .app-section-tab:hover:not(.is-active) {
-  color: #0F2847 !important;
+.products-shell .app-page .app-section-tab:hover {
+  color: #16A34A !important;
   background: transparent !important;
 }
 
@@ -255,10 +256,11 @@ textarea {
 .materials-shell .app-page .app-section-tab.is-active,
 .products-shell .app-section-tab.is-active,
 .products-shell .app-page .app-section-tab.is-active {
-  color: #0F2847 !important;
-  border-bottom-color: #0F2847 !important;
+  color: #16A34A !important;
+  border-bottom: 3px solid #16A34A !important;
   font-weight: 700 !important;
-  background: transparent !important;
+  background: rgba(22, 163, 74, 0.05) !important;
+  border-radius: 6px 6px 0 0 !important;
   box-shadow: none !important;
 }
 
