@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 9 June 2026
-**Current version:** 1.0.20
+**Last updated:** 1 June 2026
+**Current version:** 1.0.22
 **Active branch:** main
 
 ---
@@ -64,6 +64,7 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.17 | Jun 2026 | Hotfix — sidebar logo path for Electron `file://` |
 | v1.0.18 | Jun 2026 | Maintenance — API_BASE fix, PNG cleanup, console.log removal |
 | v1.0.20 | Jun 2026 | Sticky headers, Markup/Gross Margin rename, tooltips |
+| v1.0.22 | Jun 2026 | Help centre overhaul, UI consistency phases 1-3 |
 
 ---
 
