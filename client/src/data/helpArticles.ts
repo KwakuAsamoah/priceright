@@ -52,14 +52,14 @@ export const helpArticles: HelpArticle[] = [
       <p>Go to Settings in the Setup section and find the Sample data section. Download each file and import them in this exact order:</p>
 
       <ol>
-        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic GHS prices. Import via Materials page using the Import button.</li>
-        <li><strong>Intermediate materials</strong> — 5 in-house processed ingredients such as peanut paste and cocoa powder. Import via the Intermediate tab on the Materials page.</li>
-        <li><strong>Products with ingredients</strong> — 11 finished products including peanut butter, cocoa powder, gari, pepper sauce, and more. Each product comes with a full bill of materials. Import via the Products page using Import in the More menu.</li>
+        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic GHS prices. On the Materials page (Primary tab), click <strong>+ Add → Import from CSV</strong>.</li>
+        <li><strong>Intermediate materials</strong> — 5 in-house processed ingredients such as peanut paste and cocoa powder. On the Materials page (Intermediate tab), click <strong>+ Add → Import from CSV</strong>.</li>
+        <li><strong>Products with ingredients</strong> — 11 finished products including peanut butter, cocoa powder, gari, pepper sauce, and more. Each product comes with a full bill of materials. On the Products page, click <strong>+ Add → Import from CSV</strong>.</li>
       </ol>
 
       <p>The order matters. Products reference ingredients by name — if the materials are not imported first, products will be skipped during import.</p>
 
-      <p>Once imported, you can approve base prices, create price levels, export price lists, and run reports — all with realistic data. When you are ready to use your own data, clear the sample records and start fresh.</p>
+      <p>Once imported, you can approve base prices, create price levels, export price lists, and run reports — all with realistic data. When you are ready to return to your real data after using sample data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Use my real data</strong>. Your real data is preserved and sample data is not deleted — they are separate databases.</p>
 
       <p>The sample data files are always available in Settings under Sample data. You can re-download and re-import them at any time.</p>`,
   },
@@ -86,8 +86,9 @@ export const helpArticles: HelpArticle[] = [
         Set the overhead percentage and Markup %. PriceRight calculates the
         optimal price automatically.</li>
 
-        <li><strong>Approve prices.</strong> Still on Products, review the optimal price
-        for each product and click Approve. After approval, the product receives an
+        <li><strong>Approve prices.</strong> Still on Products, click on the product name
+        to open the product detail page, then use the pricing panel on the right to
+        approve the price. After approval, the product receives an
         <strong>Approved base price</strong>. Until a product is approved it will not
         appear in price levels.</li>
 
@@ -145,7 +146,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['add material', 'create material', 'raw material', 'new material'],
     content: `
       <p>To add a material, go to Materials (select the Primary tab) and click
-      Add Material.</p>
+      <strong>+ Add → Add single material</strong>.</p>
 
       <p>You need to enter the material name, category, and unit of measure. Then
       enter the bulk purchase details — how many units you buy at a time and how
@@ -201,7 +202,7 @@ export const helpArticles: HelpArticle[] = [
       and PriceRight converts it to GHS using the exchange rate you configure.</p>
 
       <p>To set up a currency, go to <strong>Settings</strong> and open the
-      <strong>Currencies and Rates</strong> tab. Add the currency code and current
+      <strong>Currencies &amp; Rates</strong> tab. Add the currency code and current
       rate. For example, USD at 15.50 means 1 USD = GHS 15.50.</p>
 
       <p>When you add or edit a material, select the purchase currency from the
@@ -213,7 +214,11 @@ export const helpArticles: HelpArticle[] = [
         <strong>Needs review</strong> so you can re-check approvals.</p>
 
         <p>The exchange-rate update is recorded in the <strong>Activity log</strong>
-        with the old rate, new rate, and the number of affected products.</p>`,
+        with the old rate, new rate, and the number of affected products.</p>
+
+      <p>You can also update exchange rates directly from the Materials page.
+      The current rate appears in the toolbar — click the pencil icon next to the
+      rate to edit it inline without going to Settings.</p>`,
   },
 
   {
@@ -223,8 +228,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['import', 'bulk import', 'CSV', 'upload', 'template', 'excel'],
     content: `
       <p>If you have many materials to add, use the bulk import feature. Go to
-      Materials (Primary tab), open the <strong>More</strong> menu in the page
-      header, and click <strong>Import materials</strong>.</p>
+      Materials (Primary tab) and click <strong>+ Add → Import from CSV</strong>.</p>
 
       <p>First, download the Excel template from the import dialog. Open it in
       Excel, fill in your materials on the Materials Import sheet, and follow
@@ -274,7 +278,7 @@ export const helpArticles: HelpArticle[] = [
       any manual work.</p>
 
       <p>To create an intermediate material, go to Materials and select the
-      Intermediate tab, then click Add Intermediate Material. Set the overhead
+      Intermediate tab, then click <strong>+ Add → Add single intermediate</strong>. Set the overhead
       percentage, optional Markup %, batch yield, and then build its BOM
       from primary materials.</p>
 
@@ -379,7 +383,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['product', 'BOM', 'bill of materials', 'create product', 'recipe'],
     content: `
       <p>To create a product, go to <strong>Products</strong> and click
-      <strong>Add Product</strong> in the page header.</p>
+      <strong>+ Add → Add single product</strong>.</p>
 
       <p>Give the product a name and category. Then choose the production mode —
       Single Unit if you make one unit at a time, or Batch if your recipe produces
@@ -499,10 +503,11 @@ export const helpArticles: HelpArticle[] = [
         <li>Open the product detail page and review the numbers.</li>
         <li>Choose one action:
           <ul>
-            <li><strong>Accept new price</strong> to approve at the current <strong>Optimal price</strong>.</li>
+            <li><strong>Approve Optimal Price</strong> to approve at the current <strong>Optimal price</strong>.</li>
             <li><strong>Keep current price</strong> to re-approve at the existing
             <strong>Approved base price</strong> when the product is in <strong>Needs review</strong>.</li>
-            <li><strong>Set custom price</strong> to approve a specific amount.</li>
+            <li>Enter a value in the <strong>Custom Price</strong> field, then click
+            <strong>Approve Custom</strong> to approve a specific amount.</li>
             <li><strong>Reject</strong> to decline and continue review.</li>
           </ul>
         </li>
@@ -568,13 +573,16 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Open the Approve menu in the bulk bar and choose one option:</p>
       <ul>
-        <li><strong>Approve at optimal price</strong> to set each selected product to its
+        <li><strong>Approve at Optimal Price</strong> to set each selected product to its
         current <strong>Optimal price</strong>.</li>
+        <li><strong>Approve at custom markup</strong> — opens a confirmation modal with
+        <strong>Approve at Optimal Price + Markup %</strong> as an option, plus an optional
+        expiry date for all approved base prices.</li>
         <li><strong>Keep current price</strong> to re-approve selected products at their
         existing <strong>Approved base price</strong>.</li>
       </ul>
 
-      <p>A confirmation modal shows how many products will be approved and which
+      <p>The confirmation modal shows how many products will be approved and which
       price basis will be used. Confirm to continue.</p>
 
       <p>After bulk approval, selected products move to <strong>Approved</strong> and
@@ -600,9 +608,10 @@ export const helpArticles: HelpArticle[] = [
       </ul>
 
       <p>On the Products page, these rows are highlighted with an amber left border,
-      amber row background, and a <strong>Needs review</strong> status badge. The Status
-      header also shows an amber count dot. Row hover text and row actions help you
-      open review quickly, and Dashboard includes a <strong>Review now</strong> path.</p>
+      amber row background, a short <strong>Review</strong> badge in the name column, and
+      <strong>Needs review</strong> in the Status column. The Status header also shows an
+      amber count dot. Row hover text and row actions help you open review quickly, and
+      Dashboard includes a <strong>Review now</strong> path.</p>
 
       <p>Review from the product detail page. You will
       see updated <strong>Production cost</strong>, last approved value, and new
@@ -632,10 +641,16 @@ export const helpArticles: HelpArticle[] = [
       of customers without setting individual prices for every product.</p>
 
       <p>Go to <strong>Price Levels</strong> in the Setup section of the navigation.
-      Create levels for your customer types — for example Wholesale, Retail,
-      Distributor, and Export.</p>
+      First-time creation uses a four-step wizard — click <strong>+ Create your first price level</strong>:</p>
 
-      <p>For each level, set either rule-based pricing (discount/markup) or
+      <ol>
+        <li><strong>Step 1 — Name your price level.</strong> Enter a name for your customer type — for example Wholesale, Retail, Distributor, or Export.</li>
+        <li><strong>Step 2 — Set pricing rules.</strong> Choose percentage markup, percentage discount, or fixed amount adjustments.</li>
+        <li><strong>Step 3 — Add products to the level.</strong> Select which products belong in this price level.</li>
+        <li><strong>Step 4 — Review and confirm.</strong> Check the summary and create the level.</li>
+      </ol>
+
+      <p>For each level, you can also set either rule-based pricing (discount/markup) or
       custom prices per product. A discount rule applies below the approved
       base price and a markup rule applies above it.</p>
 
@@ -673,8 +688,14 @@ export const helpArticles: HelpArticle[] = [
       Use that level as the customer-specific pricing sheet.</p>
 
       <p>Open the <strong>Price Levels</strong> page, add products to that level, and set
-      each product to either a rule-based adjustment (discount or markup)
-      or a custom exact price.</p>
+      each product using one of these override types:</p>
+      <ul>
+        <li>Percentage markup</li>
+        <li>Percentage discount</li>
+        <li>Fixed custom price</li>
+        <li>Add amount</li>
+        <li>Deduct amount</li>
+      </ul>
 
         <p>When a product's approved base price changes after a cost update,
         rule-based prices recalculate automatically. Custom prices do not
@@ -750,8 +771,8 @@ export const helpArticles: HelpArticle[] = [
 
       <p>The tab gives a portfolio view of pricing health with four sections:</p>
       <ol>
-        <li><strong>Pricing health summary</strong> cards for Healthy margin,
-        Low margin, Critical margin, and Not priced. Click a card to filter
+        <li><strong>Pricing health summary</strong> cards for Healthy markup,
+        Low markup, Critical markup, and Not priced. Click a card to filter
         the table.</li>
         <li><strong>Margin distribution</strong> showing product counts by margin
         band. Click a band to filter results.</li>
@@ -902,7 +923,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>A stale custom price happens when a product base price changes after a fixed custom price was set in a <strong>Price level</strong>. Rule-based entries recalculate automatically, but custom values stay fixed until you review them.</p>
 
-      <p>On the <strong>Price Levels</strong> page, stale custom entries trigger amber warnings. You will see a banner above the table, row-level warning indicators, and a <strong>Review custom price</strong> label on affected items.</p>
+      <p>On the <strong>Price Levels</strong> page, stale custom entries trigger amber warnings. You will see a banner above the table and row-level warning indicators with tooltips about price overrides that may need review — there is no separate <strong>Review custom price</strong> row label.</p>
 
       <p>When you edit a stale row, PriceRight shows relevant values so you can compare custom and current base context before saving. You can keep the custom value, change it, or switch to a rule-based adjustment.</p>
 
@@ -919,13 +940,22 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>PriceRight stores working data in a local SQLite database file. Live business data uses <strong>priceright.db</strong> and demo data uses <strong>demo.db</strong> as a separate file.</p>
 
-      <p>Open <strong>Settings</strong> and go to <strong>Data and Backups</strong> to check backup status. The page shows backup count and latest backup time when available.</p>
+      <p>Open <strong>Settings</strong> and go to <strong>Data &amp; Backups</strong> to check backup status. The page shows backup count and latest backup time when available.</p>
 
-      <p>Use <strong>Create Manual Backup</strong> before major updates such as broad material price imports, product restructuring, or large approval cycles. Manual backup runs immediately and updates status after completion.</p>
+      <p>Use <strong>Create backup</strong> before major updates such as broad material price imports, product restructuring, or large approval cycles. Manual backup runs immediately and updates status after completion.</p>
 
       <p>Automatic backups run on a schedule handled by the server. Manual and automatic backups are both part of the same backup status flow shown in Settings.</p>
 
-      <p>Live and demo data are separate databases. Backup and restore operations for live usage should target the live database context. Do not perform file replacement while the app is running.</p>`,
+      <p>To restore from a backup:</p>
+      <ol>
+        <li>Go to <strong>Settings → Data &amp; Backups</strong></li>
+        <li>Click <strong>Restore from backup</strong></li>
+        <li>Select your backup file (.db)</li>
+        <li>Confirm the restore</li>
+        <li>The app will restart with your restored data</li>
+      </ol>
+
+      <p>Live and demo data are separate databases. Backup and restore operations for live usage should target the live database context.</p>`,
   },
 
   {
@@ -938,7 +968,10 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Use demo mode for training, walkthroughs, and safe experimentation with approvals, price levels, exports, and reporting.</p>
 
-      <p>To switch modes, open <strong>Settings</strong>, go to <strong>Data and Backups</strong>, and toggle the demo mode control. The app confirms the action and reloads after the change.</p>
+      <p>To switch modes, open <strong>Settings</strong>, go to <strong>Data &amp; Backups</strong>,
+      and find the <strong>Data mode</strong> section. Click <strong>Try sample data</strong> to switch
+      to demo mode. Click <strong>Use my real data</strong> to switch back. The app confirms
+      the action and reloads after the change.</p>
 
       <p>When demo mode is enabled, the interface shows demo indicators and reads sample records from the demo database. When disabled, the app returns to live data from the live database file.</p>
 
