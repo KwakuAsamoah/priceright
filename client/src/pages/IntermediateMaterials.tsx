@@ -1158,6 +1158,95 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   return (
     <>
       <div className="materials-tab-body">
+        <div className="app-card app-filter-card">
+          <input
+            className="app-toolbar-input"
+            type="search"
+            placeholder="Search intermediate materials..."
+            value={materialSearch}
+            onChange={(e) => setMaterialSearch(e.target.value)}
+          />
+          <select
+            className="app-toolbar-select"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')}
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <div style={{ flex: 1 }} />
+          <ActionDropdown
+            label="+ Add"
+            buttonClassName="btn btn-primary btn-sm"
+            disabled={baseCurrencyMissing}
+            disabledTitle="Set a base currency first in Settings"
+            items={[
+              {
+                key: 'add-single',
+                label: 'Add single intermediate',
+                icon: <Plus size={14} strokeWidth={2} />,
+                onSelect: openNewMaterialForm,
+              },
+              { key: 'divider-add', type: 'divider' as const },
+              {
+                key: 'import-csv',
+                label: 'Import from CSV',
+                icon: <Upload size={14} strokeWidth={2} />,
+                onSelect: () => setShowIntermediateImportModal(true),
+              },
+            ]}
+          />
+          <ActionDropdown
+            label="More"
+            buttonClassName="btn btn-ghost btn-sm"
+            items={[
+              {
+                key: 'export-excel',
+                label: 'Export to Excel',
+                onSelect: handleExportFilteredMaterialsExcel,
+                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'export-csv',
+                label: 'Export to CSV',
+                onSelect: handleExportFilteredMaterialsCsv,
+                icon: <FileText size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'print',
+                label: 'Print',
+                onSelect: handlePrintFilteredMaterials,
+                icon: <Printer size={13} strokeWidth={2} />,
+              },
+              { key: 'divider-1', type: 'divider' },
+              {
+                key: 'table-settings',
+                label: 'Table settings',
+                onSelect: openIntermediateTableSettings,
+                icon: <Settings2 size={13} strokeWidth={2} />,
+              },
+            ]}
+          />
+          <div
+            ref={intermediatesTableSettingsAnchorRef}
+            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+            aria-hidden="true"
+          >
+            <TableSettingsDropdown
+              columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
+                key: columnKey,
+                label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
+                visible: isIntermediateColumnVisible(columnKey),
+              }))}
+              onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
+              onResetColumns={resetIntermediateColumns}
+              density={tableDensity}
+              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+            />
+          </div>
+        </div>
+
         {selectedIds.size > 0 ? (
           <div
             className="app-bulk-bar app-bulk-bar-sticky"
@@ -1202,93 +1291,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         <div className="app-card app-data-card" style={{ padding: 0 }}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Intermediate Materials ({filteredMaterials.length})</span>
-            <input
-              className="app-toolbar-input"
-              type="search"
-              placeholder="Search intermediate materials..."
-              value={materialSearch}
-              onChange={(e) => setMaterialSearch(e.target.value)}
-            />
-            <select
-              className="app-toolbar-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <div className="app-data-card-header-spacer" />
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-            <ActionDropdown
-              label="+ Add"
-              buttonClassName="btn btn-primary btn-sm"
-              disabled={baseCurrencyMissing}
-              disabledTitle="Set a base currency first in Settings"
-              items={[
-                {
-                  key: 'add-single',
-                  label: 'Add single intermediate',
-                  icon: <Plus size={14} strokeWidth={2} />,
-                  onSelect: openNewMaterialForm,
-                },
-                { key: 'divider-add', type: 'divider' as const },
-                {
-                  key: 'import-csv',
-                  label: 'Import from CSV',
-                  icon: <Upload size={14} strokeWidth={2} />,
-                  onSelect: () => setShowIntermediateImportModal(true),
-                },
-              ]}
-            />
-            <ActionDropdown
-              label="More"
-              buttonClassName="btn btn-ghost btn-sm"
-              items={[
-                {
-                  key: 'export-excel',
-                  label: 'Export to Excel',
-                  onSelect: handleExportFilteredMaterialsExcel,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'export-csv',
-                  label: 'Export to CSV',
-                  onSelect: handleExportFilteredMaterialsCsv,
-                  icon: <FileText size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'print',
-                  label: 'Print',
-                  onSelect: handlePrintFilteredMaterials,
-                  icon: <Printer size={13} strokeWidth={2} />,
-                },
-                { key: 'divider-1', type: 'divider' },
-                {
-                  key: 'table-settings',
-                  label: 'Table settings',
-                  onSelect: openIntermediateTableSettings,
-                  icon: <Settings2 size={13} strokeWidth={2} />,
-                },
-              ]}
-            />
-            <div
-              ref={intermediatesTableSettingsAnchorRef}
-              style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-              aria-hidden="true"
-            >
-              <TableSettingsDropdown
-                columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
-                  key: columnKey,
-                  label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
-                  visible: isIntermediateColumnVisible(columnKey),
-                }))}
-                onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
-                onResetColumns={resetIntermediateColumns}
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
-            </div>
           </div>
           <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>

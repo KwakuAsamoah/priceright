@@ -1213,6 +1213,199 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
 
       <div className="materials-tab-body">
+        <div className="app-card app-filter-card">
+          <input
+            className="app-toolbar-input"
+            type="search"
+            placeholder="Search materials..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <select
+            className="app-toolbar-select"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')}
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          {materialType === 'primary' && foreignCurrencyRates.length > 0 && (
+            <>
+              <div
+                style={{
+                  width: '1px',
+                  height: '18px',
+                  background: '#E2E8F0',
+                  margin: '0 4px',
+                }}
+              />
+              {foreignCurrencyRates.map(({ currency, displayRate, flag }) => {
+                const isEditing = editingRateCurrencyId === currency.id;
+                const isSaving = savingRateCurrencyId === currency.id;
+                const isSaved = recentlySavedCurrencyId === currency.id;
+                return (
+                  <div
+                    key={currency.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: '#64748b',
+                        fontWeight: 500,
+                      }}
+                    >
+                      {currency.code}
+                    </span>
+                    {flag ? <span aria-label={`${currency.code} flag`}>{flag}</span> : null}
+                    {isEditing ? (
+                      <>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editingRateValue}
+                          onChange={(e) => setEditingRateValue(e.target.value)}
+                          style={{ width: '72px', height: '22px', padding: '0 6px', borderRadius: '4px', border: '0.5px solid #E2E8F0', fontSize: '11px' }}
+                        />
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>{baseCurrencyCode}</span>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveExchangeRate(currency.id)} disabled={isSaving} style={{ minHeight: '22px', padding: '0 6px', fontSize: '11px' }}>Save</button>
+                        <button type="button" className="btn btn-secondary btn-sm" onClick={cancelEditingExchangeRate} disabled={isSaving} style={{ minHeight: '22px', padding: '0 6px', fontSize: '11px' }}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          style={{
+                            background: '#F1F5F9',
+                            border: '0.5px solid #E2E8F0',
+                            borderRadius: '4px',
+                            padding: '2px 7px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: '#0F2847',
+                          }}
+                        >
+                          {formatRateValue(displayRate)} {baseCurrencyCode}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => startEditingExchangeRate(currency.id, displayRate)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          title={`Edit ${currency.code} exchange rate`}
+                          aria-label={`Edit ${currency.code} exchange rate`}
+                        >
+                          <Pencil size={12} strokeWidth={2} />
+                        </button>
+                        {isSaved && <CheckCircle2 size={12} strokeWidth={2} color="#16a34a" />}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+              <span
+                style={{
+                  fontSize: '10px',
+                  color: '#94a3b8',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {latestRateUpdateLabel}
+              </span>
+            </>
+          )}
+          <div style={{ flex: 1 }} />
+          <ActionDropdown
+            label="+ Add"
+            buttonClassName="btn btn-primary btn-sm"
+            disabled={baseCurrencyMissing}
+            disabledTitle="Set a base currency first in Settings"
+            items={[
+              {
+                key: 'add-single',
+                label: 'Add single material',
+                icon: <Plus size={14} strokeWidth={2} />,
+                onSelect: () => {
+                  setEditingMaterial(null);
+                  resetForm();
+                  setShowAddModal(true);
+                },
+              },
+              ...(materialType === 'primary' ? [
+                { key: 'divider-add', type: 'divider' as const },
+                {
+                  key: 'import-csv',
+                  label: 'Import from CSV',
+                  icon: <Upload size={14} strokeWidth={2} />,
+                  onSelect: () => {
+                    resetImportState();
+                    setShowImportModal(true);
+                  },
+                },
+              ] : []),
+            ]}
+          />
+          <ActionDropdown
+            label="More"
+            buttonClassName="btn btn-ghost btn-sm"
+            items={[
+              {
+                key: 'export-excel',
+                label: 'Export to Excel',
+                onSelect: handleExportFilteredMaterialsExcel,
+                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'export-csv',
+                label: 'Export to CSV',
+                onSelect: handleExportFilteredMaterialsCsv,
+                icon: <FileText size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'print',
+                label: 'Print',
+                onSelect: handlePrintFilteredMaterials,
+                icon: <Printer size={13} strokeWidth={2} />,
+              },
+              { key: 'divider-1', type: 'divider' },
+              {
+                key: 'table-settings',
+                label: 'Table settings',
+                onSelect: openMaterialsTableSettings,
+                icon: <Settings2 size={13} strokeWidth={2} />,
+              },
+            ]}
+          />
+          <div
+            ref={materialsTableSettingsAnchorRef}
+            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+            aria-hidden="true"
+          >
+            <TableSettingsDropdown
+              columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
+                key: column.key,
+                label: column.label,
+                visible: isMaterialColumnVisible(column.key),
+              }))}
+              onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
+              onResetColumns={resetMaterialColumns}
+              density={tableDensity}
+              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+            />
+          </div>
+        </div>
+
         {/* Bulk Action Bar */}
         {selectedMaterials.size > 0 && (
           <div
@@ -1295,148 +1488,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         <div className="app-card app-data-card" style={{ padding: 0 }}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Materials ({filteredMaterials.length})</span>
-            <input
-              className="app-toolbar-input"
-              type="search"
-              placeholder="Search materials..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <select
-              className="app-toolbar-select"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'inactive')}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            {materialType === 'primary' && foreignCurrencyRates.length > 0 && (
-              <div className="app-toolbar-rate-group">
-                {foreignCurrencyRates.map(({ currency, displayRate, flag }) => {
-                  const isEditing = editingRateCurrencyId === currency.id;
-                  const isSaving = savingRateCurrencyId === currency.id;
-                  const isSaved = recentlySavedCurrencyId === currency.id;
-                  return (
-                    <span key={currency.id} className="app-toolbar-rate-group" style={{ marginLeft: 0 }}>
-                      <span className="app-toolbar-rate-code">{currency.code}</span>
-                      {flag ? <span aria-label={`${currency.code} flag`}>{flag}</span> : null}
-                      {isEditing ? (
-                        <>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={editingRateValue}
-                            onChange={(e) => setEditingRateValue(e.target.value)}
-                            style={{ width: '72px', height: '22px', padding: '0 6px', borderRadius: '4px', border: '0.5px solid #E2E8F0', fontSize: '11px' }}
-                          />
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>{baseCurrencyCode}</span>
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => saveExchangeRate(currency.id)} disabled={isSaving} style={{ minHeight: '22px', padding: '0 6px', fontSize: '11px' }}>Save</button>
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={cancelEditingExchangeRate} disabled={isSaving} style={{ minHeight: '22px', padding: '0 6px', fontSize: '11px' }}>Cancel</button>
-                        </>
-                      ) : (
-                        <span className="app-toolbar-rate-badge">
-                          {formatRateValue(displayRate)} {baseCurrencyCode}
-                          <button
-                            type="button"
-                            onClick={() => startEditingExchangeRate(currency.id, displayRate)}
-                            style={{ border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', padding: 0 }}
-                            aria-label={`Edit ${currency.code} exchange rate`}
-                            title={`Edit ${currency.code} exchange rate`}
-                          >
-                            <Pencil size={12} strokeWidth={2} />
-                          </button>
-                          {isSaved && <CheckCircle2 size={12} strokeWidth={2} color="#16a34a" />}
-                        </span>
-                      )}
-                    </span>
-                  );
-                })}
-                {materialType === 'primary' && foreignCurrencyRates.length > 0 && (
-                  <span style={{ fontSize: '10px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{latestRateUpdateLabel}</span>
-                )}
-              </div>
-            )}
-            <div className="app-data-card-header-spacer" />
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-            <ActionDropdown
-              label="+ Add"
-              buttonClassName="btn btn-primary btn-sm"
-              disabled={baseCurrencyMissing}
-              disabledTitle="Set a base currency first in Settings"
-              items={[
-                {
-                  key: 'add-single',
-                  label: 'Add single material',
-                  icon: <Plus size={14} strokeWidth={2} />,
-                  onSelect: () => {
-                    setEditingMaterial(null);
-                    resetForm();
-                    setShowAddModal(true);
-                  },
-                },
-                ...(materialType === 'primary' ? [
-                  { key: 'divider-add', type: 'divider' as const },
-                  {
-                    key: 'import-csv',
-                    label: 'Import from CSV',
-                    icon: <Upload size={14} strokeWidth={2} />,
-                    onSelect: () => {
-                      resetImportState();
-                      setShowImportModal(true);
-                    },
-                  },
-                ] : []),
-              ]}
-            />
-            <ActionDropdown
-              label="More"
-              buttonClassName="btn btn-ghost btn-sm"
-              items={[
-                {
-                  key: 'export-excel',
-                  label: 'Export to Excel',
-                  onSelect: handleExportFilteredMaterialsExcel,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'export-csv',
-                  label: 'Export to CSV',
-                  onSelect: handleExportFilteredMaterialsCsv,
-                  icon: <FileText size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'print',
-                  label: 'Print',
-                  onSelect: handlePrintFilteredMaterials,
-                  icon: <Printer size={13} strokeWidth={2} />,
-                },
-                { key: 'divider-1', type: 'divider' },
-                {
-                  key: 'table-settings',
-                  label: 'Table settings',
-                  onSelect: openMaterialsTableSettings,
-                  icon: <Settings2 size={13} strokeWidth={2} />,
-                },
-              ]}
-            />
-            <div
-              ref={materialsTableSettingsAnchorRef}
-              style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-              aria-hidden="true"
-            >
-              <TableSettingsDropdown
-                columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
-                  key: column.key,
-                  label: column.label,
-                  visible: isMaterialColumnVisible(column.key),
-                }))}
-                onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
-                onResetColumns={resetMaterialColumns}
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
-            </div>
           </div>
 
           {materialType === 'primary' && exchangeRateNotice && (

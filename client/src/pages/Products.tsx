@@ -1603,6 +1603,101 @@ export default function Products() {
       <div className="app-page-content">
       {activeTab === 'products' && (
       <div className="materials-tab-body">
+        <div className="app-card app-filter-card">
+          <input
+            className="app-toolbar-input"
+            type="search"
+            placeholder="Search products..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+          <select
+            className="app-toolbar-select"
+            style={{ width: '110px' }}
+            value={selectedApprovalStatus}
+            onChange={(e) => setSelectedApprovalStatus(e.target.value)}
+          >
+            {APPROVAL_STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          <div style={{ flex: 1 }} />
+          <ActionDropdown
+            label="+ Add"
+            buttonClassName="btn btn-primary btn-sm"
+            disabled={baseCurrencyMissing}
+            disabledTitle="Set a base currency first in Settings"
+            items={[
+              {
+                key: 'add-single',
+                label: 'Add single product',
+                icon: <Plus size={14} strokeWidth={2} />,
+                onSelect: handleAddProduct,
+              },
+              { key: 'divider-add', type: 'divider' as const },
+              {
+                key: 'import-csv',
+                label: 'Import from CSV',
+                icon: <Upload size={14} strokeWidth={2} />,
+                onSelect: () => setShowImportModal(true),
+              },
+            ]}
+          />
+          <ActionDropdown
+            label="More"
+            buttonClassName="btn btn-ghost btn-sm"
+            items={[
+              {
+                key: 'export-excel',
+                label: 'Export to Excel',
+                onSelect: handleExportToExcel,
+                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'export-csv',
+                label: 'Export to CSV',
+                onSelect: handleExportFilteredProductsCsv,
+                icon: <FileText size={13} strokeWidth={2} />,
+              },
+              {
+                key: 'print',
+                label: 'Print',
+                onSelect: handlePrintFilteredProducts,
+                icon: <Printer size={13} strokeWidth={2} />,
+              },
+              { key: 'divider-1', type: 'divider' },
+              {
+                key: 'table-settings',
+                label: 'Table settings',
+                onSelect: openProductsTableSettings,
+                icon: <Settings2 size={13} strokeWidth={2} />,
+              },
+            ]}
+          />
+          <div
+            ref={productsTableSettingsAnchorRef}
+            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
+            aria-hidden="true"
+          >
+            <TableSettingsDropdown
+              columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
+                key: column.key,
+                label: column.label,
+                visible: isProductColumnVisible(column.key),
+              }))}
+              onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
+              onResetColumns={resetProductColumns}
+              density={tableDensity}
+              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              onApproveAllEligible={handleApproveAllEligible}
+              approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
+              disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
+            />
+          </div>
+        </div>
+
         {shouldShowNeedsReviewBanner && (
           <div
             style={{
@@ -1742,99 +1837,7 @@ export default function Products() {
         <div className="app-card app-data-card" style={{ padding: 0 }} ref={productsTableRef}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Products ({filteredProducts.length})</span>
-            <input
-              className="app-toolbar-input"
-              type="search"
-              placeholder="Search products..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-            />
-            <select
-              className="app-toolbar-select"
-              style={{ width: '110px' }}
-              value={selectedApprovalStatus}
-              onChange={(e) => setSelectedApprovalStatus(e.target.value)}
-            >
-              {APPROVAL_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <div className="app-data-card-header-spacer" />
             <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-            <ActionDropdown
-              label="+ Add"
-              buttonClassName="btn btn-primary btn-sm"
-              disabled={baseCurrencyMissing}
-              disabledTitle="Set a base currency first in Settings"
-              items={[
-                {
-                  key: 'add-single',
-                  label: 'Add single product',
-                  icon: <Plus size={14} strokeWidth={2} />,
-                  onSelect: handleAddProduct,
-                },
-                { key: 'divider-add', type: 'divider' as const },
-                {
-                  key: 'import-csv',
-                  label: 'Import from CSV',
-                  icon: <Upload size={14} strokeWidth={2} />,
-                  onSelect: () => setShowImportModal(true),
-                },
-              ]}
-            />
-            <ActionDropdown
-              label="More"
-              buttonClassName="btn btn-ghost btn-sm"
-              items={[
-                {
-                  key: 'export-excel',
-                  label: 'Export to Excel',
-                  onSelect: handleExportToExcel,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'export-csv',
-                  label: 'Export to CSV',
-                  onSelect: handleExportFilteredProductsCsv,
-                  icon: <FileText size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'print',
-                  label: 'Print',
-                  onSelect: handlePrintFilteredProducts,
-                  icon: <Printer size={13} strokeWidth={2} />,
-                },
-                { key: 'divider-1', type: 'divider' },
-                {
-                  key: 'table-settings',
-                  label: 'Table settings',
-                  onSelect: openProductsTableSettings,
-                  icon: <Settings2 size={13} strokeWidth={2} />,
-                },
-              ]}
-            />
-            <div
-              ref={productsTableSettingsAnchorRef}
-              style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-              aria-hidden="true"
-            >
-              <TableSettingsDropdown
-                columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
-                  key: column.key,
-                  label: column.label,
-                  visible: isProductColumnVisible(column.key),
-                }))}
-                onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
-                onResetColumns={resetProductColumns}
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-                onApproveAllEligible={handleApproveAllEligible}
-                approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
-                disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
-              />
-            </div>
           </div>
           {filteredProducts.length === 0 ? (
             products.length === 0 ? (

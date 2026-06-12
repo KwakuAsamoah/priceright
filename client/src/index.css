@@ -117,26 +117,17 @@ textarea {
   padding: 12px var(--space-page) 16px;
 }
 
+.app-page-header .app-section-tabs {
+  margin-top: 0;
+}
+
 .materials-shell .app-page-header,
 .products-shell .app-page-header {
-  padding: 0 var(--space-page);
-  display: flex;
-  align-items: stretch;
-  gap: 20px;
-  border-bottom: 1px solid #E2E8F0;
+  padding: 10px var(--space-page) 0;
   background: #ffffff;
+  border-bottom: 1px solid #E2E8F0;
   flex-shrink: 0;
-}
-
-.app-page-header .app-section-tabs {
-  margin-top: 12px;
-}
-
-.materials-shell .app-page-header .app-section-tabs,
-.products-shell .app-page-header .app-section-tabs {
-  margin-top: 0;
-  border-bottom: none;
-  flex: 1;
+  display: block;
 }
 
 .app-page-title {
@@ -150,13 +141,10 @@ textarea {
 
 .materials-shell .app-page-title,
 .products-shell .app-page-title {
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 700;
   color: #0F2847;
-  display: flex;
-  align-items: center;
-  padding: 10px 0;
-  margin: 0;
+  margin: 0 0 8px;
   white-space: nowrap;
 }
 
@@ -191,7 +179,7 @@ textarea {
 .materials-shell .app-page-content,
 .products-shell .app-page-content {
   padding: 8px var(--space-page);
-  gap: 0;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -239,7 +227,7 @@ textarea {
 .materials-shell .app-page .app-section-tab,
 .products-shell .app-section-tab,
 .products-shell .app-page .app-section-tab {
-  padding: 0 14px !important;
+  padding: 6px 14px !important;
   font-size: 12px !important;
   font-weight: 500 !important;
   color: #64748b !important;
@@ -407,6 +395,24 @@ textarea {
   flex-wrap: wrap;
 }
 
+.materials-shell .app-filter-card,
+.products-shell .app-filter-card {
+  background: #ffffff;
+  border: 0.5px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-wrap: wrap;
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
 .app-filter-card {
   position: sticky;
   top: 0;
@@ -452,7 +458,7 @@ textarea {
 .materials-tab-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
   flex: 1;
@@ -577,10 +583,9 @@ textarea {
   border-bottom: 1px solid #E2E8F0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   flex-shrink: 0;
   background: #ffffff;
-  flex-wrap: wrap;
 }
 
 .app-data-card-title {
@@ -594,7 +599,7 @@ textarea {
 .app-toolbar-input {
   flex: 1;
   max-width: 220px;
-  height: 26px;
+  height: 28px;
   border: 0.5px solid #E2E8F0;
   border-radius: 5px;
   padding: 0 8px;
@@ -604,13 +609,21 @@ textarea {
 }
 
 .app-toolbar-select {
-  width: 80px;
-  height: 26px;
+  width: 90px;
+  height: 28px;
   border: 0.5px solid #E2E8F0;
   border-radius: 5px;
   font-size: 12px;
   background: #F8FAFC;
   padding: 0 6px;
+}
+
+.materials-shell .app-filter-card .btn-sm,
+.products-shell .app-filter-card .btn-sm {
+  min-height: 28px !important;
+  height: 28px;
+  padding: 0 10px !important;
+  font-size: 12px !important;
 }
 
 .app-toolbar-rate-group {
