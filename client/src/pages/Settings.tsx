@@ -5,6 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
 import AppModal from '../components/AppModal';
+import { PrivacyPolicyContent, TermsOfServiceContent } from '../data/legalContent';
 import useAppToast from '../hooks/useAppToast';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useFormState } from '../context/FormStateContext';
@@ -168,10 +169,12 @@ export default function Settings() {
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
-    setHasOpenForm(showAddModal || showResetModal);
-  }, [showAddModal, showResetModal, setHasOpenForm]);
+    setHasOpenForm(showAddModal || showResetModal || showPrivacy || showTerms);
+  }, [showAddModal, showResetModal, showPrivacy, showTerms, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -937,6 +940,29 @@ async function loadData() {
                 >
                   v{import.meta.env.VITE_APP_VERSION}
                 </div>
+              </div>
+              <div style={{
+                marginTop: '16px',
+                paddingTop: '16px',
+                borderTop: '1px solid #F1F5F9',
+                display: 'flex',
+                gap: '16px',
+                justifyContent: 'center',
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowPrivacy(true)}
+                >
+                  Privacy Policy
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowTerms(true)}
+                >
+                  Terms of Service
+                </button>
               </div>
             </div>
 
@@ -1775,6 +1801,18 @@ async function loadData() {
             </button>
           </div>
         </form>
+      </AppModal>
+
+      <AppModal open={showPrivacy} onClose={() => setShowPrivacy(false)} title="Privacy Policy" maxWidth={640}>
+        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+          <PrivacyPolicyContent />
+        </div>
+      </AppModal>
+
+      <AppModal open={showTerms} onClose={() => setShowTerms(false)} title="Terms of Service" maxWidth={640}>
+        <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '4px' }}>
+          <TermsOfServiceContent />
+        </div>
       </AppModal>
 
     </div>
