@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { API_BASE } from '../api';
+import { Download } from 'lucide-react';
+import { API_BASE, demoModeApi } from '../api';
 
 export function LockScreen({
   email,
@@ -40,19 +41,42 @@ export function LockScreen({
     }
   }
 
-  async function handleExport() {
+  async function handleExportData() {
+    try {
+      const demoState = await demoModeApi.get();
+      if (demoState.demoMode) {
+        alert('You are in demo mode. Switch to your real data first.');
+        return;
+      }
+    } catch {
+      // If demo mode cannot be checked, continue with export attempt
+    }
+
     setExporting(true);
     try {
-      const response = await fetch(`${API_BASE}/backup`);
-      if (!response.ok) throw new Error('Failed');
-      const buffer = await response.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
+      const date = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `priceright_backup_${date}.db`;
+
+      if (window.electronAPI?.isElectron) {
+        const response = await fetch(`${API_BASE}/backup/download`);
+        if (!response.ok) throw new Error('Backup download failed');
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        const result = await window.electronAPI.saveBackupFile(base64, filename);
+        if (!result.canceled && !result.success) {
+          throw new Error(result.error ?? 'Save failed');
+        }
+      } else {
+        const link = document.createElement('a');
+        link.href = `${API_BASE}/backup/download`;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
-      const base64 = btoa(binary);
-      await window.electronAPI!.saveBackupFile(base64, 'PriceRight_DataExport.db');
     } catch {
       alert('Export failed. Please try again.');
     } finally {
@@ -133,29 +157,60 @@ export function LockScreen({
           style={{
             width: '100%', padding: '12px', background: 'white', color: '#0f172a',
             border: '2px solid #0f172a', borderRadius: '8px',
-            fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '28px',
+            fontSize: '15px', fontWeight: 700, cursor: 'pointer',
           }}
         >
           Purchase a licence →
         </button>
 
-        {/* Data export */}
-        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '20px', textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '10px' }}>
-            Want to save your data first?
+        <div style={{
+          borderTop: '1px solid #F1F5F9',
+          marginTop: '20px',
+          paddingTop: '16px',
+        }}>
+          <div style={{
+            fontSize: '12px',
+            color: '#94a3b8',
+            textAlign: 'center',
+            marginBottom: '8px',
+          }}>
+            Not ready to purchase?
           </div>
           <button
             type="button"
-            onClick={() => void handleExport()}
+            className="btn btn-secondary"
+            onClick={() => void handleExportData()}
             disabled={exporting}
             style={{
-              background: 'none', border: 'none', color: '#3b82f6',
-              fontSize: '13px', fontWeight: 600, cursor: exporting ? 'default' : 'pointer',
-              textDecoration: 'underline', opacity: exporting ? 0.6 : 1, padding: 0,
+              width: '100%',
+              marginTop: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
             }}
           >
-            {exporting ? 'Exporting...' : 'Download my data backup'}
+            <Download size={16} />
+            {exporting ? 'Exporting...' : 'Download my data before I decide'}
           </button>
+          <div style={{
+            textAlign: 'center',
+            marginTop: '12px',
+            fontSize: '12px',
+            color: '#94a3b8',
+          }}>
+            Need help?{' '}
+            <a
+              href="mailto:hello@therighthub.com"
+              style={{
+                color: '#0F2847',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              hello@therighthub.com
+            </a>
+          </div>
         </div>
       </div>
     </div>
