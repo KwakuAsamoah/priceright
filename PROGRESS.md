@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 1 June 2026
-**Current version:** 1.0.23
+**Current version:** 1.0.24
 **Active branch:** main
 
 ---
@@ -66,6 +66,7 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.20 | Jun 2026 | Sticky headers, Markup/Gross Margin rename, tooltips |
 | v1.0.22 | Jun 2026 | Help centre overhaul, UI consistency phases 1-3 |
 | v1.0.23 | Jun 2026 | Activity log userId/userName for future multi-user support |
+| v1.0.24 | Jun 2026 | Backup/restore fixes, lock screen UX, demo mode guards |
 
 ---
 
