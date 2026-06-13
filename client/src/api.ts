@@ -661,17 +661,6 @@ export const priceLevelItemsApi = {
 
 // Backup API
 export const backupApi = {
-  createBackup: async () => {
-    const res = await fetch(`${API_BASE}/backup`, {
-      method: 'POST',
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to create backup');
-    }
-    return res.json();
-  },
-
   getStatus: async () => {
     const res = await fetch(`${API_BASE}/backup/status`);
     if (!res.ok) {

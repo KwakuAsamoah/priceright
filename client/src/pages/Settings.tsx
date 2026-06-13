@@ -1303,7 +1303,7 @@ async function loadData() {
         <div className="app-card app-settings-card">
           <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Database Backups</h2>
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-            Automatic backups are created hourly. You can also create a manual backup at any time.
+            PriceRight automatically creates local backups every hour. Use the button below to download a backup file you can store safely offsite.
           </p>
 
           <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '15px', color: '#166534' }}>
@@ -1328,22 +1328,39 @@ async function loadData() {
             )}
           </div>
 
+          {isDemoMode && (
+            <div style={{
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              fontSize: '13px',
+              color: '#D97706',
+              marginBottom: '12px',
+            }}>
+              ⚠ You are in demo mode. Switch to your real data before creating a backup.
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               className="btn btn-primary"
               onClick={() => { void handleBackup(); }}
-              disabled={isBackingUp || isRestoring}
+              disabled={isBackingUp || isRestoring || isDemoMode}
             >
-              {isBackingUp ? 'Creating backup...' : 'Create backup'}
+              {isBackingUp ? 'Downloading backup...' : 'Download backup file'}
             </button>
             <button
               className="btn btn-outline"
               onClick={() => { void handleRestore(); }}
-              disabled={isBackingUp || isRestoring}
+              disabled={isBackingUp || isRestoring || isDemoMode}
             >
               {isRestoring ? 'Restoring...' : 'Restore from backup'}
             </button>
           </div>
+          <p style={{ marginTop: '10px', fontSize: '14px', color: '#64748b' }}>
+            Downloads your current data as a backup file. Save it to a safe location such as Google Drive, Dropbox, or a USB drive.
+          </p>
           {backupUserMsg && (
             <div style={{ marginTop: '10px', fontSize: '15px', color: '#166534' }}>{backupUserMsg}</div>
           )}

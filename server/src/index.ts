@@ -554,7 +554,7 @@ app.post('/api/backup', (req, res) => {
 
 app.get('/api/backup/status', (req, res) => {
   try {
-    const backupsDir = path.resolve(process.cwd(), 'backups');
+    const backupsDir = path.resolve(path.dirname(DATABASE_FILE_PATH), 'backups');
     const backupCount = fs.existsSync(backupsDir)
       ? fs.readdirSync(backupsDir).filter((fileName) => fileName.startsWith('backup-') && fileName.endsWith('.db')).length
       : 0;
@@ -580,6 +580,12 @@ app.get('/api/backup/status', (req, res) => {
 
 // --- User-initiated backup download ---
 app.get('/api/backup/download', (_req, res) => {
+  if (readDemoModeState()) {
+    return res.status(400).json({
+      error: 'Cannot backup or restore while in demo mode. Switch to your real data first in Settings → Data & Backups.',
+    });
+  }
+
   try {
     if (!fs.existsSync(DATABASE_FILE_PATH)) {
       res.status(404).json({ error: 'Database file not found' });
@@ -599,6 +605,12 @@ app.get('/api/backup/download', (_req, res) => {
 
 // --- Restore from user-uploaded backup (base64 JSON body) ---
 app.post('/api/backup/restore', express.json({ limit: '200mb' }), async (req, res) => {
+  if (readDemoModeState()) {
+    return res.status(400).json({
+      error: 'Cannot backup or restore while in demo mode. Switch to your real data first in Settings → Data & Backups.',
+    });
+  }
+
   const { data } = req.body as { data?: string };
   if (!data) {
     res.status(400).json({ error: 'No backup data provided' });
