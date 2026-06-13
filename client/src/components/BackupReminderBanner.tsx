@@ -106,7 +106,7 @@ export function BackupReminderBanner() {
     : `You last backed up ${daysSinceBackup} days ago.`;
 
   return (
-    <div style={{
+    <div className="backup-reminder-banner" style={{
       background: '#FFFBEB',
       borderBottom: '1px solid #FDE68A',
       padding: '8px 20px',

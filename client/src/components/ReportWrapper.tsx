@@ -6,6 +6,7 @@ interface ReportWrapperProps {
   subtitle: string;
   onExportPDF: () => void;
   onExportExcel: () => void;
+  onPrint?: () => void;
   isLoading: boolean;
   error: string | null;
   isEmpty: boolean;
@@ -18,6 +19,7 @@ export default function ReportWrapper({
   subtitle,
   onExportPDF,
   onExportExcel,
+  onPrint,
   isLoading,
   error,
   isEmpty,
@@ -37,6 +39,14 @@ export default function ReportWrapper({
         </div>
 
         <div className="export-buttons" style={{ display: 'flex', gap: '8px' }}>
+          {onPrint && (
+            <AppButton variant="secondary" size="sm" onClick={onPrint} disabled={!generatedAt || isLoading || !!error || isEmpty}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Printer size={14} strokeWidth={2} />
+                Print
+              </span>
+            </AppButton>
+          )}
           <AppButton variant="secondary" size="sm" onClick={onExportPDF} disabled={!generatedAt || isLoading || !!error || isEmpty}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Printer size={14} strokeWidth={2} />

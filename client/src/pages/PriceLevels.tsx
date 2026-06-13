@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Printer, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   priceLevelItemsApi,
@@ -20,6 +20,7 @@ import TableZoomControl from '../components/TableZoomControl';
 import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
+import { usePrint } from '../hooks/usePrint';
 
 type PriceLevelRule = {
   id: number;
@@ -264,6 +265,7 @@ export default function PriceLevels() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [selectedLevelIds, setSelectedLevelIds] = useState<Set<number>>(new Set());
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
+  const { handlePrint } = usePrint();
 
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [addProductsSearch, setAddProductsSearch] = useState('');
@@ -1462,6 +1464,22 @@ export default function PriceLevels() {
                         <Download size={14} />
                         Export price list
                       </AppButton>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={() => {
+                          if (selectedLevelItems.length === 0) return;
+                          void handlePrint({
+                            title: `${selectedLevel.name} — Price List`,
+                            subtitle: `Valid as of ${new Date().toLocaleDateString('en-GB')}`,
+                          });
+                        }}
+                        disabled={selectedLevelItems.length === 0}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Printer size={14} />
+                        Print price list
+                      </button>
                       <OverflowMenu
                         ariaLabel="More actions for selected price level"
                         items={[

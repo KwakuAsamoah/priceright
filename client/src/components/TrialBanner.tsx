@@ -21,7 +21,7 @@ export function TrialBanner() {
       : `${days} days left in your trial`;
 
   return (
-    <div style={{
+    <div className="trial-banner" style={{
       backgroundColor: bg, color: 'white',
       padding: '8px 20px', display: 'flex', alignItems: 'center',
       gap: '12px', flexWrap: 'wrap', fontSize: '13px',

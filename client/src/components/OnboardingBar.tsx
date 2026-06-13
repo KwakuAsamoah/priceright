@@ -51,6 +51,7 @@ export function OnboardingBar() {
 
   return (
     <div
+      className="onboarding-bar"
       style={{
         background: '#0F2847',
         borderBottom: '1px solid rgba(255,255,255,0.08)',

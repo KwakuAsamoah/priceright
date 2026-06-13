@@ -605,6 +605,11 @@ function AppLayout({ children }: { children: ReactNode }) {
           </aside>
 
         <main className="app-main">
+          <div
+            id="print-header"
+            className="print-header"
+            aria-hidden="true"
+          />
           {/* IPC listener — registers update events, renders nothing */}
           <UpdateModal />
           <TrialBanner />

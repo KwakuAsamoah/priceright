@@ -8,6 +8,7 @@ import {
   Clock,
   Clock3,
   PlusCircle,
+  Printer,
   Tag,
   Trash2,
   TrendingUp,
@@ -15,6 +16,7 @@ import {
   XSquare,
 } from 'lucide-react';
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
+import { usePrint } from '../hooks/usePrint';
 
 const PAGE_SIZE = 50;
 
@@ -261,6 +263,7 @@ export default function Activity() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { handlePrint } = usePrint();
 
   useEffect(() => {
     let mounted = true;
@@ -344,6 +347,25 @@ export default function Activity() {
       <div className="app-page-header">
         <h1 className="app-page-title">Activity</h1>
         <div className="app-page-subtitle">Complete record of all actions across the app</div>
+        <div style={{ marginTop: '10px' }} data-print-hide>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => {
+              const dateRange = fromDate || toDate
+                ? `${fromDate || 'start'} to ${toDate || 'today'}`
+                : 'All dates';
+              void handlePrint({
+                title: 'Activity Log',
+                subtitle: dateRange,
+              });
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Printer size={14} />
+            Print / Export PDF
+          </button>
+        </div>
       </div>
 
       <div className="app-page-content app-page-content--data">

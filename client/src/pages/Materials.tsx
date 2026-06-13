@@ -17,6 +17,7 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
+import { usePrint } from '../hooks/usePrint';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 
 interface Material {
@@ -228,6 +229,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
+  const { handlePrint } = usePrint();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -697,66 +699,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     );
 
     showToastMessage(`Exported ${filteredMaterials.length} filtered material${filteredMaterials.length !== 1 ? 's' : ''} to CSV`, 'success');
-  }
-
-  function handlePrintFilteredMaterials() {
-    if (filteredMaterials.length === 0) {
-      showToastMessage('No materials to print', 'error');
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const rowsHtml = filteredMaterials
-      .map(
-        (material) => `
-          <tr>
-            <td>${material.name}</td>
-            <td>${material.sku || '-'}</td>
-            <td>${material.category}</td>
-            <td>${material.unit}</td>
-            <td style="text-align:right;">${Number(material.bulkQuantity || 0).toFixed(2)}</td>
-            <td style="text-align:right;">${Number(material.bulkPrice || 0).toFixed(2)}</td>
-            <td>${material.purchaseCurrencyCode}</td>
-            <td style="text-align:right;">${Number(material.unitPrice || 0).toFixed(2)}</td>
-            <td>${material.isActive ? 'Active' : 'Inactive'}</td>
-          </tr>
-        `
-      )
-      .join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Raw Materials Report</title>
-          <style>
-            body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 25px; }
-            .meta { margin-bottom: 12px; color: #475569; font-size: 13px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 13px; text-align: left; }
-            th { background: #f8fafc; }
-            @media print { body { margin: 0; } }
-          </style>
-        </head>
-        <body>
-          <h1>Raw Materials Report</h1>
-          <div class="meta">Generated ${new Date().toLocaleString()} • ${filteredMaterials.length} record(s)</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Material</th><th>SKU</th><th>Category</th><th>Unit</th><th>Bulk Qty</th><th>Bulk Price</th><th>Currency</th><th>Unit Cost</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 250);
   }
 
   async function handleViewPriceHistory(material: Material) {
@@ -1348,9 +1290,18 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               },
               {
                 key: 'print',
-                label: 'Print',
-                onSelect: handlePrintFilteredMaterials,
-                icon: <Printer size={13} strokeWidth={2} />,
+                label: 'Print / Export PDF',
+                onSelect: () => {
+                  if (filteredMaterials.length === 0) {
+                    showToastMessage('No materials to print', 'error');
+                    return;
+                  }
+                  void handlePrint({
+                    title: 'Materials List',
+                    subtitle: `${filteredMaterials.length} materials`,
+                  });
+                },
+                icon: <Printer size={15} strokeWidth={2} />,
               },
               { key: 'divider-1', type: 'divider' },
               {

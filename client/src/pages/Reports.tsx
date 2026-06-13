@@ -14,6 +14,7 @@ import AppButton from '../components/AppButton';
 import ReportWrapper from '../components/ReportWrapper';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
+import { usePrint } from '../hooks/usePrint';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
@@ -291,6 +292,7 @@ export default function Reports() {
   const [approvalCategoryFilter, setApprovalCategoryFilter] = useState('All');
 
   const selectedMeta = REPORT_METADATA.find((item) => item.key === selectedReport) || null;
+  const { handlePrint } = usePrint();
 
   useEffect(() => {
     let cancelled = false;
@@ -780,6 +782,13 @@ export default function Reports() {
 
   function handleExportPDF() {
     exportToPDF('reporting-centre-print-area', `${selectedMeta?.name || 'report'}.pdf`);
+  }
+
+  function handlePrintReport() {
+    void handlePrint({
+      title: selectedMeta?.name || 'Report',
+      subtitle: `Generated: ${new Date().toLocaleDateString('en-GB')}`,
+    });
   }
 
   const pricingCategories = useMemo(() => availableCategories, [availableCategories]);
@@ -1339,6 +1348,7 @@ export default function Reports() {
                     subtitle={selectedMeta.description}
                     onExportPDF={handleExportPDF}
                     onExportExcel={handleExportExcel}
+                    onPrint={handlePrintReport}
                     isLoading={isLoading}
                     error={error}
                     isEmpty={!isLoading && !error && generatedRowsCount === 0}

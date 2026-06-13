@@ -14,6 +14,7 @@ import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
+import { usePrint } from '../hooks/usePrint';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
@@ -310,6 +311,7 @@ export default function Products() {
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
+  const { handlePrint } = usePrint();
 
   useEffect(() => {
     const hasProfitOnCost = visibleColumns.includes('profitOnCost');
@@ -1423,84 +1425,6 @@ export default function Products() {
     showToastMessage(`Exported ${filteredProducts.length} filtered product${filteredProducts.length !== 1 ? 's' : ''} to CSV`, 'success');
   }
 
-  function handlePrintFilteredProducts() {
-    if (filteredProducts.length === 0) {
-      showToastMessage('No products to print', 'error');
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const rowsHtml = filteredProducts
-      .map((product) => {
-        const analysis = calculatePricingAnalysis(product);
-        const currentPrice = Number(product.currentSellingPrice || 0);
-        const profitOnCost = calculateProfitOnCost(product);
-        const profitOnSales = calculateProfitOnSales(product);
-        const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
-        const statusColor = analysis.status === 'below-optimal'
-          ? '#b91c1c'
-          : analysis.status === 'above-optimal'
-            ? '#166534'
-            : '#475569';
-        const statusBg = analysis.status === 'below-optimal'
-          ? '#fef2f2'
-          : analysis.status === 'above-optimal'
-            ? '#f0fdf4'
-            : '#f8fafc';
-        return `
-          <tr>
-            <td>${product.name}</td>
-            <td>${product.sku || '-'}</td>
-            <td style="text-align:right;">${product.totalCost.toFixed(2)}</td>
-            <td style="text-align:right;">${product.optimalPrice.toFixed(2)}</td>
-            <td>${formatApprovalDate(product.approvedAt)}</td>
-            <td>${normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : ''}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set'}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-'}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-'}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? analysis.variance.toFixed(2) : '-'}</td>
-            <td style="text-align:right; background:${statusBg}; color:${statusColor}; font-weight:700;">${currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-'}</td>
-            <td>${analysis.label}</td>
-          </tr>
-        `;
-      })
-      .join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Products Report</title>
-          <style>
-            body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 24px; color: #0f172a; }
-            h1 { margin: 0 0 6px; font-size: 25px; }
-            .meta { margin-bottom: 12px; color: #475569; font-size: 13px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #e2e8f0; padding: 8px 10px; font-size: 13px; text-align: left; }
-            th { background: #f8fafc; }
-            @media print { body { margin: 0; } }
-          </style>
-        </head>
-        <body>
-          <h1>Products Report</h1>
-          <div class="meta">Generated ${new Date().toLocaleString()} • ${filteredProducts.length} record(s)</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Product</th><th>SKU</th><th>Total Cost</th><th>Optimal Price</th><th>Valid until</th><th>Approved base price</th><th>Markup %</th><th>Gross Margin %</th><th>Variance (Amt)</th><th>Variance (%)</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 250);
-  }
-
   const eligibleApproveCount = useMemo(() => {
     return filteredProducts.filter((product) => {
       const status = product.approvalStatus || 'pending';
@@ -1663,9 +1587,18 @@ export default function Products() {
               },
               {
                 key: 'print',
-                label: 'Print',
-                onSelect: handlePrintFilteredProducts,
-                icon: <Printer size={13} strokeWidth={2} />,
+                label: 'Print / Export PDF',
+                onSelect: () => {
+                  if (filteredProducts.length === 0) {
+                    showToastMessage('No products to print', 'error');
+                    return;
+                  }
+                  void handlePrint({
+                    title: 'Products List',
+                    subtitle: `${filteredProducts.length} products`,
+                  });
+                },
+                icon: <Printer size={15} strokeWidth={2} />,
               },
               { key: 'divider-1', type: 'divider' },
               {

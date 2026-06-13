@@ -15,6 +15,7 @@ import useAppToast from '../hooks/useAppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
+import { usePrint } from '../hooks/usePrint';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -271,6 +272,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
+  const { handlePrint } = usePrint();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
@@ -806,58 +808,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to Excel`, 'success');
   }
 
-  function handlePrintFilteredMaterials() {
-    const printWindow = window.open('', '_blank', 'width=1200,height=800');
-    if (!printWindow) {
-      showToastMessage('Unable to open print preview', 'error');
-      return;
-    }
-
-    const rows = filteredMaterials.map((material) => `
-      <tr>
-        <td>${material.name}</td>
-        <td>${material.sku || ''}</td>
-        <td>${material.category}</td>
-        <td>${material.unit}</td>
-        <td>${Number(material.unitPrice || 0).toFixed(2)}</td>
-        <td>${material.isActive ? 'Active' : 'Inactive'}</td>
-      </tr>
-    `).join('');
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Intermediate Materials</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 13px; }
-            th { background: #f8fafc; }
-          </style>
-        </head>
-        <body>
-          <h1>Intermediate Materials</h1>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>SKU</th>
-                <th>Category</th>
-                <th>Unit</th>
-                <th>Unit Cost</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  }
-
   async function handleBulkSetActiveState(nextIsActive: boolean) {
     const targets = materials.filter((material) => selectedIds.has(material.id));
     if (targets.length === 0) {
@@ -1215,9 +1165,18 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               },
               {
                 key: 'print',
-                label: 'Print',
-                onSelect: handlePrintFilteredMaterials,
-                icon: <Printer size={13} strokeWidth={2} />,
+                label: 'Print / Export PDF',
+                onSelect: () => {
+                  if (filteredMaterials.length === 0) {
+                    showToastMessage('No materials to print', 'error');
+                    return;
+                  }
+                  void handlePrint({
+                    title: 'Intermediate Materials',
+                    subtitle: `${filteredMaterials.length} intermediates`,
+                  });
+                },
+                icon: <Printer size={15} strokeWidth={2} />,
               },
               { key: 'divider-1', type: 'divider' },
               {
