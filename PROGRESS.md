@@ -254,6 +254,26 @@ gh release create vX.X.X
 --notes "Release notes"
 --repo KwakuAsamoah/priceright
 
+### IMPORTANT — Stable download link
+
+After every release, ALSO run this additional command so the landing page download button always serves the latest version:
+
+```powershell
+Copy-Item `
+  "dist-electron\PriceRight-Setup-X.X.X.exe" `
+  "dist-electron\PriceRight-Setup-Latest.exe"
+
+gh release upload vX.X.X `
+  "dist-electron\PriceRight-Setup-Latest.exe" `
+  --repo KwakuAsamoah/priceright `
+  --clobber
+```
+
+The landing page download button points to:
+`https://github.com/KwakuAsamoah/priceright/releases/latest/download/PriceRight-Setup-Latest.exe`
+
+This URL ALWAYS serves whatever file is named `PriceRight-Setup-Latest.exe` in the latest release. If this step is skipped after a release the download button will serve the PREVIOUS version's file (since it is uploaded to the new release, the redirect should still find it — but to be safe always re-upload it).
+
 ### Demo DB versioning
 - `DEMO_DB_VERSION` in `electron/main.js`
 - Bump this constant whenever `server/demo.db` changes
