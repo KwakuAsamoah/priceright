@@ -74,7 +74,7 @@ export const products = sqliteTable('products', {
   profitMargin: real('profit_margin').notNull(),
   otherDirectCosts: real('other_direct_costs').notNull().default(0),
   productionMode: text('production_mode').default('single'),
-  batchYield: integer('batch_yield').default(1),
+  batchYield: real('batch_yield').default(1),
   currentSellingPrice: real('current_selling_price').default(0),
   approvalStatus: text('approval_status').notNull().default('pending'),
   approvedPrice: real('approved_price'),

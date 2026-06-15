@@ -239,7 +239,7 @@ export default function ProductFormDrawer({
     const profitAmount = totalCost * profitMargin;
     const totalPrice = totalCost + profitAmount;
 
-    const batchYield = formData.productionMode === 'batch' ? Math.max(1, parseInt(formData.batchYield || '1')) : 1;
+    const batchYield = formData.productionMode === 'batch' ? Math.max(0.001, parseFloat(formData.batchYield || '1')) : 1;
 
     return {
       materialCost: totalMaterialCost / batchYield,
@@ -269,7 +269,7 @@ export default function ProductFormDrawer({
         profitMargin: parseFloat(formData.profitMargin),
         otherDirectCosts: parseFloat(formData.otherDirectCosts),
         productionMode: formData.productionMode,
-        batchYield: parseInt(formData.batchYield),
+        batchYield: parseFloat(formData.batchYield),
         currentSellingPrice: parseFloat(formData.currentSellingPrice) || 0,
       };
 
@@ -431,7 +431,8 @@ export default function ProductFormDrawer({
                   <input
                     type="number"
                     required
-                    min="1"
+                    min="0.001"
+                    step="any"
                     value={formData.batchYield}
                     onChange={(e) => setFormData({ ...formData, batchYield: e.target.value })}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
