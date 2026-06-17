@@ -9,9 +9,9 @@ interface TableSettingsColumn {
 }
 
 interface TableSettingsDropdownProps {
-  columns: TableSettingsColumn[];
-  onToggleColumn: (key: string) => void;
-  onResetColumns: () => void;
+  columns?: TableSettingsColumn[];
+  onToggleColumn?: (key: string) => void;
+  onResetColumns?: () => void;
   density: 'comfortable' | 'compact';
   onToggleDensity: () => void;
   onApproveAllEligible?: () => void;
@@ -20,7 +20,7 @@ interface TableSettingsDropdownProps {
 }
 
 export default function TableSettingsDropdown({
-  columns,
+  columns = [],
   onToggleColumn,
   onResetColumns,
   density,
@@ -66,37 +66,42 @@ export default function TableSettingsDropdown({
             boxShadow: '0 10px 24px rgba(15, 23, 42, 0.12)',
           }}
         >
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '2px 4px 6px' }}>Columns</div>
-          <div style={{ display: 'grid', gap: '2px' }}>
-            {columns.map((column) => (
-              <label key={column.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', fontSize: '14px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={column.visible}
-                  onChange={() => onToggleColumn(column.key)}
-                />
-                <span>{column.label}</span>
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={onResetColumns}
-            style={{
-              marginTop: '6px',
-              border: 'none',
-              background: 'none',
-              color: '#0F2847',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              padding: '4px 6px',
-            }}
-          >
-            Reset to default
-          </button>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '2px 4px 6px' }}>Table settings</div>
+          {columns.length > 0 && (
+            <>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '2px 4px 6px' }}>Columns</div>
+              <div style={{ display: 'grid', gap: '2px' }}>
+                {columns.map((column) => (
+                  <label key={column.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 6px', fontSize: '14px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={column.visible}
+                      onChange={() => onToggleColumn?.(column.key)}
+                    />
+                    <span>{column.label}</span>
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={onResetColumns}
+                style={{
+                  marginTop: '6px',
+                  border: 'none',
+                  background: 'none',
+                  color: '#0F2847',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '4px 6px',
+                }}
+              >
+                Reset to default
+              </button>
+            </>
+          )}
 
-          <div style={{ marginTop: '8px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+          <div style={{ marginTop: columns.length > 0 ? '8px' : 0, borderTop: columns.length > 0 ? '1px solid #e2e8f0' : 'none', paddingTop: columns.length > 0 ? '8px' : 0 }}>
             <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', padding: '0 4px 6px' }}>View</div>
             <div style={{ display: 'inline-flex', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
               <button

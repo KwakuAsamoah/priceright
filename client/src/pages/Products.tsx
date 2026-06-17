@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
+import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } from '../api';
@@ -16,12 +17,17 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { usePrint } from '../hooks/usePrint';
 import { readImportDataRows } from '../utils/importWorkbook';
-import usePersistedColumns from '../hooks/usePersistedColumns';
+import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
+import {
+  PRODUCT_COLUMN_KEY_TO_ID,
+  PRODUCTS_COLUMNS,
+  type ProductColumnKey,
+} from '../config/productsColumns';
 
 interface Product {
   id: number;
@@ -73,35 +79,6 @@ interface ProductPricing extends Product {
 }
 
 const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Rejected', 'Needs Review'];
-
-type ProductColumnKey =
-  | 'name'
-  | 'materialCost'
-  | 'optimalPrice'
-  | 'priceExpires'
-  | 'sellingPrice'
-  | 'profitOnCost'
-  | 'profitOnSales'
-  | 'actualProfitOnCost'
-  | 'actualProfitOnSales'
-  | 'status'
-  | 'actions';
-
-const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = [
-  { key: 'name', label: 'Product Name' },
-  { key: 'materialCost', label: 'Total Production Cost' },
-  { key: 'optimalPrice', label: 'Optimal Price' },
-  { key: 'priceExpires', label: 'Valid until' },
-  { key: 'sellingPrice', label: 'Approved base price' },
-  { key: 'profitOnCost', label: 'Optimal Markup %' },
-  { key: 'profitOnSales', label: 'Optimal Gross Margin %' },
-  { key: 'actualProfitOnCost', label: 'Actual Markup %' },
-  { key: 'actualProfitOnSales', label: 'Actual Gross Margin %' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Actions' },
-];
-
-const DEFAULT_PRODUCT_COLUMNS: ProductColumnKey[] = PRODUCT_COLUMN_OPTIONS.map((option) => option.key);
 
 function toNumber(value: string | number | undefined) {
   if (value === undefined) return 0;
@@ -339,36 +316,37 @@ export default function Products() {
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
-  const [visibleColumns, setVisibleColumns] = usePersistedColumns<ProductColumnKey>(
-    'priceright_columns_products',
-    DEFAULT_PRODUCT_COLUMNS,
-  );
+  const {
+    isVisible: isColumnIdVisible,
+    toggleColumn,
+    resetToDefaults: resetColumnDefaults,
+  } = useColumnVisibility('products-table-columns', PRODUCTS_COLUMNS);
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
   const { handlePrint } = usePrint();
 
-  useEffect(() => {
-    const marginColumns: ProductColumnKey[] = ['profitOnCost', 'profitOnSales', 'actualProfitOnCost', 'actualProfitOnSales'];
-    const hasAllMarginColumns = marginColumns.every((column) => visibleColumns.includes(column));
+  function isProductColumnVisible(key: ProductColumnKey) {
+    return isColumnIdVisible(PRODUCT_COLUMN_KEY_TO_ID[key]);
+  }
 
-    if (hasAllMarginColumns) {
-      return;
+  function handleToggleProductColumn(id: string) {
+    const column = PRODUCTS_COLUMNS.find((entry) => entry.id === id);
+    if (column?.locked) return;
+
+    if (isColumnIdVisible(id)) {
+      const visibleToggleableCount = PRODUCTS_COLUMNS.filter(
+        (entry) => !entry.locked && entry.label.length > 0 && isColumnIdVisible(entry.id),
+      ).length;
+      if (visibleToggleableCount <= 1) return;
     }
 
-    const baseColumns: ProductColumnKey[] = visibleColumns.filter(
-      (column) => !marginColumns.includes(column),
-    ) as ProductColumnKey[];
-    const sellingPriceIndex = baseColumns.indexOf('sellingPrice');
+    toggleColumn(id);
+  }
 
-    if (sellingPriceIndex >= 0) {
-      const nextColumns: ProductColumnKey[] = [...baseColumns];
-      nextColumns.splice(sellingPriceIndex + 1, 0, ...marginColumns);
-      setVisibleColumns(nextColumns);
-      return;
-    }
+  function resetProductColumns() {
+    resetColumnDefaults();
+  }
 
-    setVisibleColumns([...baseColumns, ...marginColumns]);
-  }, [setVisibleColumns, visibleColumns]);
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
   const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
@@ -1506,32 +1484,6 @@ export default function Products() {
     }
   }
 
-  function isProductColumnVisible(key: ProductColumnKey) {
-    return visibleColumns.includes(key);
-  }
-
-  function toggleProductColumn(key: ProductColumnKey) {
-    const currentlyVisible = visibleColumns.includes(key);
-    if (currentlyVisible && visibleColumns.length <= 2) {
-      return;
-    }
-
-    const nextColumns = currentlyVisible
-      ? visibleColumns.filter((columnKey) => columnKey !== key)
-      : [...visibleColumns, key];
-
-    setVisibleColumns(nextColumns);
-  }
-
-  function resetProductColumns() {
-    setVisibleColumns(DEFAULT_PRODUCT_COLUMNS);
-    try {
-      window.localStorage.removeItem('priceright_columns_products');
-    } catch {
-      // Ignore localStorage access errors.
-    }
-  }
-
   if (loading) {
     return (
       <div className="app-page">
@@ -1670,13 +1622,6 @@ export default function Products() {
             aria-hidden="true"
           >
             <TableSettingsDropdown
-              columns={PRODUCT_COLUMN_OPTIONS.map((column) => ({
-                key: column.key,
-                label: column.label,
-                visible: isProductColumnVisible(column.key),
-              }))}
-              onToggleColumn={(key) => toggleProductColumn(key as ProductColumnKey)}
-              onResetColumns={resetProductColumns}
               density={tableDensity}
               onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
               onApproveAllEligible={handleApproveAllEligible}
@@ -1825,7 +1770,15 @@ export default function Products() {
         <div className="app-card app-data-card" style={{ padding: 0 }} ref={productsTableRef}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Products ({filteredProducts.length})</span>
-            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <ColumnSelectorDropdown
+                columns={PRODUCTS_COLUMNS}
+                isVisible={isColumnIdVisible}
+                toggleColumn={handleToggleProductColumn}
+                resetToDefaults={resetProductColumns}
+              />
+              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            </div>
           </div>
           {filteredProducts.length === 0 ? (
             products.length === 0 ? (
@@ -1867,7 +1820,7 @@ export default function Products() {
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                       />
                     </th>
-                    {isProductColumnVisible('name') && <th style={{ fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>}
+                    <th style={{ fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>
                     {isProductColumnVisible('materialCost') && <th style={{ fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal' }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
                       <th style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
@@ -1916,8 +1869,7 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    {isProductColumnVisible('status') && (
-                      <th style={{ fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <th style={{ fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           Status
                           {needsReviewCount > 0 && (
@@ -1934,8 +1886,7 @@ export default function Products() {
                           )}
                         </span>
                       </th>
-                    )}
-                    {isProductColumnVisible('actions') && <th style={{ fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>}
+                    <th style={{ fontWeight: '700', width: '122px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1974,7 +1925,7 @@ export default function Products() {
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
-                          {isProductColumnVisible('name') && <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
+                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <span
                                 title={`SKU: ${product.sku || '-'}`}
@@ -1991,7 +1942,7 @@ export default function Products() {
                               </span>
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
-                          </td>}
+                          </td>
                           {isProductColumnVisible('materialCost') && <td style={{ padding: '8px 14px', fontWeight: '600', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.totalCost.toFixed(2)}</span>
                           </td>}
@@ -2090,7 +2041,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('status') && <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                               {isNeedsReview ? (
                                 <span
@@ -2120,8 +2071,8 @@ export default function Products() {
                                 <AppBadge variant="inactive" size="sm">Inactive</AppBadge>
                               )}
                             </div>
-                          </td>}
-                          {isProductColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
+                          </td>
+                          <td style={{ padding: '8px 14px' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>
                               {isNeedsReview ? (
                                 <AppButton
@@ -2169,7 +2120,7 @@ export default function Products() {
                                 ]}
                               />
                             </div>
-                          </td>}
+                          </td>
                         </tr>
                       </Fragment>
                     );
