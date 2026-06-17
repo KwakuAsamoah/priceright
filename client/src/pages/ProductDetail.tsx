@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, XCircle } from 'lucide-react';
 import { productsApi, materialsApi, activityLogApi, type ActivityEntry } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -470,6 +470,9 @@ export default function ProductDetail() {
     ? ((optimalPrice - productionCost) / optimalPrice) * 100
     : null;
   const displayBom = getDisplayBOM(bom, product);
+  const totalMaterialCost = displayBom.reduce((sum, item) => sum + toNum(item.unitPrice) * item.quantity, 0);
+  const overheadCost = totalMaterialCost * (toNum(product.overheadPercentage) / 100);
+  const otherDirectCosts = toNum(product.otherDirectCosts);
 
   const normalizedExpiryDate = product.approvedPriceExpiresAt
     ? product.approvedPriceExpiresAt.slice(0, 10)
@@ -586,10 +589,10 @@ export default function ProductDetail() {
       </div>
 
       {/* Body */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '20px', alignItems: 'start', padding: '0 24px 24px' }}>
+      <div style={{ flex: 1, display: 'flex', gap: '20px', minHeight: 0, overflow: 'hidden', padding: '0 24px 24px' }}>
 
         {/* ─── Left column ─────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
+        <div style={{ flex: 3, minWidth: 0, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* Product summary card */}
           <div className="app-card">
@@ -641,39 +644,36 @@ export default function ProductDetail() {
 
           {/* Cost breakdown card */}
           <div className="app-card">
-            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Cost parameters</div>
-            <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
+            <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Cost breakdown (per unit)</div>
+            <div style={{ display: 'grid', gap: '8px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Production cost (calc):</span>
-                <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
+                <span style={{ color: '#64748b' }}>Material Cost</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>GHS {totalMaterialCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b' }}>Overhead:</span>
-                <span style={{ fontWeight: 600 }}>{product.overheadPercentage}%</span>
+                <span style={{ color: '#64748b' }}>Overhead ({product.overheadPercentage}%)</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>GHS {overheadCost.toFixed(2)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                  Target Markup %:
-                  <MarkupInfoTooltip />
-                </span>
-                <span style={{ fontWeight: 600 }}>{product.profitMargin}%</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                  Markup % ({product.profitMargin}%):
-                  <MarkupInfoTooltip />
-                </span>
-                <span className="money-value" style={{ fontWeight: 600 }}>GHS {profitOnCostAmount.toFixed(2)}</span>
-              </div>
-              {(product.otherDirectCosts ?? 0) > 0 && (
+              {otherDirectCosts > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b' }}>Other direct costs:</span>
-                  <span className="money-value" style={{ fontWeight: 600 }}>GHS {toNum(product.otherDirectCosts).toFixed(2)}</span>
+                  <span style={{ color: '#64748b' }}>Other direct costs</span>
+                  <span className="money-value" style={{ fontWeight: 600 }}>GHS {otherDirectCosts.toFixed(2)}</span>
                 </div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '4px' }}>
-                <span style={{ color: '#475569', fontWeight: 700 }}>Optimal price:</span>
-                <span className="money-value" style={{ fontWeight: 700, color: '#16a34a' }}>GHS {optimalPrice.toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px' }}>
+                <span style={{ color: '#0F2847', fontWeight: 700 }}>Total Production Cost</span>
+                <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>GHS {productionCost.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
+                  Markup ({product.profitMargin}%)
+                  <MarkupInfoTooltip />
+                </span>
+                <span className="money-value" style={{ fontWeight: 600, color: '#16A34A' }}>GHS {profitOnCostAmount.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                <span style={{ color: '#16A34A', fontWeight: 700 }}>Optimal Price</span>
+                <span className="money-value" style={{ fontWeight: 700, color: '#16A34A', fontSize: '18px' }}>GHS {optimalPrice.toFixed(2)}</span>
               </div>
               {grossMarginAtOptimal !== null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
@@ -689,7 +689,7 @@ export default function ProductDetail() {
         </div>
 
         {/* ─── Right column ─────────────────────────────── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
+        <div style={{ flex: 2, minWidth: 0, overflowY: 'auto', minHeight: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
           {/* ─── Unified Pricing & Approval card ─── */}
           <div className="app-card" style={{ border: `1px solid ${panelColors.border}`, backgroundColor: panelColors.background }}>
@@ -871,22 +871,21 @@ export default function ProductDetail() {
                   type="button"
                   onClick={handleApproveOptimal}
                   disabled={approvalLoading}
+                  className="btn btn-success"
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    backgroundColor: '#16a34a',
-                    color: 'white',
-                    fontWeight: 700,
-                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '10px 16px',
                     fontSize: '14px',
+                    fontWeight: 600,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
                     opacity: approvalLoading ? 0.7 : 1,
+                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  <Check size={13} strokeWidth={2.2} />
+                  <CheckCircle size={14} strokeWidth={2.2} />
                   Approve Optimal Price (GHS {optimalPrice.toFixed(2)})
                 </button>
 
@@ -951,22 +950,16 @@ export default function ProductDetail() {
                       type="button"
                       onClick={handleApproveCustom}
                       disabled={approvalLoading}
+                      className="btn btn-success btn-sm"
                       style={{
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        backgroundColor: '#ffffff',
-                        color: '#334155',
-                        fontWeight: 600,
-                        cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '5px',
                         opacity: approvalLoading ? 0.7 : 1,
+                        cursor: approvalLoading ? 'not-allowed' : 'pointer',
                       }}
                     >
-                      <Check size={12} strokeWidth={2.2} />
+                      <CheckCircle size={12} strokeWidth={2.2} />
                       Approve Custom
                     </button>
                   </div>
@@ -1003,23 +996,21 @@ export default function ProductDetail() {
                   type="button"
                   onClick={handleReject}
                   disabled={approvalLoading}
+                  className="btn btn-danger"
                   style={{
-                    padding: '6px 10px',
-                    borderRadius: '6px',
-                    border: '1px solid #fecaca',
-                    backgroundColor: '#fef2f2',
-                    color: '#b91c1c',
-                    fontWeight: 700,
-                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '10px 16px',
                     fontSize: '14px',
+                    fontWeight: 600,
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '5px',
-                    alignSelf: 'flex-start',
+                    gap: '6px',
                     opacity: approvalLoading ? 0.7 : 1,
+                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  <X size={12} strokeWidth={2.2} />
+                  <XCircle size={14} strokeWidth={2.2} />
                   Reject
                 </button>
 

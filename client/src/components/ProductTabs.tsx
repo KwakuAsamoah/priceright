@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
-import { MarkupInfoTooltip } from './ProfitTooltips';
-
 interface Product {
   id: number;
   name: string;
@@ -218,32 +216,6 @@ export default function ProductTabs({
                     })}
                   </tbody>
                 </table>
-
-                {/* Cost Breakdown */}
-                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>Cost breakdown (per unit)</div>
-                  <div style={{ display: 'grid', gap: '6px', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Total Material Cost:</span>
-                      <span style={{ fontWeight: '600' }}>GHS {(displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)).toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Overhead ({product.overheadPercentage}%):</span>
-                      <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (product.overheadPercentage / 100)).toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Total Production Cost:</span>
-                      <span style={{ fontWeight: '700' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100)).toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                        Markup % ({product.profitMargin}%):
-                        <MarkupInfoTooltip />
-                      </span>
-                      <span style={{ fontWeight: '600' }}>GHS {((displayBom.reduce((sum, item) => sum + toNumber(item.unitPrice) * item.quantity, 0)) * (1 + product.overheadPercentage / 100) * (product.profitMargin / 100)).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
               </Fragment>
             )}
           </div>
