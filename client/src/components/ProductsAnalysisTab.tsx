@@ -3,7 +3,7 @@ import { CheckCircle, Dot, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { priceLevelItemsApi, priceLevelRulesApi } from '../api';
 import AppBadge from './AppBadge';
-import { GrossMarginInfoTooltip, MarkupInfoTooltip } from './ProfitTooltips';
+import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip } from './ProfitTooltips';
 
 interface ProductRow {
   id: number;
@@ -292,7 +292,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'healthy' as const,
               count: summaryCounts.healthy,
               label: 'Healthy markup',
-              sub: 'Markup % >= 20%',
+              sub: 'Actual Markup % >= 20%',
               color: '#16a34a',
               background: '#f0fdf4',
               border: '#bbf7d0',
@@ -301,7 +301,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'low' as const,
               count: summaryCounts.low,
               label: 'Low markup',
-              sub: 'Markup % 12-19.9%',
+              sub: 'Actual Markup % 12-19.9%',
               color: '#d97706',
               background: '#fffbeb',
               border: '#fde68a',
@@ -310,7 +310,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               key: 'critical' as const,
               count: summaryCounts.critical,
               label: 'Critical markup',
-              sub: 'Markup % < 12%',
+              sub: 'Actual Markup % < 12%',
               color: '#dc2626',
               background: '#fef2f2',
               border: '#fecaca',
@@ -444,14 +444,14 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                   <th style={{ textAlign: 'right' }}>Approved base price</th>
                   <th style={{ minWidth: '210px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      Markup %
-                      <MarkupInfoTooltip position="bottom" />
+                      Actual Markup %
+                      <ActualMarkupInfoTooltip position="bottom" />
                     </span>
                   </th>
                   <th style={{ minWidth: '140px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      Gross Margin %
-                      <GrossMarginInfoTooltip position="bottom" />
+                      Actual Gross Margin %
+                      <ActualGrossMarginInfoTooltip position="bottom" />
                     </span>
                   </th>
                   <th style={{ width: '90px', textAlign: 'center' }}>Needs review</th>

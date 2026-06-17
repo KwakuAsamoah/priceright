@@ -119,6 +119,9 @@ type ApprovalHistoryComputedRow = {
   currentStatus: string;
   approvedPrice: number | null;
   optimalPrice: number;
+  productionCost: number;
+  actualMarkupPercent: number | null;
+  actualGrossMarginPercent: number | null;
   approvedOn: string | number | null;
   approvedBy: string;
   isActive: boolean;
@@ -467,16 +470,30 @@ export default function Reports() {
         }
 
         const rows = products
-          .map((product) => ({
-            productName: product.name,
-            category: product.category || 'Uncategorised',
-            currentStatus: product.approvalStatus || 'pending',
-            approvedPrice: product.approvedPrice ?? null,
-            optimalPrice: toNumber(product.optimalPrice),
-            approvedOn: product.approvedAt || null,
-            approvedBy: product.approvedBy || '—',
-            isActive: Boolean(product.isActive),
-          }))
+          .map((product) => {
+            const approvedPrice = product.approvedPrice ?? null;
+            const productionCost = toNumber(product.productionCost);
+            const actualMarkupPercent = approvedPrice != null && productionCost > 0
+              ? ((approvedPrice - productionCost) / productionCost) * 100
+              : null;
+            const actualGrossMarginPercent = approvedPrice != null && approvedPrice > 0 && productionCost > 0
+              ? ((approvedPrice - productionCost) / approvedPrice) * 100
+              : null;
+
+            return {
+              productName: product.name,
+              category: product.category || 'Uncategorised',
+              currentStatus: product.approvalStatus || 'pending',
+              approvedPrice,
+              optimalPrice: toNumber(product.optimalPrice),
+              productionCost,
+              actualMarkupPercent,
+              actualGrossMarginPercent,
+              approvedOn: product.approvedAt || null,
+              approvedBy: product.approvedBy || '—',
+              isActive: Boolean(product.isActive),
+            };
+          })
           .filter((row) => (approvalStatusFilter === 'All' ? true : row.currentStatus === approvalStatusFilter))
           .filter((row) => (approvalCategoryFilter === 'All' ? true : row.category === approvalCategoryFilter))
           .filter((row) => {
@@ -635,8 +652,8 @@ export default function Reports() {
           { key: 'category', label: 'Category' },
           { key: 'currentSellingPrice', label: 'Approved base price (GHS)' },
           { key: 'productionCost', label: 'Production Cost (GHS)' },
-          { key: 'realisedMargin', label: 'Realised Margin %' },
-          { key: 'targetMargin', label: 'Target Margin %' },
+          { key: 'realisedMargin', label: 'Actual Gross Margin %' },
+          { key: 'targetMargin', label: 'Target Markup %' },
           { key: 'gap', label: 'Gap %' },
           { key: 'thresholdApplied', label: 'Threshold Applied' },
         ],
@@ -680,6 +697,8 @@ export default function Reports() {
         currentStatus: row.currentStatus,
         approvedPrice: row.approvedPrice === null ? '' : row.approvedPrice.toFixed(2),
         currentOptimalPrice: row.optimalPrice.toFixed(2),
+        actualMarkupPercent: row.actualMarkupPercent == null ? '' : row.actualMarkupPercent.toFixed(1),
+        actualGrossMarginPercent: row.actualGrossMarginPercent == null ? '' : row.actualGrossMarginPercent.toFixed(1),
         approvedOn: parseDate(row.approvedOn)?.toLocaleString() || '—',
         approvedBy: row.approvedBy,
         active: row.isActive ? 'Yes' : 'No',
@@ -692,6 +711,8 @@ export default function Reports() {
           { key: 'currentStatus', label: 'Current Status' },
           { key: 'approvedPrice', label: 'Approved base price (GHS)' },
           { key: 'currentOptimalPrice', label: 'Current Optimal Price (GHS)' },
+          { key: 'actualMarkupPercent', label: 'Actual Markup %' },
+          { key: 'actualGrossMarginPercent', label: 'Actual Gross Margin %' },
           { key: 'approvedOn', label: 'Approved On' },
           { key: 'approvedBy', label: 'Approved By' },
           { key: 'active', label: 'Active' },
@@ -977,7 +998,7 @@ export default function Reports() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
             <StatCard label="Products Reviewed" value={String(data.reviewedCount)} />
             <StatCard label="Below Threshold" value={String(data.rows.length)} tone="danger" />
-            <StatCard label="Avg Realised Margin" value={formatPct(data.allApprovedAverage)} />
+            <StatCard label="Avg Actual Gross Margin" value={formatPct(data.allApprovedAverage)} />
             <StatCard label="Threshold Applied" value={formatPct(data.threshold)} />
           </div>
 
@@ -989,8 +1010,8 @@ export default function Reports() {
                   <th>Category</th>
                   <th>Approved base price</th>
                   <th>Prod. Cost</th>
-                  <th>Realised Margin %</th>
-                  <th>Target Margin %</th>
+                  <th>Actual Gross Margin %</th>
+                  <th>Target Markup %</th>
                   <th>Gap</th>
                 </tr>
               </thead>
@@ -1013,7 +1034,7 @@ export default function Reports() {
           </div>
 
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-            Realised margin = (Approved base price − Production Cost) / Approved base price
+            Actual gross margin = (Approved base price − Production Cost) / Approved base price
           </div>
         </div>
       );
@@ -1106,6 +1127,8 @@ export default function Reports() {
                   <th>Current Status</th>
                   <th>Approved base price</th>
                   <th>Optimal Price</th>
+                  <th>Actual Markup %</th>
+                  <th>Actual Gross Margin %</th>
                   <th>Approved On</th>
                   <th>Approved By</th>
                   <th>Active?</th>
@@ -1119,6 +1142,8 @@ export default function Reports() {
                     <td><AppBadge variant={statusBadgeVariant(row.currentStatus)} size="sm">{row.currentStatus}</AppBadge></td>
                     <td>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
                     <td>{formatCurrency(row.optimalPrice)}</td>
+                    <td>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
+                    <td>{row.actualGrossMarginPercent == null ? '—' : formatPct(row.actualGrossMarginPercent)}</td>
                     <td>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
                     <td>{row.approvedBy}</td>
                     <td>{row.isActive ? 'Yes' : 'No'}</td>

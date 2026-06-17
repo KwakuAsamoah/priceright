@@ -21,7 +21,7 @@ import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
-import { GrossMarginInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
+import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 
 interface Product {
   id: number;
@@ -82,6 +82,8 @@ type ProductColumnKey =
   | 'sellingPrice'
   | 'profitOnCost'
   | 'profitOnSales'
+  | 'actualProfitOnCost'
+  | 'actualProfitOnSales'
   | 'status'
   | 'actions';
 
@@ -91,8 +93,10 @@ const PRODUCT_COLUMN_OPTIONS: Array<{ key: ProductColumnKey; label: string }> = 
   { key: 'optimalPrice', label: 'Optimal Price' },
   { key: 'priceExpires', label: 'Valid until' },
   { key: 'sellingPrice', label: 'Approved base price' },
-  { key: 'profitOnCost', label: 'Markup %' },
-  { key: 'profitOnSales', label: 'Gross Margin %' },
+  { key: 'profitOnCost', label: 'Optimal Markup %' },
+  { key: 'profitOnSales', label: 'Optimal Gross Margin %' },
+  { key: 'actualProfitOnCost', label: 'Actual Markup %' },
+  { key: 'actualProfitOnSales', label: 'Actual Gross Margin %' },
   { key: 'status', label: 'Status' },
   { key: 'actions', label: 'Actions' },
 ];
@@ -166,26 +170,56 @@ function calculatePricingAnalysis(product: ProductPricing) {
   };
 }
 
-function calculateProfitOnCost(product: ProductPricing): number | null {
-  const sellingPrice = Number(product.currentSellingPrice || 0);
+function calculateOptimalProfitOnCost(product: ProductPricing): number | null {
+  const optimalPrice = Number(product.optimalPrice || 0);
   const productionCost = Number(product.totalCost || 0);
 
-  if (sellingPrice <= 0 || productionCost <= 0) {
+  if (optimalPrice <= 0 || productionCost <= 0) {
     return null;
   }
 
-  return ((sellingPrice - productionCost) / productionCost) * 100;
+  return ((optimalPrice - productionCost) / productionCost) * 100;
 }
 
-function calculateProfitOnSales(product: ProductPricing): number | null {
-  const sellingPrice = Number(product.currentSellingPrice || 0);
+function calculateOptimalProfitOnSales(product: ProductPricing): number | null {
+  const optimalPrice = Number(product.optimalPrice || 0);
   const productionCost = Number(product.totalCost || 0);
 
-  if (sellingPrice <= 0 || productionCost <= 0) {
+  if (optimalPrice <= 0 || productionCost <= 0) {
     return null;
   }
 
-  return ((sellingPrice - productionCost) / sellingPrice) * 100;
+  return ((optimalPrice - productionCost) / optimalPrice) * 100;
+}
+
+function calculateActualProfitOnCost(product: ProductPricing): number | null {
+  if (product.approvalStatus !== 'approved' || product.approvedPrice == null) {
+    return null;
+  }
+
+  const approvedPrice = Number(product.approvedPrice);
+  const productionCost = Number(product.totalCost || 0);
+
+  if (approvedPrice <= 0 || productionCost <= 0) {
+    return null;
+  }
+
+  return ((approvedPrice - productionCost) / productionCost) * 100;
+}
+
+function calculateActualProfitOnSales(product: ProductPricing): number | null {
+  if (product.approvalStatus !== 'approved' || product.approvedPrice == null) {
+    return null;
+  }
+
+  const approvedPrice = Number(product.approvedPrice);
+  const productionCost = Number(product.totalCost || 0);
+
+  if (approvedPrice <= 0 || productionCost <= 0) {
+    return null;
+  }
+
+  return ((approvedPrice - productionCost) / approvedPrice) * 100;
 }
 
 function getApprovalBadge(status?: Product['approvalStatus']) {
@@ -314,26 +348,26 @@ export default function Products() {
   const { handlePrint } = usePrint();
 
   useEffect(() => {
-    const hasProfitOnCost = visibleColumns.includes('profitOnCost');
-    const hasProfitOnSales = visibleColumns.includes('profitOnSales');
+    const marginColumns: ProductColumnKey[] = ['profitOnCost', 'profitOnSales', 'actualProfitOnCost', 'actualProfitOnSales'];
+    const hasAllMarginColumns = marginColumns.every((column) => visibleColumns.includes(column));
 
-    if (hasProfitOnCost && hasProfitOnSales) {
+    if (hasAllMarginColumns) {
       return;
     }
 
     const baseColumns: ProductColumnKey[] = visibleColumns.filter(
-      (column) => column !== 'profitOnCost' && column !== 'profitOnSales',
+      (column) => !marginColumns.includes(column),
     ) as ProductColumnKey[];
     const sellingPriceIndex = baseColumns.indexOf('sellingPrice');
 
     if (sellingPriceIndex >= 0) {
       const nextColumns: ProductColumnKey[] = [...baseColumns];
-      nextColumns.splice(sellingPriceIndex + 1, 0, 'profitOnCost' as ProductColumnKey, 'profitOnSales' as ProductColumnKey);
+      nextColumns.splice(sellingPriceIndex + 1, 0, ...marginColumns);
       setVisibleColumns(nextColumns);
       return;
     }
 
-    setVisibleColumns([...baseColumns, 'profitOnCost', 'profitOnSales']);
+    setVisibleColumns([...baseColumns, ...marginColumns]);
   }, [setVisibleColumns, visibleColumns]);
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
@@ -743,8 +777,10 @@ export default function Products() {
 
     try {
     const exportData = selectedProdList.map((product) => {
-      const profitOnCost = calculateProfitOnCost(product);
-      const profitOnSales = calculateProfitOnSales(product);
+      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
+      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
+      const actualProfitOnCost = calculateActualProfitOnCost(product);
+      const actualProfitOnSales = calculateActualProfitOnSales(product);
       const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return ({
       'Product Name': product.name,
@@ -753,8 +789,10 @@ export default function Products() {
       'Overhead %': product.overheadPercentage.toFixed(2),
       'Total Cost': product.totalCost.toFixed(2),
       'Valid until': normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-      'Markup %': profitOnCost != null ? profitOnCost.toFixed(1) : '—',
-      'Gross Margin %': profitOnSales != null ? profitOnSales.toFixed(1) : '—',
+      'Optimal Markup %': optimalProfitOnCost != null ? optimalProfitOnCost.toFixed(1) : '—',
+      'Optimal Gross Margin %': optimalProfitOnSales != null ? optimalProfitOnSales.toFixed(1) : '—',
+      'Actual Markup %': actualProfitOnCost != null ? actualProfitOnCost.toFixed(1) : '—',
+      'Actual Gross Margin %': actualProfitOnSales != null ? actualProfitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
       'Approved base price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
       'Status': calculatePricingAnalysis(product).label,
@@ -1187,8 +1225,10 @@ export default function Products() {
       'Optimal Price',
       'Valid until',
       'Approved base price',
-      'Markup %',
-      'Gross Margin %',
+      'Optimal Markup %',
+      'Optimal Gross Margin %',
+      'Actual Markup %',
+      'Actual Gross Margin %',
       'Variance (GHS)',
       'Variance (%)',
       'Pricing Status',
@@ -1197,8 +1237,10 @@ export default function Products() {
     const exportRows = products.map((product) => {
       const analysis = calculatePricingAnalysis(product);
       const currentPrice = Number(product.currentSellingPrice || 0);
-      const profitOnCost = calculateProfitOnCost(product);
-      const profitOnSales = calculateProfitOnSales(product);
+      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
+      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
+      const actualProfitOnCost = calculateActualProfitOnCost(product);
+      const actualProfitOnSales = calculateActualProfitOnSales(product);
       const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return {
         values: [
@@ -1208,8 +1250,10 @@ export default function Products() {
           Number(product.optimalPrice || 0),
           normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
           currentPrice > 0 ? currentPrice : null,
-          profitOnCost != null ? Number(profitOnCost.toFixed(1)) : null,
-          profitOnSales != null ? Number(profitOnSales.toFixed(1)) : null,
+          optimalProfitOnCost != null ? Number(optimalProfitOnCost.toFixed(1)) : null,
+          optimalProfitOnSales != null ? Number(optimalProfitOnSales.toFixed(1)) : null,
+          actualProfitOnCost != null ? Number(actualProfitOnCost.toFixed(1)) : null,
+          actualProfitOnSales != null ? Number(actualProfitOnSales.toFixed(1)) : null,
           currentPrice > 0 ? Number(analysis.variance || 0) : null,
           currentPrice > 0 ? Number(analysis.variancePercent || 0) : null,
           analysis.label,
@@ -1230,9 +1274,10 @@ export default function Products() {
       { wch: 15 },
       { wch: 14 },
       { wch: 14 },
-      { wch: 20 },
       { wch: 18 },
+      { wch: 22 },
       { wch: 18 },
+      { wch: 22 },
       { wch: 15 },
       { wch: 14 },
       { wch: 14 },
@@ -1240,15 +1285,19 @@ export default function Products() {
 
     for (let rowIndex = 0; rowIndex < exportRows.length; rowIndex += 1) {
       const excelRow = rowIndex + 2;
-      const currentPriceCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 6 });
-      const profitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
-      const profitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
-      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
-      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 10 });
+      const currentPriceCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 5 });
+      const optimalProfitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 6 });
+      const optimalProfitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
+      const actualProfitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
+      const actualProfitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
+      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 10 });
+      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 11 });
 
       if (ws[currentPriceCell]) ws[currentPriceCell].z = '#,##0.00';
-      if (ws[profitOnCostCell]) ws[profitOnCostCell].z = '0.0';
-      if (ws[profitOnSalesCell]) ws[profitOnSalesCell].z = '0.0';
+      if (ws[optimalProfitOnCostCell]) ws[optimalProfitOnCostCell].z = '0.0';
+      if (ws[optimalProfitOnSalesCell]) ws[optimalProfitOnSalesCell].z = '0.0';
+      if (ws[actualProfitOnCostCell]) ws[actualProfitOnCostCell].z = '0.0';
+      if (ws[actualProfitOnSalesCell]) ws[actualProfitOnSalesCell].z = '0.0';
       if (ws[varianceAmountCell]) ws[varianceAmountCell].z = '#,##0.00';
       if (ws[variancePercentCell]) ws[variancePercentCell].z = '0.0';
 
@@ -1262,8 +1311,10 @@ export default function Products() {
 
       if (fillStyle) {
         if (ws[currentPriceCell]) ws[currentPriceCell].s = fillStyle as any;
-        if (ws[profitOnCostCell]) ws[profitOnCostCell].s = fillStyle as any;
-        if (ws[profitOnSalesCell]) ws[profitOnSalesCell].s = fillStyle as any;
+        if (ws[optimalProfitOnCostCell]) ws[optimalProfitOnCostCell].s = fillStyle as any;
+        if (ws[optimalProfitOnSalesCell]) ws[optimalProfitOnSalesCell].s = fillStyle as any;
+        if (ws[actualProfitOnCostCell]) ws[actualProfitOnCostCell].s = fillStyle as any;
+        if (ws[actualProfitOnSalesCell]) ws[actualProfitOnSalesCell].s = fillStyle as any;
         if (ws[varianceAmountCell]) ws[varianceAmountCell].s = fillStyle as any;
         if (ws[variancePercentCell]) ws[variancePercentCell].s = fillStyle as any;
       }
@@ -1298,8 +1349,8 @@ export default function Products() {
         (selectedApprovalStatus === 'Needs Review' && approvalStatus === 'needs_review');
       const matchesApprovalQuery = !approvalQueryFilter || approvalStatus === approvalQueryFilter;
 
-      const profitOnCost = calculateProfitOnCost(product);
-      const matchesLowMargin = !lowMarginOnly || (profitOnCost !== null && profitOnCost < 12);
+      const actualProfitOnCost = calculateActualProfitOnCost(product);
+      const matchesLowMargin = !lowMarginOnly || (actualProfitOnCost !== null && actualProfitOnCost < 12);
       const productDaysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
       const matchesExpiringSoon = !expiringSoonOnly || (
         approvalStatus === 'approved'
@@ -1396,8 +1447,10 @@ export default function Products() {
     const rows = filteredProducts.map((product) => {
       const analysis = calculatePricingAnalysis(product);
       const currentPrice = Number(product.currentSellingPrice || 0);
-      const profitOnCost = calculateProfitOnCost(product);
-      const profitOnSales = calculateProfitOnSales(product);
+      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
+      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
+      const actualProfitOnCost = calculateActualProfitOnCost(product);
+      const actualProfitOnSales = calculateActualProfitOnSales(product);
       const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
       return [
         product.name,
@@ -1407,8 +1460,10 @@ export default function Products() {
         formatApprovalDate(product.approvedAt),
         normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
         currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set',
-        profitOnCost != null ? `${profitOnCost.toFixed(1)}%` : '-',
-        profitOnSales != null ? `${profitOnSales.toFixed(1)}%` : '-',
+        optimalProfitOnCost != null ? `${optimalProfitOnCost.toFixed(1)}%` : '-',
+        optimalProfitOnSales != null ? `${optimalProfitOnSales.toFixed(1)}%` : '-',
+        actualProfitOnCost != null ? `${actualProfitOnCost.toFixed(1)}%` : '-',
+        actualProfitOnSales != null ? `${actualProfitOnSales.toFixed(1)}%` : '-',
         currentPrice > 0 ? analysis.variance.toFixed(2) : '-',
         currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
         analysis.label,
@@ -1418,7 +1473,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Markup %', 'Gross Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Optimal Markup %', 'Optimal Gross Margin %', 'Actual Markup %', 'Actual Gross Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1826,8 +1881,8 @@ export default function Products() {
                         style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Markup %
-                          <MarkupInfoTooltip position="bottom" />
+                          Optimal Markup %
+                          <OptimalMarkupInfoTooltip position="bottom" />
                         </span>
                       </th>
                     )}
@@ -1836,8 +1891,28 @@ export default function Products() {
                         style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Gross Margin %
-                          <GrossMarginInfoTooltip position="bottom" />
+                          Optimal Gross Margin %
+                          <OptimalGrossMarginInfoTooltip position="bottom" />
+                        </span>
+                      </th>
+                    )}
+                    {isProductColumnVisible('actualProfitOnCost') && (
+                      <th
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          Actual Markup %
+                          <ActualMarkupInfoTooltip position="bottom" />
+                        </span>
+                      </th>
+                    )}
+                    {isProductColumnVisible('actualProfitOnSales') && (
+                      <th
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          Actual Gross Margin %
+                          <ActualGrossMarginInfoTooltip position="bottom" />
                         </span>
                       </th>
                     )}
@@ -1868,8 +1943,10 @@ export default function Products() {
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
 
                     const hasSellingPrice = product.currentSellingPrice != null && product.currentSellingPrice > 0;
-                    const profitOnCost = calculateProfitOnCost(product);
-                    const profitOnSales = calculateProfitOnSales(product);
+                    const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
+                    const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
+                    const actualProfitOnCost = calculateActualProfitOnCost(product);
+                    const actualProfitOnSales = calculateActualProfitOnSales(product);
                     const sellingMismatch = !!product.priceMismatch;
 
                     const isNeedsReview = product.approvalStatus === 'needs_review';
@@ -1958,30 +2035,58 @@ export default function Products() {
                             )}
                           </td>}
                           {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
-                            {profitOnCost == null ? (
+                            {optimalProfitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
                               <span
                                 style={{
-                                  color: profitOnCost < 0 ? '#dc2626' : '#16a34a',
+                                  color: optimalProfitOnCost < 0 ? '#dc2626' : '#16a34a',
                                   fontWeight: 500,
                                 }}
                               >
-                                {profitOnCost.toFixed(1)}%
+                                {optimalProfitOnCost.toFixed(1)}%
                               </span>
                             )}
                           </td>}
                           {isProductColumnVisible('profitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
-                            {profitOnSales == null ? (
+                            {optimalProfitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
                               <span
                                 style={{
-                                  color: profitOnSales >= 15 ? '#16a34a' : profitOnSales >= 10 ? '#d97706' : '#dc2626',
+                                  color: optimalProfitOnSales >= 15 ? '#16a34a' : optimalProfitOnSales >= 10 ? '#d97706' : '#dc2626',
                                   fontWeight: 500,
                                 }}
                               >
-                                {profitOnSales.toFixed(1)}%
+                                {optimalProfitOnSales.toFixed(1)}%
+                              </span>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('actualProfitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                            {actualProfitOnCost == null ? (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            ) : (
+                              <span
+                                style={{
+                                  color: actualProfitOnCost < 0 ? '#dc2626' : '#16a34a',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {actualProfitOnCost.toFixed(1)}%
+                              </span>
+                            )}
+                          </td>}
+                          {isProductColumnVisible('actualProfitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                            {actualProfitOnSales == null ? (
+                              <span style={{ color: '#94a3b8' }}>—</span>
+                            ) : (
+                              <span
+                                style={{
+                                  color: actualProfitOnSales >= 15 ? '#16a34a' : actualProfitOnSales >= 10 ? '#d97706' : '#dc2626',
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {actualProfitOnSales.toFixed(1)}%
                               </span>
                             )}
                           </td>}

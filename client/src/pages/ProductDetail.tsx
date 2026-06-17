@@ -8,7 +8,7 @@ import ProductTabs from '../components/ProductTabs';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
 import AppToast from '../components/AppToast';
-import { GrossMarginInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
+import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 
 // ─── local types ────────────────────────────────────────────────────────────
 
@@ -469,6 +469,16 @@ export default function ProductDetail() {
   const grossMarginAtOptimal = optimalPrice > 0 && productionCost > 0
     ? ((optimalPrice - productionCost) / optimalPrice) * 100
     : null;
+  const approvedPrice = product.approvalStatus === 'approved' && product.approvedPrice != null
+    ? toNum(product.approvedPrice)
+    : null;
+  const actualMarkupPercent = approvedPrice != null && productionCost > 0
+    ? ((approvedPrice - productionCost) / productionCost) * 100
+    : null;
+  const actualGrossMarginPercent = approvedPrice != null && approvedPrice > 0 && productionCost > 0
+    ? ((approvedPrice - productionCost) / approvedPrice) * 100
+    : null;
+  const approvedMatchesOptimal = approvedPrice != null && Math.abs(approvedPrice - optimalPrice) < 0.01;
   const displayBom = getDisplayBOM(bom, product);
   const totalMaterialCost = displayBom.reduce((sum, item) => sum + toNum(item.unitPrice) * item.quantity, 0);
   const overheadCost = totalMaterialCost * (toNum(product.overheadPercentage) / 100);
@@ -666,8 +676,8 @@ export default function ProductDetail() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
                 <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
-                  Markup ({product.profitMargin}%)
-                  <MarkupInfoTooltip />
+                  Optimal Markup ({product.profitMargin}%)
+                  <OptimalMarkupInfoTooltip />
                 </span>
                 <span className="money-value" style={{ fontWeight: 600, color: '#16A34A' }}>GHS {profitOnCostAmount.toFixed(2)}</span>
               </div>
@@ -678,11 +688,43 @@ export default function ProductDetail() {
               {grossMarginAtOptimal !== null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    Gross Margin % at this price:
-                    <GrossMarginInfoTooltip />
+                    Optimal Gross Margin %
+                    <OptimalGrossMarginInfoTooltip />
                   </span>
                   <span style={{ fontWeight: 600 }}>{grossMarginAtOptimal.toFixed(1)}%</span>
                 </div>
+              )}
+              {approvedPrice != null && (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px' }}>
+                    <span style={{ color: '#0F2847', fontWeight: 700 }}>Approved Price</span>
+                    <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>GHS {approvedPrice.toFixed(2)}</span>
+                  </div>
+                  {approvedMatchesOptimal ? (
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Matches optimal price</div>
+                  ) : (
+                    <>
+                      {actualMarkupPercent !== null && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                          <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
+                            Actual Markup %
+                            <ActualMarkupInfoTooltip />
+                          </span>
+                          <span style={{ fontWeight: 600, color: '#16A34A' }}>{actualMarkupPercent.toFixed(1)}%</span>
+                        </div>
+                      )}
+                      {actualGrossMarginPercent !== null && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
+                          <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
+                            Actual Gross Margin %
+                            <ActualGrossMarginInfoTooltip />
+                          </span>
+                          <span style={{ fontWeight: 600, color: '#16A34A' }}>{actualGrossMarginPercent.toFixed(1)}%</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -747,8 +789,8 @@ export default function ProductDetail() {
                 <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                      Markup %:
-                      <MarkupInfoTooltip />
+                      Actual Markup %:
+                      <ActualMarkupInfoTooltip />
                     </span>
                     <span style={{ fontWeight: 700 }}>
                       {product.approvedPrice && productionCost
@@ -758,8 +800,8 @@ export default function ProductDetail() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                      Gross Margin %:
-                      <GrossMarginInfoTooltip />
+                      Actual Gross Margin %:
+                      <ActualGrossMarginInfoTooltip />
                     </span>
                     <span style={{ fontWeight: 700 }}>
                       {product.approvedPrice && productionCost
