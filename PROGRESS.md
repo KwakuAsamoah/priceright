@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 1 June 2026
-**Current version:** 1.0.27
+**Current version:** 1.0.28
 **Active branch:** main
 
 ---
@@ -70,6 +70,7 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.25 | Jun 2026 | Print/PDF export, privacy policy, backup reminder, lock screen fixes |
 | v1.0.26 | Jun 2026 | Fix Batch Yield decimal values |
 | v1.0.27 | Jun 2026 | Product Detail UX — independent panel scroll, prominent approval buttons, unified cost breakdown |
+| v1.0.28 | Jun 2026 | Optimal vs Actual Markup/Margin labeling, Products column selector |
 
 ---
 
