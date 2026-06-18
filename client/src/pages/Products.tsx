@@ -2,10 +2,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
-import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import TableDensityToggle from '../components/TableDensityToggle';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } from '../api';
 import AppBadge from '../components/AppBadge';
@@ -376,7 +376,6 @@ export default function Products() {
   const [bulkApproveExpiryDate, setBulkApproveExpiryDate] = useState('');
   const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState('');
-  const productsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { setHasOpenForm } = useFormState();
@@ -1477,13 +1476,6 @@ export default function Products() {
     return Number.isFinite(value) && value >= -50 && value <= 200;
   })();
 
-  function openProductsTableSettings() {
-    const trigger = productsTableSettingsAnchorRef.current?.querySelector('button');
-    if (trigger instanceof HTMLButtonElement) {
-      trigger.click();
-    }
-  }
-
   if (loading) {
     return (
       <div className="app-page">
@@ -1609,26 +1601,14 @@ export default function Products() {
               },
               { key: 'divider-1', type: 'divider' },
               {
-                key: 'table-settings',
-                label: 'Table settings',
-                onSelect: openProductsTableSettings,
-                icon: <Settings2 size={13} strokeWidth={2} />,
+                key: 'approve-all-eligible',
+                label: isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`,
+                onSelect: () => void handleApproveAllEligible(),
+                icon: <CheckCircle size={13} strokeWidth={2} />,
+                disabled: eligibleApproveCount === 0 || isApprovingAll,
               },
             ]}
           />
-          <div
-            ref={productsTableSettingsAnchorRef}
-            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-            aria-hidden="true"
-          >
-            <TableSettingsDropdown
-              density={tableDensity}
-              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              onApproveAllEligible={handleApproveAllEligible}
-              approveAllEligibleLabel={isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
-              disableApproveAllEligible={eligibleApproveCount === 0 || isApprovingAll}
-            />
-          </div>
         </div>
 
         {shouldShowNeedsReviewBanner && (
@@ -1776,6 +1756,10 @@ export default function Products() {
                 isVisible={isColumnIdVisible}
                 toggleColumn={handleToggleProductColumn}
                 resetToDefaults={resetProductColumns}
+              />
+              <TableDensityToggle
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
               />
               <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>

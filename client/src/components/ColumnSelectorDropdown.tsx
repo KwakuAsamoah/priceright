@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Columns3, RotateCcw } from 'lucide-react';
-import type { ColumnConfig } from '../config/productsColumns';
+import type { ColumnConfig } from '../config/columnConfig';
 
 interface ColumnSelectorDropdownProps {
   columns: ColumnConfig[];

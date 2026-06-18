@@ -1,9 +1,10 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useFormState } from '../context/FormStateContext';
-import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Settings2, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
-import TableSettingsDropdown from '../components/TableSettingsDropdown';
+import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
+import TableDensityToggle from '../components/TableDensityToggle';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl } from '../api';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -19,6 +20,12 @@ import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import { usePrint } from '../hooks/usePrint';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
+import {
+  MATERIAL_LOCKED_KEYS,
+  MATERIAL_TOGGLEABLE_KEYS,
+  MATERIALS_COLUMNS,
+  type MaterialColumnKey,
+} from '../config/materialsColumns';
 
 interface Material {
   id: number;
@@ -79,26 +86,9 @@ interface UsageCheckResult {
   inUse: MaterialUsage[];
 }
 
-type MaterialColumnKey =
-  | 'material'
-  | 'category'
-  | 'unit'
-  | 'unitCost'
-  | 'bulkPricing'
-  | 'status'
-  | 'actions';
-
-const MATERIAL_COLUMN_OPTIONS: Array<{ key: MaterialColumnKey; label: string }> = [
-  { key: 'material', label: 'Material Name' },
-  { key: 'category', label: 'Category' },
-  { key: 'unit', label: 'Unit' },
-  { key: 'unitCost', label: 'Unit Cost' },
-  { key: 'bulkPricing', label: 'Bulk Pricing' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Actions' },
-];
-
-const DEFAULT_MATERIAL_COLUMNS: MaterialColumnKey[] = MATERIAL_COLUMN_OPTIONS.map((option) => option.key);
+const DEFAULT_MATERIAL_COLUMNS: MaterialColumnKey[] = MATERIALS_COLUMNS
+  .filter((column) => column.id !== 'checkbox' && column.id !== 'rowNumber')
+  .map((column) => column.id as MaterialColumnKey);
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -257,7 +247,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const [bulkCustomCategoryValue, setBulkCustomCategoryValue] = useState('');
-  const materialsTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
   const [usageData, setUsageData] = useState<UsageCheckResult | null>(null);
   const [loadingUsageCheck, setLoadingUsageCheck] = useState(false);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
@@ -1078,21 +1067,18 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     });
   }, [filteredMaterials]);
 
-  function openMaterialsTableSettings() {
-    const trigger = materialsTableSettingsAnchorRef.current?.querySelector('button');
-    if (trigger instanceof HTMLButtonElement) {
-      trigger.click();
-    }
-  }
-
   function isMaterialColumnVisible(key: MaterialColumnKey) {
+    if (MATERIAL_LOCKED_KEYS.has(key)) return true;
     return visibleColumns.includes(key);
   }
 
   function toggleMaterialColumn(key: MaterialColumnKey) {
+    if (MATERIAL_LOCKED_KEYS.has(key)) return;
+
     const currentlyVisible = visibleColumns.includes(key);
-    if (currentlyVisible && visibleColumns.length <= 2) {
-      return;
+    if (currentlyVisible) {
+      const visibleToggleableCount = MATERIAL_TOGGLEABLE_KEYS.filter((columnKey) => visibleColumns.includes(columnKey)).length;
+      if (visibleToggleableCount <= 1) return;
     }
 
     const nextColumns = currentlyVisible
@@ -1100,6 +1086,15 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       : [...visibleColumns, key];
 
     setVisibleColumns(nextColumns);
+  }
+
+  function handleToggleMaterialColumn(id: string) {
+    toggleMaterialColumn(id as MaterialColumnKey);
+  }
+
+  function isMaterialColumnIdVisible(id: string) {
+    if (id === 'checkbox' || id === 'rowNumber') return true;
+    return isMaterialColumnVisible(id as MaterialColumnKey);
   }
 
   function resetMaterialColumns() {
@@ -1304,31 +1299,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 icon: <Printer size={15} strokeWidth={2} />,
               },
               { key: 'divider-1', type: 'divider' },
-              {
-                key: 'table-settings',
-                label: 'Table settings',
-                onSelect: openMaterialsTableSettings,
-                icon: <Settings2 size={13} strokeWidth={2} />,
-              },
             ]}
           />
-          <div
-            ref={materialsTableSettingsAnchorRef}
-            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-            aria-hidden="true"
-          >
-            <TableSettingsDropdown
-              columns={MATERIAL_COLUMN_OPTIONS.map((column) => ({
-                key: column.key,
-                label: column.label,
-                visible: isMaterialColumnVisible(column.key),
-              }))}
-              onToggleColumn={(key) => toggleMaterialColumn(key as MaterialColumnKey)}
-              onResetColumns={resetMaterialColumns}
-              density={tableDensity}
-              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-            />
-          </div>
         </div>
 
         {/* Bulk Action Bar */}
@@ -1413,7 +1385,19 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         <div className="app-card app-data-card" style={{ padding: 0 }}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Materials ({filteredMaterials.length})</span>
-            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <ColumnSelectorDropdown
+                columns={MATERIALS_COLUMNS}
+                isVisible={isMaterialColumnIdVisible}
+                toggleColumn={handleToggleMaterialColumn}
+                resetToDefaults={resetMaterialColumns}
+              />
+              <TableDensityToggle
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              />
+              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            </div>
           </div>
 
           {materialType === 'primary' && exchangeRateNotice && (
@@ -1446,10 +1430,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     />
                   </th>
                   <th style={{ textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
-                  {isMaterialColumnVisible('material') && <th onClick={() => {
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => {
                     setSortField('name');
                     setSortOrder((prev) => (sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ textAlign: 'left', fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Material</th>}
+                  }}>Material</th>
                   {isMaterialColumnVisible('category') && <th onClick={() => {
                     setSortField('category');
                     setSortOrder((prev) => (sortField === 'category' && prev === 'asc' ? 'desc' : 'asc'));
@@ -1460,8 +1444,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
                   }} style={{ textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
                   {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
-                  {isMaterialColumnVisible('status') && <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isMaterialColumnVisible('actions') && <th style={{ textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1480,9 +1464,9 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       />
                     </td>
                     <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                    {isMaterialColumnVisible('material') && <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
-                    </td>}
+                    </td>
                     {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <span style={{ fontSize: '13px', color: '#475569' }}>{material.category}</span>
                     </td>}
@@ -1499,12 +1483,12 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         {parseFloat(material.bulkPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('status') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
                         {material.isActive ? 'Active' : 'Inactive'}
                       </AppBadge>
-                    </td>}
-                    {isMaterialColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
+                    </td>
+                    <td style={{ padding: '8px 14px' }}>
                       <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
                         <AppButton
                           onClick={(e) => { e.stopPropagation(); handleEdit(material); }}
@@ -1538,7 +1522,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                           ]}
                         />
                       </div>
-                    </td>}
+                    </td>
                   </tr>
                 ))}
               </tbody>

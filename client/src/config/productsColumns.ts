@@ -1,9 +1,6 @@
-export interface ColumnConfig {
-  id: string;
-  label: string;
-  locked: boolean;
-  defaultVisible: boolean;
-}
+import type { ColumnConfig } from './columnConfig';
+
+export type { ColumnConfig };
 
 /** Matches the Products table column order in Products.tsx (as of v1.0.27). */
 export const PRODUCTS_COLUMNS: ColumnConfig[] = [

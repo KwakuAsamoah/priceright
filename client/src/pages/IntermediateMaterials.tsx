@@ -1,14 +1,15 @@
 import * as XLSX from 'xlsx';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Pencil, Plus, Printer, Settings2, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Pencil, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
+import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
+import TableDensityToggle from '../components/TableDensityToggle';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
-import TableSettingsDropdown from '../components/TableSettingsDropdown';
 import TableZoomControl from '../components/TableZoomControl';
 import { materialsApi, currenciesApi, settingsApi, templateUrl, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
@@ -19,6 +20,12 @@ import { usePrint } from '../hooks/usePrint';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
+import {
+  INTERMEDIATE_LOCKED_KEYS,
+  INTERMEDIATE_MATERIALS_COLUMNS,
+  INTERMEDIATE_TOGGLEABLE_KEYS,
+  type IntermediateColumnKey,
+} from '../config/intermediateMaterialsColumns';
 
 interface MaterialFormState {
   name: string;
@@ -70,19 +77,9 @@ const fieldInputStyle = {
 type SortField = 'name' | 'category' | 'unitPrice';
 type SortOrder = 'asc' | 'desc';
 
-type IntermediateColumnKey = 'material' | 'unit' | 'yield' | 'overhead' | 'unitCost' | 'status' | 'actions';
-
-const INTERMEDIATE_COLUMN_OPTIONS: Array<{ key: IntermediateColumnKey; label: string }> = [
-  { key: 'material', label: 'Material' },
-  { key: 'unit', label: 'Unit' },
-  { key: 'yield', label: 'Yield %' },
-  { key: 'overhead', label: 'Overhead' },
-  { key: 'unitCost', label: 'Unit Cost' },
-  { key: 'status', label: 'Status' },
-  { key: 'actions', label: 'Actions' },
-];
-
-const DEFAULT_INTERMEDIATE_COLUMNS: IntermediateColumnKey[] = INTERMEDIATE_COLUMN_OPTIONS.map((option) => option.key);
+const DEFAULT_INTERMEDIATE_COLUMNS: IntermediateColumnKey[] = INTERMEDIATE_MATERIALS_COLUMNS
+  .filter((column) => column.id !== 'checkbox')
+  .map((column) => column.id as IntermediateColumnKey);
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -312,7 +309,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }, [setHasOpenForm]);
 
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
-  const intermediatesTableSettingsAnchorRef = useRef<HTMLDivElement | null>(null);
 
   function toggleSelectAll(checked: boolean) {
     if (checked) {
@@ -391,21 +387,18 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
 
-  function openIntermediateTableSettings() {
-    const trigger = intermediatesTableSettingsAnchorRef.current?.querySelector('button');
-    if (trigger instanceof HTMLButtonElement) {
-      trigger.click();
-    }
-  }
-
   function isIntermediateColumnVisible(key: IntermediateColumnKey) {
+    if (INTERMEDIATE_LOCKED_KEYS.has(key)) return true;
     return visibleColumns.includes(key);
   }
 
   function toggleIntermediateColumn(key: IntermediateColumnKey) {
+    if (INTERMEDIATE_LOCKED_KEYS.has(key)) return;
+
     const currentlyVisible = visibleColumns.includes(key);
-    if (currentlyVisible && visibleColumns.length <= 2) {
-      return;
+    if (currentlyVisible) {
+      const visibleToggleableCount = INTERMEDIATE_TOGGLEABLE_KEYS.filter((columnKey) => visibleColumns.includes(columnKey)).length;
+      if (visibleToggleableCount <= 1) return;
     }
 
     const nextColumns = currentlyVisible
@@ -413,6 +406,15 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       : [...visibleColumns, key];
 
     setVisibleColumns(nextColumns);
+  }
+
+  function handleToggleIntermediateColumn(id: string) {
+    toggleIntermediateColumn(id as IntermediateColumnKey);
+  }
+
+  function isIntermediateColumnIdVisible(id: string) {
+    if (id === 'checkbox') return true;
+    return isIntermediateColumnVisible(id as IntermediateColumnKey);
   }
 
   function resetIntermediateColumns() {
@@ -1179,31 +1181,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 icon: <Printer size={15} strokeWidth={2} />,
               },
               { key: 'divider-1', type: 'divider' },
-              {
-                key: 'table-settings',
-                label: 'Table settings',
-                onSelect: openIntermediateTableSettings,
-                icon: <Settings2 size={13} strokeWidth={2} />,
-              },
             ]}
           />
-          <div
-            ref={intermediatesTableSettingsAnchorRef}
-            style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}
-            aria-hidden="true"
-          >
-            <TableSettingsDropdown
-              columns={DEFAULT_INTERMEDIATE_COLUMNS.map((columnKey) => ({
-                key: columnKey,
-                label: INTERMEDIATE_COLUMN_OPTIONS.find(c => c.key === columnKey)?.label || columnKey,
-                visible: isIntermediateColumnVisible(columnKey),
-              }))}
-              onToggleColumn={(key) => toggleIntermediateColumn(key as IntermediateColumnKey)}
-              onResetColumns={resetIntermediateColumns}
-              density={tableDensity}
-              onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-            />
-          </div>
         </div>
 
         {selectedIds.size > 0 ? (
@@ -1257,7 +1236,19 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         <div className="app-card app-data-card" style={{ padding: 0 }}>
           <div className="app-data-card-header">
             <span className="app-data-card-title">Intermediate Materials ({filteredMaterials.length})</span>
-            <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <ColumnSelectorDropdown
+                columns={INTERMEDIATE_MATERIALS_COLUMNS}
+                isVisible={isIntermediateColumnIdVisible}
+                toggleColumn={handleToggleIntermediateColumn}
+                resetToDefaults={resetIntermediateColumns}
+              />
+              <TableDensityToggle
+                density={tableDensity}
+                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
+              />
+              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+            </div>
           </div>
           <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
             <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
@@ -1276,13 +1267,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
-                  {isIntermediateColumnVisible('material') && <th style={{ textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>}
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>
                   {isIntermediateColumnVisible('unit') && <th style={{ textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isIntermediateColumnVisible('yield') && <th style={{ textAlign: 'right', fontWeight: '700', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
                   {isIntermediateColumnVisible('overhead') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
                   {isIntermediateColumnVisible('unitCost') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
-                  {isIntermediateColumnVisible('status') && <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>}
-                  {isIntermediateColumnVisible('actions') && <th style={{ textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>}
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
+                  <th style={{ textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1301,18 +1292,18 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
-                    {isIntermediateColumnVisible('material') && <td style={{ padding: '8px 14px', minWidth: '220px' }}>
+                    <td style={{ padding: '8px 14px', minWidth: '220px' }}>
                       <div style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
-                    </td>}
+                    </td>
                     {isIntermediateColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
                     {isIntermediateColumnVisible('yield') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
                     {isIntermediateColumnVisible('overhead') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
                     {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
                       {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
                     </td>}
-                    {isIntermediateColumnVisible('status') && <td style={{ padding: '8px 14px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>}
-                    {isIntermediateColumnVisible('actions') && <td style={{ padding: '8px 14px' }}>
+                    <td style={{ padding: '8px 14px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>
+                    <td style={{ padding: '8px 14px' }}>
                       <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
                         <AppButton onClick={(e) => { e.stopPropagation(); openEditMaterialForm(material); }} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           <Pencil size={11} strokeWidth={2} />
@@ -1328,7 +1319,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                           ]}
                         />
                       </div>
-                    </td>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
