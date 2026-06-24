@@ -138,6 +138,13 @@ export interface PinResetResponse {
   message: string;
 }
 
+export interface PriceLevelPackSize {
+  id: number;
+  packQuantity: number;
+  packPrice: number;
+  packPriceConverted: number;
+}
+
 export interface PriceLevelItemResponse {
   id: number;
   priceLevelId: number;
@@ -162,6 +169,7 @@ export interface PriceLevelItemResponse {
   updatedAt: number;
   productApprovedAt: number | null;
   isStalePrice: boolean;
+  packSizes?: PriceLevelPackSize[];
 }
 
 export interface ActivityEntry {
@@ -657,6 +665,27 @@ export const priceLevelItemsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
+    });
+    return parseResponse(res);
+  },
+};
+
+export const packSizesApi = {
+  getForItem: async (itemId: number): Promise<Array<{ id: number; packQuantity: number }>> => {
+    const res = await fetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`);
+    return parseResponse(res);
+  },
+  add: async (itemId: number, packQuantity: number): Promise<{ id: number; packQuantity: number }> => {
+    const res = await fetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ packQuantity }),
+    });
+    return parseResponse(res);
+  },
+  delete: async (packSizeId: number): Promise<{ success: boolean }> => {
+    const res = await fetch(`${API_BASE}/price-level-pack-sizes/${packSizeId}`, {
+      method: 'DELETE',
     });
     return parseResponse(res);
   },

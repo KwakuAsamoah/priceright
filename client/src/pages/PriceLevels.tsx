@@ -7,11 +7,13 @@ import {
   activityLogApi,
   currenciesApi,
   priceLevelItemsApi,
+  packSizesApi,
   priceLevelRulesApi,
   productsApi,
   settingsApi,
   type ActivityEntry,
   type PriceLevelItemResponse,
+  type PriceLevelPackSize,
   type ProductRecord,
 } from '../api';
 import AppBadge from '../components/AppBadge';
@@ -75,6 +77,12 @@ const MIN_MARGIN_WARNING = 15;
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getUniquePackQuantities(items: PriceLevelItemResponse[]): number[] {
+  return [...new Set(
+    items.flatMap((item) => (item.packSizes || []).map((pack) => pack.packQuantity)),
+  )].sort((a, b) => a - b);
 }
 
 function roundToTwo(value: number): number {
@@ -333,6 +341,8 @@ export default function PriceLevels() {
   const [includeGeneratedDate, setIncludeGeneratedDate] = useState(true);
   const [includeValidUntil, setIncludeValidUntil] = useState(true);
   const [exportValidUntil, setExportValidUntil] = useState('');
+  const [addingPackForItemId, setAddingPackForItemId] = useState<number | null>(null);
+  const [newPackQuantity, setNewPackQuantity] = useState('');
 
   const selectedLevel = useMemo(
     () => levels.find((level) => level.id === selectedLevelId) ?? null,
@@ -467,6 +477,39 @@ export default function PriceLevels() {
       console.error('Failed to load level items:', error);
       showToastMessage('Failed to refresh price level items.', 'error');
       return [];
+    }
+  }
+
+  async function addPackSize(itemId: number, rawQuantity: string) {
+    if (!selectedLevel) return;
+    const packQuantity = Number.parseInt(rawQuantity.trim(), 10);
+    if (!Number.isInteger(packQuantity) || packQuantity <= 1) {
+      showToastMessage('Pack quantity must be a whole number greater than 1.', 'error');
+      return;
+    }
+
+    try {
+      await packSizesApi.add(itemId, packQuantity);
+      setAddingPackForItemId(null);
+      setNewPackQuantity('');
+      await refreshLevelItems(selectedLevel.id);
+      showToastMessage(`Pack of ${packQuantity} added.`, 'success');
+    } catch (error) {
+      console.error('Failed to add pack size:', error);
+      showToastMessage((error as Error).message || 'Failed to add pack size.', 'error');
+    }
+  }
+
+  async function removePackSize(packSizeId: number) {
+    if (!selectedLevel) return;
+
+    try {
+      await packSizesApi.delete(packSizeId);
+      await refreshLevelItems(selectedLevel.id);
+      showToastMessage('Pack size removed.', 'success');
+    } catch (error) {
+      console.error('Failed to remove pack size:', error);
+      showToastMessage((error as Error).message || 'Failed to remove pack size.', 'error');
     }
   }
 
@@ -1224,26 +1267,39 @@ export default function PriceLevels() {
       return;
     }
 
+    const exportedItems = approvedSelectedLevelItems.filter((item) => selectedExportProductIds.has(item.productId));
+    const allPackQtys = getUniquePackQuantities(exportedItems);
+    const unitPriceLabel = levelCurrencyCode ? `Unit Price (${levelCurrencyCode})` : `Unit Price (${baseCurrency})`;
+    const packHeaders = allPackQtys.map((qty) => `Pack of ${qty}`);
+
     const now = new Date();
     const metadataLine = [
       includeGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
       includeValidUntil && exportValidUntil ? `Valid until: ${exportValidUntil}` : '',
     ].filter(Boolean).join('   |   ');
 
+    const headerRow = ['#', 'Product Name', unitPriceLabel, ...packHeaders];
+    const totalColumns = headerRow.length;
+
     const worksheet = XLSX.utils.aoa_to_sheet([
       [includeCompanyName ? exportCompanyName.trim() : ''],
       [`Price List: ${selectedLevel.name}`],
       [metadataLine],
       [],
-      ['#', 'Product Name', 'Category', `Approved Base Price (${baseCurrency})`, levelCurrencyCode ? `Final Price (${levelCurrencyCode})` : 'Final Price', 'Margin %'],
-      ...selectedExportRows.map((row, index) => ([
-        index + 1,
-        row.productName,
-        row.category,
-        row.approvedBasePrice,
-        row.finalPrice,
-        row.marginPercent / 100,
-      ])),
+      headerRow,
+      ...exportedItems.map((item, index) => {
+        const unitPrice = levelCurrencyCode
+          ? toNumber(item.finalPriceConverted, item.finalPrice)
+          : toNumber(item.finalPrice, 0);
+        const packValues = allPackQtys.map((qty) => {
+          const pack = (item.packSizes || []).find((entry) => entry.packQuantity === qty);
+          if (!pack) return '';
+          return levelCurrencyCode
+            ? toNumber(pack.packPriceConverted, pack.packPrice)
+            : toNumber(pack.packPrice, 0);
+        });
+        return [index + 1, item.productName, unitPrice, ...packValues];
+      }),
       [],
       ['Prepared in PriceRight'],
     ]);
@@ -1251,18 +1307,16 @@ export default function PriceLevels() {
     worksheet['!cols'] = [
       { wch: 6 },
       { wch: 32 },
-      { wch: 18 },
-      { wch: 20 },
       { wch: 16 },
-      { wch: 12 },
+      ...allPackQtys.map(() => ({ wch: 14 })),
     ];
 
-    const footerRowIndex = selectedExportRows.length + 7;
+    const footerRowIndex = exportedItems.length + 7;
     worksheet['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-      { s: { r: footerRowIndex, c: 0 }, e: { r: footerRowIndex, c: 5 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalColumns - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalColumns - 1 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: totalColumns - 1 } },
+      { s: { r: footerRowIndex, c: 0 }, e: { r: footerRowIndex, c: totalColumns - 1 } },
     ];
 
     const centerStyle = { alignment: { horizontal: 'center', vertical: 'center' } };
@@ -1287,21 +1341,19 @@ export default function PriceLevels() {
       worksheet[`A${footerRowIndex + 1}`].s = { ...centerStyle, font: { italic: true, color: { rgb: '64748B' } } } as any;
     }
 
-    for (let col = 0; col < 6; col += 1) {
+    for (let col = 0; col < totalColumns; col += 1) {
       const cellRef = XLSX.utils.encode_cell({ r: 4, c: col });
       if (worksheet[cellRef]) {
         worksheet[cellRef].s = headerFill as any;
       }
     }
 
-    for (let rowIndex = 0; rowIndex < selectedExportRows.length; rowIndex += 1) {
+    for (let rowIndex = 0; rowIndex < exportedItems.length; rowIndex += 1) {
       const excelRow = rowIndex + 6;
-      const basePriceCell = `D${excelRow}`;
-      const finalPriceCell = `E${excelRow}`;
-      const marginCell = `F${excelRow}`;
-      if (worksheet[basePriceCell]) worksheet[basePriceCell].z = '#,##0.00';
-      if (worksheet[finalPriceCell]) worksheet[finalPriceCell].z = '#,##0.00';
-      if (worksheet[marginCell]) worksheet[marginCell].z = '0.0%';
+      for (let col = 2; col < totalColumns; col += 1) {
+        const cellRef = XLSX.utils.encode_cell({ r: excelRow - 1, c: col });
+        if (worksheet[cellRef]) worksheet[cellRef].z = '#,##0.00';
+      }
     }
 
     const workbook = XLSX.utils.book_new();
@@ -1433,14 +1485,29 @@ export default function PriceLevels() {
       ? `Exchange rate: 1 ${levelCurrencyCode} = ${levelRateToBase.toFixed(4)} ${printBaseCurrency} as of ${date}`
       : '';
 
+    const allPackQtys = getUniquePackQuantities(printableItems);
+    const packHeaderCells = allPackQtys
+      .map((qty) => `<th style="text-align:right">Pack of ${qty}</th>`)
+      .join('');
+
     const rows = printableItems
       .map(
-        (item) => `
+        (item) => {
+          const packCells = allPackQtys.map((qty) => {
+            const pack = (item.packSizes || []).find((entry) => entry.packQuantity === qty);
+            const value = pack
+              ? formatLevelMoney(pack.packPrice, pack.packPriceConverted)
+              : '—';
+            return `<td style="text-align:right">${escapeHtml(value)}</td>`;
+          }).join('');
+          return `
         <tr>
           <td>${escapeHtml(item.productName || '')}</td>
           <td style="text-align:right">${escapeHtml(formatLevelMoney(item.finalPrice, item.finalPriceConverted))}</td>
+          ${packCells}
         </tr>
-      `,
+      `;
+        },
       )
       .join('');
 
@@ -1492,7 +1559,9 @@ export default function PriceLevels() {
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    thead th:last-child {
+    thead th:last-child,
+    thead th[data-align="right"],
+    tbody td[data-align="right"] {
       text-align: right;
     }
     tbody td {
@@ -1530,7 +1599,8 @@ export default function PriceLevels() {
     <thead>
       <tr>
         <th>Product</th>
-        <th style="text-align:right">Price (${escapeHtml(displayCurrency)})</th>
+        <th style="text-align:right">Unit Price (${escapeHtml(displayCurrency)})</th>
+        ${packHeaderCells}
       </tr>
     </thead>
     <tbody>
@@ -1891,6 +1961,7 @@ export default function PriceLevels() {
                           <th style={{ textAlign: 'right' }}>
                             {levelCurrencyCode ? `Final price (${levelCurrencyCode})` : 'Final price'}
                           </th>
+                          <th>Pack sizes</th>
                           <th style={{ textAlign: 'right' }}>Margin %</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'center' }}>Actions</th>
@@ -1931,6 +2002,100 @@ export default function PriceLevels() {
                                       </span>
                                     )}
                                   </span>
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                                    {(item.packSizes || []).map((pack: PriceLevelPackSize) => (
+                                      <span
+                                        key={pack.id}
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          fontSize: '12px',
+                                          backgroundColor: '#f1f5f9',
+                                          border: '1px solid #e2e8f0',
+                                          borderRadius: '999px',
+                                          padding: '2px 8px',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        <span>
+                                          ×{pack.packQuantity} → {formatLevelMoney(pack.packPrice, pack.packPriceConverted)}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => void removePackSize(pack.id)}
+                                          aria-label={`Remove pack of ${pack.packQuantity}`}
+                                          style={{
+                                            border: 'none',
+                                            background: 'transparent',
+                                            color: '#64748b',
+                                            cursor: 'pointer',
+                                            fontSize: '14px',
+                                            lineHeight: 1,
+                                            padding: 0,
+                                          }}
+                                        >
+                                          ×
+                                        </button>
+                                      </span>
+                                    ))}
+                                    {addingPackForItemId === item.id ? (
+                                      <input
+                                        type="number"
+                                        min={2}
+                                        step={1}
+                                        value={newPackQuantity}
+                                        onChange={(e) => setNewPackQuantity(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            void addPackSize(item.id, newPackQuantity);
+                                          }
+                                          if (e.key === 'Escape') {
+                                            setAddingPackForItemId(null);
+                                            setNewPackQuantity('');
+                                          }
+                                        }}
+                                        onBlur={() => {
+                                          if (newPackQuantity.trim()) {
+                                            void addPackSize(item.id, newPackQuantity);
+                                          } else {
+                                            setAddingPackForItemId(null);
+                                          }
+                                        }}
+                                        placeholder="Qty e.g. 12"
+                                        autoFocus
+                                        style={{
+                                          width: '80px',
+                                          height: '28px',
+                                          border: '1px solid #cbd5e1',
+                                          borderRadius: '6px',
+                                          padding: '0 8px',
+                                          fontSize: '12px',
+                                        }}
+                                      />
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setAddingPackForItemId(item.id);
+                                          setNewPackQuantity('');
+                                        }}
+                                        style={{
+                                          border: '1px dashed #cbd5e1',
+                                          background: '#fff',
+                                          color: '#0F2847',
+                                          borderRadius: '999px',
+                                          padding: '2px 8px',
+                                          fontSize: '12px',
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        {(item.packSizes || []).length > 0 ? '+' : '+ Pack'}
+                                      </button>
+                                    )}
+                                  </div>
                                 </td>
                                 <td style={{ textAlign: 'right' }}>
                                   <AppBadge variant={variant}>{margin.toFixed(1)}%</AppBadge>
@@ -2031,7 +2196,7 @@ export default function PriceLevels() {
 
                               {isEditing && (
                                 <tr key={`${item.productId}-edit`}>
-                                  <td colSpan={9} style={{ backgroundColor: '#fcfcfd' }}>
+                                  <td colSpan={10} style={{ backgroundColor: '#fcfcfd' }}>
                                     <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
                                       {item.isStalePrice && (
                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>

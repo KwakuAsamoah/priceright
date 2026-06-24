@@ -127,6 +127,17 @@ export const priceLevelItems = sqliteTable('price_level_items', {
 export type PriceLevelItem = typeof priceLevelItems.$inferSelect;
 export type NewPriceLevelItem = typeof priceLevelItems.$inferInsert;
 
+export const priceLevelPackSizes = sqliteTable('price_level_pack_sizes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  priceLevelItemId: integer('price_level_item_id')
+    .notNull()
+    .references(() => priceLevelItems.id, { onDelete: 'cascade' }),
+  packQuantity: integer('pack_quantity').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 export const customers = sqliteTable('customers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),

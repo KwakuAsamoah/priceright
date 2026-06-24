@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
-import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, priceLevelPackSizes, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
@@ -443,10 +443,28 @@ function normalizeLegacyCustomPriceOverride(input: {
   };
 }
 
+function buildPackSizesResponse(
+  packSizeRows: Array<{ id: number; packQuantity: number }>,
+  finalPrice: number,
+  finalPriceConverted: number,
+) {
+  return packSizeRows.map((row) => {
+    const packPrice = roundToFour(finalPrice * row.packQuantity);
+    const packPriceConverted = roundToFour(finalPriceConverted * row.packQuantity);
+    return {
+      id: row.id,
+      packQuantity: row.packQuantity,
+      packPrice,
+      packPriceConverted,
+    };
+  });
+}
+
 async function toPriceLevelItemResponse(
   item: PriceLevelItem,
   productRow: typeof products.$inferSelect,
   levelCurrency?: PriceLevelCurrencyContext,
+  packSizeRows?: Array<{ id: number; packQuantity: number }>,
 ) {
   const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
   const approvedPrice = Number(productRow.approvedPrice || 0);
@@ -502,6 +520,20 @@ async function toPriceLevelItemResponse(
     ? currencyContext.currencyCode
     : currencyContext.baseCurrencyCode;
 
+  const resolvedPackSizeRows = packSizeRows ?? await getActiveDb()
+    .select({
+      id: priceLevelPackSizes.id,
+      packQuantity: priceLevelPackSizes.packQuantity,
+    })
+    .from(priceLevelPackSizes)
+    .where(eq(priceLevelPackSizes.priceLevelItemId, item.id));
+
+  const packSizes = buildPackSizesResponse(
+    resolvedPackSizeRows,
+    finalPrice,
+    finalPriceConverted,
+  );
+
   return {
     id: item.id,
     priceLevelId: item.priceLevelId,
@@ -526,6 +558,7 @@ async function toPriceLevelItemResponse(
     updatedAt: item.updatedAt,
     productApprovedAt,
     isStalePrice,
+    packSizes,
   };
 }
 
@@ -3612,16 +3645,142 @@ app.get('/api/price-levels/:id/items', async (req, res) => {
       .where(inArray(products.id, productIds));
     const productById = new Map(productRows.map((row) => [row.id, row]));
 
+    const itemIds = items.map((item) => item.id);
+    const allPackRows = itemIds.length > 0
+      ? await getActiveDb()
+        .select({
+          id: priceLevelPackSizes.id,
+          priceLevelItemId: priceLevelPackSizes.priceLevelItemId,
+          packQuantity: priceLevelPackSizes.packQuantity,
+        })
+        .from(priceLevelPackSizes)
+        .where(inArray(priceLevelPackSizes.priceLevelItemId, itemIds))
+      : [];
+    const packSizesByItemId = new Map<number, Array<{ id: number; packQuantity: number }>>();
+    for (const row of allPackRows) {
+      const existing = packSizesByItemId.get(row.priceLevelItemId) || [];
+      existing.push({ id: row.id, packQuantity: row.packQuantity });
+      packSizesByItemId.set(row.priceLevelItemId, existing);
+    }
+
     const response = await Promise.all(
       items
         .filter((item) => productById.has(item.productId))
-        .map((item) => toPriceLevelItemResponse(item, productById.get(item.productId)!, levelCurrency))
+        .map((item) => toPriceLevelItemResponse(
+          item,
+          productById.get(item.productId)!,
+          levelCurrency,
+          packSizesByItemId.get(item.id) ?? [],
+        ))
     );
 
     res.json(response);
   } catch (error) {
     console.error('Error fetching price level items:', error);
     res.status(500).json({ error: 'Failed to fetch price level items' });
+  }
+});
+
+app.get('/api/price-level-items/:itemId/pack-sizes', async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.itemId);
+    if (!Number.isInteger(itemId)) {
+      return res.status(400).json({ error: 'Invalid price level item id' });
+    }
+
+    const itemRows = await getActiveDb()
+      .select({ id: priceLevelItems.id })
+      .from(priceLevelItems)
+      .where(eq(priceLevelItems.id, itemId));
+    if (itemRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    const rows = await getActiveDb()
+      .select({
+        id: priceLevelPackSizes.id,
+        packQuantity: priceLevelPackSizes.packQuantity,
+      })
+      .from(priceLevelPackSizes)
+      .where(eq(priceLevelPackSizes.priceLevelItemId, itemId))
+      .orderBy(asc(priceLevelPackSizes.packQuantity));
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching pack sizes:', error);
+    res.status(500).json({ error: 'Failed to fetch pack sizes' });
+  }
+});
+
+app.post('/api/price-level-items/:itemId/pack-sizes', async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.itemId);
+    if (!Number.isInteger(itemId)) {
+      return res.status(400).json({ error: 'Invalid price level item id' });
+    }
+
+    const packQuantity = Number(req.body?.packQuantity);
+    if (!Number.isInteger(packQuantity) || packQuantity <= 1) {
+      return res.status(400).json({ error: 'packQuantity must be an integer greater than 1' });
+    }
+
+    const itemRows = await getActiveDb()
+      .select({ id: priceLevelItems.id })
+      .from(priceLevelItems)
+      .where(eq(priceLevelItems.id, itemId));
+    if (itemRows.length === 0) {
+      return res.status(404).json({ error: 'Price level item not found' });
+    }
+
+    const duplicateRows = await getActiveDb()
+      .select({ id: priceLevelPackSizes.id })
+      .from(priceLevelPackSizes)
+      .where(and(
+        eq(priceLevelPackSizes.priceLevelItemId, itemId),
+        eq(priceLevelPackSizes.packQuantity, packQuantity),
+      ));
+    if (duplicateRows.length > 0) {
+      return res.status(400).json({ error: 'Pack quantity already exists for this item' });
+    }
+
+    const created = await getActiveDb()
+      .insert(priceLevelPackSizes)
+      .values({ priceLevelItemId: itemId, packQuantity })
+      .returning();
+
+    res.status(201).json({
+      id: created[0].id,
+      packQuantity: created[0].packQuantity,
+    });
+  } catch (error) {
+    console.error('Error adding pack size:', error);
+    res.status(500).json({ error: 'Failed to add pack size' });
+  }
+});
+
+app.delete('/api/price-level-pack-sizes/:id', async (req, res) => {
+  try {
+    const packSizeId = parseInt(req.params.id);
+    if (!Number.isInteger(packSizeId)) {
+      return res.status(400).json({ error: 'Invalid pack size id' });
+    }
+
+    const existingRows = await getActiveDb()
+      .select({ id: priceLevelPackSizes.id })
+      .from(priceLevelPackSizes)
+      .where(eq(priceLevelPackSizes.id, packSizeId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Pack size not found' });
+    }
+
+    await getActiveDb()
+      .delete(priceLevelPackSizes)
+      .where(eq(priceLevelPackSizes.id, packSizeId));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting pack size:', error);
+    res.status(500).json({ error: 'Failed to delete pack size' });
   }
 });
 
