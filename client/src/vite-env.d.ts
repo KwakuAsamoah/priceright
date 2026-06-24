@@ -67,6 +67,7 @@ interface Window {
     onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void;
     onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
     restartAndUpdate: () => void;
+    refocusWindow: () => Promise<boolean>;
   };
 }
 

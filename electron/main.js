@@ -266,6 +266,31 @@ function createWindow() {
     mainWindow.show();
     mainWindow.focus();
   });
+
+  mainWindow.on('show', () => {
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.focus();
+      }
+    }, 100);
+  });
+
+  mainWindow.on('restore', () => {
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.focus();
+      }
+    }, 100);
+  });
+
+  mainWindow.on('focus', () => {
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.focus();
+      }
+    }, 50);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -330,6 +355,14 @@ function setupAutoUpdater() {
       .catch((err) => ulog(`[updater] Check failed: ${err.message}`));
   }, 10000);
 }
+
+ipcMain.handle('refocus-window', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.focus();
+    return true;
+  }
+  return false;
+});
 
 ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {

@@ -28,4 +28,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-downloaded', (_event, info) => callback(info)),
   restartAndUpdate: () =>
     ipcRenderer.send('restart-and-update'),
+  refocusWindow: () =>
+    ipcRenderer.invoke('refocus-window'),
 });

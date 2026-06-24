@@ -717,9 +717,52 @@ export default function App() {
     const cleanupMathInputs = enableSpreadsheetStyleNumberInputs();
     const cleanupElectronFocus = enableElectronInputFocusFix();
 
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        setTimeout(() => {
+          void window.electronAPI?.refocusWindow?.();
+          const active = document.activeElement;
+          if (
+            active &&
+            active !== document.body &&
+            'focus' in active
+          ) {
+            (active as HTMLElement).blur();
+            setTimeout(() => {
+              (active as HTMLElement).focus();
+            }, 50);
+          }
+        }, 100);
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    function handlePointerDown(e: PointerEvent) {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' &&
+        (
+          (target as HTMLInputElement).type === 'number' ||
+          (target as HTMLInputElement).type === 'text'
+        )
+      ) {
+        if (document.activeElement === target) {
+          setTimeout(() => {
+            (target as HTMLInputElement).blur();
+            (target as HTMLInputElement).focus();
+          }, 0);
+        }
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown, true);
+
     return () => {
       cleanupMathInputs();
       cleanupElectronFocus();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
     };
   }, []);
 
