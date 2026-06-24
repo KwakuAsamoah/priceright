@@ -387,6 +387,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
 
+  const editingIntermediateIndex = useMemo(() => {
+    if (!selectedMaterial) return -1;
+    return filteredMaterials.findIndex((m) => m.id === selectedMaterial.id);
+  }, [selectedMaterial, filteredMaterials]);
+
   function isIntermediateColumnVisible(key: IntermediateColumnKey) {
     if (INTERMEDIATE_LOCKED_KEYS.has(key)) return true;
     return visibleColumns.includes(key);
@@ -519,6 +524,26 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setComponentQuantity('1');
     setComponentSearch('');
     setIsFormOpen(true);
+  }
+
+  function handleIntermediateMaterialPrev() {
+    if (!selectedMaterial || editingIntermediateIndex <= 0) return;
+    const prev = filteredMaterials[editingIntermediateIndex - 1];
+    if (prev) {
+      selectMaterial(prev);
+      void loadBom(prev.id);
+    }
+  }
+
+  function handleIntermediateMaterialNext() {
+    if (!selectedMaterial) return;
+    const last = filteredMaterials.length - 1;
+    if (editingIntermediateIndex >= last) return;
+    const next = filteredMaterials[editingIntermediateIndex + 1];
+    if (next) {
+      selectMaterial(next);
+      void loadBom(next.id);
+    }
   }
 
   function closeMaterialForm() {
@@ -1368,10 +1393,48 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 &times;
               </button>
               <div className="app-drawer-panel__scroll">
-              <div className="app-drawer-header" style={{ paddingRight: 36 }}>
-                <div>
-                  <h3>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
-                  <div className="app-drawer-header__subtitle">Update material details and cost settings inline</div>
+              <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                  <div>
+                    <h3>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                    <div className="app-drawer-header__subtitle">Update material details and cost settings inline</div>
+                  </div>
+                  {selectedMaterial && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginLeft: '12px',
+                    }}>
+                      <button
+                        type="button"
+                        onClick={handleIntermediateMaterialPrev}
+                        disabled={editingIntermediateIndex === 0}
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '4px 8px' }}
+                        title="Previous intermediate material"
+                      >
+                        ← Prev
+                      </button>
+                      <span style={{
+                        fontSize: '12px',
+                        color: '#94a3b8',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {editingIntermediateIndex + 1} of {filteredMaterials.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleIntermediateMaterialNext}
+                        disabled={editingIntermediateIndex === filteredMaterials.length - 1}
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '4px 8px' }}
+                        title="Next intermediate material"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button className="btn btn-danger-solid btn-sm" type="button" onClick={closeMaterialForm}>Close</button>
               </div>

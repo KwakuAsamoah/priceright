@@ -1363,6 +1363,23 @@ export default function Products() {
     [filteredProducts]
   );
 
+  const editingProductIndex = useMemo(() => {
+    if (!editingProduct) return -1;
+    return filteredProducts.findIndex((p) => p.id === editingProduct.id);
+  }, [editingProduct, filteredProducts]);
+
+  function handleEditPrev() {
+    if (editingProductIndex <= 0) return;
+    const prev = filteredProducts[editingProductIndex - 1];
+    if (prev) setEditingProduct(prev);
+  }
+
+  function handleEditNext() {
+    if (editingProductIndex >= filteredProducts.length - 1) return;
+    const next = filteredProducts[editingProductIndex + 1];
+    if (next) setEditingProduct(next);
+  }
+
   function openProductDetail(productId: number) {
     navigate(`/products/${productId}`, {
       state: {
@@ -2172,6 +2189,12 @@ export default function Products() {
           setShowDrawer(false);
           await loadData();
         }}
+        {...(editingProduct ? {
+          onPrev: handleEditPrev,
+          onNext: handleEditNext,
+          currentIndex: editingProductIndex,
+          totalCount: filteredProducts.length,
+        } : {})}
       />
 
       {deleteTarget && (

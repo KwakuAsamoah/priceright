@@ -993,6 +993,24 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       });
   }, [materials, searchTerm, sortField, sortOrder]);
 
+  const editingMaterialIndex = useMemo(() => {
+    if (!editingMaterial) return -1;
+    return filteredMaterials.findIndex((m) => m.id === editingMaterial.id);
+  }, [editingMaterial, filteredMaterials]);
+
+  function handleMaterialPrev() {
+    if (editingMaterialIndex <= 0) return;
+    const prev = filteredMaterials[editingMaterialIndex - 1];
+    if (prev) handleEdit(prev);
+  }
+
+  function handleMaterialNext() {
+    const last = filteredMaterials.length - 1;
+    if (editingMaterialIndex >= last) return;
+    const next = filteredMaterials[editingMaterialIndex + 1];
+    if (next) handleEdit(next);
+  }
+
   const foreignCurrencyRates = useMemo(() => {
     return currencies
       .filter((currency) => currency.isActive && currency.code !== baseCurrencyCode)
@@ -1709,9 +1727,47 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             <button className="btn-close-x" onClick={() => { setShowAddModal(false); setEditingMaterial(null); }} aria-label="Close">
               &times;
             </button>
-            <h2 className="app-modal-title">
-              {editingMaterial ? 'Edit Material' : 'Add New Material'}
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: editingMaterial ? '8px' : undefined }}>
+              <h2 className="app-modal-title" style={{ margin: 0 }}>
+                {editingMaterial ? 'Edit Material' : 'Add New Material'}
+              </h2>
+              {editingMaterial && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  marginLeft: '12px',
+                }}>
+                  <button
+                    type="button"
+                    onClick={handleMaterialPrev}
+                    disabled={editingMaterialIndex === 0}
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '4px 8px' }}
+                    title="Previous material"
+                  >
+                    ← Prev
+                  </button>
+                  <span style={{
+                    fontSize: '12px',
+                    color: '#94a3b8',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {editingMaterialIndex + 1} of {filteredMaterials.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleMaterialNext}
+                    disabled={editingMaterialIndex === filteredMaterials.length - 1}
+                    className="btn btn-ghost btn-sm"
+                    style={{ padding: '4px 8px' }}
+                    title="Next material"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gap: '16px' }}>
                 <div>

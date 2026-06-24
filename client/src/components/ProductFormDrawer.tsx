@@ -46,6 +46,10 @@ interface ProductFormDrawerProps {
   defaultOverhead: string;
   defaultProfitMargin: string;
   onSaved: () => void | Promise<void>;
+  onPrev?: () => void;
+  onNext?: () => void;
+  currentIndex?: number;
+  totalCount?: number;
 }
 
 export default function ProductFormDrawer({
@@ -57,6 +61,10 @@ export default function ProductFormDrawer({
   defaultOverhead,
   defaultProfitMargin,
   onSaved,
+  onPrev,
+  onNext,
+  currentIndex,
+  totalCount,
 }: ProductFormDrawerProps) {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const [saving, setSaving] = useState(false);
@@ -323,10 +331,48 @@ export default function ProductFormDrawer({
           &times;
         </button>
         <div className="app-drawer-panel__scroll">
-        <div className="app-drawer-header" style={{ paddingRight: 36 }}>
-          <div>
-            <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
-            <div className="app-drawer-header__subtitle">Update product details and BOM inline</div>
+        <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
+            <div>
+              <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
+              <div className="app-drawer-header__subtitle">Update product details and BOM inline</div>
+            </div>
+            {onPrev !== undefined && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginLeft: '12px',
+              }}>
+                <button
+                  type="button"
+                  onClick={onPrev}
+                  disabled={currentIndex === 0}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  title="Previous product"
+                >
+                  ← Prev
+                </button>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {(currentIndex ?? 0) + 1} of {totalCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={onNext}
+                  disabled={currentIndex === (totalCount ?? 1) - 1}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  title="Next product"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
           <button className="btn btn-danger-solid btn-sm" type="button" onClick={onClose}>
             Close

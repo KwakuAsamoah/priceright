@@ -218,6 +218,31 @@ function createWindow() {
     backgroundColor: '#0f172a',
   });
 
+  const savedZoom = (() => {
+    try {
+      const zoomPath = path.join(app.getPath('userData'), 'windowZoom.json');
+      if (fs.existsSync(zoomPath)) {
+        const data = JSON.parse(fs.readFileSync(zoomPath, 'utf8'));
+        return data.zoomFactor ?? 1;
+      }
+    } catch {}
+    return 1;
+  })();
+
+  mainWindow.webContents.setZoomFactor(savedZoom);
+
+  mainWindow.webContents.on('zoom-changed', (_event, zoomDirection) => {
+    const current = mainWindow.webContents.getZoomFactor();
+    const newZoom = zoomDirection === 'in'
+      ? Math.min(current * 1.1, 3)
+      : Math.max(current / 1.1, 0.5);
+    mainWindow.webContents.setZoomFactor(newZoom);
+    try {
+      const zoomPath = path.join(app.getPath('userData'), 'windowZoom.json');
+      fs.writeFileSync(zoomPath, JSON.stringify({ zoomFactor: newZoom }), 'utf8');
+    } catch {}
+  });
+
   const localBuiltIndex = path.join(__dirname, '..', 'client-dist', 'index.html');
   const externalProdIndex = path.join(process.resourcesPath, 'client-dist', 'index.html');
 
