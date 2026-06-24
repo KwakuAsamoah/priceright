@@ -211,7 +211,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [configuredMaterialUnits, setConfiguredMaterialUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
   const [visibleColumns, setVisibleColumns] = usePersistedColumns<MaterialColumnKey>(
     'priceright_columns_materials',

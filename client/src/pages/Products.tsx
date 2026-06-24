@@ -349,6 +349,7 @@ export default function Products() {
 
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
+  const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
 
@@ -1336,14 +1337,20 @@ export default function Products() {
         && productDaysUntilExpiry <= 30
       );
 
+      const matchesActive =
+        activeFilter === 'all'
+        || (activeFilter === 'active' && product.isActive !== false)
+        || (activeFilter === 'inactive' && product.isActive === false);
+
       return matchesSearch
         && matchesStatus
         && matchesApprovalStatus
         && matchesApprovalQuery
         && matchesLowMargin
-        && matchesExpiringSoon;
+        && matchesExpiringSoon
+        && matchesActive;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly]);
+  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter]);
 
   const productOrderForDetail = useMemo(
     () => filteredProducts.map((product) => ({ id: product.id, name: product.name })),
@@ -1545,6 +1552,24 @@ export default function Products() {
                 {status}
               </option>
             ))}
+          </select>
+          <select
+            value={activeFilter}
+            onChange={(e) => setActiveFilter(e.target.value as 'active' | 'inactive' | 'all')}
+            style={{
+              height: '32px',
+              border: '0.5px solid #E2E8F0',
+              borderRadius: '6px',
+              fontSize: '13px',
+              background: '#F8FAFC',
+              padding: '0 8px',
+              color: '#0F2847',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="all">All</option>
           </select>
           <div style={{ flex: 1 }} />
           <ActionDropdown
@@ -2118,7 +2143,14 @@ export default function Products() {
       )}
 
       {activeTab === 'analysis' && (
-        <ProductsAnalysisTab products={products} />
+        <div style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          padding: '8px 0',
+        }}>
+          <ProductsAnalysisTab products={products} />
+        </div>
       )}
       </div>
 

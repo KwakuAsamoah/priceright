@@ -109,15 +109,18 @@ export default function MaterialsPage() {
           <IntermediateMaterials refreshKey={intermediateRefreshKey} isActive={activeTab === 'intermediate'} />
         </div>
         {activeTab === 'analysis' && (
-          <div>
-            <div style={{ display: 'grid', gap: '8px' }}>
-              <MaterialsAnalysisTab
-                materials={analysisMaterials}
-                currencies={analysisCurrencies}
-                exchangeRates={analysisExchangeRates}
-                loading={analysisLoading}
-              />
-            </div>
+          <div style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            padding: '8px 0',
+          }}>
+            <MaterialsAnalysisTab
+              materials={analysisMaterials}
+              currencies={analysisCurrencies}
+              exchangeRates={analysisExchangeRates}
+              loading={analysisLoading}
+            />
           </div>
         )}
         </div>

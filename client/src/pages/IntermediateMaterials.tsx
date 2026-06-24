@@ -259,7 +259,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [materialSearch, setMaterialSearch] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [sortField] = useState<SortField>('name');
   const [sortOrder] = useState<SortOrder>('asc');
   const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('comfortable');
