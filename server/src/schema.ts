@@ -95,6 +95,7 @@ export const priceLevels = sqliteTable('price_levels', {
   adjustmentType: text('adjustment_type').notNull().default('discount'),
   adjustmentPercentage: real('adjustment_percentage').notNull().default(0),
   description: text('description'),
+  currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'set null' }),
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`CURRENT_TIMESTAMP`),

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
 import { seedDemoData } from './seedDemo.js';
 import { migrateActivityLog } from './migrations/add-user-id-to-activity-log.js';
+import { migratePriceLevelCurrency } from './migrations/add-currency-to-price-levels.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -483,7 +484,9 @@ function ensureSchemaTables() {
 
 ensureSchemaTables();
 migrateActivityLog(sqlite);
+migratePriceLevelCurrency(sqlite);
 migrateActivityLog(demoSqlite);
+migratePriceLevelCurrency(demoSqlite);
 
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;

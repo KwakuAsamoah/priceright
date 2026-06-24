@@ -151,6 +151,9 @@ export interface PriceLevelItemResponse {
   adjustmentPercentage: number | null;
   customPrice: number | null;
   finalPrice: number;
+  finalPriceConverted?: number;
+  currencyCode?: string;
+  rateToBase?: number;
   status: 'pending' | 'approved' | 'rejected';
   approvedBy: string | null;
   approvedAt: number | null;
@@ -574,7 +577,7 @@ export const priceLevelRulesApi = {
     const res = await fetch(`${API_BASE}/price-level-rules`);
     return res.json();
   },
-  create: async (data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string }) => {
+  create: async (data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string; currencyId?: number | null }) => {
     const res = await fetch(`${API_BASE}/price-level-rules`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -582,7 +585,7 @@ export const priceLevelRulesApi = {
     });
     return res.json();
   },
-  update: async (id: number, data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string; isActive?: boolean }) => {
+  update: async (id: number, data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string; isActive?: boolean; currencyId?: number | null }) => {
     const res = await fetch(`${API_BASE}/price-level-rules/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

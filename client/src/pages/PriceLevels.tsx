@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Printer, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
+  currenciesApi,
   priceLevelItemsApi,
   priceLevelRulesApi,
   productsApi,
@@ -30,6 +31,15 @@ type PriceLevelRule = {
   adjustmentType?: 'discount' | 'markup';
   adjustmentPercentage?: number;
   description?: string | null;
+  currencyId?: number | null;
+  currencyCode?: string | null;
+  isActive?: boolean;
+};
+
+type ActiveCurrency = {
+  id: number;
+  code: string;
+  name: string;
   isActive?: boolean;
 };
 
@@ -55,6 +65,7 @@ type ExportRow = {
   category: string;
   approvedBasePrice: number;
   finalPrice: number;
+  finalPriceBase: number;
   marginPercent: number;
   adjustmentLabel: string;
 };
@@ -250,6 +261,19 @@ export default function PriceLevels() {
   const { baseCurrency } = useBaseCurrency();
   const formatMoney = (value: number) => formatCurrency(toNumber(value), baseCurrency);
 
+  const [levelCurrencyCode, setLevelCurrencyCode] = useState<string | null>(null);
+  const [levelRateToBase, setLevelRateToBase] = useState(1);
+  const [wizardCurrencyId, setWizardCurrencyId] = useState<number | null>(null);
+  const [editLevelCurrencyId, setEditLevelCurrencyId] = useState<number | null>(null);
+  const [activeCurrencies, setActiveCurrencies] = useState<ActiveCurrency[]>([]);
+
+  function formatLevelMoney(baseValue: number, convertedValue?: number): string {
+    if (levelCurrencyCode && convertedValue !== undefined) {
+      return `${levelCurrencyCode} ${toNumber(convertedValue).toFixed(2)}`;
+    }
+    return formatMoney(baseValue);
+  }
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -326,16 +350,23 @@ export default function PriceLevels() {
   );
 
   const exportRows = useMemo<ExportRow[]>(() => {
-    return approvedSelectedLevelItems.map((item) => ({
-      productId: item.productId,
-      productName: item.productName,
-      category: item.productCategory || '-',
-      approvedBasePrice: toNumber(item.productApprovedPrice, 0),
-      finalPrice: toNumber(item.finalPrice, 0),
-      marginPercent: computeMarginPercent(toNumber(item.finalPrice, 0), toNumber(item.productProductionCost, 0)),
-      adjustmentLabel: getAdjustmentLabel(item, baseCurrency),
-    }));
-  }, [approvedSelectedLevelItems, baseCurrency]);
+    return approvedSelectedLevelItems.map((item) => {
+      const finalPriceBase = toNumber(item.finalPrice, 0);
+      const displayFinalPrice = levelCurrencyCode
+        ? toNumber(item.finalPriceConverted, finalPriceBase)
+        : finalPriceBase;
+      return {
+        productId: item.productId,
+        productName: item.productName,
+        category: item.productCategory || '-',
+        approvedBasePrice: toNumber(item.productApprovedPrice, 0),
+        finalPrice: displayFinalPrice,
+        finalPriceBase,
+        marginPercent: computeMarginPercent(finalPriceBase, toNumber(item.productProductionCost, 0)),
+        adjustmentLabel: getAdjustmentLabel(item, baseCurrency),
+      };
+    });
+  }, [approvedSelectedLevelItems, baseCurrency, levelCurrencyCode]);
 
   const selectedExportRows = useMemo(
     () => exportRows.filter((row) => selectedExportProductIds.has(row.productId)),
@@ -428,6 +459,9 @@ export default function PriceLevels() {
       const items = await priceLevelItemsApi.getAll(levelId);
       setItemsByLevel((prev) => ({ ...prev, [levelId]: items }));
       setSelectedRows(new Set());
+      if (levelId === selectedLevelId && items.length > 0) {
+        setLevelRateToBase(toNumber(items[0].rateToBase, 1));
+      }
       return items;
     } catch (error) {
       console.error('Failed to load level items:', error);
@@ -456,6 +490,7 @@ export default function PriceLevels() {
         adjustmentType: 'discount',
         adjustmentPercentage: 0,
         description: level.description || '',
+        currencyId: level.currencyId ?? null,
       }) as PriceLevelRule;
 
       const items = await priceLevelItemsApi.getAll(level.id);
@@ -481,17 +516,38 @@ export default function PriceLevels() {
 
   useEffect(() => {
     void loadInitialData();
+    void currenciesApi.getAll().then((all) => {
+      setActiveCurrencies(
+        (Array.isArray(all) ? all : []).filter((currency: ActiveCurrency) => currency.isActive !== false),
+      );
+    }).catch(() => {
+      setActiveCurrencies([]);
+    });
   }, []);
 
   useEffect(() => {
     if (selectedLevel) {
       setLevelNameDraft(selectedLevel.name);
+      setLevelCurrencyCode(selectedLevel.currencyCode ?? null);
+      setEditLevelCurrencyId(selectedLevel.currencyId ?? null);
       setEditingLevelName(false);
       setEditingItemProductId(null);
       setSelectedRows(new Set());
       setRecentActivityOpen(false);
+    } else {
+      setLevelCurrencyCode(null);
+      setEditLevelCurrencyId(null);
+      setLevelRateToBase(1);
     }
-  }, [selectedLevelId]);
+  }, [selectedLevelId, selectedLevel]);
+
+  useEffect(() => {
+    if (selectedLevelId == null) return;
+    const items = itemsByLevel[selectedLevelId] ?? [];
+    if (items.length > 0) {
+      setLevelRateToBase(toNumber(items[0].rateToBase, 1));
+    }
+  }, [selectedLevelId, itemsByLevel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -718,6 +774,40 @@ export default function PriceLevels() {
     setSelectedRows(next);
   }
 
+  async function saveLevelCurrency(nextCurrencyId: number | null) {
+    if (!selectedLevel) return;
+
+    setSaving(true);
+    try {
+      const updated = await priceLevelRulesApi.update(selectedLevel.id, {
+        name: selectedLevel.name,
+        adjustmentType: selectedLevel.adjustmentType || 'discount',
+        adjustmentPercentage: toNumber(selectedLevel.adjustmentPercentage, 0),
+        description: selectedLevel.description || undefined,
+        currencyId: nextCurrencyId,
+      }) as PriceLevelRule;
+
+      setLevels((prev) => prev.map((level) => (
+        level.id === selectedLevel.id
+          ? {
+            ...level,
+            currencyId: updated.currencyId ?? null,
+            currencyCode: updated.currencyCode ?? null,
+          }
+          : level
+      )));
+      setEditLevelCurrencyId(updated.currencyId ?? null);
+      setLevelCurrencyCode(updated.currencyCode ?? null);
+      await refreshLevelItems(selectedLevel.id);
+      showToastMessage('Price list currency updated.', 'success');
+    } catch (error) {
+      console.error('Failed to update price level currency:', error);
+      showToastMessage((error as Error).message || 'Failed to update currency.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveLevelName() {
     if (!selectedLevel) return;
     const nextName = levelNameDraft.trim();
@@ -866,11 +956,19 @@ export default function PriceLevels() {
     setWizardRules({});
     setWizardApplyAllType('rule_discount');
     setWizardApplyAllValue('');
+    setWizardCurrencyId(null);
   }
 
   function openWizard() {
     resetWizardState();
     setShowWizard(true);
+    void currenciesApi.getAll().then((all) => {
+      setActiveCurrencies(
+        (Array.isArray(all) ? all : []).filter((currency: ActiveCurrency) => currency.isActive !== false),
+      );
+    }).catch(() => {
+      setActiveCurrencies([]);
+    });
   }
 
   function cancelWizard() {
@@ -1051,6 +1149,7 @@ export default function PriceLevels() {
         name,
         adjustmentType: 'discount',
         adjustmentPercentage: 0,
+        currencyId: wizardCurrencyId,
       }) as PriceLevelRule;
 
       const newLevelId = toNumber((created as PriceLevelRule).id, 0);
@@ -1136,7 +1235,7 @@ export default function PriceLevels() {
       [`Price List: ${selectedLevel.name}`],
       [metadataLine],
       [],
-      ['#', 'Product Name', 'Category', 'Approved Base Price', 'Final Price', 'Margin %'],
+      ['#', 'Product Name', 'Category', `Approved Base Price (${baseCurrency})`, levelCurrencyCode ? `Final Price (${levelCurrencyCode})` : 'Final Price', 'Margin %'],
       ...selectedExportRows.map((row, index) => ([
         index + 1,
         row.productName,
@@ -1329,12 +1428,17 @@ export default function PriceLevels() {
       return;
     }
 
+    const displayCurrency = levelCurrencyCode || printBaseCurrency;
+    const exchangeRateNote = levelCurrencyCode
+      ? `Exchange rate: 1 ${levelCurrencyCode} = ${levelRateToBase.toFixed(4)} ${printBaseCurrency} as of ${date}`
+      : '';
+
     const rows = printableItems
       .map(
         (item) => `
         <tr>
           <td>${escapeHtml(item.productName || '')}</td>
-          <td style="text-align:right">${escapeHtml(formatMoney(toNumber(item.finalPrice)))}</td>
+          <td style="text-align:right">${escapeHtml(formatLevelMoney(item.finalPrice, item.finalPriceConverted))}</td>
         </tr>
       `,
       )
@@ -1419,13 +1523,14 @@ export default function PriceLevels() {
   <div class="header">
     <div class="company">${escapeHtml(companyName)}</div>
     <div class="level-name">${escapeHtml(selectedLevel.name || 'Price List')}</div>
-    <div class="meta">Valid as of ${escapeHtml(date)} · Prices in ${escapeHtml(printBaseCurrency)}</div>
+    <div class="meta">Valid as of ${escapeHtml(date)} · Prices in ${escapeHtml(displayCurrency)}</div>
+    ${exchangeRateNote ? `<div class="meta">${escapeHtml(exchangeRateNote)}</div>` : ''}
   </div>
   <table>
     <thead>
       <tr>
         <th>Product</th>
-        <th style="text-align:right">Price</th>
+        <th style="text-align:right">Price (${escapeHtml(displayCurrency)})</th>
       </tr>
     </thead>
     <tbody>
@@ -1434,6 +1539,7 @@ export default function PriceLevels() {
   </table>
   <div class="footer">
     Generated by PriceRight · ${escapeHtml(companyName)} · ${escapeHtml(date)}
+    ${exchangeRateNote ? `<br>${escapeHtml(exchangeRateNote)}` : ''}
   </div>
 </body>
 </html>`;
@@ -1619,6 +1725,48 @@ export default function PriceLevels() {
                       ) : (
                         <h2 style={{ fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 700, fontSize: '22px', margin: 0 }}>{selectedLevel.name}</h2>
                       )}
+                      <div style={{ marginTop: '12px', maxWidth: '360px' }}>
+                        <label style={{
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#0F2847',
+                          marginBottom: '6px',
+                        }}
+                        >
+                          Price list currency
+                        </label>
+                        <select
+                          value={editLevelCurrencyId ?? ''}
+                          onChange={(e) => {
+                            const nextValue = e.target.value ? Number(e.target.value) : null;
+                            setEditLevelCurrencyId(nextValue);
+                            void saveLevelCurrency(nextValue);
+                          }}
+                          disabled={saving}
+                          style={{
+                            width: '100%',
+                            height: '36px',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            padding: '0 10px',
+                            background: '#F8FAFC',
+                          }}
+                        >
+                          <option value="">
+                            Base currency ({baseCurrency})
+                          </option>
+                          {activeCurrencies.map((currency) => (
+                            <option key={currency.id} value={currency.id}>
+                              {currency.code} — {currency.name}
+                            </option>
+                          ))}
+                        </select>
+                        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '4px', marginBottom: 0 }}>
+                          Prices are converted using the current exchange rate when displaying and exporting.
+                        </p>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1738,9 +1886,11 @@ export default function PriceLevels() {
                           </th>
                           <th>Product name</th>
                           <th>Category</th>
-                          <th style={{ textAlign: 'right' }}>Approved base price</th>
+                          <th style={{ textAlign: 'right' }}>Approved base price ({baseCurrency})</th>
                           <th>Pricing rule</th>
-                          <th style={{ textAlign: 'right' }}>Final price</th>
+                          <th style={{ textAlign: 'right' }}>
+                            {levelCurrencyCode ? `Final price (${levelCurrencyCode})` : 'Final price'}
+                          </th>
                           <th style={{ textAlign: 'right' }}>Margin %</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'center' }}>Actions</th>
@@ -1774,7 +1924,7 @@ export default function PriceLevels() {
                                 <td>{pricingRuleLabel(item, baseCurrency)}</td>
                                 <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                    {formatMoney(item.finalPrice)}
+                                    {formatLevelMoney(item.finalPrice, item.finalPriceConverted)}
                                     {item.isStalePrice && (
                                       <span title="Base price was updated after this price override was set. Review to confirm this price is still appropriate.">
                                         <AlertTriangle size={13} style={{ color: '#e65100' }} />
@@ -2264,6 +2414,50 @@ export default function PriceLevels() {
                 <p className="app-modal-subtitle" style={{ marginTop: '10px' }}>
                   Use a descriptive name for the tier or export sheet you want to manage.
                 </p>
+                <div style={{ marginTop: '16px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#0F2847',
+                    marginBottom: '6px',
+                  }}
+                  >
+                    Price list currency
+                  </label>
+                  <select
+                    value={wizardCurrencyId ?? ''}
+                    onChange={(e) => setWizardCurrencyId(
+                      e.target.value ? Number(e.target.value) : null,
+                    )}
+                    style={{
+                      width: '100%',
+                      height: '36px',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      padding: '0 10px',
+                      background: '#F8FAFC',
+                    }}
+                  >
+                    <option value="">
+                      Base currency ({baseCurrency})
+                    </option>
+                    {activeCurrencies.map((currency) => (
+                      <option key={currency.id} value={currency.id}>
+                        {currency.code} — {currency.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{
+                    fontSize: '12px',
+                    color: '#64748b',
+                    marginTop: '4px',
+                  }}
+                  >
+                    Prices will be converted using the current exchange rate when displaying and exporting.
+                  </p>
+                </div>
                 <div className="app-modal-actions">
                   <AppButton variant="ghost" onClick={cancelWizard}>Cancel</AppButton>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
