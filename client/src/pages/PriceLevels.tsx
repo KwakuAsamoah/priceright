@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Pencil, Plus, Printer, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Package, Pencil, Plus, Printer, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   currenciesApi,
@@ -313,11 +313,13 @@ export default function PriceLevels() {
   const [wizardApplyAllType, setWizardApplyAllType] = useState<OverrideType>('rule_discount');
   const [wizardApplyAllValue, setWizardApplyAllValue] = useState('');
   const [showExportModal, setShowExportModal] = useState(false);
+  const [managePacksItem, setManagePacksItem] = useState<PriceLevelItemResponse | null>(null);
+  const [managePacksNewQuantity, setManagePacksNewQuantity] = useState('');
   const { setHasOpenForm } = useFormState();
 
   useEffect(() => {
-    setHasOpenForm(showAddProductsModal || showWizard || showExportModal);
-  }, [showAddProductsModal, showWizard, showExportModal, setHasOpenForm]);
+    setHasOpenForm(showAddProductsModal || showWizard || showExportModal || managePacksItem != null);
+  }, [showAddProductsModal, showWizard, showExportModal, managePacksItem, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -335,8 +337,6 @@ export default function PriceLevels() {
   const [includeGeneratedDate, setIncludeGeneratedDate] = useState(true);
   const [includeValidUntil, setIncludeValidUntil] = useState(true);
   const [exportValidUntil, setExportValidUntil] = useState('');
-  const [addingPackForItemId, setAddingPackForItemId] = useState<number | null>(null);
-  const [newPackQuantity, setNewPackQuantity] = useState('');
 
   const selectedLevel = useMemo(
     () => levels.find((level) => level.id === selectedLevelId) ?? null,
@@ -484,9 +484,12 @@ export default function PriceLevels() {
 
     try {
       await packSizesApi.add(itemId, packQuantity);
-      setAddingPackForItemId(null);
-      setNewPackQuantity('');
-      await refreshLevelItems(selectedLevel.id);
+      setManagePacksNewQuantity('');
+      const items = await refreshLevelItems(selectedLevel.id);
+      setManagePacksItem((current) => {
+        if (current?.id !== itemId) return current;
+        return items.find((entry) => entry.id === itemId) ?? current;
+      });
       showToastMessage(`Pack of ${packQuantity} added.`, 'success');
     } catch (error) {
       console.error('Failed to add pack size:', error);
@@ -494,17 +497,33 @@ export default function PriceLevels() {
     }
   }
 
-  async function removePackSize(packSizeId: number) {
+  async function removePackSize(packSizeId: number, itemId: number) {
     if (!selectedLevel) return;
 
     try {
       await packSizesApi.delete(packSizeId);
-      await refreshLevelItems(selectedLevel.id);
+      const items = await refreshLevelItems(selectedLevel.id);
+      setManagePacksItem((current) => {
+        if (current?.id !== itemId) return current;
+        return items.find((entry) => entry.id === itemId) ?? current;
+      });
       showToastMessage('Pack size removed.', 'success');
     } catch (error) {
       console.error('Failed to remove pack size:', error);
       showToastMessage((error as Error).message || 'Failed to remove pack size.', 'error');
     }
+  }
+
+  function openManagePacks(item: PriceLevelItemResponse) {
+    setManagePacksItem(item);
+    setManagePacksNewQuantity('');
+  }
+
+  function packMenuItems(item: PriceLevelItemResponse) {
+    return [
+      { label: 'Manage packs', icon: Package, onClick: () => openManagePacks(item) },
+      { type: 'divider' as const, key: `packs-divider-${item.productId}` },
+    ];
   }
 
   function buildDuplicateLevelName(baseName: string, existingNames: Set<string>) {
@@ -1999,116 +2018,20 @@ export default function PriceLevels() {
                           const displayRows: Array<PriceLevelPackSize | null> = packs.length > 0 ? packs : [null];
                           const rowSpan = displayRows.length;
 
-                          const packSizeTd = (pack: PriceLevelPackSize | null, packIndex: number) => {
-                            const isLastRow = packIndex === displayRows.length - 1;
-
-                            if (addingPackForItemId === item.id && isLastRow) {
-                              return (
-                                <td style={{ textAlign: 'center' }} className="pack-size-cell">
-                                  <input
-                                    type="number"
-                                    min={2}
-                                    step={1}
-                                    value={newPackQuantity}
-                                    onChange={(e) => setNewPackQuantity(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        void addPackSize(item.id, newPackQuantity);
-                                      }
-                                      if (e.key === 'Escape') {
-                                        setAddingPackForItemId(null);
-                                        setNewPackQuantity('');
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      if (newPackQuantity.trim()) {
-                                        void addPackSize(item.id, newPackQuantity);
-                                      } else {
-                                        setAddingPackForItemId(null);
-                                      }
-                                    }}
-                                    placeholder="Qty e.g. 12"
-                                    autoFocus
-                                    style={{
-                                      width: '80px',
-                                      height: '28px',
-                                      border: '1px solid #cbd5e1',
-                                      borderRadius: '6px',
-                                      padding: '0 8px',
-                                      fontSize: '12px',
-                                    }}
-                                  />
-                                </td>
-                              );
-                            }
-
-                            const addPackLink = isLastRow ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAddingPackForItemId(item.id);
-                                  setNewPackQuantity('');
-                                }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  color: '#94a3b8',
-                                  fontSize: '11px',
-                                  padding: '2px 4px',
-                                  display: 'block',
-                                  margin: '2px auto 0',
-                                }}
-                                title="Add pack size"
-                              >
-                                + pack
-                              </button>
-                            ) : null;
-
+                          const packSizeTd = (pack: PriceLevelPackSize | null) => {
                             if (pack) {
                               return (
-                                <td
-                                  style={{ textAlign: 'center', position: 'relative' }}
-                                  className="pack-size-cell"
-                                >
+                                <td style={{ textAlign: 'center' }}>
                                   <span style={{ fontSize: '13px', fontWeight: 500, color: '#0F2847' }}>
                                     {pack.packQuantity}
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => void removePackSize(pack.id)}
-                                    aria-label={`Remove pack of ${pack.packQuantity}`}
-                                    className="pack-delete-btn"
-                                    title="Remove pack size"
-                                    style={{
-                                      position: 'absolute',
-                                      top: '50%',
-                                      right: '4px',
-                                      transform: 'translateY(-50%)',
-                                      background: 'none',
-                                      border: 'none',
-                                      cursor: 'pointer',
-                                      color: '#ef4444',
-                                      fontSize: '11px',
-                                      opacity: 0,
-                                      transition: 'opacity 0.15s',
-                                      padding: '2px 4px',
-                                    }}
-                                  >
-                                    ×
-                                  </button>
-                                  {addPackLink}
                                 </td>
                               );
                             }
 
                             return (
-                              <td
-                                style={{ textAlign: 'center', position: 'relative' }}
-                                className="pack-size-cell"
-                              >
-                                <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>
-                                {addPackLink}
+                              <td style={{ textAlign: 'center', color: '#94a3b8' }}>
+                                —
                               </td>
                             );
                           };
@@ -2147,7 +2070,7 @@ export default function PriceLevels() {
                                     {formatMoney(item.productApprovedPrice)}
                                   </td>
                                 )}
-                                {packSizeTd(pack, packIndex)}
+                                {packSizeTd(pack)}
                                 {unitPriceCell(isFirstRow)}
                                 <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   {pack
@@ -2193,6 +2116,7 @@ export default function PriceLevels() {
                                         <OverflowMenu
                                           ariaLabel={`More actions for ${item.productName}`}
                                           items={[
+                                            ...packMenuItems(item),
                                             ...(item.status === 'pending'
                                               ? [
                                                 { label: 'Edit price', icon: Pencil, onClick: () => openInlineEdit(item) },
@@ -2380,6 +2304,97 @@ export default function PriceLevels() {
           </div>
         </div>
       </div>
+
+      {managePacksItem && selectedLevel && (
+        <div className="app-modal-overlay" onClick={() => setManagePacksItem(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setManagePacksItem(null)} aria-label="Close">
+              &times;
+            </button>
+            <h2 className="app-modal-title">Manage pack sizes</h2>
+            <p className="app-modal-subtitle">{managePacksItem.productName}</p>
+
+            <div style={{ marginTop: '12px', marginBottom: '16px' }}>
+              {(managePacksItem.packSizes || []).length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>No pack sizes yet.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {(managePacksItem.packSizes || []).map((pack) => (
+                    <div
+                      key={pack.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 10px',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        backgroundColor: '#f8fafc',
+                      }}
+                    >
+                      <div style={{ fontSize: '14px', color: '#0F2847' }}>
+                        Pack of <strong>{pack.packQuantity}</strong>
+                        {' · '}
+                        {formatLevelMoney(pack.packPrice, pack.packPriceConverted)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void removePackSize(pack.id, managePacksItem.id)}
+                        aria-label={`Remove pack of ${pack.packQuantity}`}
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          padding: '2px 6px',
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="number"
+                min={2}
+                step={1}
+                value={managePacksNewQuantity}
+                onChange={(e) => setManagePacksNewQuantity(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && managePacksNewQuantity.trim()) {
+                    void addPackSize(managePacksItem.id, managePacksNewQuantity);
+                  }
+                }}
+                placeholder="Qty e.g. 12"
+                style={{
+                  flex: 1,
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '15px',
+                }}
+              />
+              <AppButton
+                variant="primary"
+                size="sm"
+                onClick={() => void addPackSize(managePacksItem.id, managePacksNewQuantity)}
+                disabled={!managePacksNewQuantity.trim()}
+              >
+                Add pack
+              </AppButton>
+            </div>
+
+            <div className="app-modal-actions">
+              <AppButton variant="secondary" onClick={() => setManagePacksItem(null)}>Done</AppButton>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddProductsModal && selectedLevel && (
         <div className="app-modal-overlay">

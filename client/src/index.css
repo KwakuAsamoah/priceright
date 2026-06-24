@@ -1653,10 +1653,6 @@ textarea {
   }
 }
 
-.pack-size-cell:hover .pack-delete-btn {
-  opacity: 1 !important;
-}
-
 .app-table-wrap.app-table-sticky .app-table thead th {
   position: sticky;
   top: 0;
@@ -2190,8 +2186,4 @@ hr {
     margin: 15mm;
     size: A4 landscape;
   }
-}
-
-.pack-size-cell:hover .pack-delete-btn {
-  opacity: 1 !important;
 }
