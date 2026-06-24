@@ -1970,6 +1970,9 @@ export default function PriceLevels() {
                             <input type="checkbox" checked={allRowsSelected} onChange={(e) => toggleSelectAllRows(e.target.checked)} />
                           </th>
                           <th>Product name</th>
+                          <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            Approved base ({baseCurrency})
+                          </th>
                           <th style={{ textAlign: 'center' }}>Pack size</th>
                           <th style={{ textAlign: 'right' }}>
                             {levelCurrencyCode ? `Unit price (${levelCurrencyCode})` : 'Unit price'}
@@ -1996,113 +1999,117 @@ export default function PriceLevels() {
                           const displayRows: Array<PriceLevelPackSize | null> = packs.length > 0 ? packs : [null];
                           const rowSpan = displayRows.length;
 
-                          const packSizeCell = (pack: PriceLevelPackSize | null, packIndex: number) => {
+                          const packSizeTd = (pack: PriceLevelPackSize | null, packIndex: number) => {
                             const isLastRow = packIndex === displayRows.length - 1;
+
+                            if (addingPackForItemId === item.id && isLastRow) {
+                              return (
+                                <td style={{ textAlign: 'center' }} className="pack-size-cell">
+                                  <input
+                                    type="number"
+                                    min={2}
+                                    step={1}
+                                    value={newPackQuantity}
+                                    onChange={(e) => setNewPackQuantity(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        void addPackSize(item.id, newPackQuantity);
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setAddingPackForItemId(null);
+                                        setNewPackQuantity('');
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (newPackQuantity.trim()) {
+                                        void addPackSize(item.id, newPackQuantity);
+                                      } else {
+                                        setAddingPackForItemId(null);
+                                      }
+                                    }}
+                                    placeholder="Qty e.g. 12"
+                                    autoFocus
+                                    style={{
+                                      width: '80px',
+                                      height: '28px',
+                                      border: '1px solid #cbd5e1',
+                                      borderRadius: '6px',
+                                      padding: '0 8px',
+                                      fontSize: '12px',
+                                    }}
+                                  />
+                                </td>
+                              );
+                            }
+
+                            const addPackLink = isLastRow ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAddingPackForItemId(item.id);
+                                  setNewPackQuantity('');
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#94a3b8',
+                                  fontSize: '11px',
+                                  padding: '2px 4px',
+                                  display: 'block',
+                                  margin: '2px auto 0',
+                                }}
+                                title="Add pack size"
+                              >
+                                + pack
+                              </button>
+                            ) : null;
+
                             if (pack) {
                               return (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                  <span>{pack.packQuantity}</span>
+                                <td
+                                  style={{ textAlign: 'center', position: 'relative' }}
+                                  className="pack-size-cell"
+                                >
+                                  <span style={{ fontSize: '13px', fontWeight: 500, color: '#0F2847' }}>
+                                    {pack.packQuantity}
+                                  </span>
                                   <button
                                     type="button"
                                     onClick={() => void removePackSize(pack.id)}
                                     aria-label={`Remove pack of ${pack.packQuantity}`}
+                                    className="pack-delete-btn"
+                                    title="Remove pack size"
                                     style={{
+                                      position: 'absolute',
+                                      top: '50%',
+                                      right: '4px',
+                                      transform: 'translateY(-50%)',
+                                      background: 'none',
                                       border: 'none',
-                                      background: 'transparent',
-                                      color: '#64748b',
                                       cursor: 'pointer',
-                                      fontSize: '14px',
-                                      lineHeight: 1,
-                                      padding: 0,
+                                      color: '#ef4444',
+                                      fontSize: '11px',
+                                      opacity: 0,
+                                      transition: 'opacity 0.15s',
+                                      padding: '2px 4px',
                                     }}
                                   >
                                     ×
                                   </button>
-                                  {isLastRow && addingPackForItemId !== item.id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setAddingPackForItemId(item.id);
-                                        setNewPackQuantity('');
-                                      }}
-                                      style={{
-                                        border: '1px dashed #cbd5e1',
-                                        background: '#fff',
-                                        color: '#0F2847',
-                                        borderRadius: '999px',
-                                        padding: '0 6px',
-                                        fontSize: '12px',
-                                        cursor: 'pointer',
-                                        lineHeight: 1.4,
-                                      }}
-                                    >
-                                      +
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            }
-
-                            if (addingPackForItemId === item.id) {
-                              return (
-                                <input
-                                  type="number"
-                                  min={2}
-                                  step={1}
-                                  value={newPackQuantity}
-                                  onChange={(e) => setNewPackQuantity(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      void addPackSize(item.id, newPackQuantity);
-                                    }
-                                    if (e.key === 'Escape') {
-                                      setAddingPackForItemId(null);
-                                      setNewPackQuantity('');
-                                    }
-                                  }}
-                                  onBlur={() => {
-                                    if (newPackQuantity.trim()) {
-                                      void addPackSize(item.id, newPackQuantity);
-                                    } else {
-                                      setAddingPackForItemId(null);
-                                    }
-                                  }}
-                                  placeholder="Qty e.g. 12"
-                                  autoFocus
-                                  style={{
-                                    width: '80px',
-                                    height: '28px',
-                                    border: '1px solid #cbd5e1',
-                                    borderRadius: '6px',
-                                    padding: '0 8px',
-                                    fontSize: '12px',
-                                  }}
-                                />
+                                  {addPackLink}
+                                </td>
                               );
                             }
 
                             return (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <span>—</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setAddingPackForItemId(item.id);
-                                    setNewPackQuantity('');
-                                  }}
-                                  style={{
-                                    border: '1px dashed #cbd5e1',
-                                    background: '#fff',
-                                    color: '#0F2847',
-                                    borderRadius: '999px',
-                                    padding: '2px 8px',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  + Pack
-                                </button>
-                              </div>
+                              <td
+                                style={{ textAlign: 'center', position: 'relative' }}
+                                className="pack-size-cell"
+                              >
+                                <span style={{ fontSize: '13px', color: '#94a3b8' }}>—</span>
+                                {addPackLink}
+                              </td>
                             );
                           };
 
@@ -2135,7 +2142,12 @@ export default function PriceLevels() {
                                 <td style={isFirstRow ? undefined : { color: 'rgba(0,0,0,0.3)' }}>
                                   {isFirstRow ? item.productName : ''}
                                 </td>
-                                <td style={{ textAlign: 'center' }}>{packSizeCell(pack, packIndex)}</td>
+                                {isFirstRow && (
+                                  <td rowSpan={rowSpan} style={{ textAlign: 'right' }}>
+                                    {formatMoney(item.productApprovedPrice)}
+                                  </td>
+                                )}
+                                {packSizeTd(pack, packIndex)}
                                 {unitPriceCell(isFirstRow)}
                                 <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   {pack
@@ -2250,7 +2262,7 @@ export default function PriceLevels() {
                           return [
                             ...packRows,
                             <tr key={`${item.productId}-edit`}>
-                              <td colSpan={8} style={{ backgroundColor: '#fcfcfd' }}>
+                              <td colSpan={9} style={{ backgroundColor: '#fcfcfd' }}>
                                 <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
                                   {item.isStalePrice && (
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
