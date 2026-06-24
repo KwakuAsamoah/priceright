@@ -7,6 +7,7 @@ import AppButton from '../components/AppButton';
 import ProductTabs from '../components/ProductTabs';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import AppToast from '../components/AppToast';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 
@@ -106,6 +107,7 @@ function getDisplayBOM(bomItems: BOMMaterial[], product: Product): BOMMaterial[]
 // ─── component ───────────────────────────────────────────────────────────────
 
 export default function ProductDetail() {
+  const { baseCurrency } = useBaseCurrency();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -345,8 +347,8 @@ export default function ProductDetail() {
       const result = await productsApi.approve(productId, { approvedPrice: priceToKeep });
       showToastMessage(
         keptApprovedPrice
-          ? `Kept approved price: GHS ${priceToKeep.toFixed(2)}`
-          : `Kept selling price: GHS ${priceToKeep.toFixed(2)}`,
+          ? `Kept approved price: ${baseCurrency} ${priceToKeep.toFixed(2)}`
+          : `Kept selling price: ${baseCurrency} ${priceToKeep.toFixed(2)}`,
         'success',
       );
       setShowPriceForm(false);
@@ -369,7 +371,7 @@ export default function ProductDetail() {
         approvedPrice: toNum(product.optimalPrice),
         priceExpiryDate: expiryDate,
       });
-      showToastMessage(`Price approved: GHS ${toNum(product.optimalPrice).toFixed(2)}`, 'success');
+      showToastMessage(`Price approved: ${baseCurrency} ${toNum(product.optimalPrice).toFixed(2)}`, 'success');
       setShowPriceForm(false);
       setApprovalExpiryDate('');
       setStaleAlertDismissed(false);
@@ -390,7 +392,7 @@ export default function ProductDetail() {
       return;
     }
     const optimalPrice = toNum(product.optimalPrice);
-    const confirmText = `Approve custom price GHS ${customPrice.toFixed(2)}? This differs from optimal price GHS ${optimalPrice.toFixed(2)}.`;
+    const confirmText = `Approve custom price ${baseCurrency} ${customPrice.toFixed(2)}? This differs from optimal price ${baseCurrency} ${optimalPrice.toFixed(2)}.`;
     if (!confirm(confirmText)) return;
 
     const expiryDate = approvalExpiryDate.trim() || null;
@@ -401,7 +403,7 @@ export default function ProductDetail() {
         reason: approvalReason || undefined,
         priceExpiryDate: expiryDate,
       });
-      showToastMessage(`Custom price approved: GHS ${customPrice.toFixed(2)}`, 'success');
+      showToastMessage(`Custom price approved: ${baseCurrency} ${customPrice.toFixed(2)}`, 'success');
       setShowPriceForm(false);
       setApprovalCustomPrice('');
       setApprovalReason('');
@@ -669,32 +671,32 @@ export default function ProductDetail() {
             <div style={{ display: 'grid', gap: '8px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
-                <span className="money-value" style={{ fontWeight: 600 }}>GHS {totalMaterialCost.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>{baseCurrency} {totalMaterialCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Overhead ({product.overheadPercentage}%)</span>
-                <span className="money-value" style={{ fontWeight: 600 }}>GHS {overheadCost.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>{baseCurrency} {overheadCost.toFixed(2)}</span>
               </div>
               {otherDirectCosts > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Other direct costs</span>
-                  <span className="money-value" style={{ fontWeight: 600 }}>GHS {otherDirectCosts.toFixed(2)}</span>
+                  <span className="money-value" style={{ fontWeight: 600 }}>{baseCurrency} {otherDirectCosts.toFixed(2)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px' }}>
                 <span style={{ color: '#0F2847', fontWeight: 700 }}>Total Production Cost</span>
-                <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>GHS {productionCost.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>{baseCurrency} {productionCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
                 <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
                   Optimal Markup ({product.profitMargin}%)
                   <OptimalMarkupInfoTooltip />
                 </span>
-                <span className="money-value" style={{ fontWeight: 600, color: '#16A34A' }}>GHS {profitOnCostAmount.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 600, color: '#16A34A' }}>{baseCurrency} {profitOnCostAmount.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
                 <span style={{ color: '#16A34A', fontWeight: 700 }}>Optimal Price</span>
-                <span className="money-value" style={{ fontWeight: 700, color: '#16A34A', fontSize: '18px' }}>GHS {optimalPrice.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 700, color: '#16A34A', fontSize: '18px' }}>{baseCurrency} {optimalPrice.toFixed(2)}</span>
               </div>
               {grossMarginAtOptimal !== null && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
@@ -709,7 +711,7 @@ export default function ProductDetail() {
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px' }}>
                     <span style={{ color: '#0F2847', fontWeight: 700 }}>Approved Price</span>
-                    <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>GHS {approvedPrice.toFixed(2)}</span>
+                    <span className="money-value" style={{ fontWeight: 700, color: '#0F2847' }}>{baseCurrency} {approvedPrice.toFixed(2)}</span>
                   </div>
                   {approvedMatchesOptimal ? (
                     <div style={{ fontSize: '13px', color: '#64748b' }}>Matches optimal price</div>
@@ -775,20 +777,20 @@ export default function ProductDetail() {
             <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Optimal Price:</span>
-                <span className="money-value" style={{ fontWeight: 700 }}>GHS {optimalPrice.toFixed(2)}</span>
+                <span className="money-value" style={{ fontWeight: 700 }}>{baseCurrency} {optimalPrice.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Approved base price:</span>
                 <span className="money-value" style={{ fontWeight: 700, color: product.priceMismatch ? '#c62828' : undefined }}>
                   {product.currentSellingPrice
-                    ? `GHS ${Number(product.currentSellingPrice).toFixed(2)}${product.priceMismatch ? ' ⚠' : ''}`
+                    ? `${baseCurrency} ${Number(product.currentSellingPrice).toFixed(2)}${product.priceMismatch ? ' ⚠' : ''}`
                     : '—'}
                 </span>
               </div>
               {showReadOnlyApprovedSummary && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#64748b' }}>Production cost:</span>
-                  <span className="money-value" style={{ fontWeight: 700 }}>GHS {productionCost.toFixed(2)}</span>
+                  <span className="money-value" style={{ fontWeight: 700 }}>{baseCurrency} {productionCost.toFixed(2)}</span>
                 </div>
               )}
             </div>
@@ -863,23 +865,23 @@ export default function ProductDetail() {
               <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#7c2d12' }}>Current production cost:</span>
-                  <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>GHS {productionCost.toFixed(2)}</span>
+                  <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>{baseCurrency} {productionCost.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#7c2d12' }}>New optimal price:</span>
-                  <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>GHS {optimalPrice.toFixed(2)}</span>
+                  <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>{baseCurrency} {optimalPrice.toFixed(2)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#7c2d12' }}>Approved price (unchanged):</span>
                   <span className="money-value" style={{ fontWeight: 700, color: '#7c2d12' }}>
-                    {product.approvedPrice != null ? `GHS ${Number(product.approvedPrice).toFixed(2)}` : '—'}
+                    {product.approvedPrice != null ? `${baseCurrency} ${Number(product.approvedPrice).toFixed(2)}` : '—'}
                   </span>
                 </div>
                 {product.approvedPrice != null && (
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#7c2d12' }}>Optimal price change:</span>
                     <span className="money-value" style={{ fontWeight: 700, color: optimalPrice - Number(product.approvedPrice) < 0 ? '#b91c1c' : '#166534' }}>
-                      {optimalPrice - Number(product.approvedPrice) >= 0 ? '+' : '-'}GHS {Math.abs(optimalPrice - Number(product.approvedPrice)).toFixed(2)}
+                      {optimalPrice - Number(product.approvedPrice) >= 0 ? '+' : '-'}{baseCurrency} {Math.abs(optimalPrice - Number(product.approvedPrice)).toFixed(2)}
                     </span>
                   </div>
                 )}
@@ -939,7 +941,7 @@ export default function ProductDetail() {
                   }}
                 >
                   <CheckCircle size={14} strokeWidth={2.2} />
-                  Approve Optimal Price (GHS {optimalPrice.toFixed(2)})
+                  Approve Optimal Price ({baseCurrency} {optimalPrice.toFixed(2)})
                 </button>
 
                 {/* Keep current price — needs_review with approved price, or any product with a selling price */}
@@ -950,8 +952,8 @@ export default function ProductDetail() {
                     ? toNum(product.approvedPrice)
                     : toNum(product.currentSellingPrice);
                   const keepLabel = hasApprovedPrice
-                    ? `Keep approved price (GHS ${keepPrice.toFixed(2)})`
-                    : `Keep selling price (GHS ${keepPrice.toFixed(2)})`;
+                    ? `Keep approved price (${baseCurrency} ${keepPrice.toFixed(2)})`
+                    : `Keep selling price (${baseCurrency} ${keepPrice.toFixed(2)})`;
                   const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
                   const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
                   const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
@@ -997,7 +999,7 @@ export default function ProductDetail() {
 
                 {/* Custom price */}
                 <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Custom Price (GHS)</label>
+                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Custom Price ({baseCurrency})</label>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     <input
                       type="number"
@@ -1113,7 +1115,7 @@ export default function ProductDetail() {
                 {staleCustomPrices.map((sc) => (
                   <div key={sc.priceLevelId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#7c2d12', padding: '4px 0', borderBottom: '1px solid #ffcc80' }}>
                     <span style={{ fontWeight: 600 }}>{sc.priceLevelName}</span>
-                    <span>Custom: GHS {sc.customPrice.toFixed(2)} → New base: GHS {sc.newApprovedBasePrice.toFixed(2)}</span>
+                    <span>Custom: {baseCurrency} {sc.customPrice.toFixed(2)} → New base: {baseCurrency} {sc.newApprovedBasePrice.toFixed(2)}</span>
                   </div>
                 ))}
               </div>

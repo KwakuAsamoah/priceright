@@ -59,7 +59,7 @@ export const helpArticles: HelpArticle[] = [
       <p>Go to Settings in the Setup section and find the Sample data section. Download each file and import them in this exact order:</p>
 
       <ol>
-        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic GHS prices. On the Materials page (Primary tab), click <strong>+ Add → Import from CSV</strong>.</li>
+        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic prices in your base currency. On the Materials page (Primary tab), click <strong>+ Add → Import from CSV</strong>.</li>
         <li><strong>Intermediate materials</strong> — 5 in-house processed ingredients such as peanut paste and cocoa powder. On the Materials page (Intermediate tab), click <strong>+ Add → Import from CSV</strong>.</li>
         <li><strong>Products with ingredients</strong> — 11 finished products including peanut butter, cocoa powder, gari, pepper sauce, and more. Each product comes with a full bill of materials. On the Products page, click <strong>+ Add → Import from CSV</strong>.</li>
       </ol>
@@ -318,7 +318,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>To set up a currency, go to <strong>Settings</strong> and open the
       <strong>Currencies &amp; Rates</strong> tab. Add the currency code and current
-      rate. For example, if your base currency is GHS, USD at 15.50 means 1 USD = 15.50 GHS.</p>
+      rate. For example, if your base currency is GHS and USD rate is 15.50, then 1 USD = 15.50 GHS. Adjust the numbers to match your own currencies.</p>
 
       <p>When you add or edit a material, select the purchase currency from the
       dropdown. PriceRight stores both the original foreign currency price and

@@ -1187,7 +1187,7 @@ async function loadData() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '15px', fontWeight: '600' }}>
-                    Monthly Overhead (₵)
+                    Monthly Overhead ({baseCurrency || 'GHS'})
                   </label>
                   <input
                     className="app-control"
@@ -1200,7 +1200,7 @@ async function loadData() {
                 </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '4px', fontSize: '15px', fontWeight: '600', color: '#10b981' }}>
-                    Material Costs (₵)
+                    Material Costs ({baseCurrency || 'GHS'})
                   </label>
                   <input
                     className="app-control"
@@ -1232,7 +1232,7 @@ async function loadData() {
                   {calculateOverheadPercentage()}%
                 </div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>
-                  ₵{(parseFloat(overheadInputs.materialCosts || '0') * calculateOverheadPercentage() / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per ₵{parseFloat(overheadInputs.materialCosts || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {baseCurrency || 'GHS'} {(parseFloat(overheadInputs.materialCosts || '0') * calculateOverheadPercentage() / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per {baseCurrency || 'GHS'} {parseFloat(overheadInputs.materialCosts || '0').toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
 
@@ -1529,7 +1529,7 @@ async function loadData() {
               <AlertTriangle size={16} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
               <div style={{ fontSize: '14px', color: '#78350f' }}>
                 <strong style={{ display: 'block', marginBottom: '4px' }}>No currencies configured yet.</strong>
-                Start by adding your base currency (e.g. GHS — Ghana Cedi). You can add foreign currencies for imported materials after.
+                Start by adding your base currency (e.g. USD, GBP, NGN, GHS). You can add foreign currencies for imported materials after.
               </div>
             </div>
           )}

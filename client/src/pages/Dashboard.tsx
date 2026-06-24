@@ -24,6 +24,8 @@ import {
   settingsApi,
   type PriceLevelItemResponse,
 } from '../api';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { formatCurrency } from '../utils/currency';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'rejected' | 'needs_review';
 type BannerTone = 'success' | 'error';
@@ -110,10 +112,6 @@ function parseDate(value: string | number | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function currency(value: number): string {
-  return `GHS ${value.toFixed(2)}`;
-}
-
 function marginHealthColor(margin: number): string {
   if (margin >= 15) return '#059669';
   if (margin >= 10) return '#D97706';
@@ -158,6 +156,7 @@ function relativeTime(date: Date): string {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { baseCurrency } = useBaseCurrency();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -173,7 +172,6 @@ export default function Dashboard() {
   });
   const [banner, setBanner] = useState<BannerState | null>(null);
   const [currentDateLabel] = useState(() => formatCurrentDate(new Date()));
-  const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
 
@@ -214,8 +212,6 @@ export default function Dashboard() {
 
       if (!isMounted) return;
 
-      const baseSetting = (settingsData || []).find((entry) => entry.settingKey === 'baseCurrency');
-      setBaseCurrencyCode(baseSetting?.settingValue || 'GHS');
       const companyNameSetting = (settingsData || []).find((entry) => entry.settingKey === 'companyName');
       const companyLogoSetting = (settingsData || []).find((entry) => entry.settingKey === 'companyLogoDataUrl');
       setCompanyName(companyNameSetting?.settingValue || '');
@@ -476,7 +472,7 @@ export default function Dashboard() {
 
     primaryMaterials.forEach((material) => {
       const code = (material.purchaseCurrencyCode || '').trim().toUpperCase();
-      if (!code || code === baseCurrencyCode.toUpperCase()) {
+      if (!code || code === baseCurrency.toUpperCase()) {
         baseCount += 1;
         return;
       }
@@ -495,7 +491,7 @@ export default function Dashboard() {
       foreignSummary: foreignSummary || 'No foreign currency purchases',
       foreignByCode: byCode,
     };
-  }, [materials, baseCurrencyCode]);
+  }, [materials, baseCurrency]);
 
   const intermediateMaterialCounts = useMemo(() => {
     const intermediateMaterials = materials.filter((material) => material.materialType === 'intermediate');
@@ -532,7 +528,7 @@ export default function Dashboard() {
   const currencyExposureData = useMemo(() => {
     const colors = ['#2563eb', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6'];
     const segments = [
-      { label: `${baseCurrencyCode} (Base)`, value: materialCounts.baseCount, color: '#16a34a' },
+      { label: `${baseCurrency} (Base)`, value: materialCounts.baseCount, color: '#16a34a' },
       ...Object.entries(materialCounts.foreignByCode)
         .sort((a, b) => b[1] - a[1])
         .map(([code, value], index) => ({ label: code, value, color: colors[index % colors.length] })),
@@ -540,7 +536,7 @@ export default function Dashboard() {
 
     const total = segments.reduce((sum, segment) => sum + segment.value, 0);
     return { segments, total };
-  }, [materialCounts, baseCurrencyCode]);
+  }, [materialCounts, baseCurrency]);
 
   const priceLevelChartData = useMemo(() => {
     return [
@@ -612,7 +608,7 @@ export default function Dashboard() {
         events.push({
           id: `product-approved-${product.id}-${approvedAt.getTime()}`,
           type: 'approved',
-          text: `Product ${product.name} approved at ${currency(product.approvedPrice ?? 0)}`,
+          text: `Product ${product.name} approved at ${formatCurrency(toNumber(product.approvedPrice ?? 0), baseCurrency)}`,
           timestamp: approvedAt,
         });
       }
@@ -636,7 +632,7 @@ export default function Dashboard() {
       events.push({
         id: `exchange-${rate.id}-${changedAt.getTime()}`,
         type: 'exchange',
-        text: `Exchange rate updated: ${code} → ${toNumber(rate.rateToBase).toFixed(2)} GHS`,
+        text: `Exchange rate updated: ${code} → ${toNumber(rate.rateToBase).toFixed(2)} ${baseCurrency}`,
         timestamp: changedAt,
       });
     });
@@ -644,7 +640,7 @@ export default function Dashboard() {
     return events
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 10);
-  }, [products, exchangeRates, currencyLookup]);
+  }, [products, exchangeRates, currencyLookup, baseCurrency]);
 
   const rejectedIconBg = productCounts.rejected > 0 ? '#DC2626' : '#059669';
   const rejectedValueColor = rejectedIconBg;
@@ -854,7 +850,7 @@ export default function Dashboard() {
             <div className="dashboard-stat-value">{materialCounts.total}</div>
             <div className="dashboard-stat-hint">Primary materials inventory overview</div>
             <div className="dashboard-stat-sub">{materialCounts.foreignSummary}</div>
-            <div className="dashboard-stat-sub" style={{ marginTop: '4px' }}>{materialCounts.baseCount} purchased at {baseCurrencyCode} base rate</div>
+            <div className="dashboard-stat-sub" style={{ marginTop: '4px' }}>{materialCounts.baseCount} purchased at {baseCurrency} base rate</div>
           </div>
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/materials?tab=intermediate')} title="Open intermediate materials">
@@ -966,7 +962,7 @@ export default function Dashboard() {
                           marginBottom: '4px',
                         }}
                       >
-                        {referencePriceLabel}: GHS {referencePrice.toFixed(2)} · Cost: GHS {productionCost.toFixed(2)}
+                        {referencePriceLabel}: {formatCurrency(referencePrice, baseCurrency)} · Cost: {formatCurrency(productionCost, baseCurrency)}
                       </div>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#fee2e2' }}>
                         <div style={{ width: `${widthPercent}%`, height: '8px', borderRadius: '999px', backgroundColor: '#f59e0b' }} />
@@ -1231,7 +1227,7 @@ export default function Dashboard() {
                     return (
                       <tr key={`expiry-${product.id}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '8px 10px', fontWeight: 600 }}>{product.name}</td>
-                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>{currency(toNumber(product.approvedPrice))}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right' }}>{formatCurrency(toNumber(product.approvedPrice), baseCurrency)}</td>
                         <td style={{ padding: '8px 10px' }}>{expiryDate ? expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                         <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{product.daysUntilExpiry ?? '-'}</td>
                       </tr>

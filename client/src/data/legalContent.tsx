@@ -97,7 +97,7 @@ export function TermsOfServiceContent() {
 
       <Section title="Payment">
         <P>
-          Licences are billed annually. All prices are in Ghana Cedis (GHS) unless otherwise stated. Payments are processed securely by Paystack.
+          Licences are billed annually. All prices are in the currency configured in your PriceRight settings. The default currency is GHS (Ghana Cedis). Payments are processed securely by Paystack.
         </P>
       </Section>
 

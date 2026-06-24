@@ -21,6 +21,8 @@ import TableZoomControl from '../components/TableZoomControl';
 import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { formatCurrency } from '../utils/currency';
 
 type PriceLevelRule = {
   id: number;
@@ -68,8 +70,17 @@ function roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function formatMoney(value: number): string {
-  return `GHS ${toNumber(value).toFixed(2)}`;
+function pricingRuleLabel(item: PriceLevelItemResponse, currencyCode: string): string {
+  if (item.overrideType === 'fixed_amount_add') {
+    return `+${formatCurrency(item.customPrice ?? 0, currencyCode)}`;
+  }
+  if (item.overrideType === 'fixed_amount_deduct') {
+    return `-${formatCurrency(item.customPrice ?? 0, currencyCode)}`;
+  }
+  if (item.overrideType === 'rule_markup') {
+    return `Markup ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
+  }
+  return `Discount ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
 }
 
 function escapeHtml(value: string): string {
@@ -130,19 +141,6 @@ function levelStatus(items: PriceLevelItemResponse[]): { label: string; variant:
   return { label: 'Active', variant: 'success' };
 }
 
-function pricingRuleLabel(item: PriceLevelItemResponse): string {
-  if (item.overrideType === 'fixed_amount_add') {
-    return `+${formatMoney(item.customPrice ?? 0)}`;
-  }
-  if (item.overrideType === 'fixed_amount_deduct') {
-    return `-${formatMoney(item.customPrice ?? 0)}`;
-  }
-  if (item.overrideType === 'rule_markup') {
-    return `Markup ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
-  }
-  return `Discount ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
-}
-
 function draftFromItem(item: PriceLevelItemResponse): RowDraft {
   if (item.overrideType === 'fixed_amount_add' || item.overrideType === 'fixed_amount_deduct') {
     return {
@@ -184,12 +182,12 @@ function formatDateForFilename(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function getAdjustmentLabel(item: PriceLevelItemResponse) {
+function getAdjustmentLabel(item: PriceLevelItemResponse, currencyCode: string) {
   if (item.overrideType === 'fixed_amount_add') {
-    return `+${formatMoney(item.customPrice ?? 0)}`;
+    return `+${formatCurrency(item.customPrice ?? 0, currencyCode)}`;
   }
   if (item.overrideType === 'fixed_amount_deduct') {
-    return `-${formatMoney(item.customPrice ?? 0)}`;
+    return `-${formatCurrency(item.customPrice ?? 0, currencyCode)}`;
   }
 
   const percentage = toNumber(item.adjustmentPercentage, 0).toFixed(2);
@@ -249,6 +247,8 @@ function levelActivityIcon(action: string) {
 export default function PriceLevels() {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { isDemoMode } = useDemoMode();
+  const { baseCurrency } = useBaseCurrency();
+  const formatMoney = (value: number) => formatCurrency(toNumber(value), baseCurrency);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -333,9 +333,9 @@ export default function PriceLevels() {
       approvedBasePrice: toNumber(item.productApprovedPrice, 0),
       finalPrice: toNumber(item.finalPrice, 0),
       marginPercent: computeMarginPercent(toNumber(item.finalPrice, 0), toNumber(item.productProductionCost, 0)),
-      adjustmentLabel: getAdjustmentLabel(item),
+      adjustmentLabel: getAdjustmentLabel(item, baseCurrency),
     }));
-  }, [approvedSelectedLevelItems]);
+  }, [approvedSelectedLevelItems, baseCurrency]);
 
   const selectedExportRows = useMemo(
     () => exportRows.filter((row) => selectedExportProductIds.has(row.productId)),
@@ -1295,7 +1295,7 @@ export default function PriceLevels() {
     }
 
     let companyName = 'PriceRight';
-    let baseCurrency = 'GHS';
+    let printBaseCurrency = baseCurrency;
     try {
       const settings = await settingsApi.getAll();
       const companySetting = settings.find(
@@ -1308,7 +1308,7 @@ export default function PriceLevels() {
         (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'baseCurrency',
       );
       if (currencySetting?.settingValue) {
-        baseCurrency = currencySetting.settingValue;
+        printBaseCurrency = currencySetting.settingValue;
       }
     } catch {
       // Use defaults.
@@ -1419,7 +1419,7 @@ export default function PriceLevels() {
   <div class="header">
     <div class="company">${escapeHtml(companyName)}</div>
     <div class="level-name">${escapeHtml(selectedLevel.name || 'Price List')}</div>
-    <div class="meta">Valid as of ${escapeHtml(date)} · Prices in ${escapeHtml(baseCurrency)}</div>
+    <div class="meta">Valid as of ${escapeHtml(date)} · Prices in ${escapeHtml(printBaseCurrency)}</div>
   </div>
   <table>
     <thead>
@@ -1771,7 +1771,7 @@ export default function PriceLevels() {
                                 <td>{item.productName}</td>
                                 <td>{item.productCategory || '-'}</td>
                                 <td style={{ textAlign: 'right' }}>{formatMoney(item.productApprovedPrice)}</td>
-                                <td>{pricingRuleLabel(item)}</td>
+                                <td>{pricingRuleLabel(item, baseCurrency)}</td>
                                 <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                     {formatMoney(item.finalPrice)}

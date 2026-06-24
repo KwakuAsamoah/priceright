@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 interface Product {
   id: number;
   name: string;
@@ -82,12 +83,12 @@ function formatRelativeTime(unixSeconds: number): string {
   return `${days}d ago`;
 }
 
-function describeProductActivity(action: string, details?: Record<string, unknown> | null) {
+function describeProductActivity(action: string, details: Record<string, unknown> | null | undefined, currencyCode: string) {
   const data = details || {};
   if (action === 'product.approved') {
     const newPrice = Number(data.newPrice);
     return Number.isFinite(newPrice)
-      ? `Approved base price at GHS ${newPrice.toFixed(2)}`
+      ? `Approved base price at ${currencyCode} ${newPrice.toFixed(2)}`
       : 'Approved product base price';
   }
   if (action === 'product.rejected') {
@@ -130,6 +131,7 @@ export default function ProductTabs({
   activityLoading,
   activityViewAllHref,
 }: ProductTabsProps) {
+  const { baseCurrency } = useBaseCurrency();
   const [priceHistory, setPriceHistory] = useState<ActivityEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -209,8 +211,8 @@ export default function ProductTabs({
                           <td style={{ padding: '8px', fontSize: '13px' }}>{item.materialName}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.unit}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>GHS {toNumber(item.unitPrice).toFixed(2)}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>GHS {totalCost.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{baseCurrency} {toNumber(item.unitPrice).toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
                         </tr>
                       );
                     })}
@@ -241,8 +243,8 @@ export default function ProductTabs({
                   return (
                     <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
                       <visual.Icon size={14} style={{ color: visual.color }} />
-                      <div style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details)}>
-                        {describeProductActivity(entry.action, entry.details)}
+                      <div style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details, baseCurrency)}>
+                        {describeProductActivity(entry.action, entry.details, baseCurrency)}
                       </div>
                       <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>
                         {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
@@ -309,10 +311,10 @@ export default function ProductTabs({
                               <div style={{ color: '#94a3b8', fontSize: '13px' }}>{formatRelativeTime(entry.createdAt)}</div>
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
-                              {newPrice !== null ? `GHS ${newPrice.toFixed(2)}` : '—'}
+                              {newPrice !== null ? `${baseCurrency} ${newPrice.toFixed(2)}` : '—'}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', color: '#475569' }}>
-                              {productionCostVal !== null ? `GHS ${productionCostVal.toFixed(2)}` : '—'}
+                              {productionCostVal !== null ? `${baseCurrency} ${productionCostVal.toFixed(2)}` : '—'}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: marginVal !== null ? getMarginColor(marginVal) : '#475569' }}>
                               {marginVal !== null ? `${marginVal.toFixed(1)}%` : '—'}
@@ -322,7 +324,7 @@ export default function ProductTabs({
                                 <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>First approval</span>
                               ) : priceChange !== null ? (
                                 <span style={{ color: priceChange >= 0 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-                                  {priceChange >= 0 ? '+' : ''}GHS {priceChange.toFixed(2)}
+                                  {priceChange >= 0 ? '+' : ''}{baseCurrency} {priceChange.toFixed(2)}
                                 </span>
                               ) : '—'}
                             </td>

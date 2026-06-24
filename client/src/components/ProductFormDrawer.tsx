@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { productsApi } from '../api';
 import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { MarkupInfoTooltip } from './ProfitTooltips';
 
 interface Product {
@@ -67,6 +68,7 @@ export default function ProductFormDrawer({
   totalCount,
 }: ProductFormDrawerProps) {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { baseCurrency } = useBaseCurrency();
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -487,7 +489,7 @@ export default function ProductFormDrawer({
               )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title="A percentage added to your material costs to cover indirect costs like electricity, water, rent, and labour. 25% overhead on GHS 1,000 of materials adds GHS 250 to your production cost.">
+                  <label style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }} title={`A percentage added to your material costs to cover indirect costs like electricity, water, rent, and labour. 25% overhead on ${baseCurrency} 1,000 of materials adds ${baseCurrency} 250 to your production cost.`}>
                     Overhead % *
                   </label>
                   <input
@@ -601,7 +603,7 @@ export default function ProductFormDrawer({
                           ) : null}
                         </span>
                         <span style={{ fontSize: '14px', color: '#64748b', marginLeft: '12px', whiteSpace: 'nowrap' }}>
-                          GHS {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
+                          {baseCurrency} {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
                         </span>
                       </div>
                     ))}
@@ -663,10 +665,10 @@ export default function ProductFormDrawer({
                           )}
                         </td>
                         <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right' }}>
-                          GHS {parseFloat(item.unitPrice).toFixed(2)}
+                          {baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}
                         </td>
                         <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right', fontWeight: '600' }}>
-                          GHS {totalCost.toFixed(2)}
+                          {baseCurrency} {totalCost.toFixed(2)}
                         </td>
                         <td style={{ padding: '8px', textAlign: 'center' }}>
                           {editingBomId === item.id ? (
@@ -722,26 +724,26 @@ export default function ProductFormDrawer({
             <div style={{ display: 'grid', gap: '8px', fontSize: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
-                <span style={{ fontWeight: '600' }}>GHS {liveCost.materialCost.toFixed(2)}</span>
+                <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.materialCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Overhead ({formData.overheadPercentage}%)</span>
-                <span style={{ fontWeight: '600' }}>GHS {liveCost.overheadCost.toFixed(2)}</span>
+                <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.overheadCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Total Production Cost</span>
-                <span style={{ fontWeight: '700' }}>GHS {liveCost.totalCost.toFixed(2)}</span>
+                <span style={{ fontWeight: '700' }}>{baseCurrency} {liveCost.totalCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
                   Markup % ({formData.profitMargin}%)
                   <MarkupInfoTooltip />
                 </span>
-                <span style={{ fontWeight: '600' }}>GHS {liveCost.profitAmount.toFixed(2)}</span>
+                <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.profitAmount.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#0F2847', fontWeight: '700' }}>Optimal Price</span>
-                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>GHS {liveCost.optimalPrice.toFixed(2)}</span>
+                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '18px' }}>{baseCurrency} {liveCost.optimalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

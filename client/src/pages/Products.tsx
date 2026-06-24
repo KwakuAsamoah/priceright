@@ -13,6 +13,7 @@ import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { usePrint } from '../hooks/usePrint';
@@ -305,6 +306,7 @@ function parseCsvText(text: string) {
 }
 
 export default function Products() {
+  const { baseCurrency } = useBaseCurrency();
   const location = useLocation();
   const navigate = useNavigate();
   const [products, setProducts] = useState<ProductPricing[]>([]);
@@ -853,10 +855,10 @@ export default function Products() {
     const sampleOptimal = 40;
     const markupValue = Number(bulkApproveMarkup);
     if (!Number.isFinite(markupValue)) {
-      return 'e.g. Optimal GHS 40.00 -> Approved GHS --';
+      return `e.g. Optimal ${baseCurrency} 40.00 -> Approved ${baseCurrency} --`;
     }
     const adjusted = sampleOptimal * (1 + markupValue / 100);
-    return `e.g. Optimal GHS 40.00 -> Approved GHS ${adjusted.toFixed(2)}`;
+    return `e.g. Optimal ${baseCurrency} 40.00 -> Approved ${baseCurrency} ${adjusted.toFixed(2)}`;
   }
 
   function getBulkApproveMethodLabel(method: 'optimal' | 'selling' | 'markup', markup?: number) {
@@ -1213,7 +1215,7 @@ export default function Products() {
       'Optimal Gross Margin %',
       'Actual Markup %',
       'Actual Gross Margin %',
-      'Variance (GHS)',
+      `Variance (${baseCurrency})`,
       'Variance (%)',
       'Pricing Status',
     ];
@@ -1940,7 +1942,7 @@ export default function Products() {
                       <Fragment key={product.id}>
                         <tr
                           title={isNeedsReview
-                            ? `Cost changed. Approved price: GHS ${rowApprovedPrice}. New optimal: GHS ${rowOptimalPrice}. Click to review.`
+                            ? `Cost changed. Approved price: ${baseCurrency} ${rowApprovedPrice}. New optimal: ${baseCurrency} ${rowOptimalPrice}. Click to review.`
                             : undefined}
                           style={{
                             borderBottom: '1px solid #e2e8f0',

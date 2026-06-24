@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { usePrint } from '../hooks/usePrint';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 
 const PAGE_SIZE = 50;
 
@@ -122,7 +123,7 @@ function resolveEntryVisual(action: string): EntryVisual {
   }
 }
 
-function formatOverrideType(overrideType: unknown, value: unknown): string {
+function formatOverrideType(overrideType: unknown, value: unknown, currencyCode: string): string {
   if (overrideType === 'rule_discount') {
     return `Discount ${toNumberString(value)}%`;
   }
@@ -130,10 +131,10 @@ function formatOverrideType(overrideType: unknown, value: unknown): string {
     return `Markup ${toNumberString(value)}%`;
   }
   if (overrideType === 'fixed_amount_add') {
-    return `+GHS ${toNumberString(value)}`;
+    return `+${currencyCode} ${toNumberString(value)}`;
   }
   if (overrideType === 'fixed_amount_deduct') {
-    return `-GHS ${toNumberString(value)}`;
+    return `-${currencyCode} ${toNumberString(value)}`;
   }
   if (overrideType === 'custom_price') {
     return 'Custom price';
@@ -141,7 +142,7 @@ function formatOverrideType(overrideType: unknown, value: unknown): string {
   return String(overrideType || 'Custom price');
 }
 
-function getActivityDescription(entry: ActivityEntry): { title: string; subline?: string } {
+function getActivityDescription(entry: ActivityEntry, currencyCode: string): { title: string; subline?: string } {
   const details = (entry.details || {}) as Record<string, unknown>;
   const entityName = entry.entityName || details.productName || details.materialName || details.levelName || details.currencyCode || 'Item';
 
@@ -150,11 +151,11 @@ function getActivityDescription(entry: ActivityEntry): { title: string; subline?
       const oldPrice = details.oldPrice;
       const newPrice = details.newPrice;
       const title = oldPrice !== null && oldPrice !== undefined
-        ? `${entityName} base price approved, changed from GHS ${toMoney(oldPrice)} to GHS ${toMoney(newPrice)}`
-        : `${entityName} base price approved at GHS ${toMoney(newPrice)}`;
+        ? `${entityName} base price approved, changed from ${currencyCode} ${toMoney(oldPrice)} to ${currencyCode} ${toMoney(newPrice)}`
+        : `${entityName} base price approved at ${currencyCode} ${toMoney(newPrice)}`;
       return {
         title,
-        subline: `Gross Margin %: ${toNumberString(details.margin)}% | Production cost: GHS ${toMoney(details.productionCost)}`,
+        subline: `Gross Margin %: ${toNumberString(details.margin)}% | Production cost: ${currencyCode} ${toMoney(details.productionCost)}`,
       };
     }
     case 'product.rejected': {
@@ -172,7 +173,7 @@ function getActivityDescription(entry: ActivityEntry): { title: string; subline?
     case 'material.cost_updated':
       return {
         title: `${entityName} unit cost updated`,
-        subline: `GHS ${toMoney(details.oldGhsPrice)} -> GHS ${toMoney(details.newGhsPrice)}`,
+        subline: `${currencyCode} ${toMoney(details.oldGhsPrice)} -> ${currencyCode} ${toMoney(details.newGhsPrice)}`,
       };
     case 'material.created':
       return {
@@ -181,7 +182,7 @@ function getActivityDescription(entry: ActivityEntry): { title: string; subline?
     case 'exchange_rate.updated':
       return {
         title: `${String(details.currencyCode || entityName)} exchange rate updated`,
-        subline: `${toNumberString(details.oldRate, 4)} -> ${toNumberString(details.newRate, 4)} GHS | ${toNumberString(details.productsAffected, 0)} products affected`,
+        subline: `${toNumberString(details.oldRate, 4)} -> ${toNumberString(details.newRate, 4)} ${currencyCode} | ${toNumberString(details.productsAffected, 0)} products affected`,
       };
     case 'price_level.created':
       return {
@@ -194,7 +195,7 @@ function getActivityDescription(entry: ActivityEntry): { title: string; subline?
     case 'price_level_item.approved':
       return {
         title: `${String(details.productName || entityName)} price approved in ${String(details.levelName || 'Price level')}`,
-        subline: `${formatOverrideType(details.overrideType, details.value)} - GHS ${toMoney(details.finalPrice)}`,
+        subline: `${formatOverrideType(details.overrideType, details.value, currencyCode)} - ${currencyCode} ${toMoney(details.finalPrice)}`,
       };
     case 'price_level_item.rejected':
       return {
@@ -241,6 +242,7 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
 }
 
 export default function Activity() {
+  const { baseCurrency } = useBaseCurrency();
   // Tier 2: add role-based access control here
   // For Tier 1 Solo this page is accessible to all users
   const searchParams = new URLSearchParams(window.location.search);
@@ -452,7 +454,7 @@ export default function Activity() {
                 <div>
                   {entries.map((entry) => {
                     const visual = resolveEntryVisual(entry.action);
-                    const description = getActivityDescription(entry);
+                    const description = getActivityDescription(entry, baseCurrency);
                     const absoluteTime = formatAbsoluteTime(entry.createdAt);
                     const relativeTime = formatRelativeTime(entry.createdAt);
 

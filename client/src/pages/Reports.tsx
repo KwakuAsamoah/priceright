@@ -15,6 +15,8 @@ import ReportWrapper from '../components/ReportWrapper';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
@@ -214,12 +216,6 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatCurrency(value: number): string {
-  const absValue = Math.abs(value);
-  const text = `GHS ${absValue.toFixed(2)}`;
-  return value < 0 ? `(${text})` : text;
-}
-
 function formatSignedNumber(value: number): string {
   const absValue = Math.abs(value).toFixed(2);
   return value < 0 ? `(${absValue})` : absValue;
@@ -270,6 +266,12 @@ function approvalStatusLabel(status: PricingStatusComputedRow['approvalStatus'])
 }
 
 export default function Reports() {
+  const { baseCurrency } = useBaseCurrency();
+  const formatCurrency = (value: number) => {
+    const absValue = Math.abs(value);
+    const text = formatCurrencyAmount(absValue, baseCurrency);
+    return value < 0 ? `(${text})` : text;
+  };
   const [selectedReport, setSelectedReport] = useState<ReportKey | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -558,7 +560,7 @@ export default function Reports() {
               totalValueGhs: unitPriceGhs,
               exposurePct: 0,
               currentRateToGhs: rateToGhs,
-              isBaseCurrency: code === 'GHS',
+              isBaseCurrency: code === baseCurrency,
               materials: [
                 {
                   materialName: material.name,
@@ -580,8 +582,8 @@ export default function Reports() {
           }))
           .sort((a, b) => b.exposurePct - a.exposurePct);
 
-        const ghsRow = rows.find((row) => row.currencyCode === 'GHS');
-        const localExposurePct = ghsRow ? ghsRow.exposurePct : 0;
+        const baseCurrencyRow = rows.find((row) => row.currencyCode === baseCurrency);
+        const localExposurePct = baseCurrencyRow ? baseCurrencyRow.exposurePct : 0;
 
         setReportData({ rows, totalMaterials: materials.length, localExposurePct });
       }
@@ -620,12 +622,12 @@ export default function Reports() {
           { key: 'productName', label: 'Product Name' },
           { key: 'approvalStatus', label: 'Approval Status' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: 'Production Cost (GHS)' },
-          { key: 'optimalPrice', label: 'Optimal Price (GHS)' },
-          { key: 'sellingPrice', label: 'Approved base price (GHS)' },
-          { key: 'variance', label: 'Variance (GHS)' },
+          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
+          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
+          { key: 'sellingPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'variance', label: `Variance (${baseCurrency})` },
           { key: 'variancePct', label: 'Variance %' },
-          { key: 'profit', label: 'Profit (GHS)' },
+          { key: 'profit', label: `Profit (${baseCurrency})` },
           { key: 'profitPct', label: 'Profit %' },
           { key: 'pricingStatus', label: 'Pricing Status' },
         ],
@@ -650,8 +652,8 @@ export default function Reports() {
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'currentSellingPrice', label: 'Approved base price (GHS)' },
-          { key: 'productionCost', label: 'Production Cost (GHS)' },
+          { key: 'currentSellingPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
           { key: 'realisedMargin', label: 'Actual Gross Margin %' },
           { key: 'targetMargin', label: 'Target Markup %' },
           { key: 'gap', label: 'Gap %' },
@@ -709,8 +711,8 @@ export default function Reports() {
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
           { key: 'currentStatus', label: 'Current Status' },
-          { key: 'approvedPrice', label: 'Approved base price (GHS)' },
-          { key: 'currentOptimalPrice', label: 'Current Optimal Price (GHS)' },
+          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'currentOptimalPrice', label: `Current Optimal Price (${baseCurrency})` },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'actualGrossMarginPercent', label: 'Actual Gross Margin %' },
           { key: 'approvedOn', label: 'Approved On' },
@@ -736,9 +738,9 @@ export default function Reports() {
         { key: 'currency', label: 'Currency' },
         { key: 'currencyCode', label: 'Currency Code' },
         { key: 'materialsCount', label: 'Materials Count' },
-        { key: 'totalValueGhs', label: 'Total Value (GHS)' },
+        { key: 'totalValueGhs', label: `Total Value (${baseCurrency})` },
         { key: 'exposurePct', label: 'Exposure %' },
-        { key: 'currentRateToGhs', label: 'Current Rate to GHS' },
+        { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
       ],
       filename: 'currency-exposure-report.csv',
     };
@@ -774,9 +776,9 @@ export default function Reports() {
               { key: 'currency', label: 'Currency' },
               { key: 'code', label: 'Code' },
               { key: 'materialsCount', label: 'Materials Count' },
-              { key: 'totalValueGhs', label: 'Total Value (GHS)' },
+              { key: 'totalValueGhs', label: `Total Value (${baseCurrency})` },
               { key: 'exposurePct', label: 'Exposure %' },
-              { key: 'currentRateToGhs', label: 'Current Rate to GHS' },
+              { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
             ],
           },
           {
@@ -786,7 +788,7 @@ export default function Reports() {
               { key: 'materialName', label: 'Material Name' },
               { key: 'category', label: 'Category' },
               { key: 'currency', label: 'Currency' },
-              { key: 'unitPriceGhs', label: 'Unit Price (GHS)' },
+              { key: 'unitPriceGhs', label: `Unit Price (${baseCurrency})` },
               { key: 'exchangeRate', label: 'Exchange Rate' },
             ],
           },
@@ -960,7 +962,7 @@ export default function Reports() {
                 <strong>⚠ Below Optimal — Requires Attention</strong>
                 <AppBadge variant="danger" size="sm">{below.length}</AppBadge>
               </div>
-              {renderPricingStatusTable(below)}
+              {renderPricingStatusTable(below, { formatCurrency })}
             </section>
           )}
 
@@ -969,7 +971,7 @@ export default function Reports() {
               <strong>✓ Above Optimal</strong>
               <AppBadge variant="success" size="sm">{above.length}</AppBadge>
             </div>
-            {renderPricingStatusTable(above)}
+            {renderPricingStatusTable(above, { formatCurrency })}
           </section>
 
           <section style={{ marginTop: '14px' }}>
@@ -977,7 +979,7 @@ export default function Reports() {
               <strong>○ No Approved base price set</strong>
               <AppBadge variant="inactive" size="sm">{noSellingPrice.length}</AppBadge>
             </div>
-            {renderPricingStatusTable(noSellingPrice, { noSellingPriceMode: true })}
+            {renderPricingStatusTable(noSellingPrice, { noSellingPriceMode: true, formatCurrency })}
           </section>
 
           <section style={{ marginTop: '14px' }}>
@@ -985,7 +987,7 @@ export default function Reports() {
               <strong>= At Optimal</strong>
               <AppBadge variant="inactive" size="sm">{atOptimalCount}</AppBadge>
             </div>
-            {renderPricingStatusTable(atOptimal)}
+            {renderPricingStatusTable(atOptimal, { formatCurrency })}
           </section>
         </div>
       );
@@ -1169,7 +1171,7 @@ export default function Reports() {
           <StatCard label="Total Materials" value={String(data.totalMaterials)} />
           <StatCard label="Currencies Used" value={String(data.rows.length)} />
           <StatCard label="Highest Exposure" value={highestExposure ? `${highestExposure.currencyCode} (${formatPct(highestExposure.exposurePct)})` : '—'} />
-          <StatCard label="Local (GHS) Exposure %" value={formatPct(data.localExposurePct)} />
+          <StatCard label={`Local (${baseCurrency}) Exposure %`} value={formatPct(data.localExposurePct)} />
         </div>
 
         <div className="app-table-wrap">
@@ -1179,9 +1181,9 @@ export default function Reports() {
                 <th>Currency</th>
                 <th>Currency Code</th>
                 <th>Materials Count</th>
-                <th>Total Value (GHS)</th>
+                <th>Total Value ({baseCurrency})</th>
                 <th>Exposure %</th>
-                <th>Current Rate to GHS</th>
+                <th>Current Rate to {baseCurrency}</th>
               </tr>
             </thead>
             <tbody>
@@ -1243,7 +1245,7 @@ export default function Reports() {
                           <thead>
                             <tr>
                               <th>Material Name</th>
-                              <th>Unit Price (GHS)</th>
+                              <th>Unit Price ({baseCurrency})</th>
                               <th>Original Price</th>
                               <th>Category</th>
                             </tr>
@@ -1269,7 +1271,7 @@ export default function Reports() {
         </div>
 
         <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-          Exposure calculated from unit costs converted to GHS at current rates. Changes in exchange rates directly impact production costs for foreign-currency materials.
+          Exposure calculated from unit costs converted to {baseCurrency} at current rates. Changes in exchange rates directly impact production costs for foreign-currency materials.
         </div>
       </div>
     );
@@ -1441,8 +1443,12 @@ function StatCard({
   );
 }
 
-function renderPricingStatusTable(rows: PricingStatusComputedRow[], options?: { noSellingPriceMode?: boolean }) {
+function renderPricingStatusTable(
+  rows: PricingStatusComputedRow[],
+  options?: { noSellingPriceMode?: boolean; formatCurrency?: (value: number) => string },
+) {
   const noSellingPriceMode = options?.noSellingPriceMode === true;
+  const formatMoney = options?.formatCurrency ?? ((value: number) => formatCurrencyAmount(value, 'GHS'));
 
   return (
     <div className="app-table-wrap">
@@ -1471,9 +1477,9 @@ function renderPricingStatusTable(rows: PricingStatusComputedRow[], options?: { 
                 </AppBadge>
               </td>
               <td>{row.category}</td>
-              <td style={{ color: '#64748b' }}>{formatCurrency(row.productionCost)}</td>
-              <td style={{ color: '#64748b' }}>{formatCurrency(row.optimalPrice)}</td>
-              <td>{row.hasSellingPrice && !noSellingPriceMode ? formatCurrency(row.sellingPrice) : '—'}</td>
+              <td style={{ color: '#64748b' }}>{formatMoney(row.productionCost)}</td>
+              <td style={{ color: '#64748b' }}>{formatMoney(row.optimalPrice)}</td>
+              <td>{row.hasSellingPrice && !noSellingPriceMode ? formatMoney(row.sellingPrice) : '—'}</td>
               <td style={{ color: row.variance < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.variance) : '—'}</td>
               <td style={{ color: row.profit < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.profit) : '—'}</td>
               <td>{row.hasSellingPrice && !noSellingPriceMode ? <InlinePercentBar value={row.profitPct} /> : '—'}</td>

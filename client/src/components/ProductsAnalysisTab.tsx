@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { priceLevelItemsApi, priceLevelRulesApi } from '../api';
 import AppBadge from './AppBadge';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip } from './ProfitTooltips';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { formatCurrency } from '../utils/currency';
 
 interface ProductRow {
   id: number;
@@ -56,10 +58,6 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatMoney(value: number): string {
-  return `GHS ${value.toFixed(2)}`;
-}
-
 function getApprovedPrice(product: ProductRow): number | null {
   const approved = toNumber(product.approvedPrice);
   return approved > 0 ? approved : null;
@@ -108,6 +106,8 @@ function getFilterLabel(filterKey: FilterKey): string {
 }
 
 export default function ProductsAnalysisTab({ products }: { products: ProductRow[] }) {
+  const { baseCurrency } = useBaseCurrency();
+  const formatMoney = (value: number) => formatCurrency(value, baseCurrency);
   const navigate = useNavigate();
 
   const [selectedBand, setSelectedBand] = useState<FilterKey>(null);

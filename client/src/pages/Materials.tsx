@@ -19,6 +19,7 @@ import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import { usePrint } from '../hooks/usePrint';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 import {
   MATERIAL_LOCKED_KEYS,
@@ -197,10 +198,11 @@ interface MaterialsPageProps {
 
 export default function Materials({ materialType = 'primary', onPrimaryCostChange }: MaterialsPageProps) {
   const { notifyMaterialCostsChanged } = useMaterialCostSync();
+  const { baseCurrency } = useBaseCurrency();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
-  const [baseCurrencyCode, setBaseCurrencyCode] = useState('GHS');
+  const [baseCurrencyCode, setBaseCurrencyCode] = useState('');
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
   const [editingRateCurrencyId, setEditingRateCurrencyId] = useState<number | null>(null);
   const [editingRateValue, setEditingRateValue] = useState('');
@@ -315,7 +317,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       const baseCurrencySetting = (settingsData || []).find((entry: any) => entry.settingKey === 'baseCurrency');
       setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
       setConfiguredMaterialUnits(parseConfiguredList(materialUnitsSetting?.settingValue));
-      setBaseCurrencyCode(baseCurrencySetting?.settingValue || 'GHS');
+      setBaseCurrencyCode(baseCurrencySetting?.settingValue || baseCurrency);
       setBaseCurrencyMissing(safeCurrencies.length === 0 || !baseCurrencySetting?.settingValue);
 
       if (safeCurrencies.length > 0) {
@@ -522,7 +524,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     if (error.includes('Bulk Quantity is required')) return 'Enter a positive number in column F (Bulk Quantity). Example: 50';
     if (/Bulk Price.*positive number/.test(error)) return 'Remove any symbols or commas. Numbers only. Example: 320.50';
     if (/Bulk Quantity.*positive number/.test(error)) return 'Enter a whole number greater than zero. Example: 25';
-    if (error.includes('Currency')) return 'Check Settings → Currencies. Use a configured code or leave blank for GHS.';
+    if (error.includes('Currency')) return `Check Settings → Currencies. Use a configured code or leave blank for ${baseCurrencyCode || baseCurrency}.`;
     if (error.includes('Material Name is required')) return 'Enter a name in column A (Material Name).';
     if (error.includes('Category is required')) return 'Enter a category in column B (Category).';
     if (error.includes('Unit is required')) return 'Enter a unit in column C (Unit). Example: Kg, L, Ea.';
@@ -1641,7 +1643,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             <div style={{ display: 'grid', gap: '12px' }}>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Purchase currency</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencyCode || detailMaterial.purchaseCurrencySymbol || 'GHS'}</div>
+                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencyCode || detailMaterial.purchaseCurrencySymbol || baseCurrencyCode || baseCurrency}</div>
               </div>
               <div>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Bulk price</div>

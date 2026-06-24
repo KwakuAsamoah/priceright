@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { materialsApi, type IntermediateBomItemRecord, type MaterialRecord } from '../api';
 import AppBadge from '../components/AppBadge';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 
 interface IntermediateDetailLocationState {
   from?: string;
@@ -15,6 +16,7 @@ function toNumber(value: unknown): number {
 }
 
 export default function IntermediateDetail() {
+  const { baseCurrency } = useBaseCurrency();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,7 +112,7 @@ export default function IntermediateDetail() {
     };
   }, [material, bomItems]);
 
-  const currencySymbol = material?.baseCurrencySymbol || material?.purchaseCurrencySymbol || 'GHS';
+  const currencySymbol = material?.baseCurrencySymbol || material?.purchaseCurrencySymbol || baseCurrency;
 
   const formatMoney = (value: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${value.toFixed(2)}`;
 

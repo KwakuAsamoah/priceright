@@ -1,5 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { materialsApi, productsApi } from '../api';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { formatCurrency } from '../utils/currency';
 
 type MaterialRecord = {
   id: number;
@@ -43,10 +45,6 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatMoney(value: number): string {
-  return `GHS ${value.toFixed(2)}`;
-}
-
 function panelHeader(title: string) {
   return (
     <h2 style={{ margin: 0, marginBottom: '12px', fontSize: '18px', fontWeight: 700 }}>{title}</h2>
@@ -60,6 +58,8 @@ export default function MaterialsAnalysisTab(props: {
   loading: boolean;
 }) {
   const { materials, loading, currencies, exchangeRates } = props;
+  const { baseCurrency } = useBaseCurrency();
+  const formatMoney = (value: number) => formatCurrency(value, baseCurrency);
   void currencies;
   void exchangeRates;
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
