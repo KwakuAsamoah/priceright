@@ -30,17 +30,16 @@
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 2px 12px rgba(255, 45, 0, 0.28), 0 1px 3px rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .app-brand-logo {
   display: block;
   width: 36px;
   height: 36px;
-  object-fit: cover;
-  border-radius: 10px;
+  object-fit: contain;
 }
 
 .app-brand-text {
