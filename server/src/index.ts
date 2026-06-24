@@ -2931,6 +2931,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
 
     let approved = 0;
     let skipped = 0;
+    const skippedProducts: string[] = [];
     const rejected: string[] = [];
     const performedBy = await getCurrentUserName();
 
@@ -2955,7 +2956,12 @@ app.post('/api/products/bulk-approve', async (req, res) => {
 
       if (normalizedMethod === 'selling') {
         const currentSellingPrice = Number(current.currentSellingPrice || 0);
-        priceToApprove = currentSellingPrice > 0 ? currentSellingPrice : optimalPrice;
+        if (currentSellingPrice <= 0) {
+          skipped += 1;
+          skippedProducts.push(current.name);
+          continue;
+        }
+        priceToApprove = currentSellingPrice;
       } else if (normalizedMethod === 'markup') {
         priceToApprove = roundToTwo(optimalPrice * (1 + (normalizedMarkupPercentage / 100)));
       }
@@ -3006,6 +3012,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       approved,
       rejected,
       skipped,
+      skippedProducts,
       priceMethod: normalizedMethod,
       ...(normalizedMethod === 'markup' ? { markupPercentage: normalizedMarkupPercentage } : {}),
     });
@@ -3532,8 +3539,8 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
       }
       resolvedAdjustment = adjustmentPercentage;
     } else {
-      if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-        return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
+      if (customPrice == null || Number.isNaN(customPrice) || customPrice < 0) {
+        return res.status(400).json({ error: 'customPrice must be non-negative for fixed amount pricing' });
       }
 
       const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
@@ -3557,7 +3564,9 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
         });
       }
 
-      const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+      const resultingMarginPercentage = proposedFinalPrice > 0
+        ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+        : 0;
       if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
         return res.status(400).json({
           error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
@@ -3682,8 +3691,8 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
       }
       resolvedAdjustment = adjustmentPercentage;
     } else {
-      if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-        return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
+      if (customPrice == null || Number.isNaN(customPrice) || customPrice < 0) {
+        return res.status(400).json({ error: 'customPrice must be non-negative for fixed amount pricing' });
       }
       const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
       const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
@@ -3706,7 +3715,9 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
         });
       }
 
-      const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+      const resultingMarginPercentage = proposedFinalPrice > 0
+        ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+        : 0;
       if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
         return res.status(400).json({
           error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,

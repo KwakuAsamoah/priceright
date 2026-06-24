@@ -332,12 +332,23 @@ export default function ProductDetail() {
   }
 
   async function handleKeepCurrentPrice() {
-    if (!product || product.approvedPrice == null) return;
-    const keepPrice = toNum(product.approvedPrice);
+    if (!product) return;
+    const priceToKeep =
+      product.approvedPrice != null && toNum(product.approvedPrice) > 0
+        ? toNum(product.approvedPrice)
+        : toNum(product.currentSellingPrice);
+    if (priceToKeep <= 0) return;
+
+    const keptApprovedPrice = product.approvedPrice != null && toNum(product.approvedPrice) > 0;
     setApprovalLoading(true);
     try {
-      const result = await productsApi.approve(productId, { approvedPrice: keepPrice });
-      showToastMessage(`Kept current price: GHS ${keepPrice.toFixed(2)}`, 'success');
+      const result = await productsApi.approve(productId, { approvedPrice: priceToKeep });
+      showToastMessage(
+        keptApprovedPrice
+          ? `Kept approved price: GHS ${priceToKeep.toFixed(2)}`
+          : `Kept selling price: GHS ${priceToKeep.toFixed(2)}`,
+        'success',
+      );
       setShowPriceForm(false);
       setStaleAlertDismissed(false);
       setStaleCustomPrices(result?.staleCustomPrices ?? []);
@@ -931,9 +942,16 @@ export default function ProductDetail() {
                   Approve Optimal Price (GHS {optimalPrice.toFixed(2)})
                 </button>
 
-                {/* Keep current price — shown only for needs_review when there is an existing approved price */}
-                {product.approvalStatus === 'needs_review' && product.approvedPrice != null && (() => {
-                  const keepPrice = toNum(product.approvedPrice);
+                {/* Keep current price — needs_review with approved price, or any product with a selling price */}
+                {((product.approvalStatus === 'needs_review' && product.approvedPrice != null)
+                  || (product.currentSellingPrice != null && toNum(product.currentSellingPrice) > 0)) && (() => {
+                  const hasApprovedPrice = product.approvedPrice != null && toNum(product.approvedPrice) > 0;
+                  const keepPrice = hasApprovedPrice
+                    ? toNum(product.approvedPrice)
+                    : toNum(product.currentSellingPrice);
+                  const keepLabel = hasApprovedPrice
+                    ? `Keep approved price (GHS ${keepPrice.toFixed(2)})`
+                    : `Keep selling price (GHS ${keepPrice.toFixed(2)})`;
                   const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
                   const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
                   const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
@@ -960,7 +978,7 @@ export default function ProductDetail() {
                         }}
                       >
                         <Check size={13} strokeWidth={2.2} />
-                        Keep current price (GHS {keepPrice.toFixed(2)})
+                        {keepLabel}
                       </button>
                       {belowCost ? (
                         <div style={{ fontSize: '13px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>

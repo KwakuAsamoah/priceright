@@ -900,7 +900,13 @@ export default function Products() {
       const approvedCount = Number(result?.approved || 0);
       const methodUsed = (result?.priceMethod || payloadOptions.priceMethod) as 'optimal' | 'selling' | 'markup';
       const markupUsed = Number(result?.markupPercentage ?? payloadOptions.markupPercentage ?? 0);
-      const summaryText = `Approved ${approvedCount} products at ${getBulkApproveMethodLabel(methodUsed, markupUsed)}.`;
+      const skippedProducts = Array.isArray(result?.skippedProducts)
+        ? result.skippedProducts as string[]
+        : [];
+      let summaryText = `Approved ${approvedCount} products at ${getBulkApproveMethodLabel(methodUsed, markupUsed)}.`;
+      if (methodUsed === 'selling' && skippedProducts.length > 0) {
+        summaryText = `${approvedCount} product${approvedCount !== 1 ? 's' : ''} approved. ${skippedProducts.length} product${skippedProducts.length !== 1 ? 's' : ''} skipped — no current selling price.`;
+      }
       showToastMessage(
         summaryText,
         'success'
@@ -2329,7 +2335,7 @@ export default function Products() {
                   <span style={{ fontWeight: 700 }}>Keep current price</span>
                 </div>
                 <div style={{ color: '#64748b', fontSize: '15px', marginLeft: '24px' }}>
-                  Each product is approved at its approved base price. Products with no approved base price set will be approved at their optimal price instead.
+                  Each product is approved at its current selling price. Products with no selling price set will be skipped.
                 </div>
               </label>
 

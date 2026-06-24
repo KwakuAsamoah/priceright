@@ -8,6 +8,7 @@ import {
   priceLevelItemsApi,
   priceLevelRulesApi,
   productsApi,
+  settingsApi,
   type ActivityEntry,
   type PriceLevelItemResponse,
   type ProductRecord,
@@ -20,7 +21,6 @@ import TableZoomControl from '../components/TableZoomControl';
 import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
-import { usePrint } from '../hooks/usePrint';
 
 type PriceLevelRule = {
   id: number;
@@ -70,6 +70,14 @@ function roundToTwo(value: number): number {
 
 function formatMoney(value: number): string {
   return `GHS ${toNumber(value).toFixed(2)}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function parseDraftValue(raw: string): number | null {
@@ -265,7 +273,6 @@ export default function PriceLevels() {
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [selectedLevelIds, setSelectedLevelIds] = useState<Set<number>>(new Set());
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
-  const { handlePrint } = usePrint();
 
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
   const [addProductsSearch, setAddProductsSearch] = useState('');
@@ -1282,6 +1289,169 @@ export default function PriceLevels() {
     setTimeout(() => printWindow.print(), 250);
   }
 
+  async function handlePrintPriceList() {
+    if (!selectedLevel || selectedLevelItems.length === 0) {
+      return;
+    }
+
+    let companyName = 'PriceRight';
+    let baseCurrency = 'GHS';
+    try {
+      const settings = await settingsApi.getAll();
+      const companySetting = settings.find(
+        (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'companyName',
+      );
+      if (companySetting?.settingValue) {
+        companyName = companySetting.settingValue;
+      }
+      const currencySetting = settings.find(
+        (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'baseCurrency',
+      );
+      if (currencySetting?.settingValue) {
+        baseCurrency = currencySetting.settingValue;
+      }
+    } catch {
+      // Use defaults.
+    }
+
+    const date = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+
+    const printableItems = selectedLevelItems.filter(
+      (item) => item.finalPrice != null && Number.isFinite(Number(item.finalPrice)),
+    );
+
+    if (printableItems.length === 0) {
+      showToastMessage('No prices available to print for this level.', 'error');
+      return;
+    }
+
+    const rows = printableItems
+      .map(
+        (item) => `
+        <tr>
+          <td>${escapeHtml(item.productName || '')}</td>
+          <td style="text-align:right">${escapeHtml(formatMoney(toNumber(item.finalPrice)))}</td>
+        </tr>
+      `,
+      )
+      .join('');
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(selectedLevel.name || 'Price List')}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 12px;
+      color: #000;
+      padding: 32px 40px;
+    }
+    .header {
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #000;
+    }
+    .company {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .level-name {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .meta {
+      font-size: 11px;
+      color: #555;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    thead th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border-top: 1px solid #ccc;
+      border-bottom: 1px solid #ccc;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    thead th:last-child {
+      text-align: right;
+    }
+    tbody td {
+      padding: 7px 12px;
+      border-bottom: 1px solid #eee;
+      font-size: 12px;
+    }
+    tbody tr:nth-child(even) td {
+      background: #fafafa;
+    }
+    .footer {
+      margin-top: 24px;
+      padding-top: 12px;
+      border-top: 1px solid #ccc;
+      font-size: 10px;
+      color: #777;
+    }
+    @page {
+      margin: 15mm;
+      size: A4 portrait;
+    }
+    @media print {
+      body { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company">${escapeHtml(companyName)}</div>
+    <div class="level-name">${escapeHtml(selectedLevel.name || 'Price List')}</div>
+    <div class="meta">Valid as of ${escapeHtml(date)} · Prices in ${escapeHtml(baseCurrency)}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th style="text-align:right">Price</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+  <div class="footer">
+    Generated by PriceRight · ${escapeHtml(companyName)} · ${escapeHtml(date)}
+  </div>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToastMessage('Allow pop-ups to print the price list.', 'error');
+      return;
+    }
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  }
+
   const allRowsSelected = selectedLevelItems.length > 0 && selectedRows.size === selectedLevelItems.length;
 
   if (loading) {
@@ -1469,10 +1639,7 @@ export default function PriceLevels() {
                         className="btn btn-outline btn-sm"
                         onClick={() => {
                           if (selectedLevelItems.length === 0) return;
-                          void handlePrint({
-                            title: `${selectedLevel.name} — Price List`,
-                            subtitle: `Valid as of ${new Date().toLocaleDateString('en-GB')}`,
-                          });
+                          void handlePrintPriceList();
                         }}
                         disabled={selectedLevelItems.length === 0}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
