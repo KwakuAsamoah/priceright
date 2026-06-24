@@ -79,12 +79,6 @@ function toNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function getUniquePackQuantities(items: PriceLevelItemResponse[]): number[] {
-  return [...new Set(
-    items.flatMap((item) => (item.packSizes || []).map((pack) => pack.packQuantity)),
-  )].sort((a, b) => a - b);
-}
-
 function roundToTwo(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
@@ -1268,9 +1262,8 @@ export default function PriceLevels() {
     }
 
     const exportedItems = approvedSelectedLevelItems.filter((item) => selectedExportProductIds.has(item.productId));
-    const allPackQtys = getUniquePackQuantities(exportedItems);
     const unitPriceLabel = levelCurrencyCode ? `Unit Price (${levelCurrencyCode})` : `Unit Price (${baseCurrency})`;
-    const packHeaders = allPackQtys.map((qty) => `Pack of ${qty}`);
+    const packPriceLabel = levelCurrencyCode ? `Pack Price (${levelCurrencyCode})` : `Pack Price (${baseCurrency})`;
 
     const now = new Date();
     const metadataLine = [
@@ -1278,8 +1271,35 @@ export default function PriceLevels() {
       includeValidUntil && exportValidUntil ? `Valid until: ${exportValidUntil}` : '',
     ].filter(Boolean).join('   |   ');
 
-    const headerRow = ['#', 'Product Name', unitPriceLabel, ...packHeaders];
+    const headerRow = ['#', 'Product Name', 'Pack Size', unitPriceLabel, packPriceLabel];
     const totalColumns = headerRow.length;
+
+    const dataRows: Array<Array<string | number>> = [];
+    let rowNumber = 0;
+    for (const item of exportedItems) {
+      const unitPrice = levelCurrencyCode
+        ? toNumber(item.finalPriceConverted, item.finalPrice)
+        : toNumber(item.finalPrice, 0);
+
+      if (!item.packSizes?.length) {
+        rowNumber += 1;
+        dataRows.push([rowNumber, item.productName, '', unitPrice, '']);
+      } else {
+        item.packSizes.forEach((pack, idx) => {
+          rowNumber += 1;
+          const packPrice = levelCurrencyCode
+            ? toNumber(pack.packPriceConverted, pack.packPrice)
+            : toNumber(pack.packPrice, 0);
+          dataRows.push([
+            rowNumber,
+            idx === 0 ? item.productName : '',
+            pack.packQuantity,
+            unitPrice,
+            packPrice,
+          ]);
+        });
+      }
+    }
 
     const worksheet = XLSX.utils.aoa_to_sheet([
       [includeCompanyName ? exportCompanyName.trim() : ''],
@@ -1287,19 +1307,7 @@ export default function PriceLevels() {
       [metadataLine],
       [],
       headerRow,
-      ...exportedItems.map((item, index) => {
-        const unitPrice = levelCurrencyCode
-          ? toNumber(item.finalPriceConverted, item.finalPrice)
-          : toNumber(item.finalPrice, 0);
-        const packValues = allPackQtys.map((qty) => {
-          const pack = (item.packSizes || []).find((entry) => entry.packQuantity === qty);
-          if (!pack) return '';
-          return levelCurrencyCode
-            ? toNumber(pack.packPriceConverted, pack.packPrice)
-            : toNumber(pack.packPrice, 0);
-        });
-        return [index + 1, item.productName, unitPrice, ...packValues];
-      }),
+      ...dataRows,
       [],
       ['Prepared in PriceRight'],
     ]);
@@ -1307,11 +1315,12 @@ export default function PriceLevels() {
     worksheet['!cols'] = [
       { wch: 6 },
       { wch: 32 },
+      { wch: 12 },
       { wch: 16 },
-      ...allPackQtys.map(() => ({ wch: 14 })),
+      { wch: 16 },
     ];
 
-    const footerRowIndex = exportedItems.length + 7;
+    const footerRowIndex = dataRows.length + 6;
     worksheet['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalColumns - 1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalColumns - 1 } },
@@ -1348,9 +1357,9 @@ export default function PriceLevels() {
       }
     }
 
-    for (let rowIndex = 0; rowIndex < exportedItems.length; rowIndex += 1) {
+    for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex += 1) {
       const excelRow = rowIndex + 6;
-      for (let col = 2; col < totalColumns; col += 1) {
+      for (let col = 3; col < totalColumns; col += 1) {
         const cellRef = XLSX.utils.encode_cell({ r: excelRow - 1, c: col });
         if (worksheet[cellRef]) worksheet[cellRef].z = '#,##0.00';
       }
@@ -1485,31 +1494,36 @@ export default function PriceLevels() {
       ? `Exchange rate: 1 ${levelCurrencyCode} = ${levelRateToBase.toFixed(4)} ${printBaseCurrency} as of ${date}`
       : '';
 
-    const allPackQtys = getUniquePackQuantities(printableItems);
-    const packHeaderCells = allPackQtys
-      .map((qty) => `<th style="text-align:right">Pack of ${qty}</th>`)
-      .join('');
+    const rowHtml: string[] = [];
+    for (const item of printableItems) {
+      const unitPrice = formatLevelMoney(item.finalPrice, item.finalPriceConverted);
 
-    const rows = printableItems
-      .map(
-        (item) => {
-          const packCells = allPackQtys.map((qty) => {
-            const pack = (item.packSizes || []).find((entry) => entry.packQuantity === qty);
-            const value = pack
-              ? formatLevelMoney(pack.packPrice, pack.packPriceConverted)
-              : '—';
-            return `<td style="text-align:right">${escapeHtml(value)}</td>`;
-          }).join('');
-          return `
+      if (!item.packSizes || item.packSizes.length === 0) {
+        rowHtml.push(`
         <tr>
           <td>${escapeHtml(item.productName || '')}</td>
-          <td style="text-align:right">${escapeHtml(formatLevelMoney(item.finalPrice, item.finalPriceConverted))}</td>
-          ${packCells}
+          <td style="text-align:center">—</td>
+          <td style="text-align:right">${escapeHtml(unitPrice)}</td>
+          <td style="text-align:right">—</td>
         </tr>
-      `;
-        },
-      )
-      .join('');
+      `);
+      } else {
+        item.packSizes.forEach((pack, idx) => {
+          const packPrice = formatLevelMoney(pack.packPrice, pack.packPriceConverted);
+          rowHtml.push(`
+            <tr>
+              <td style="color: ${idx === 0 ? '#000' : '#999'}">
+                ${idx === 0 ? escapeHtml(item.productName || '') : ''}
+              </td>
+              <td style="text-align:center">${pack.packQuantity}</td>
+              <td style="text-align:right">${escapeHtml(unitPrice)}</td>
+              <td style="text-align:right">${escapeHtml(packPrice)}</td>
+            </tr>
+          `);
+        });
+      }
+    }
+    const rows = rowHtml.join('');
 
     const html = `<!DOCTYPE html>
 <html>
@@ -1599,8 +1613,9 @@ export default function PriceLevels() {
     <thead>
       <tr>
         <th>Product</th>
+        <th style="text-align:center">Pack Size</th>
         <th style="text-align:right">Unit Price (${escapeHtml(displayCurrency)})</th>
-        ${packHeaderCells}
+        <th style="text-align:right">Pack Price (${escapeHtml(displayCurrency)})</th>
       </tr>
     </thead>
     <tbody>
@@ -1955,300 +1970,337 @@ export default function PriceLevels() {
                             <input type="checkbox" checked={allRowsSelected} onChange={(e) => toggleSelectAllRows(e.target.checked)} />
                           </th>
                           <th>Product name</th>
-                          <th>Category</th>
-                          <th style={{ textAlign: 'right' }}>Approved base price ({baseCurrency})</th>
-                          <th>Pricing rule</th>
+                          <th style={{ textAlign: 'center' }}>Pack size</th>
                           <th style={{ textAlign: 'right' }}>
-                            {levelCurrencyCode ? `Final price (${levelCurrencyCode})` : 'Final price'}
+                            {levelCurrencyCode ? `Unit price (${levelCurrencyCode})` : 'Unit price'}
                           </th>
-                          <th>Pack sizes</th>
-                          <th style={{ textAlign: 'right' }}>Margin %</th>
+                          <th style={{ textAlign: 'right' }}>
+                            {levelCurrencyCode ? `Pack price (${levelCurrencyCode})` : 'Pack price'}
+                          </th>
+                          <th>Pricing rule</th>
                           <th>Status</th>
                           <th style={{ textAlign: 'center' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedLevelItems.map((item) => {
+                        {selectedLevelItems.flatMap((item) => {
                           const isEditing = editingItemProductId === item.productId;
                           const isSelected = selectedRows.has(item.productId);
-                          const margin = computeMarginPercent(toNumber(item.finalPrice, 0), toNumber(item.productProductionCost, 0));
-                          const variant = marginTone(margin);
 
                           const draftValue = parseDraftValue(rowDraft.value) ?? 0;
                           const draftFinal = computeFinalPrice(rowDraft.overrideType, draftValue, toNumber(item.productApprovedPrice, 0));
                           const draftMargin = computeMarginPercent(draftFinal, toNumber(item.productProductionCost, 0));
                           const belowCost = draftFinal <= toNumber(item.productProductionCost, 0);
 
-                          return (
-                            <>
-                              <tr key={item.productId}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => toggleRowSelection(item.productId, e.target.checked)}
-                                  />
-                                </td>
-                                <td>{item.productName}</td>
-                                <td>{item.productCategory || '-'}</td>
-                                <td style={{ textAlign: 'right' }}>{formatMoney(item.productApprovedPrice)}</td>
-                                <td>{pricingRuleLabel(item, baseCurrency)}</td>
-                                <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-                                    {formatLevelMoney(item.finalPrice, item.finalPriceConverted)}
-                                    {item.isStalePrice && (
-                                      <span title="Base price was updated after this price override was set. Review to confirm this price is still appropriate.">
-                                        <AlertTriangle size={13} style={{ color: '#e65100' }} />
-                                      </span>
-                                    )}
+                          const packs = item.packSizes || [];
+                          const displayRows: Array<PriceLevelPackSize | null> = packs.length > 0 ? packs : [null];
+                          const rowSpan = displayRows.length;
+
+                          const packSizeCell = (pack: PriceLevelPackSize | null, packIndex: number) => {
+                            const isLastRow = packIndex === displayRows.length - 1;
+                            if (pack) {
+                              return (
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  <span>{pack.packQuantity}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => void removePackSize(pack.id)}
+                                    aria-label={`Remove pack of ${pack.packQuantity}`}
+                                    style={{
+                                      border: 'none',
+                                      background: 'transparent',
+                                      color: '#64748b',
+                                      cursor: 'pointer',
+                                      fontSize: '14px',
+                                      lineHeight: 1,
+                                      padding: 0,
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                  {isLastRow && addingPackForItemId !== item.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAddingPackForItemId(item.id);
+                                        setNewPackQuantity('');
+                                      }}
+                                      style={{
+                                        border: '1px dashed #cbd5e1',
+                                        background: '#fff',
+                                        color: '#0F2847',
+                                        borderRadius: '999px',
+                                        padding: '0 6px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        lineHeight: 1.4,
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            }
+
+                            if (addingPackForItemId === item.id) {
+                              return (
+                                <input
+                                  type="number"
+                                  min={2}
+                                  step={1}
+                                  value={newPackQuantity}
+                                  onChange={(e) => setNewPackQuantity(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      void addPackSize(item.id, newPackQuantity);
+                                    }
+                                    if (e.key === 'Escape') {
+                                      setAddingPackForItemId(null);
+                                      setNewPackQuantity('');
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    if (newPackQuantity.trim()) {
+                                      void addPackSize(item.id, newPackQuantity);
+                                    } else {
+                                      setAddingPackForItemId(null);
+                                    }
+                                  }}
+                                  placeholder="Qty e.g. 12"
+                                  autoFocus
+                                  style={{
+                                    width: '80px',
+                                    height: '28px',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '6px',
+                                    padding: '0 8px',
+                                    fontSize: '12px',
+                                  }}
+                                />
+                              );
+                            }
+
+                            return (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <span>—</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAddingPackForItemId(item.id);
+                                    setNewPackQuantity('');
+                                  }}
+                                  style={{
+                                    border: '1px dashed #cbd5e1',
+                                    background: '#fff',
+                                    color: '#0F2847',
+                                    borderRadius: '999px',
+                                    padding: '2px 8px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  + Pack
+                                </button>
+                              </div>
+                            );
+                          };
+
+                          const unitPriceCell = (showStaleIndicator: boolean) => (
+                            <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                                {formatLevelMoney(item.finalPrice, item.finalPriceConverted)}
+                                {showStaleIndicator && item.isStalePrice && (
+                                  <span title="Base price was updated after this price override was set. Review to confirm this price is still appropriate.">
+                                    <AlertTriangle size={13} style={{ color: '#e65100' }} />
                                   </span>
-                                </td>
-                                <td>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                                    {(item.packSizes || []).map((pack: PriceLevelPackSize) => (
-                                      <span
-                                        key={pack.id}
-                                        style={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '4px',
-                                          fontSize: '12px',
-                                          backgroundColor: '#f1f5f9',
-                                          border: '1px solid #e2e8f0',
-                                          borderRadius: '999px',
-                                          padding: '2px 8px',
-                                          whiteSpace: 'nowrap',
-                                        }}
-                                      >
-                                        <span>
-                                          ×{pack.packQuantity} → {formatLevelMoney(pack.packPrice, pack.packPriceConverted)}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => void removePackSize(pack.id)}
-                                          aria-label={`Remove pack of ${pack.packQuantity}`}
-                                          style={{
-                                            border: 'none',
-                                            background: 'transparent',
-                                            color: '#64748b',
-                                            cursor: 'pointer',
-                                            fontSize: '14px',
-                                            lineHeight: 1,
-                                            padding: 0,
-                                          }}
-                                        >
-                                          ×
-                                        </button>
-                                      </span>
-                                    ))}
-                                    {addingPackForItemId === item.id ? (
-                                      <input
-                                        type="number"
-                                        min={2}
-                                        step={1}
-                                        value={newPackQuantity}
-                                        onChange={(e) => setNewPackQuantity(e.target.value)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            void addPackSize(item.id, newPackQuantity);
-                                          }
-                                          if (e.key === 'Escape') {
-                                            setAddingPackForItemId(null);
-                                            setNewPackQuantity('');
-                                          }
-                                        }}
-                                        onBlur={() => {
-                                          if (newPackQuantity.trim()) {
-                                            void addPackSize(item.id, newPackQuantity);
-                                          } else {
-                                            setAddingPackForItemId(null);
-                                          }
-                                        }}
-                                        placeholder="Qty e.g. 12"
-                                        autoFocus
-                                        style={{
-                                          width: '80px',
-                                          height: '28px',
-                                          border: '1px solid #cbd5e1',
-                                          borderRadius: '6px',
-                                          padding: '0 8px',
-                                          fontSize: '12px',
-                                        }}
-                                      />
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setAddingPackForItemId(item.id);
-                                          setNewPackQuantity('');
-                                        }}
-                                        style={{
-                                          border: '1px dashed #cbd5e1',
-                                          background: '#fff',
-                                          color: '#0F2847',
-                                          borderRadius: '999px',
-                                          padding: '2px 8px',
-                                          fontSize: '12px',
-                                          cursor: 'pointer',
-                                        }}
-                                      >
-                                        {(item.packSizes || []).length > 0 ? '+' : '+ Pack'}
-                                      </button>
-                                    )}
-                                  </div>
-                                </td>
-                                <td style={{ textAlign: 'right' }}>
-                                  <AppBadge variant={variant}>{margin.toFixed(1)}%</AppBadge>
-                                </td>
-                                <td>
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                                    <AppBadge variant={itemStatusVariant(item.status)}>{item.status}</AppBadge>
-                                    {item.isStalePrice && (
-                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review price</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td>
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    {item.status === 'pending' ? (
-                                      <AppButton
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => approveItem(item.productId)}
-                                        ariaLabel="Approve"
-                                        title="Approve"
-                                        style={{ color: '#16a34a' }}
-                                      >
-                                        <Check size={14} />
-                                      </AppButton>
-                                    ) : (
-                                      <AppButton
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openInlineEdit(item)}
-                                        ariaLabel="Edit price"
-                                        title="Edit price"
-                                      >
-                                        <Pencil size={14} />
-                                      </AppButton>
-                                    )}
+                                )}
+                              </span>
+                            </td>
+                          );
 
-                                    <OverflowMenu
-                                      ariaLabel={`More actions for ${item.productName}`}
-                                      items={[
-                                        ...(item.status === 'pending'
-                                          ? [
-                                            { label: 'Edit price', icon: Pencil, onClick: () => openInlineEdit(item) },
-                                            { type: 'divider' as const, key: `pending-divider-${item.productId}` },
-                                            {
-                                              label: 'Reject',
-                                              icon: XCircle,
-                                              onClick: () => {
-                                                if (window.confirm(`Reject ${item.productName}?`)) {
-                                                  void rejectItem(item.productId);
-                                                }
-                                              },
-                                              danger: true,
-                                            },
-                                            {
-                                              label: 'Delete',
-                                              icon: Trash2,
-                                              onClick: () => removeItem(item.productId),
-                                              danger: true,
-                                            },
-                                          ]
-                                          : item.status === 'approved'
-                                            ? [
-                                              { label: 'Re-approve at optimal', icon: Check, onClick: () => approveItem(item.productId) },
-                                              { type: 'divider' as const, key: `approved-divider-${item.productId}` },
-                                              {
-                                                label: 'Reject',
-                                                icon: XCircle,
-                                                onClick: () => {
-                                                  if (window.confirm(`Reject ${item.productName}?`)) {
-                                                    void rejectItem(item.productId);
-                                                  }
-                                                },
-                                                danger: true,
-                                              },
-                                              {
-                                                label: 'Delete',
-                                                icon: Trash2,
-                                                onClick: () => removeItem(item.productId),
-                                                danger: true,
-                                              },
-                                            ]
-                                            : [
-                                              { label: 'Edit and re-submit', icon: Pencil, onClick: () => openInlineEdit(item) },
-                                              { type: 'divider' as const, key: `rejected-divider-${item.productId}` },
-                                              {
-                                                label: 'Delete',
-                                                icon: Trash2,
-                                                onClick: () => removeItem(item.productId),
-                                                danger: true,
-                                              },
-                                            ]),
-                                      ]}
+                          const packRows = displayRows.map((pack, packIndex) => {
+                            const isFirstRow = packIndex === 0;
+                            return (
+                              <tr key={pack ? `${item.productId}-pack-${pack.id}` : `${item.productId}-no-pack`}>
+                                {isFirstRow && (
+                                  <td rowSpan={rowSpan}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => toggleRowSelection(item.productId, e.target.checked)}
                                     />
-                                  </div>
+                                  </td>
+                                )}
+                                <td style={isFirstRow ? undefined : { color: 'rgba(0,0,0,0.3)' }}>
+                                  {isFirstRow ? item.productName : ''}
                                 </td>
-                              </tr>
+                                <td style={{ textAlign: 'center' }}>{packSizeCell(pack, packIndex)}</td>
+                                {unitPriceCell(isFirstRow)}
+                                <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
+                                  {pack
+                                    ? formatLevelMoney(pack.packPrice, pack.packPriceConverted)
+                                    : '—'}
+                                </td>
+                                {isFirstRow && (
+                                  <>
+                                    <td rowSpan={rowSpan}>{pricingRuleLabel(item, baseCurrency)}</td>
+                                    <td rowSpan={rowSpan}>
+                                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                                        <AppBadge variant={itemStatusVariant(item.status)}>{item.status}</AppBadge>
+                                        {item.isStalePrice && (
+                                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#e65100', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>Review price</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td rowSpan={rowSpan}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                        {item.status === 'pending' ? (
+                                          <AppButton
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => approveItem(item.productId)}
+                                            ariaLabel="Approve"
+                                            title="Approve"
+                                            style={{ color: '#16a34a' }}
+                                          >
+                                            <Check size={14} />
+                                          </AppButton>
+                                        ) : (
+                                          <AppButton
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => openInlineEdit(item)}
+                                            ariaLabel="Edit price"
+                                            title="Edit price"
+                                          >
+                                            <Pencil size={14} />
+                                          </AppButton>
+                                        )}
 
-                              {isEditing && (
-                                <tr key={`${item.productId}-edit`}>
-                                  <td colSpan={10} style={{ backgroundColor: '#fcfcfd' }}>
-                                    <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
-                                      {item.isStalePrice && (
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
-                                          <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
-                                          <span>The approved base price changed since this price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your override amount: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
-                                        </div>
-                                      )}
-                                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        <AppButton variant={rowDraft.overrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_discount' }))}>Discount %</AppButton>
-                                        <AppButton variant={rowDraft.overrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_markup' }))}>Markup %</AppButton>
-                                        <AppButton variant={rowDraft.overrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_add' }))}>Add amount</AppButton>
-                                        <AppButton variant={rowDraft.overrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_deduct' }))}>Deduct amount</AppButton>
-                                        <input
-                                          value={rowDraft.value}
-                                          onChange={(e) => setRowDraft((prev) => ({ ...prev, value: e.target.value }))}
-                                          type="number"
-                                          min={0}
-                                          step="0.01"
-                                          placeholder={rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct' ? 'Enter amount' : 'Enter percentage'}
-                                          style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
+                                        <OverflowMenu
+                                          ariaLabel={`More actions for ${item.productName}`}
+                                          items={[
+                                            ...(item.status === 'pending'
+                                              ? [
+                                                { label: 'Edit price', icon: Pencil, onClick: () => openInlineEdit(item) },
+                                                { type: 'divider' as const, key: `pending-divider-${item.productId}` },
+                                                {
+                                                  label: 'Reject',
+                                                  icon: XCircle,
+                                                  onClick: () => {
+                                                    if (window.confirm(`Reject ${item.productName}?`)) {
+                                                      void rejectItem(item.productId);
+                                                    }
+                                                  },
+                                                  danger: true,
+                                                },
+                                                {
+                                                  label: 'Delete',
+                                                  icon: Trash2,
+                                                  onClick: () => removeItem(item.productId),
+                                                  danger: true,
+                                                },
+                                              ]
+                                              : item.status === 'approved'
+                                                ? [
+                                                  { label: 'Re-approve at optimal', icon: Check, onClick: () => approveItem(item.productId) },
+                                                  { type: 'divider' as const, key: `approved-divider-${item.productId}` },
+                                                  {
+                                                    label: 'Reject',
+                                                    icon: XCircle,
+                                                    onClick: () => {
+                                                      if (window.confirm(`Reject ${item.productName}?`)) {
+                                                        void rejectItem(item.productId);
+                                                      }
+                                                    },
+                                                    danger: true,
+                                                  },
+                                                  {
+                                                    label: 'Delete',
+                                                    icon: Trash2,
+                                                    onClick: () => removeItem(item.productId),
+                                                    danger: true,
+                                                  },
+                                                ]
+                                                : [
+                                                  { label: 'Edit and re-submit', icon: Pencil, onClick: () => openInlineEdit(item) },
+                                                  { type: 'divider' as const, key: `rejected-divider-${item.productId}` },
+                                                  {
+                                                    label: 'Delete',
+                                                    icon: Trash2,
+                                                    onClick: () => removeItem(item.productId),
+                                                    danger: true,
+                                                  },
+                                                ]),
+                                          ]}
                                         />
                                       </div>
+                                    </td>
+                                  </>
+                                )}
+                              </tr>
+                            );
+                          });
 
-                                      <div style={{ fontSize: '15px', color: '#475569' }}>
-                                        Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
-                                      </div>
+                          if (!isEditing) {
+                            return packRows;
+                          }
 
-                                      {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
-                                        <div style={{ fontSize: '14px', color: '#b45309' }}>Warning: margin is below 15%. Justification is required.</div>
-                                      )}
-                                      {belowCost && (
-                                        <div style={{ fontSize: '14px', color: '#b91c1c' }}>Final price is below production cost. Save is blocked.</div>
-                                      )}
-
-                                      <textarea
-                                        value={rowDraft.justification}
-                                        onChange={(e) => setRowDraft((prev) => ({ ...prev, justification: e.target.value }))}
-                                        rows={3}
-                                        placeholder="Add justification (required if margin is below 15%)"
-                                        style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                      />
-
-                                      <div style={{ display: 'flex', gap: '8px' }}>
-                                        <AppButton variant="primary" size="sm" onClick={() => saveInlineEdit(item)} disabled={saving || belowCost}>Save</AppButton>
-                                        <AppButton variant="secondary" size="sm" onClick={closeInlineEdit}>Cancel</AppButton>
-                                      </div>
+                          return [
+                            ...packRows,
+                            <tr key={`${item.productId}-edit`}>
+                              <td colSpan={8} style={{ backgroundColor: '#fcfcfd' }}>
+                                <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
+                                  {item.isStalePrice && (
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
+                                      <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
+                                      <span>The approved base price changed since this price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your override amount: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
                                     </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </>
-                          );
+                                  )}
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    <AppButton variant={rowDraft.overrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_discount' }))}>Discount %</AppButton>
+                                    <AppButton variant={rowDraft.overrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_markup' }))}>Markup %</AppButton>
+                                    <AppButton variant={rowDraft.overrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_add' }))}>Add amount</AppButton>
+                                    <AppButton variant={rowDraft.overrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_deduct' }))}>Deduct amount</AppButton>
+                                    <input
+                                      value={rowDraft.value}
+                                      onChange={(e) => setRowDraft((prev) => ({ ...prev, value: e.target.value }))}
+                                      type="number"
+                                      min={0}
+                                      step="0.01"
+                                      placeholder={rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct' ? 'Enter amount' : 'Enter percentage'}
+                                      style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
+                                    />
+                                  </div>
+
+                                  <div style={{ fontSize: '15px', color: '#475569' }}>
+                                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
+                                  </div>
+
+                                  {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
+                                    <div style={{ fontSize: '14px', color: '#b45309' }}>Warning: margin is below 15%. Justification is required.</div>
+                                  )}
+                                  {belowCost && (
+                                    <div style={{ fontSize: '14px', color: '#b91c1c' }}>Final price is below production cost. Save is blocked.</div>
+                                  )}
+
+                                  <textarea
+                                    value={rowDraft.justification}
+                                    onChange={(e) => setRowDraft((prev) => ({ ...prev, justification: e.target.value }))}
+                                    rows={3}
+                                    placeholder="Add justification (required if margin is below 15%)"
+                                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
+                                  />
+
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    <AppButton variant="primary" size="sm" onClick={() => saveInlineEdit(item)} disabled={saving || belowCost}>Save</AppButton>
+                                    <AppButton variant="secondary" size="sm" onClick={closeInlineEdit}>Cancel</AppButton>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>,
+                          ];
                         })}
                       </tbody>
                     </table>
