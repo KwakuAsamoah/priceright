@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 1 June 2026
-**Current version:** 1.0.30
+**Last updated:** 2 July 2026
+**Current version:** 1.0.31
 **Active branch:** main
 
 ---
@@ -73,6 +73,49 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.28 | Jun 2026 | Optimal vs Actual Markup/Margin labeling, Products column selector |
 | v1.0.29 | Jun 2026 | Column selector on all tables, removed broken Table Settings menu |
 | v1.0.30 | Jun 2026 | New brand mark, landing page redesign |
+| v1.0.31 | Jul 2026 | Global currency support, multi-currency price levels, pack quantity pricing, prev/next drawer navigation, price level fixes, table/report alignment and font standardisation, input freeze fix |
+
+---
+
+## v1.0.31 — Detailed Changes
+
+**Released:** 2 July 2026
+
+### Global currency support
+- All prices throughout the app now use the configured base currency instead of hardcoded GHS
+- Works for manufacturers in any country
+
+### Multi-currency price levels
+- Each price level can be set to a different currency from the base currency
+- Prices automatically converted using current exchange rates
+- Print and Excel export show converted prices with an exchange rate note
+
+### Pack quantity pricing
+- Add multiple pack sizes per product within a price level via the row actions menu
+- Price list table shows one row per pack size (rowSpan on shared columns)
+- Print and Excel export use the same one-row-per-pack layout
+
+### Navigation
+- Prev/Next buttons added to edit drawers for Products, Materials, and Intermediate Materials
+- Position counter shows e.g. "2 of 59"
+
+### Price level fixes
+- Zero now accepted as a valid fixed-amount adjustment
+- "Keep current price" supported at the individual item level
+- Bulk "keep current" skips products with no selling price and reports the skipped count
+- Approved Base Price shown in the internal table, hidden from customer-facing price list exports
+
+### Tables and reports
+- Products, Materials, Intermediate Materials tables default to showing Active items only
+- "More" actions button made clearly visible on the dark bulk-action bar
+- Analysis tabs scroll correctly within their panels
+- Numeric columns (money, counts, percentages, rates) consistently right-aligned across Reports Center, Materials, and BOM tables — standardised th/td alignment app-wide
+- Long column headers wrap onto two lines instead of forcing wide columns (Reports Center, Price Levels)
+- Table fonts standardised to 13px for `td` content throughout the app, removing 14–16px inconsistencies
+
+### Bug fixes
+- Fixed input field freezing on number fields in Electron — previously required minimising and maximising the window to recover
+- Zoom level now persists across app sessions
 
 ---
 
@@ -92,6 +135,10 @@ TypeScript, Node.js/Express, SQLite.
 - [x] Backup and restore
 - [x] Demo mode with realistic seed data
 - [x] Multi-currency support with exchange rates
+- [x] Global base currency applied throughout app — no hardcoded GHS (v1.0.31)
+- [x] Multi-currency price levels — per-level currency with live exchange rate conversion (v1.0.31)
+- [x] Pack quantity pricing — multiple pack sizes per product per price level, one row per pack in table/print/Excel (v1.0.31)
+- [x] Prev/Next navigation in Products, Materials, Intermediate Materials edit drawers with position counter (v1.0.31)
 
 ### Settings
 - [x] General settings
@@ -146,9 +193,9 @@ TypeScript, Node.js/Express, SQLite.
 
 ## Pending — Medium Priority
 
-- [ ] Privacy policy and terms of service
+- [x] Privacy policy and terms of service (done — v1.0.25, `Settings.tsx` / `legalContent.tsx`)
 - [ ] WhatsApp number in website footer
-- [ ] Backup reminder — periodic prompt in app
+- [x] Backup reminder — periodic prompt in app (done — v1.0.25, `BackupReminderBanner.tsx`)
 - [ ] Restore backup — full end to end test
 - [ ] Trial expiry — test day 15 lock screen
 - [ ] Crash/error reporting (Sentry)
@@ -157,7 +204,7 @@ TypeScript, Node.js/Express, SQLite.
 ## Pending — Low Priority
 
 - [ ] Keyboard shortcuts guide in Help page
-- [ ] Print/PDF export of price lists
+- [x] Print/PDF export of price lists (done — v1.0.25, extended in v1.0.31 with multi-currency notes)
 - [ ] Refactor monolithic page files (2000+ lines)
 - [ ] Clean up dead schema tables (customers, special_pricing)
 - [ ] Multi-user/network version planning
@@ -178,6 +225,9 @@ TypeScript, Node.js/Express, SQLite.
 | console.log in download.ts line 11 | Low | Fixed v1.0.18 |
 | demo-mode.json committed as local state | Low | Fixed v1.0.18 |
 | v1.0.16 sidebar logo broken in packaged app | High | **Fixed in v1.0.17** (`1109771`) |
+| Input fields freezing on number inputs in Electron, required minimise/maximise to recover | Medium | **Fixed in v1.0.31** |
+| Numeric columns left-aligned in Reports Center and Materials table while rest of app right-aligned them | Low | **Fixed in v1.0.31** |
+| Inconsistent table font sizes (14–16px `td` overrides) across pages | Low | **Fixed in v1.0.31** |
 
 ---
 
