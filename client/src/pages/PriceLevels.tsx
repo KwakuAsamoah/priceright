@@ -2088,7 +2088,7 @@ export default function PriceLevels() {
                                         )}
                                       </div>
                                     </td>
-                                    <td rowSpan={rowSpan}>
+                                    <td rowSpan={rowSpan} style={{ textAlign: 'center' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                                         {item.status === 'pending' ? (
                                           <AppButton

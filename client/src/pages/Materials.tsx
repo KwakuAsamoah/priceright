@@ -1462,8 +1462,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   {isMaterialColumnVisible('unitCost') && <th onClick={() => {
                     setSortField('unitPrice');
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
-                  }} style={{ textAlign: 'left', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
-                  {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'left', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  }} style={{ textAlign: 'right', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'right', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
@@ -1491,13 +1491,13 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       <span style={{ fontSize: '13px', color: '#475569' }}>{material.category}</span>
                     </td>}
                     {isMaterialColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
-                    {isMaterialColumnVisible('unitCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                    {isMaterialColumnVisible('unitCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <div className="money-value" style={{ fontWeight: '600', fontSize: '14px' }}>
                         {material.baseCurrencySymbol}
                         {parseFloat(material.unitPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <div className="money-value" style={{ fontSize: '14px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
                         {material.purchaseCurrencySymbol}
                         {parseFloat(material.bulkPrice).toFixed(2)}
@@ -2512,9 +2512,9 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
                       <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Purchase Price</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Base Currency</th>
-                      <th style={{ padding: '12px', textAlign: 'left' }}>Change</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Purchase Price</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Base Currency</th>
+                      <th style={{ padding: '12px', textAlign: 'right' }}>Change</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2532,13 +2532,13 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                           <td style={{ padding: '12px', fontSize: '16px' }}>
                             {new Date(entry.changedAt).toLocaleDateString()}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right', fontWeight: '600' }}>
                             {entry.currencySymbol}{parseFloat(entry.priceInPurchaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right', fontWeight: '600' }}>
                             {selectedMaterialForHistory.baseCurrencySymbol}{parseFloat(entry.priceInBaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px' }}>
+                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right' }}>
                             {index === priceHistory.length - 1 ? (
                               <span style={{ color: '#64748b', fontSize: '14px' }}>Initial</span>
                             ) : (

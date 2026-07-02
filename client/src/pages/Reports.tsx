@@ -1010,11 +1010,11 @@ export default function Reports() {
                 <tr>
                   <th>Product Name</th>
                   <th>Category</th>
-                  <th>Approved base price</th>
-                  <th>Prod. Cost</th>
-                  <th>Actual Gross Margin %</th>
-                  <th>Target Markup %</th>
-                  <th>Gap</th>
+                  <th style={{ textAlign: 'right' }}>Approved base price</th>
+                  <th style={{ textAlign: 'right' }}>Prod. Cost</th>
+                  <th style={{ textAlign: 'right' }}>Actual Gross Margin %</th>
+                  <th style={{ textAlign: 'right' }}>Target Markup %</th>
+                  <th style={{ textAlign: 'right' }}>Gap</th>
                 </tr>
               </thead>
               <tbody>
@@ -1022,13 +1022,13 @@ export default function Reports() {
                   <tr key={row.productName}>
                     <td>{row.productName}</td>
                     <td>{row.category}</td>
-                    <td>{formatCurrency(row.currentSellingPrice)}</td>
-                    <td>{formatCurrency(row.productionCost)}</td>
-                    <td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentSellingPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
+                    <td style={{ textAlign: 'right' }}>
                       <InlinePercentBar value={row.realisedMargin} />
                     </td>
-                    <td>{formatPct(row.targetMargin)}</td>
-                    <td style={{ color: row.gap < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{formatPct(row.gap)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPct(row.targetMargin)}</td>
+                    <td style={{ textAlign: 'right', color: row.gap < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{formatPct(row.gap)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1061,10 +1061,10 @@ export default function Reports() {
                   <th>Price List Name</th>
                   <th>Type</th>
                   <th>Customer / Level</th>
-                  <th>Products Covered</th>
+                  <th style={{ textAlign: 'right' }}>Products Covered</th>
                   <th>Valid From</th>
                   <th>Valid Until</th>
-                  <th>Days Until Expiry</th>
+                  <th style={{ textAlign: 'right' }}>Days Until Expiry</th>
                   <th>Last Updated</th>
                   <th>Status</th>
                 </tr>
@@ -1081,12 +1081,12 @@ export default function Reports() {
                       <td>{row.priceListName}</td>
                       <td>{row.listType}</td>
                       <td>{row.customerOrLevel}</td>
-                      <td>{row.productsCovered}</td>
+                      <td style={{ textAlign: 'right' }}>{row.productsCovered}</td>
                       <td>{row.validFrom}</td>
                       <td style={{ textDecoration: expired ? 'line-through' : 'none', color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
                         {row.validUntil}
                       </td>
-                      <td style={{ color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
+                      <td style={{ textAlign: 'right', color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
                         {expiry === null ? '—' : expiry}
                         {expiresThisWeek && <span style={{ marginLeft: '6px' }}><AppBadge variant="danger" size="sm">Expires This Week</AppBadge></span>}
                         {expiringSoon && <span style={{ marginLeft: '6px' }}><AppBadge variant="warning" size="sm">Expiring Soon</AppBadge></span>}
@@ -1127,10 +1127,10 @@ export default function Reports() {
                   <th>Product Name</th>
                   <th>Category</th>
                   <th>Current Status</th>
-                  <th>Approved base price</th>
-                  <th>Optimal Price</th>
-                  <th>Actual Markup %</th>
-                  <th>Actual Gross Margin %</th>
+                  <th style={{ textAlign: 'right' }}>Approved base price</th>
+                  <th style={{ textAlign: 'right' }}>Optimal Price</th>
+                  <th style={{ textAlign: 'right' }}>Actual Markup %</th>
+                  <th style={{ textAlign: 'right' }}>Actual Gross Margin %</th>
                   <th>Approved On</th>
                   <th>Approved By</th>
                   <th>Active?</th>
@@ -1142,10 +1142,10 @@ export default function Reports() {
                     <td>{row.productName}</td>
                     <td>{row.category}</td>
                     <td><AppBadge variant={statusBadgeVariant(row.currentStatus)} size="sm">{row.currentStatus}</AppBadge></td>
-                    <td>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
-                    <td>{formatCurrency(row.optimalPrice)}</td>
-                    <td>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
-                    <td>{row.actualGrossMarginPercent == null ? '—' : formatPct(row.actualGrossMarginPercent)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.actualGrossMarginPercent == null ? '—' : formatPct(row.actualGrossMarginPercent)}</td>
                     <td>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
                     <td>{row.approvedBy}</td>
                     <td>{row.isActive ? 'Yes' : 'No'}</td>
@@ -1180,10 +1180,10 @@ export default function Reports() {
               <tr>
                 <th>Currency</th>
                 <th>Currency Code</th>
-                <th>Materials Count</th>
-                <th>Total Value ({baseCurrency})</th>
-                <th>Exposure %</th>
-                <th>Current Rate to {baseCurrency}</th>
+                <th style={{ textAlign: 'right' }}>Materials Count</th>
+                <th style={{ textAlign: 'right' }}>Total Value ({baseCurrency})</th>
+                <th style={{ textAlign: 'right' }}>Exposure %</th>
+                <th style={{ textAlign: 'right' }}>Current Rate to {baseCurrency}</th>
               </tr>
             </thead>
             <tbody>
@@ -1191,9 +1191,9 @@ export default function Reports() {
                 <tr key={row.currencyCode} style={{ backgroundColor: row.isBaseCurrency ? '#f8fafc' : undefined }}>
                   <td>{row.currencyName}</td>
                   <td>{row.currencyCode}</td>
-                  <td>{row.materialsCount}</td>
-                  <td>{formatCurrency(row.totalValueGhs)}</td>
-                  <td>
+                  <td style={{ textAlign: 'right' }}>{row.materialsCount}</td>
+                  <td style={{ textAlign: 'right' }}>{formatCurrency(row.totalValueGhs)}</td>
+                  <td style={{ textAlign: 'right' }}>
                     <div style={{ width: '100%', minWidth: '200px' }}>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
                         <div style={{ width: `${Math.min(100, Math.max(0, row.exposurePct))}%`, height: '100%', backgroundColor: '#0F2847' }} />
@@ -1201,7 +1201,7 @@ export default function Reports() {
                       <div style={{ marginTop: '4px', fontWeight: 600 }}>{formatPct(row.exposurePct)}</div>
                     </div>
                   </td>
-                  <td>{row.currentRateToGhs.toFixed(4)}</td>
+                  <td style={{ textAlign: 'right' }}>{row.currentRateToGhs.toFixed(4)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1245,8 +1245,8 @@ export default function Reports() {
                           <thead>
                             <tr>
                               <th>Material Name</th>
-                              <th>Unit Price ({baseCurrency})</th>
-                              <th>Original Price</th>
+                              <th style={{ textAlign: 'right' }}>Unit Price ({baseCurrency})</th>
+                              <th style={{ textAlign: 'right' }}>Original Price</th>
                               <th>Category</th>
                             </tr>
                           </thead>
@@ -1254,8 +1254,8 @@ export default function Reports() {
                             {row.materials.map((material) => (
                               <tr key={`${row.currencyCode}-${material.materialName}`}>
                                 <td>{material.materialName}</td>
-                                <td>{formatCurrency(material.unitPriceGhs)}</td>
-                                <td>{material.originalPrice.toFixed(4)} {material.purchaseCurrency}</td>
+                                <td style={{ textAlign: 'right' }}>{formatCurrency(material.unitPriceGhs)}</td>
+                                <td style={{ textAlign: 'right' }}>{material.originalPrice.toFixed(4)} {material.purchaseCurrency}</td>
                                 <td>{material.category}</td>
                               </tr>
                             ))}
@@ -1458,12 +1458,12 @@ function renderPricingStatusTable(
             <th>Product Name</th>
             <th>Approval</th>
             <th>Category</th>
-            <th>Prod. Cost</th>
-            <th>Optimal Price</th>
-            <th>Approved base price</th>
-            <th>Variance</th>
-            <th>Profit</th>
-            <th>Profit %</th>
+            <th style={{ textAlign: 'right' }}>Prod. Cost</th>
+            <th style={{ textAlign: 'right' }}>Optimal Price</th>
+            <th style={{ textAlign: 'right' }}>Approved base price</th>
+            <th style={{ textAlign: 'right' }}>Variance</th>
+            <th style={{ textAlign: 'right' }}>Profit</th>
+            <th style={{ textAlign: 'right' }}>Profit %</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -1477,12 +1477,12 @@ function renderPricingStatusTable(
                 </AppBadge>
               </td>
               <td>{row.category}</td>
-              <td style={{ color: '#64748b' }}>{formatMoney(row.productionCost)}</td>
-              <td style={{ color: '#64748b' }}>{formatMoney(row.optimalPrice)}</td>
-              <td>{row.hasSellingPrice && !noSellingPriceMode ? formatMoney(row.sellingPrice) : '—'}</td>
-              <td style={{ color: row.variance < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.variance) : '—'}</td>
-              <td style={{ color: row.profit < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.profit) : '—'}</td>
-              <td>{row.hasSellingPrice && !noSellingPriceMode ? <InlinePercentBar value={row.profitPct} /> : '—'}</td>
+              <td style={{ color: '#64748b', textAlign: 'right' }}>{formatMoney(row.productionCost)}</td>
+              <td style={{ color: '#64748b', textAlign: 'right' }}>{formatMoney(row.optimalPrice)}</td>
+              <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? formatMoney(row.sellingPrice) : '—'}</td>
+              <td style={{ textAlign: 'right', color: row.variance < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.variance) : '—'}</td>
+              <td style={{ textAlign: 'right', color: row.profit < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.profit) : '—'}</td>
+              <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? <InlinePercentBar value={row.profitPct} /> : '—'}</td>
               <td>
                 {row.hasSellingPrice && !noSellingPriceMode ? (
                   <AppBadge variant={row.pricingStatus === 'Above Optimal' ? 'success' : row.pricingStatus === 'Below Optimal' ? 'danger' : 'info'} size="sm">

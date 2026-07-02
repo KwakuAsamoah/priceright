@@ -2106,7 +2106,7 @@ export default function Products() {
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: '8px 14px' }}>
+                          <td style={{ padding: '8px 14px', textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>
                               {isNeedsReview ? (
                                 <AppButton

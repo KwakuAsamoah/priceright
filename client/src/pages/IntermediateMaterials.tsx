@@ -1692,9 +1692,9 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         <thead>
                           <tr>
                             <th style={{ width: '36%' }}>Material</th>
-                            <th>Quantity</th>
-                            <th>Unit Price</th>
-                            <th>Total</th>
+                            <th style={{ textAlign: 'right' }}>Quantity</th>
+                            <th style={{ textAlign: 'right' }}>Unit Price</th>
+                            <th style={{ textAlign: 'right' }}>Total</th>
                             <th>Action</th>
                           </tr>
                         </thead>
@@ -1706,7 +1706,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                             return (
                               <tr key={item.id}>
                                 <td>{item.componentMaterialName}</td>
-                                <td>
+                                <td style={{ textAlign: 'right' }}>
                                   {isEditing ? (
                                     <input
                                       className="app-input"
@@ -1729,8 +1729,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                                     <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
                                   )}
                                 </td>
-                                <td>{formatMoney(Number(item.unitPrice || 0))}</td>
-                                <td>{formatMoney(rowTotal)}</td>
+                                <td style={{ textAlign: 'right' }}>{formatMoney(Number(item.unitPrice || 0))}</td>
+                                <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
                                 <td>
                                   <div style={{ display: 'inline-flex', gap: 6 }}>
                                     {isEditing ? (
