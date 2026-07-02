@@ -743,7 +743,7 @@ textarea {
 }
 
 .settings-page .app-table td {
-  font-size: var(--font-size-2xs);
+  font-size: 13px;
 }
 
 .help-article-body p {
@@ -1693,7 +1693,7 @@ textarea {
 }
 
 .app-table.app-table-ultra-compact td {
-  font-size: 14px !important;
+  font-size: 13px !important;
   line-height: 1.15;
 }
 
@@ -1703,7 +1703,7 @@ textarea {
 }
 
 .app-table-uniform-numbers .money-value {
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
   line-height: 1.25;
 }
@@ -1713,7 +1713,7 @@ textarea {
 }
 
 .app-table-uniform-numbers td[style*='text-align: right'] {
-  font-size: 14px !important;
+  font-size: 13px !important;
   font-weight: 400 !important;
 }
 

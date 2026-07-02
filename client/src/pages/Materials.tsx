@@ -2061,7 +2061,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       </div>
                       {/* Error detail table */}
                       <div style={{ border: '1px solid #fcd34d', borderRadius: '8px', overflow: 'hidden', marginBottom: '8px' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                           <thead style={{ backgroundColor: '#fffbeb' }}>
                             <tr>
                               <th style={{ padding: '7px 8px', textAlign: 'left', borderBottom: '1px solid #fcd34d', whiteSpace: 'nowrap' }}>Line #</th>
@@ -2100,7 +2100,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
                 {importPreview.length > 0 && (
                   <div style={{ maxHeight: '260px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Row</th>
@@ -2182,7 +2182,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     {importResult.errors.length > 0 && (
                       <div>
                         <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
                               <tr>
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row</th>
@@ -2529,16 +2529,16 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
                       return (
                         <tr key={entry.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '12px', fontSize: '16px' }}>
+                          <td style={{ padding: '12px', fontSize: '13px' }}>
                             {new Date(entry.changedAt).toLocaleDateString()}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '13px', textAlign: 'right', fontWeight: '600' }}>
                             {entry.currencySymbol}{parseFloat(entry.priceInPurchaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right', fontWeight: '600' }}>
+                          <td style={{ padding: '12px', fontSize: '13px', textAlign: 'right', fontWeight: '600' }}>
                             {selectedMaterialForHistory.baseCurrencySymbol}{parseFloat(entry.priceInBaseCurrency).toFixed(2)}
                           </td>
-                          <td style={{ padding: '12px', fontSize: '16px', textAlign: 'right' }}>
+                          <td style={{ padding: '12px', fontSize: '13px', textAlign: 'right' }}>
                             {index === priceHistory.length - 1 ? (
                               <span style={{ color: '#64748b', fontSize: '14px' }}>Initial</span>
                             ) : (

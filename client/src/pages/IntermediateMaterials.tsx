@@ -1875,7 +1875,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><strong>File:</strong> {importFile.name} ({importPreview.length} rows)</div>
                   {importPreview.length > 0 ? (
                     <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                         <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                           <tr>
                             <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
@@ -2027,7 +2027,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                             {intermediateImportResult.errors.length} error{intermediateImportResult.errors.length !== 1 ? 's' : ''}
                           </div>
                           <div style={{ border: '1px solid #fecaca', borderRadius: '8px', overflow: 'hidden', maxHeight: '200px', overflowY: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                               <thead style={{ backgroundColor: '#fef2f2' }}>
                                 <tr>
                                   <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca', whiteSpace: 'nowrap' }}>Row</th>

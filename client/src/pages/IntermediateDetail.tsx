@@ -229,11 +229,11 @@ export default function IntermediateDetail() {
                       const quantity = toNumber(item.quantity);
                       return (
                         <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '10px', fontSize: '16px' }}>{item.componentMaterialName || '—'}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '16px' }}>{quantity.toFixed(3)}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '16px' }}>{item.unit || '—'}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '16px' }}>{formatMoney(unitPrice)}</td>
-                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, fontSize: '16px' }}>{formatMoney(quantity * unitPrice)}</td>
+                          <td style={{ padding: '10px', fontSize: '13px' }}>{item.componentMaterialName || '—'}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '13px' }}>{quantity.toFixed(3)}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '13px' }}>{item.unit || '—'}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontSize: '13px' }}>{formatMoney(unitPrice)}</td>
+                          <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, fontSize: '13px' }}>{formatMoney(quantity * unitPrice)}</td>
                         </tr>
                       );
                     })}

@@ -1989,15 +1989,23 @@ export default function PriceLevels() {
                             <input type="checkbox" checked={allRowsSelected} onChange={(e) => toggleSelectAllRows(e.target.checked)} />
                           </th>
                           <th>Product name</th>
-                          <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            Approved base ({baseCurrency})
+                          <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>
+                            Approved base<br/>({baseCurrency})
                           </th>
                           <th style={{ textAlign: 'center' }}>Pack size</th>
-                          <th style={{ textAlign: 'right' }}>
-                            {levelCurrencyCode ? `Unit price (${levelCurrencyCode})` : 'Unit price'}
+                          <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>
+                            {levelCurrencyCode ? (
+                              <>Unit price<br/>({levelCurrencyCode})</>
+                            ) : (
+                              'Unit price'
+                            )}
                           </th>
-                          <th style={{ textAlign: 'right' }}>
-                            {levelCurrencyCode ? `Pack price (${levelCurrencyCode})` : 'Pack price'}
+                          <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>
+                            {levelCurrencyCode ? (
+                              <>Pack price<br/>({levelCurrencyCode})</>
+                            ) : (
+                              'Pack price'
+                            )}
                           </th>
                           <th>Pricing rule</th>
                           <th>Status</th>
@@ -2037,7 +2045,7 @@ export default function PriceLevels() {
                           };
 
                           const unitPriceCell = (showStaleIndicator: boolean) => (
-                            <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
+                            <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 500, fontSize: '13px' }}>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                 {formatLevelMoney(item.finalPrice, item.finalPriceConverted)}
                                 {showStaleIndicator && item.isStalePrice && (
@@ -2072,7 +2080,7 @@ export default function PriceLevels() {
                                 )}
                                 {packSizeTd(pack)}
                                 {unitPriceCell(isFirstRow)}
-                                <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 600, fontSize: '16px' }}>
+                                <td style={{ textAlign: 'right', fontFamily: 'Plus Jakarta Sans, sans-serif', fontWeight: 500, fontSize: '13px' }}>
                                   {pack
                                     ? formatLevelMoney(pack.packPrice, pack.packPriceConverted)
                                     : '—'}

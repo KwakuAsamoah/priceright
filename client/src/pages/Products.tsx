@@ -2634,7 +2634,7 @@ export default function Products() {
                 )}
                 {importPreview.length > 0 && (
                   <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
@@ -2707,7 +2707,7 @@ export default function Products() {
                         </div>
 
                         <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
                               <tr>
                                 <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row #</th>

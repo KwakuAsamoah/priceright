@@ -1010,9 +1010,9 @@ export default function Reports() {
                 <tr>
                   <th>Product Name</th>
                   <th>Category</th>
-                  <th style={{ textAlign: 'right' }}>Approved base price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Prod. Cost</th>
-                  <th style={{ textAlign: 'right' }}>Actual Gross Margin %</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
                   <th style={{ textAlign: 'right' }}>Target Markup %</th>
                   <th style={{ textAlign: 'right' }}>Gap</th>
                 </tr>
@@ -1060,11 +1060,11 @@ export default function Reports() {
                 <tr>
                   <th>Price List Name</th>
                   <th>Type</th>
-                  <th>Customer / Level</th>
-                  <th style={{ textAlign: 'right' }}>Products Covered</th>
+                  <th style={{ whiteSpace: 'normal', minWidth: '70px' }}>Customer /<br/>Level</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '70px' }}>Products<br/>Covered</th>
                   <th>Valid From</th>
                   <th>Valid Until</th>
-                  <th style={{ textAlign: 'right' }}>Days Until Expiry</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '70px' }}>Days Until<br/>Expiry</th>
                   <th>Last Updated</th>
                   <th>Status</th>
                 </tr>
@@ -1127,10 +1127,10 @@ export default function Reports() {
                   <th>Product Name</th>
                   <th>Category</th>
                   <th>Current Status</th>
-                  <th style={{ textAlign: 'right' }}>Approved base price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Optimal Price</th>
                   <th style={{ textAlign: 'right' }}>Actual Markup %</th>
-                  <th style={{ textAlign: 'right' }}>Actual Gross Margin %</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
                   <th>Approved On</th>
                   <th>Approved By</th>
                   <th>Active?</th>
@@ -1181,9 +1181,9 @@ export default function Reports() {
                 <th>Currency</th>
                 <th>Currency Code</th>
                 <th style={{ textAlign: 'right' }}>Materials Count</th>
-                <th style={{ textAlign: 'right' }}>Total Value ({baseCurrency})</th>
+                <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Total Value<br/>({baseCurrency})</th>
                 <th style={{ textAlign: 'right' }}>Exposure %</th>
-                <th style={{ textAlign: 'right' }}>Current Rate to {baseCurrency}</th>
+                <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Rate<br/>to {baseCurrency}</th>
               </tr>
             </thead>
             <tbody>
@@ -1460,7 +1460,7 @@ function renderPricingStatusTable(
             <th>Category</th>
             <th style={{ textAlign: 'right' }}>Prod. Cost</th>
             <th style={{ textAlign: 'right' }}>Optimal Price</th>
-            <th style={{ textAlign: 'right' }}>Approved base price</th>
+            <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
             <th style={{ textAlign: 'right' }}>Variance</th>
             <th style={{ textAlign: 'right' }}>Profit</th>
             <th style={{ textAlign: 'right' }}>Profit %</th>
