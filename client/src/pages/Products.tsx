@@ -1434,8 +1434,29 @@ export default function Products() {
     return { needsReview, pending, belowOptimal };
   }, [products]);
 
+  const pendingCount = useMemo(
+    () => products.filter((p) => (p.approvalStatus || 'pending') === 'pending').length,
+    [products],
+  );
+  const needsReviewCount = useMemo(
+    () => products.filter((p) => p.approvalStatus === 'needs_review').length,
+    [products],
+  );
+  const attentionCount = pendingCount + needsReviewCount;
+
+  function handleApproveNowFromBanner() {
+    const ids = products
+      .filter((p) => {
+        const status = p.approvalStatus || 'pending';
+        return status === 'pending' || status === 'needs_review';
+      })
+      .map((p) => p.id);
+    setSelectedProducts(new Set(ids));
+    setBulkApprovePriceMethod('optimal');
+    handleBulkApprove();
+  }
+
   const hasNeedsReviewProducts = statusChipCounts.needsReview > 0;
-  const needsReviewCount = products.filter((p) => p.approvalStatus === 'needs_review').length;
   const shouldShowNeedsReviewBanner = hasNeedsReviewProducts && !isNeedsReviewBannerDismissed;
 
   function escapeCsvCell(value: unknown) {
@@ -1566,6 +1587,39 @@ export default function Products() {
       <div className="app-page-content">
       {activeTab === 'products' && (
       <div className="materials-tab-body">
+        {attentionCount > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+              backgroundColor: '#DCFCE7',
+              border: '1px solid #16A34A',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '12px',
+            }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#15803D', fontSize: '14px' }}>
+              {needsReviewCount > 0 ? (
+                <AlertTriangle size={16} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <CheckCircle size={16} strokeWidth={2} aria-hidden="true" />
+              )}
+              <span>
+                {needsReviewCount > 0
+                  ? `${attentionCount} product${attentionCount !== 1 ? 's' : ''} need attention — costs have changed since last approval`
+                  : `${attentionCount} product${attentionCount !== 1 ? 's are' : ' is'} waiting for price approval`}
+              </span>
+            </div>
+            <button type="button" className="btn btn-success btn-sm" onClick={handleApproveNowFromBanner}>
+              Approve now
+            </button>
+          </div>
+        ) : null}
+
         <div className="app-card app-filter-card">
           <input
             className="app-toolbar-input"
