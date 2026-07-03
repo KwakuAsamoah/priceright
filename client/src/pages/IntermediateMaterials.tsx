@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
@@ -258,6 +258,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [materialSearch, setMaterialSearch] = useState('');
@@ -563,6 +564,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setComponentQuantity('1');
     setComponentSearch('');
     setStatusText('');
+    setShowAdvanced(false);
     setIsFormOpen(true);
   }
 
@@ -571,6 +573,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setComponentMaterialId(0);
     setComponentQuantity('1');
     setComponentSearch('');
+    setShowAdvanced(false);
     setIsFormOpen(true);
   }
 
@@ -1607,55 +1610,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       style={fieldInputStyle}
                     />
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={fieldLabelStyle}>SKU</label>
-                      <input
-                        className="app-input"
-                        type="text"
-                        value={form.sku}
-                        onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={fieldLabelStyle}>Category *</label>
-                      <select
-                        className="app-input"
-                        required
-                        value={form.category}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setForm((prev) => ({ ...prev, category: value }));
-                          if (value !== '__custom__') {
-                            setMaterialCustomCategoryValue('');
-                          }
-                        }}
-                        style={fieldInputStyle}
-                      >
-                        <option value="" disabled>
-                          Select category
-                        </option>
-                        {materialCategories.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                        <option value="__custom__">+ Add new category...</option>
-                      </select>
-                      {form.category === '__custom__' ? (
-                        <input
-                          className="app-input"
-                          type="text"
-                          required
-                          value={materialCustomCategoryValue}
-                          onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
-                          placeholder="Enter new category"
-                          style={{ ...fieldInputStyle, marginTop: '8px' }}
-                        />
-                      ) : null}
-                    </div>
-                  </div>
                   <div>
                     <label style={fieldLabelStyle}>Unit *</label>
                     <input
@@ -1668,51 +1622,133 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     />
                   </div>
                   <div>
-                    <label style={fieldLabelStyle}>Description</label>
-                    <textarea
+                    <label style={fieldLabelStyle}>Yield % *</label>
+                    <input
                       className="app-input"
-                      value={form.description}
-                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                      style={{ ...fieldInputStyle, minHeight: '60px', resize: 'vertical' }}
+                      type="number"
+                      step="0.1"
+                      required
+                      value={form.yieldPercentage}
+                      onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
+                      style={fieldInputStyle}
                     />
+                    <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
+                      Enter the usable output as a percentage. For example if 100g of ingredients yields 80g of finished material enter 80.
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={formSectionStyle}>
-                <h3 className="app-form-section-title">Production Settings</h3>
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div>
-                    <label style={fieldLabelStyle}>Costing Method</label>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
-                        <button
-                          className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`}
-                          type="button"
-                          role="tab"
-                          aria-selected={form.intermediateCostMode === 'completed_output'}
-                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
+                <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '16px', paddingTop: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced((prev) => !prev)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      fontSize: '13px',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Advanced settings
+                    {showAdvanced ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                  </button>
+                </div>
+
+                {showAdvanced ? (
+                  <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={fieldLabelStyle}>SKU</label>
+                        <input
+                          className="app-input"
+                          type="text"
+                          value={form.sku}
+                          onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))}
+                          style={fieldInputStyle}
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabelStyle}>Category *</label>
+                        <select
+                          className="app-input"
+                          required
+                          value={form.category}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setForm((prev) => ({ ...prev, category: value }));
+                            if (value !== '__custom__') {
+                              setMaterialCustomCategoryValue('');
+                            }
+                          }}
+                          style={fieldInputStyle}
                         >
-                          Completed output
-                        </button>
-                        <button
-                          className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`}
-                          type="button"
-                          role="tab"
-                          aria-selected={form.intermediateCostMode === 'yield'}
-                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
-                        >
-                          Yield-based
-                        </button>
+                          <option value="" disabled>
+                            Select category
+                          </option>
+                          {materialCategories.map((category) => (
+                            <option key={category} value={category}>
+                              {category}
+                            </option>
+                          ))}
+                          <option value="__custom__">+ Add new category...</option>
+                        </select>
+                        {form.category === '__custom__' ? (
+                          <input
+                            className="app-input"
+                            type="text"
+                            required
+                            value={materialCustomCategoryValue}
+                            onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
+                            placeholder="Enter new category"
+                            style={{ ...fieldInputStyle, marginTop: '8px' }}
+                          />
+                        ) : null}
                       </div>
                     </div>
-                    <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>
-                      {form.intermediateCostMode === 'completed_output'
-                        ? 'Enter final completed quantity directly. Unit cost = total batch cost / completed output quantity.'
-                        : 'Enter batch quantity and process yield %. Unit cost is adjusted by expected loss.'}
+                    <div>
+                      <label style={fieldLabelStyle}>Description</label>
+                      <textarea
+                        className="app-input"
+                        value={form.description}
+                        onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                        style={{ ...fieldInputStyle, minHeight: '60px', resize: 'vertical' }}
+                      />
                     </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>Costing Method</label>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
+                          <button
+                            className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`}
+                            type="button"
+                            role="tab"
+                            aria-selected={form.intermediateCostMode === 'completed_output'}
+                            onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
+                          >
+                            Completed output
+                          </button>
+                          <button
+                            className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`}
+                            type="button"
+                            role="tab"
+                            aria-selected={form.intermediateCostMode === 'yield'}
+                            onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
+                          >
+                            Yield-based
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>
+                        {form.intermediateCostMode === 'completed_output'
+                          ? 'Enter final completed quantity directly. Unit cost = total batch cost / completed output quantity.'
+                          : 'Enter batch quantity and process yield %. Unit cost is adjusted by expected loss.'}
+                      </div>
+                    </div>
                     <div>
                       <label style={fieldLabelStyle}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Quantity *' : 'Batch Quantity *'}</label>
                       <input
@@ -1741,51 +1777,37 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         style={fieldInputStyle}
                       />
                     </div>
-                    {form.intermediateCostMode === 'yield' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div>
-                        <label style={fieldLabelStyle}>Yield % *</label>
+                        <label style={fieldLabelStyle}>Overhead % *</label>
                         <input
                           className="app-input"
                           type="number"
                           step="0.1"
                           required
-                          value={form.yieldPercentage}
-                          onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
+                          value={form.overheadPercentage}
+                          onChange={(e) => setForm((prev) => ({ ...prev, overheadPercentage: e.target.value }))}
                           style={fieldInputStyle}
                         />
                       </div>
-                    ) : null}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={fieldLabelStyle}>Overhead % *</label>
-                      <input
-                        className="app-input"
-                        type="number"
-                        step="0.1"
-                        required
-                        value={form.overheadPercentage}
-                        onChange={(e) => setForm((prev) => ({ ...prev, overheadPercentage: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ ...fieldLabelStyle, display: 'inline-flex', alignItems: 'center' }}>
-                        Markup % *
-                        <MarkupInfoTooltip />
-                      </label>
-                      <input
-                        className="app-input"
-                        type="number"
-                        step="0.1"
-                        required
-                        value={form.marginPercentage}
-                        onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))}
-                        style={fieldInputStyle}
-                      />
+                      <div>
+                        <label style={{ ...fieldLabelStyle, display: 'inline-flex', alignItems: 'center' }}>
+                          Markup % *
+                          <MarkupInfoTooltip />
+                        </label>
+                        <input
+                          className="app-input"
+                          type="number"
+                          step="0.1"
+                          required
+                          value={form.marginPercentage}
+                          onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))}
+                          style={fieldInputStyle}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : null}
               </div>
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
