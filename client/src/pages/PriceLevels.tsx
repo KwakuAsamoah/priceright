@@ -1801,11 +1801,17 @@ export default function PriceLevels() {
 
           <div style={{ minWidth: 0 }}>
             {!selectedLevel ? (
-              <div className="app-card" style={{ minHeight: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
-                <Tag size={48} strokeWidth={1.4} style={{ color: '#cbd5e1', marginBottom: '14px' }} />
-                <div style={{ fontSize: '18px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
-                  Select a price level to view its products and prices
+              <div className="app-card" style={{ minHeight: '540px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <Tag size={48} strokeWidth={1.4} color="#CBD5E1" aria-hidden="true" />
+                <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b', marginTop: '16px' }}>
+                  No price list selected
                 </div>
+                <p style={{ fontSize: '14px', color: '#64748b', textAlign: 'center', maxWidth: '280px', marginTop: '8px', marginBottom: 0 }}>
+                  Select a price list from the left to view its details, or create a new one to get started.
+                </p>
+                <button type="button" className="btn btn-success" style={{ marginTop: '24px' }} onClick={openWizard}>
+                  Create price list
+                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
