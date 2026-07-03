@@ -198,7 +198,7 @@ export default function ProductTabs({
                     <tr style={{ backgroundColor: '#e2e8f0' }}>
                       <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Quantity</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Unit</th>
+                      <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Unit Price</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
                     </tr>
@@ -208,9 +208,9 @@ export default function ProductTabs({
                       const totalCost = toNumber(item.unitPrice) * item.quantity;
                       return (
                         <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '8px', fontSize: '13px' }}>{item.materialName}</td>
+                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.materialName}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.unit}</td>
+                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.unit}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{baseCurrency} {toNumber(item.unitPrice).toFixed(2)}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
                         </tr>
@@ -306,7 +306,7 @@ export default function ProductTabs({
                             </tr>
                           )}
                           <tr style={{ backgroundColor: isMostRecent ? '#f0f9ff' : undefined, borderTop: index > 1 ? '1px solid #f1f5f9' : undefined }}>
-                            <td style={{ padding: '8px' }}>
+                            <td style={{ padding: '8px', textAlign: 'left' }}>
                               <div style={{ fontWeight: 500 }}>{formatAbsoluteDate(entry.createdAt)}</div>
                               <div style={{ color: '#94a3b8', fontSize: '13px' }}>{formatRelativeTime(entry.createdAt)}</div>
                             </td>
@@ -328,7 +328,7 @@ export default function ProductTabs({
                                 </span>
                               ) : '—'}
                             </td>
-                            <td style={{ padding: '8px', color: '#475569' }}>
+                            <td style={{ padding: '8px', textAlign: 'left', color: '#475569' }}>
                               {entry.performedBy ?? '—'}
                             </td>
                           </tr>

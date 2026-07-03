@@ -1865,7 +1865,7 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('profitOnCost') && (
                       <th
-                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Optimal Markup %
@@ -1875,7 +1875,7 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('profitOnSales') && (
                       <th
-                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Optimal Gross Margin %
@@ -1885,7 +1885,7 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('actualProfitOnCost') && (
                       <th
-                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Actual Markup %
@@ -1895,7 +1895,7 @@ export default function Products() {
                     )}
                     {isProductColumnVisible('actualProfitOnSales') && (
                       <th
-                        style={{ fontWeight: '700', width: '88px', textAlign: 'left', whiteSpace: 'normal' }}
+                        style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Actual Gross Margin %
@@ -1903,7 +1903,7 @@ export default function Products() {
                         </span>
                       </th>
                     )}
-                    <th style={{ fontWeight: '700', width: '94px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                    <th style={{ fontWeight: '700', width: '94px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           Status
                           {needsReviewCount > 0 && (
@@ -2019,7 +2019,7 @@ export default function Products() {
                               <span style={{ fontSize: '14px', color: '#94a3b8' }}>Not set</span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                             {optimalProfitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2033,7 +2033,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('profitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                             {optimalProfitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2047,7 +2047,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('actualProfitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('actualProfitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                             {actualProfitOnCost == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2061,7 +2061,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          {isProductColumnVisible('actualProfitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
+                          {isProductColumnVisible('actualProfitOnSales') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                             {actualProfitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
@@ -2075,7 +2075,7 @@ export default function Products() {
                               </span>
                             )}
                           </td>}
-                          <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '8px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                               {isNeedsReview ? (
                                 <span
@@ -2639,14 +2639,14 @@ export default function Products() {
                         <tr>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Overhead %</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Overhead %</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               Markup %
                               <MarkupInfoTooltip position="bottom" />
                             </span>
                           </th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Approved base price</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Approved base price</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2654,9 +2654,9 @@ export default function Products() {
                           <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
                             <td style={{ padding: '8px' }}>{row['Product Name'] || row['name'] || '-'}</td>
                             <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Markup %'] || row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Markup %'] || row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
                           </tr>
                         ))}
                       </tbody>

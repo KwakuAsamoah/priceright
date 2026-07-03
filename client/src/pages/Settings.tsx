@@ -1541,9 +1541,9 @@ async function loadData() {
                 <th style={{ textAlign: 'left' }}>Code</th>
                 <th style={{ textAlign: 'left' }}>Name</th>
                 <th style={{ textAlign: 'left' }}>Symbol</th>
-                <th style={{ textAlign: 'left' }}>Exchange Rate</th>
+                <th style={{ textAlign: 'right' }}>Exchange Rate</th>
                 <th style={{ textAlign: 'left' }}>Status</th>
-                <th style={{ textAlign: 'left' }}>Actions</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1552,7 +1552,7 @@ async function loadData() {
                   <td style={{ fontWeight: '600' }}>{currency.code}</td>
                   <td>{currency.name}</td>
                   <td>{currency.symbol}</td>
-                  <td>
+                  <td style={{ textAlign: 'right' }}>
                     {editingRate === currency.id ? (
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <input
@@ -1635,7 +1635,7 @@ async function loadData() {
                       {currency.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td>
+                  <td style={{ textAlign: 'center' }}>
                     {currency.code === baseCurrency ? (
                       <span
                         style={{

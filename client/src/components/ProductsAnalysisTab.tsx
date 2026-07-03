@@ -438,17 +438,17 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               <thead>
                 <tr>
                   <th style={{ width: '42px', textAlign: 'center' }}>#</th>
-                  <th style={{ minWidth: '210px' }}>Product</th>
-                  <th>Category</th>
+                  <th style={{ minWidth: '210px', textAlign: 'left' }}>Product</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
                   <th style={{ textAlign: 'right' }}>Production cost</th>
                   <th style={{ textAlign: 'right' }}>Approved base price</th>
-                  <th style={{ minWidth: '210px' }}>
+                  <th style={{ minWidth: '210px', textAlign: 'right' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                       Actual Markup %
                       <ActualMarkupInfoTooltip position="bottom" />
                     </span>
                   </th>
-                  <th style={{ minWidth: '140px' }}>
+                  <th style={{ minWidth: '140px', textAlign: 'right' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                       Actual Gross Margin %
                       <ActualGrossMarginInfoTooltip position="bottom" />
@@ -473,7 +473,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                       title="Open product details"
                     >
                       <td style={{ textAlign: 'center', fontWeight: 600 }}>{index + 1}</td>
-                      <td>
+                      <td style={{ textAlign: 'left' }}>
                         <button
                           type="button"
                           onClick={(event) => {
@@ -485,17 +485,17 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                           {row.product.name}
                         </button>
                       </td>
-                      <td>{row.product.category || '-'}</td>
+                      <td style={{ textAlign: 'left' }}>{row.product.category || '-'}</td>
                       <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(row.product.totalCost))}</td>
                       <td style={{ textAlign: 'right' }}>{row.approvedPrice == null ? '—' : formatMoney(row.approvedPrice)}</td>
-                      <td>
+                      <td style={{ textAlign: 'right' }}>
                         {margin == null ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ color: '#9ca3af' }}>—</span>
                             <AppBadge variant="muted" size="sm">Not priced</AppBadge>
                           </span>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                             <div style={{ width: '110px', height: '8px', borderRadius: '999px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
                               <div style={{ width: barWidth, height: '100%', backgroundColor: marginColor, borderRadius: '999px' }} />
                             </div>
@@ -503,7 +503,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                           </div>
                         )}
                       </td>
-                      <td>
+                      <td style={{ textAlign: 'right' }}>
                         {onSales == null ? (
                           <span style={{ color: '#9ca3af' }}>—</span>
                         ) : (

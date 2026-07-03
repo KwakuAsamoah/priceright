@@ -985,8 +985,8 @@ export default function Reports() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Product Name</th>
-                  <th>Category</th>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Prod. Cost</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
@@ -997,8 +997,8 @@ export default function Reports() {
               <tbody>
                 {data.rows.map((row) => (
                   <tr key={row.productName}>
-                    <td>{row.productName}</td>
-                    <td>{row.category}</td>
+                    <td style={{ textAlign: 'left' }}>{row.productName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentSellingPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
                     <td style={{ textAlign: 'right' }}>
@@ -1035,15 +1035,15 @@ export default function Reports() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Price List Name</th>
-                  <th>Type</th>
-                  <th style={{ whiteSpace: 'normal', minWidth: '70px' }}>Customer /<br/>Level</th>
+                  <th style={{ textAlign: 'left' }}>Price List Name</th>
+                  <th style={{ textAlign: 'left' }}>Type</th>
+                  <th style={{ textAlign: 'left', whiteSpace: 'normal', minWidth: '70px' }}>Customer /<br/>Level</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '70px' }}>Products<br/>Covered</th>
-                  <th>Valid From</th>
-                  <th>Valid Until</th>
+                  <th style={{ textAlign: 'left' }}>Valid From</th>
+                  <th style={{ textAlign: 'left' }}>Valid Until</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '70px' }}>Days Until<br/>Expiry</th>
-                  <th>Last Updated</th>
-                  <th>Status</th>
+                  <th style={{ textAlign: 'left' }}>Last Updated</th>
+                  <th style={{ textAlign: 'left' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -1055,12 +1055,12 @@ export default function Reports() {
 
                   return (
                     <tr key={`${row.priceListName}-${index}`}>
-                      <td>{row.priceListName}</td>
-                      <td>{row.listType}</td>
-                      <td>{row.customerOrLevel}</td>
+                      <td style={{ textAlign: 'left' }}>{row.priceListName}</td>
+                      <td style={{ textAlign: 'left' }}>{row.listType}</td>
+                      <td style={{ textAlign: 'left' }}>{row.customerOrLevel}</td>
                       <td style={{ textAlign: 'right' }}>{row.productsCovered}</td>
-                      <td>{row.validFrom}</td>
-                      <td style={{ textDecoration: expired ? 'line-through' : 'none', color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
+                      <td style={{ textAlign: 'left' }}>{row.validFrom}</td>
+                      <td style={{ textAlign: 'left', textDecoration: expired ? 'line-through' : 'none', color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
                         {row.validUntil}
                       </td>
                       <td style={{ textAlign: 'right', color: expired || expiresThisWeek ? '#b91c1c' : expiringSoon ? '#b45309' : undefined }}>
@@ -1068,8 +1068,8 @@ export default function Reports() {
                         {expiresThisWeek && <span style={{ marginLeft: '6px' }}><AppBadge variant="danger" size="sm">Expires This Week</AppBadge></span>}
                         {expiringSoon && <span style={{ marginLeft: '6px' }}><AppBadge variant="warning" size="sm">Expiring Soon</AppBadge></span>}
                       </td>
-                      <td>{row.lastUpdated}</td>
-                      <td>{row.status}</td>
+                      <td style={{ textAlign: 'left' }}>{row.lastUpdated}</td>
+                      <td style={{ textAlign: 'left' }}>{row.status}</td>
                     </tr>
                   );
                 })}
@@ -1101,31 +1101,31 @@ export default function Reports() {
             <table className="app-table">
               <thead>
                 <tr>
-                  <th>Product Name</th>
-                  <th>Category</th>
-                  <th>Current Status</th>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'left' }}>Current Status</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Optimal Price</th>
                   <th style={{ textAlign: 'right' }}>Actual Markup %</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
-                  <th>Approved On</th>
-                  <th>Approved By</th>
-                  <th>Active?</th>
+                  <th style={{ textAlign: 'left' }}>Approved On</th>
+                  <th style={{ textAlign: 'left' }}>Approved By</th>
+                  <th style={{ textAlign: 'left' }}>Active?</th>
                 </tr>
               </thead>
               <tbody>
                 {data.rows.map((row, index) => (
                   <tr key={`${row.productName}-${index}`}>
-                    <td>{row.productName}</td>
-                    <td>{row.category}</td>
-                    <td><AppBadge variant={statusBadgeVariant(row.currentStatus)} size="sm">{row.currentStatus}</AppBadge></td>
+                    <td style={{ textAlign: 'left' }}>{row.productName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'left' }}><AppBadge variant={statusBadgeVariant(row.currentStatus)} size="sm">{row.currentStatus}</AppBadge></td>
                     <td style={{ textAlign: 'right' }}>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
                     <td style={{ textAlign: 'right' }}>{row.actualGrossMarginPercent == null ? '—' : formatPct(row.actualGrossMarginPercent)}</td>
-                    <td>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
-                    <td>{row.approvedBy}</td>
-                    <td>{row.isActive ? 'Yes' : 'No'}</td>
+                    <td style={{ textAlign: 'left' }}>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
+                    <td style={{ textAlign: 'left' }}>{row.approvedBy}</td>
+                    <td style={{ textAlign: 'left' }}>{row.isActive ? 'Yes' : 'No'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1152,8 +1152,8 @@ export default function Reports() {
           <table className="app-table">
             <thead>
               <tr>
-                <th>Currency</th>
-                <th>Currency Code</th>
+                <th style={{ textAlign: 'left' }}>Currency</th>
+                <th style={{ textAlign: 'left' }}>Currency Code</th>
                 <th style={{ textAlign: 'right' }}>Materials Count</th>
                 <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Rate<br/>to {baseCurrency}</th>
               </tr>
@@ -1161,8 +1161,8 @@ export default function Reports() {
             <tbody>
               {data.rows.map((row) => (
                 <tr key={row.currencyCode} style={{ backgroundColor: row.isBaseCurrency ? '#f8fafc' : undefined }}>
-                  <td>{row.currencyName}</td>
-                  <td>{row.currencyCode}</td>
+                  <td style={{ textAlign: 'left' }}>{row.currencyName}</td>
+                  <td style={{ textAlign: 'left' }}>{row.currencyCode}</td>
                   <td style={{ textAlign: 'right' }}>{row.materialsCount}</td>
                   <td style={{ textAlign: 'right' }}>{row.currentRateToGhs.toFixed(4)}</td>
                 </tr>
@@ -1207,19 +1207,19 @@ export default function Reports() {
                         <table className="app-table">
                           <thead>
                             <tr>
-                              <th>Material Name</th>
+                              <th style={{ textAlign: 'left' }}>Material Name</th>
                               <th style={{ textAlign: 'right' }}>Unit Price ({baseCurrency})</th>
                               <th style={{ textAlign: 'right' }}>Original Price</th>
-                              <th>Category</th>
+                              <th style={{ textAlign: 'left' }}>Category</th>
                             </tr>
                           </thead>
                           <tbody>
                             {row.materials.map((material) => (
                               <tr key={`${row.currencyCode}-${material.materialName}`}>
-                                <td>{material.materialName}</td>
+                                <td style={{ textAlign: 'left' }}>{material.materialName}</td>
                                 <td style={{ textAlign: 'right' }}>{formatCurrency(material.unitPriceGhs)}</td>
                                 <td style={{ textAlign: 'right' }}>{material.originalPrice.toFixed(4)} {material.purchaseCurrency}</td>
-                                <td>{material.category}</td>
+                                <td style={{ textAlign: 'left' }}>{material.category}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1418,35 +1418,35 @@ function renderPricingStatusTable(
       <table className="app-table">
         <thead>
           <tr>
-            <th>Product Name</th>
-            <th>Approval</th>
-            <th>Category</th>
+            <th style={{ textAlign: 'left' }}>Product Name</th>
+            <th style={{ textAlign: 'left' }}>Approval</th>
+            <th style={{ textAlign: 'left' }}>Category</th>
             <th style={{ textAlign: 'right' }}>Prod. Cost</th>
             <th style={{ textAlign: 'right' }}>Optimal Price</th>
             <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
             <th style={{ textAlign: 'right' }}>Variance</th>
             <th style={{ textAlign: 'right' }}>Profit</th>
             <th style={{ textAlign: 'right' }}>Profit %</th>
-            <th>Status</th>
+            <th style={{ textAlign: 'left' }}>Status</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.productName}>
-              <td>{row.productName}</td>
-              <td>
+              <td style={{ textAlign: 'left' }}>{row.productName}</td>
+              <td style={{ textAlign: 'left' }}>
                 <AppBadge variant={statusBadgeVariant(row.approvalStatus)} size="sm">
                   {approvalStatusLabel(row.approvalStatus)}
                 </AppBadge>
               </td>
-              <td>{row.category}</td>
+              <td style={{ textAlign: 'left' }}>{row.category}</td>
               <td style={{ color: '#64748b', textAlign: 'right' }}>{formatMoney(row.productionCost)}</td>
               <td style={{ color: '#64748b', textAlign: 'right' }}>{formatMoney(row.optimalPrice)}</td>
               <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? formatMoney(row.sellingPrice) : '—'}</td>
               <td style={{ textAlign: 'right', color: row.variance < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.variance) : '—'}</td>
               <td style={{ textAlign: 'right', color: row.profit < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.profit) : '—'}</td>
               <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? <InlinePercentBar value={row.profitPct} /> : '—'}</td>
-              <td>
+              <td style={{ textAlign: 'left' }}>
                 {row.hasSellingPrice && !noSellingPriceMode ? (
                   <AppBadge variant={row.pricingStatus === 'Above Optimal' ? 'success' : row.pricingStatus === 'Below Optimal' ? 'danger' : 'info'} size="sm">
                     {row.pricingStatus}

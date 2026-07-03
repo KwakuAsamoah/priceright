@@ -1465,7 +1465,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   }} style={{ textAlign: 'right', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
                   {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'right', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
-                  <th style={{ textAlign: 'left', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>
+                  <th style={{ textAlign: 'center', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1508,8 +1508,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         {material.isActive ? 'Active' : 'Inactive'}
                       </AppBadge>
                     </td>
-                    <td style={{ padding: '8px 14px' }}>
-                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                    <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}>
                         <AppButton
                           onClick={(e) => { e.stopPropagation(); handleEdit(material); }}
                           variant="ghost"
@@ -2108,8 +2108,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                           <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Currency</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Bulk Price</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Bulk Quantity</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Bulk Price</th>
+                          <th style={{ padding: '8px', textAlign: 'right' }}>Bulk Quantity</th>
                           <th style={{ padding: '8px', textAlign: 'left' }}>Status</th>
                         </tr>
                       </thead>
@@ -2124,8 +2124,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                             <td style={{ padding: '8px' }}>{row.category || '-'}</td>
                             <td style={{ padding: '8px' }}>{row.unit || '-'}</td>
                             <td style={{ padding: '8px' }}>{row.currencyCode || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row.bulkPriceRaw || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row.bulkQuantityRaw || '-'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.bulkPriceRaw || '-'}</td>
+                            <td style={{ padding: '8px', textAlign: 'right' }}>{row.bulkQuantityRaw || '-'}</td>
                             <td style={{ padding: '8px', color: row.errors.length > 0 ? '#be123c' : '#166534' }}>
                               {row.errors.length > 0 ? row.errors.join(' | ') : 'Ready'}
                             </td>
@@ -2529,7 +2529,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
                       return (
                         <tr key={entry.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '12px', fontSize: '13px' }}>
+                          <td style={{ padding: '12px', fontSize: '13px', textAlign: 'left' }}>
                             {new Date(entry.changedAt).toLocaleDateString()}
                           </td>
                           <td style={{ padding: '12px', fontSize: '13px', textAlign: 'right', fontWeight: '600' }}>

@@ -1985,10 +1985,10 @@ export default function PriceLevels() {
                     <table className="app-table app-table-compact app-table-uniform-numbers">
                       <thead>
                         <tr>
-                          <th style={{ width: '34px' }}>
+                          <th style={{ width: '34px', textAlign: 'center' }}>
                             <input type="checkbox" checked={allRowsSelected} onChange={(e) => toggleSelectAllRows(e.target.checked)} />
                           </th>
-                          <th>Product name</th>
+                          <th style={{ textAlign: 'left' }}>Product name</th>
                           <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>
                             Approved base<br/>({baseCurrency})
                           </th>
@@ -2007,8 +2007,8 @@ export default function PriceLevels() {
                               'Pack price'
                             )}
                           </th>
-                          <th>Pricing rule</th>
-                          <th>Status</th>
+                          <th style={{ textAlign: 'left' }}>Pricing rule</th>
+                          <th style={{ textAlign: 'left' }}>Status</th>
                           <th style={{ textAlign: 'center' }}>Actions</th>
                         </tr>
                       </thead>
@@ -2062,7 +2062,7 @@ export default function PriceLevels() {
                             return (
                               <tr key={pack ? `${item.productId}-pack-${pack.id}` : `${item.productId}-no-pack`}>
                                 {isFirstRow && (
-                                  <td rowSpan={rowSpan}>
+                                  <td rowSpan={rowSpan} style={{ textAlign: 'center' }}>
                                     <input
                                       type="checkbox"
                                       checked={isSelected}
@@ -2070,7 +2070,7 @@ export default function PriceLevels() {
                                     />
                                   </td>
                                 )}
-                                <td style={isFirstRow ? undefined : { color: 'rgba(0,0,0,0.3)' }}>
+                                <td style={isFirstRow ? { textAlign: 'left' } : { color: 'rgba(0,0,0,0.3)', textAlign: 'left' }}>
                                   {isFirstRow ? item.productName : ''}
                                 </td>
                                 {isFirstRow && (
@@ -2087,8 +2087,8 @@ export default function PriceLevels() {
                                 </td>
                                 {isFirstRow && (
                                   <>
-                                    <td rowSpan={rowSpan}>{pricingRuleLabel(item, baseCurrency)}</td>
-                                    <td rowSpan={rowSpan}>
+                                    <td rowSpan={rowSpan} style={{ textAlign: 'left' }}>{pricingRuleLabel(item, baseCurrency)}</td>
+                                    <td rowSpan={rowSpan} style={{ textAlign: 'left' }}>
                                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
                                         <AppBadge variant={itemStatusVariant(item.status)}>{item.status}</AppBadge>
                                         {item.isStalePrice && (
@@ -2425,15 +2425,15 @@ export default function PriceLevels() {
               <table className="app-table app-table-compact">
                 <thead>
                   <tr>
-                    <th style={{ width: '32px' }}>
+                    <th style={{ width: '32px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={addProductsRows.filter((row) => !row.alreadyAdded).length > 0 && selectedAddProductIds.size === addProductsRows.filter((row) => !row.alreadyAdded).length}
                         onChange={(e) => toggleSelectAllProductsForAdd(e.target.checked)}
                       />
                     </th>
-                    <th>Product name</th>
-                    <th>Category</th>
+                    <th style={{ textAlign: 'left' }}>Product name</th>
+                    <th style={{ textAlign: 'left' }}>Category</th>
                     <th style={{ textAlign: 'right' }}>Approved base price</th>
                   </tr>
                 </thead>
@@ -2452,7 +2452,7 @@ export default function PriceLevels() {
                         setSelectedAddProductIds(next);
                       }}
                     >
-                      <td>
+                      <td style={{ textAlign: 'center' }}>
                         <input
                           type="checkbox"
                           disabled={alreadyAdded}
@@ -2469,8 +2469,8 @@ export default function PriceLevels() {
                           onClick={(e) => e.stopPropagation()}
                         />
                       </td>
-                      <td>{product.name} {alreadyAdded ? <span style={{ fontSize: '15px' }}>(Already added)</span> : null}</td>
-                      <td>{product.category || '-'}</td>
+                      <td style={{ textAlign: 'left' }}>{product.name} {alreadyAdded ? <span style={{ fontSize: '15px' }}>(Already added)</span> : null}</td>
+                      <td style={{ textAlign: 'left' }}>{product.category || '-'}</td>
                       <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(product.approvedPrice, 0))}</td>
                     </tr>
                   ))}
@@ -2543,11 +2543,11 @@ export default function PriceLevels() {
                   <table className="app-table app-table-compact app-table-uniform-numbers">
                     <thead>
                       <tr>
-                        <th style={{ width: '34px' }} />
-                        <th>Product</th>
-                        <th>Category</th>
+                        <th style={{ width: '34px', textAlign: 'center' }} />
+                        <th style={{ textAlign: 'left' }}>Product</th>
+                        <th style={{ textAlign: 'left' }}>Category</th>
                         <th style={{ textAlign: 'right' }}>Approved base price</th>
-                        <th>Adjustment</th>
+                        <th style={{ textAlign: 'left' }}>Adjustment</th>
                         <th style={{ textAlign: 'right' }}>Final price</th>
                         <th style={{ textAlign: 'right' }}>Margin %</th>
                       </tr>
@@ -2561,14 +2561,14 @@ export default function PriceLevels() {
 
                         return (
                           <tr key={`export-${item.productId}`}>
-                            <td>
+                            <td style={{ textAlign: 'center' }}>
                               <input
                                 type="checkbox"
                                 checked={selectedExportProductIds.has(item.productId)}
                                 onChange={(e) => toggleExportProduct(item.productId, e.target.checked)}
                               />
                             </td>
-                            <td>
+                            <td style={{ textAlign: 'left' }}>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                                 {row.productName}
                                 {item.isStalePrice && (
@@ -2576,9 +2576,9 @@ export default function PriceLevels() {
                                 )}
                               </span>
                             </td>
-                            <td>{row.category}</td>
+                            <td style={{ textAlign: 'left' }}>{row.category}</td>
                             <td style={{ textAlign: 'right' }}>{formatMoney(row.approvedBasePrice)}</td>
-                            <td>{row.adjustmentLabel}</td>
+                            <td style={{ textAlign: 'left' }}>{row.adjustmentLabel}</td>
                             <td style={{ textAlign: 'right' }}>{formatMoney(row.finalPrice)}</td>
                             <td style={{ textAlign: 'right' }}>{row.marginPercent.toFixed(1)}%</td>
                           </tr>
@@ -2734,15 +2734,15 @@ export default function PriceLevels() {
                   <table className="app-table app-table-compact">
                     <thead>
                       <tr>
-                        <th style={{ width: '32px' }}>
+                        <th style={{ width: '32px', textAlign: 'center' }}>
                           <input
                             type="checkbox"
                             checked={wizardProducts.length > 0 && wizardProducts.every((product) => wizardSelectedProductIds.has(product.id))}
                             onChange={(e) => toggleWizardSelectAll(e.target.checked)}
                           />
                         </th>
-                        <th>Product name</th>
-                        <th>Category</th>
+                        <th style={{ textAlign: 'left' }}>Product name</th>
+                        <th style={{ textAlign: 'left' }}>Category</th>
                         <th style={{ textAlign: 'right' }}>Approved base price</th>
                       </tr>
                     </thead>
@@ -2753,7 +2753,7 @@ export default function PriceLevels() {
                           style={{ cursor: 'pointer' }}
                           onClick={() => toggleWizardProduct(product.id, !wizardSelectedProductIds.has(product.id))}
                         >
-                          <td>
+                          <td style={{ textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={wizardSelectedProductIds.has(product.id)}
@@ -2761,8 +2761,8 @@ export default function PriceLevels() {
                               onClick={(e) => e.stopPropagation()}
                             />
                           </td>
-                          <td>{product.name}</td>
-                          <td>{product.category || '-'}</td>
+                          <td style={{ textAlign: 'left' }}>{product.name}</td>
+                          <td style={{ textAlign: 'left' }}>{product.category || '-'}</td>
                           <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(product.approvedPrice, 0))}</td>
                         </tr>
                       ))}
@@ -2904,8 +2904,8 @@ export default function PriceLevels() {
                   <table className="app-table app-table-compact app-table-uniform-numbers">
                     <thead>
                       <tr>
-                        <th>Product</th>
-                        <th>Rule</th>
+                        <th style={{ textAlign: 'left' }}>Product</th>
+                        <th style={{ textAlign: 'left' }}>Rule</th>
                         <th style={{ textAlign: 'right' }}>Final price</th>
                         <th style={{ textAlign: 'right' }}>Margin %</th>
                       </tr>
@@ -2921,8 +2921,8 @@ export default function PriceLevels() {
                         const variant = marginTone(margin);
                         return (
                           <tr key={product.id}>
-                            <td>{product.name}</td>
-                            <td>
+                            <td style={{ textAlign: 'left' }}>{product.name}</td>
+                            <td style={{ textAlign: 'left' }}>
                               {rule.overrideType === 'fixed_amount_add'
                                 ? `+${formatMoney(numericValue)}`
                                 : rule.overrideType === 'fixed_amount_deduct'

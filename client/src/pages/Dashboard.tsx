@@ -1212,9 +1212,9 @@ export default function Dashboard() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
-                    <th style={{ padding: '8px 10px' }}>Product Name</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left' }}>Product Name</th>
                     <th style={{ padding: '8px 10px', textAlign: 'right' }}>Approved base price</th>
-                    <th style={{ padding: '8px 10px' }}>Expires On</th>
+                    <th style={{ padding: '8px 10px', textAlign: 'left' }}>Expires On</th>
                     <th style={{ padding: '8px 10px', textAlign: 'right' }}>Days Left</th>
                   </tr>
                 </thead>
@@ -1226,9 +1226,9 @@ export default function Dashboard() {
 
                     return (
                       <tr key={`expiry-${product.id}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 10px', fontWeight: 600 }}>{product.name}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600 }}>{product.name}</td>
                         <td style={{ padding: '8px 10px', textAlign: 'right' }}>{formatCurrency(toNumber(product.approvedPrice), baseCurrency)}</td>
-                        <td style={{ padding: '8px 10px' }}>{expiryDate ? expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'left' }}>{expiryDate ? expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}</td>
                         <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 700 }}>{product.daysUntilExpiry ?? '-'}</td>
                       </tr>
                     );

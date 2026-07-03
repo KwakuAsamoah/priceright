@@ -1298,7 +1298,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   {isIntermediateColumnVisible('overhead') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Overhead</th>}
                   {isIntermediateColumnVisible('unitCost') && <th style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap' }}>Unit Cost</th>}
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
-                  <th style={{ textAlign: 'left', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>
+                  <th style={{ textAlign: 'center', fontWeight: '700', width: '150px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1328,8 +1328,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
                     </td>}
                     <td style={{ padding: '8px 14px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>
-                    <td style={{ padding: '8px 14px' }}>
-                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                    <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}>
                         <AppButton onClick={(e) => { e.stopPropagation(); openEditMaterialForm(material); }} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           <Pencil size={11} strokeWidth={2} />
                         </AppButton>
@@ -1691,11 +1691,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       <table className="app-table app-table-compact" style={{ width: '100%' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '36%' }}>Material</th>
+                            <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
                             <th style={{ textAlign: 'right' }}>Quantity</th>
                             <th style={{ textAlign: 'right' }}>Unit Price</th>
                             <th style={{ textAlign: 'right' }}>Total</th>
-                            <th>Action</th>
+                            <th style={{ textAlign: 'center' }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1705,7 +1705,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
                             return (
                               <tr key={item.id}>
-                                <td>{item.componentMaterialName}</td>
+                                <td style={{ textAlign: 'left' }}>{item.componentMaterialName}</td>
                                 <td style={{ textAlign: 'right' }}>
                                   {isEditing ? (
                                     <input
@@ -1731,7 +1731,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                                 </td>
                                 <td style={{ textAlign: 'right' }}>{formatMoney(Number(item.unitPrice || 0))}</td>
                                 <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                                <td>
+                                <td style={{ textAlign: 'center' }}>
                                   <div style={{ display: 'inline-flex', gap: 6 }}>
                                     {isEditing ? (
                                       <>
@@ -1881,7 +1881,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                             <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
                             <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
                             <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Yield %</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Yield %</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1890,7 +1890,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                               <td style={{ padding: '8px' }}>{row['Material Name'] || row['name'] || '-'}</td>
                               <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
                               <td style={{ padding: '8px' }}>{row['Unit'] || row['unit'] || '-'}</td>
-                              <td style={{ padding: '8px' }}>{row['Yield %'] || row['yieldPercentage'] || '-'}</td>
+                              <td style={{ padding: '8px', textAlign: 'right' }}>{row['Yield %'] || row['yieldPercentage'] || '-'}</td>
                             </tr>
                           ))}
                         </tbody>
