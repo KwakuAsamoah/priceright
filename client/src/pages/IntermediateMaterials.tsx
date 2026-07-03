@@ -393,6 +393,19 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }, [materials, materialSearch, selectedStatus, sortField, sortOrder]);
 
+  const hasActiveIntermediateFilters = materialSearch.trim() !== '' || selectedStatus !== 'active';
+
+  function clearAllIntermediateFilters() {
+    setMaterialSearch('');
+    setSelectedStatus('active');
+  }
+
+  function formatIntermediateStatusLabel(value: 'all' | 'active' | 'inactive') {
+    if (value === 'all') return 'All';
+    if (value === 'inactive') return 'Inactive';
+    return 'Active';
+  }
+
   const editingIntermediateIndex = useMemo(() => {
     if (!selectedMaterial) return -1;
     return filteredMaterials.findIndex((m) => m.id === selectedMaterial.id);
@@ -1247,6 +1260,26 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
           />
         </div>
 
+        {hasActiveIntermediateFilters ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', margin: '6px 0' }}>
+            {materialSearch.trim() !== '' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
+                Search: {materialSearch.trim()}
+                <button type="button" onClick={() => setMaterialSearch('')} aria-label="Clear search filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+              </span>
+            ) : null}
+            {selectedStatus !== 'active' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
+                Showing: {formatIntermediateStatusLabel(selectedStatus)}
+                <button type="button" onClick={() => setSelectedStatus('active')} aria-label="Clear status filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+              </span>
+            ) : null}
+            <button type="button" onClick={clearAllIntermediateFilters} style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}>
+              Clear all filters
+            </button>
+          </div>
+        ) : null}
+
         {selectedIds.size > 0 ? (
           <div
             className="app-bulk-bar app-bulk-bar-sticky"
@@ -1412,34 +1445,46 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             </table>
 
             {filteredMaterials.length === 0 ? (
-              <div className="app-empty-state">
-                <div style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '12px',
-                  background: '#F1F5F9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 16px',
-                }}>
-                  <Layers size={24} color="#94a3b8" />
+              materials.length === 0 ? (
+                <div className="app-empty-state">
+                  <div style={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: '#F1F5F9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}>
+                    <Layers size={24} color="#94a3b8" />
+                  </div>
+                  <div className="app-empty-state-title">
+                    No intermediate materials yet
+                  </div>
+                  <div className="app-empty-state-text">
+                    Intermediate materials are recipes built from your primary materials. Add one to get started.
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ marginTop: '16px' }}
+                    type="button"
+                    onClick={openNewMaterialForm}
+                  >
+                    + Add intermediate material
+                  </button>
                 </div>
-                <div className="app-empty-state-title">
-                  No intermediate materials yet
+              ) : (
+                <div className="app-empty-state">
+                  <div className="app-empty-state-title">No matching intermediate materials</div>
+                  <div className="app-empty-state-text">Adjust filters or add a new intermediate material to get started</div>
+                  {hasActiveIntermediateFilters ? (
+                    <button type="button" className="btn btn-outline" style={{ marginTop: '16px' }} onClick={clearAllIntermediateFilters}>
+                      Clear all filters
+                    </button>
+                  ) : null}
                 </div>
-                <div className="app-empty-state-text">
-                  Intermediate materials are recipes built from your primary materials. Add one to get started.
-                </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  style={{ marginTop: '16px' }}
-                  type="button"
-                  onClick={openNewMaterialForm}
-                >
-                  + Add intermediate material
-                </button>
-              </div>
+              )
             ) : null}
           </div>
         </div>

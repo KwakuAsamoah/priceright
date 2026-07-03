@@ -1358,6 +1358,22 @@ export default function Products() {
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter]);
 
+  const hasActiveProductFilters = searchInput.trim() !== ''
+    || selectedApprovalStatus !== 'All'
+    || activeFilter !== 'active';
+
+  function clearAllProductFilters() {
+    setSearchInput('');
+    setSelectedApprovalStatus('All');
+    setActiveFilter('active');
+  }
+
+  function formatActiveFilterLabel(value: 'active' | 'inactive' | 'all') {
+    if (value === 'all') return 'All';
+    if (value === 'inactive') return 'Inactive';
+    return 'Active';
+  }
+
   const productOrderForDetail = useMemo(
     () => filteredProducts.map((product) => ({ id: product.id, name: product.name })),
     [filteredProducts]
@@ -1653,6 +1669,32 @@ export default function Products() {
           />
         </div>
 
+        {hasActiveProductFilters ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', margin: '6px 0' }}>
+            {searchInput.trim() !== '' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
+                Search: {searchInput.trim()}
+                <button type="button" onClick={() => setSearchInput('')} aria-label="Clear search filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+              </span>
+            ) : null}
+            {selectedApprovalStatus !== 'All' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
+                Status: {selectedApprovalStatus}
+                <button type="button" onClick={() => setSelectedApprovalStatus('All')} aria-label="Clear status filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+              </span>
+            ) : null}
+            {activeFilter !== 'active' ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
+                Showing: {formatActiveFilterLabel(activeFilter)}
+                <button type="button" onClick={() => setActiveFilter('active')} aria-label="Clear active/inactive filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+              </span>
+            ) : null}
+            <button type="button" onClick={clearAllProductFilters} style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}>
+              Clear all filters
+            </button>
+          </div>
+        ) : null}
+
         {shouldShowNeedsReviewBanner && (
           <div
             style={{
@@ -1822,6 +1864,11 @@ export default function Products() {
               <div className="app-empty-state">
                 <div className="app-empty-state-title">No matching products</div>
                 <div className="app-empty-state-text">Adjust filters or add a new product to get started</div>
+                {hasActiveProductFilters ? (
+                  <button type="button" className="btn btn-outline" style={{ marginTop: '16px' }} onClick={clearAllProductFilters}>
+                    Clear all filters
+                  </button>
+                ) : null}
               </div>
             )
           ) : (
