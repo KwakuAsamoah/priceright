@@ -41,6 +41,7 @@ interface ProductTabsProps {
   }>;
   activityLoading: boolean;
   activityViewAllHref: string;
+  onEditProduct?: () => void;
 }
 
 function toNumber(value: string | number | undefined) {
@@ -137,6 +138,7 @@ export default function ProductTabs({
   activityEntries,
   activityLoading,
   activityViewAllHref,
+  onEditProduct,
 }: ProductTabsProps) {
   const { baseCurrency } = useBaseCurrency();
   const [priceHistory, setPriceHistory] = useState<ActivityEntry[]>([]);
@@ -197,7 +199,17 @@ export default function ProductTabs({
             {bomLoading ? (
               <div style={{ padding: '12px', color: '#64748b' }}>Loading BOM...</div>
             ) : displayBom.length === 0 ? (
-              <div style={{ padding: '12px', color: '#64748b' }}>No materials in BOM</div>
+              <div style={{ padding: '12px' }}>
+                <div style={{ color: '#64748b', marginBottom: '8px' }}>No materials in BOM</div>
+                <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 12px' }}>
+                  This product has no materials in its bill of materials. Add materials to calculate production cost and optimal price.
+                </p>
+                {onEditProduct ? (
+                  <button type="button" className="btn btn-outline" onClick={onEditProduct}>
+                    Edit product to add materials
+                  </button>
+                ) : null}
+              </div>
             ) : (
               <Fragment>
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '12px' }}>

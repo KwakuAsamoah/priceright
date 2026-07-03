@@ -748,6 +748,7 @@ export default function ProductDetail() {
               activityEntries={productActivity}
               activityLoading={productActivityLoading}
               activityViewAllHref="/activity?entityType=product"
+              onEditProduct={() => setShowDrawer(true)}
             />
           </div>
 
