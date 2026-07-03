@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Info } from 'lucide-react';
 import Materials from './Materials';
 import IntermediateMaterials from './IntermediateMaterials';
 import MaterialsAnalysisTab from '../components/MaterialsAnalysisTab';
 import { currenciesApi, exchangeRatesApi, materialsApi } from '../api';
 
 type MaterialTab = 'primary' | 'intermediate' | 'analysis';
+
+const MATERIAL_TAB_TOOLTIPS: Record<MaterialTab, string> = {
+  primary: 'Raw materials and ingredients you purchase — the building blocks of your products',
+  intermediate: 'Materials you make yourself from other raw materials — for example a spice blend, a sauce base, or a cream mixture — before using them in your final products',
+  analysis: 'Cost trends, usage patterns, and currency exposure across all your materials',
+};
 
 function parseMaterialTab(value: string | null): MaterialTab {
   if (value === 'intermediate' || value === 'analysis' || value === 'primary') {
@@ -92,8 +99,17 @@ export default function MaterialsPage() {
               className={`app-section-tab ${isActive ? 'is-active' : ''}`}
               role="tab"
               aria-selected={isActive}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
             >
               {tab.label}
+              <span
+                title={MATERIAL_TAB_TOOLTIPS[tab.key]}
+                onClick={(e) => e.stopPropagation()}
+                style={{ display: 'inline-flex', flexShrink: 0, cursor: 'help' }}
+                aria-hidden="true"
+              >
+                <Info size={13} color="#94A3B8" />
+              </span>
             </button>
           );
         })}
