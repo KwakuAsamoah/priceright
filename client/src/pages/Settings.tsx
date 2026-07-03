@@ -766,23 +766,30 @@ async function loadData() {
       {/* Header */}
       <div className="app-page-header">
         <h1 className="app-page-title">Settings</h1>
-        <div className="app-section-tabs" role="tablist" aria-label="Settings sections">
-          {SETTINGS_TABS.map((tab) => {
+        <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          {SETTINGS_TABS.map((tab, index) => {
             const isActive = activeTab === tab.key;
             const TabIcon = tab.icon;
             return (
-              <button
-                key={tab.key}
-                type="button"
-                className={`app-section-tab ${isActive ? 'is-active' : ''}`}
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => handleTabChange(tab.key)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
-                {tab.label}
-              </button>
+              <span key={tab.key} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {index === 3 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 8px 0 4px', alignSelf: 'center' }}>
+                    <span style={{ width: '1px', height: '22px', backgroundColor: '#e2e8f0', display: 'inline-block' }} aria-hidden="true" />
+                    <span style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Advanced</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`app-section-tab ${isActive ? 'is-active' : ''}`}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => handleTabChange(tab.key)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
+                  {tab.label}
+                </button>
+              </span>
             );
           })}
         </div>
@@ -825,9 +832,6 @@ async function loadData() {
             <>
             <div className="app-card app-settings-card">
               <h2>Company Branding</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                Set your company name and logo for the Dashboard header.
-              </p>
 
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
@@ -838,6 +842,9 @@ async function loadData() {
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Enter company name"
                   />
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px' }}>
+                    Appears in the app header, on printed price lists, and on exported documents
+                  </div>
                 </div>
 
                 <div>
@@ -849,7 +856,7 @@ async function loadData() {
                     onChange={handleLogoFileChange}
                   />
                   <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px' }}>
-                    PNG/JPG up to 1MB.
+                    Appears in the app header and on printed price lists. Recommended size: at least 200 × 200 pixels. Supported formats: PNG, JPG.
                   </div>
                 </div>
 
@@ -1013,14 +1020,11 @@ async function loadData() {
 
             {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
-              <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Default Markup %
-                <MarkupInfoTooltip />
-              </h2>
+              <h2>Default settings for new products</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                Applied automatically when creating a new product. Can be overridden per product.
+                These values are used as starting points when you create a new product. You can override them on each product individually.
               </p>
-              <div className="app-settings-row-end">
+              <div className="app-settings-row-end" style={{ marginBottom: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label className="app-settings-label" style={{ display: 'inline-flex', alignItems: 'center' }}>
                     Default Markup %
@@ -1055,15 +1059,6 @@ async function loadData() {
                   Save
                 </button>
               </div>
-            </div>
-            )}
-
-            {activeTab === 'pricing' && (
-            <div className="app-card app-settings-card">
-              <h2>Default Overhead Rate</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                This percentage will be pre-filled when creating new products. Use the calculator to the right to determine it.
-              </p>
               <div className="app-settings-row-end">
                 <div style={{ flex: 1 }}>
                   <label className="app-settings-label">
