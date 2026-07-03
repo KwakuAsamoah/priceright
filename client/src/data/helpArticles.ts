@@ -179,7 +179,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>If you close the app mid-guide, the guide resumes automatically when you reopen it.</p>
 
-      <p>To restart the guide, go to <strong>Settings → General</strong> and reset the onboarding status.</p>`,
+      <p>Each step is marked done when you complete it or move on. There is no reset button in Settings. If you want to work through a step again, open that section directly from the sidebar — for example <strong>Materials</strong>, <strong>Products</strong>, or <strong>Price Levels</strong>.</p>`,
   },
 
   {
@@ -374,45 +374,40 @@ export const helpArticles: HelpArticle[] = [
     id: 'import-templates-overview',
     title: 'Importing data with templates',
     section: 'Raw Materials',
-    keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload'],
+    keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload', 'intermediate'],
     content: `
       <p>PriceRight provides Excel templates for importing materials and products in bulk. This is faster than adding items one by one.</p>
 
       <p><strong>Available templates:</strong></p>
       <ul>
-        <li><strong>Materials import template</strong> — for primary raw materials</li>
-        <li><strong>Products import template</strong> — for products with their full bill of materials</li>
+        <li><strong>Materials import template</strong> — for primary raw materials. Go to <strong>Materials</strong> (Primary tab), click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
+        <li><strong>Intermediate materials import template</strong> — for in-house processed materials. Go to <strong>Materials</strong> (Intermediate tab), click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
+        <li><strong>Products import template</strong> — for finished products with their full bill of materials. Go to <strong>Products</strong>, click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
       </ul>
 
-      <p><strong>How to download a template:</strong></p>
-      <ol>
-        <li>Go to the relevant page (Materials or Products)</li>
-        <li>Click <strong>+ Add → Import from CSV</strong></li>
-        <li>Click <strong>Download template</strong> in the import panel</li>
-      </ol>
-
-      <p><strong>How to fill in the template:</strong></p>
+      <p><strong>How to fill in a template:</strong></p>
       <ul>
         <li>Open the template in Excel</li>
-        <li>The first sheet has instructions</li>
-        <li>Fill in your data in the Import Data sheet</li>
+        <li>Read the instructions on the first sheet</li>
+        <li>Fill in your data on the Import Data sheet</li>
         <li>Do not change the column headers</li>
         <li>Save as Excel (.xlsx) or CSV</li>
       </ul>
 
       <p><strong>How to import:</strong></p>
       <ol>
+        <li>Go to the page for the type of data you are importing</li>
         <li>Click <strong>+ Add → Import from CSV</strong></li>
-        <li>Click <strong>Choose file</strong> and select your completed template</li>
-        <li>Review the preview — check for any errors highlighted in red</li>
-        <li>Click Import to complete</li>
+        <li>Choose your completed file</li>
+        <li>Review the preview — rows with errors are highlighted</li>
+        <li>Click Import to finish</li>
       </ol>
 
       <p><strong>Tips:</strong></p>
       <ul>
         <li>Import materials before products since products reference materials</li>
         <li>Material names in the products template must exactly match the names in your materials list</li>
-        <li>Intermediate materials must be imported separately via the Intermediate tab</li>
+        <li>Import intermediate materials before products that use them in a bill of materials</li>
       </ul>`,
   },
 
@@ -539,25 +534,29 @@ export const helpArticles: HelpArticle[] = [
     id: 'materials-analysis-tab',
     title: 'Using the Materials Analysis tab',
     section: 'Raw Materials',
-    keywords: ['materials analysis', 'analysis', 'cost breakdown', 'supplier analysis', 'currency exposure', 'material trends'],
+    keywords: ['materials analysis', 'analysis', 'cost breakdown', 'currency exposure', 'material trends', 'BOM exposure'],
     content: `
-      <p>The Materials Analysis tab provides an overview of your raw material costs and purchasing patterns.</p>
+      <p>The Materials Analysis tab helps you understand your material costs at a glance.</p>
 
-      <p>To open it, go to <strong>Materials</strong> and click the <strong>Analysis</strong> tab.</p>
+      <p>Go to <strong>Materials</strong> and click the <strong>Analysis</strong> tab.</p>
 
-      <p>The tab contains several panels:</p>
+      <p>The tab shows these panels:</p>
 
-      <p><strong>Cost distribution</strong> — shows how your total material spend is split across categories. Use this to identify which categories drive the most cost.</p>
+      <p><strong>Average unit cost by category</strong> — shows the average unit cost for each material category and how many items are in that category.</p>
 
-      <p><strong>Currency exposure</strong> — shows how many materials are purchased in each currency. Materials purchased in foreign currencies are exposed to exchange rate risk.</p>
+      <p><strong>Most used materials in products</strong> — lists materials that appear most often in product bills of materials.</p>
 
-      <p><strong>Supplier concentration</strong> — shows how many materials come from each supplier. A high concentration from one supplier is a supply chain risk.</p>
+      <p><strong>Top 5 highest unit cost materials</strong> — your five most expensive materials by unit cost.</p>
 
-      <p><strong>Price change history</strong> — shows recent price changes across your materials. Use this to track cost increases over time.</p>
+      <p><strong>Cost exposure across product range</strong> — shows which materials would have the biggest impact on product costs if their prices went up. Amounts are based on how much of each material is used across your products.</p>
 
-      <p><strong>Unit cost comparison</strong> — compares unit costs across materials in the same category.</p>
+      <p><strong>Price history</strong> — use the dropdown to select a material and see how its unit cost has changed over time.</p>
 
-      <p>Click on any panel element to navigate to the related materials.</p>`,
+      <p><strong>Currency exposure</strong> — shows how many materials you buy in each purchase currency. This is a count only, not a money total. Materials bought in foreign currencies can be affected when exchange rates change.</p>
+
+      <p><strong>Materials with no price changes</strong> — lists materials whose unit cost is zero and may need a price entered.</p>
+
+      <p><strong>Inactive materials still in product BOMs</strong> — a warning panel. If a material is marked inactive but still appears in an active product's bill of materials, your product costs may be wrong. Reactivate the material or update the product recipe.</p>`,
   },
 
   // ── PRODUCTS ───────────────────────────────────────────────────────────────
@@ -629,43 +628,33 @@ export const helpArticles: HelpArticle[] = [
     title: 'Understanding overhead, markup and gross margin',
     keywords: ['overhead', 'margin', 'markup', 'gross margin', 'cost', 'percentage'],
     content: `
-      <p><strong>Overhead</strong> is the percentage added to your material costs
-      to cover indirect production expenses — electricity, water, rent, equipment
-      maintenance, and production labour.</p>
+      <p><strong>Overhead</strong> is a percentage added to your material costs to cover indirect production expenses — electricity, rent, equipment, and production labour.</p>
 
-      <p>If your monthly overhead costs are 5,000 and your monthly material
-      spend is 20,000 (both in your base currency), your overhead rate is 25%. Set this in
-      <strong>Settings</strong> under the <strong>Pricing Engine</strong> tab.</p>
+      <p><strong>Where overhead is set:</strong></p>
+      <ul>
+        <li><strong>Per-product Overhead %</strong> — on each product's form. This applies only to that product and is used when calculating its production cost and optimal price.</li>
+        <li><strong>Settings → Pricing Engine → Default Overhead %</strong> — a business-wide default that pre-fills the overhead field when you create a new product. It does not change overhead on products you have already saved.</li>
+      </ul>
 
-      <p>PriceRight applies overhead as a percentage of
-      <strong>Production cost</strong> when calculating the
-      <strong>Optimal price</strong>.</p>
+      <p>You can use the overhead calculator on the Pricing Engine tab to work out a sensible default from your monthly figures. Enter your totals in your base currency.</p>
 
-      <p>In PriceRight, the percentage you set as <strong>Markup %</strong>
-      is applied as markup on production cost. That means the
-      system adds this percentage on top of production cost to suggest the
-      <strong>Optimal price</strong>.</p>
+      <p><strong>Markup %</strong> is set on each product. It is the main setting that drives the <strong>Optimal price</strong> calculation.</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
         Optimal price = Production cost × (1 + Markup%)
       </p>
 
-      <p>Example: if production cost is 2.41 and markup is 20%, then
-      markup profit is 0.48 and optimal price is 2.89.</p>
+      <p>Example: if production cost is 2.41 and markup is 20%, the optimal price is 2.89.</p>
 
-      <p>The app also shows what this means as <strong>Gross Margin %</strong>,
-      which is profit as a percentage of the selling
-      price. At 2.89 with 2.41 cost, gross margin is 16.7%.</p>
+      <p>The app also shows <strong>Gross Margin %</strong> — profit as a share of the selling price. At 2.89 with 2.41 cost, gross margin is about 16.7%.</p>
 
       <p>Both numbers are useful:</p>
       <ul>
-        <li><strong>Markup %</strong> tells you how much you are adding above what you spent.</li>
-        <li><strong>Gross Margin %</strong> is what banks, investors, and distributors typically ask about.</li>
+        <li><strong>Markup %</strong> — how much you add above what you spent to make the product.</li>
+        <li><strong>Gross Margin %</strong> — what you keep from each sale after production cost, often used by buyers and distributors.</li>
       </ul>
 
-      <p>The <strong>Markup %</strong> column in Products shows markup on cost.
-      Open any product to see both Markup % and Gross Margin % at the suggested
-      price.</p>`,
+      <p>On the Products page you can show markup and margin columns. Open any product to see both figures at the suggested price.</p>`,
   },
 
   // ── PRICING AND APPROVALS ──────────────────────────────────────────────────
@@ -746,34 +735,27 @@ export const helpArticles: HelpArticle[] = [
     title: 'Approving prices in bulk',
     keywords: ['bulk approve', 'approve all', 'bulk action', 'mass approve'],
     content: `
-      <p>Use bulk approval when many products need approval at the same time,
-      such as first-time setup or after broad cost changes.</p>
+      <p>Use bulk approval when many products need approval at once — for example during first-time setup or after a broad cost change.</p>
 
       <p>On the Products page:</p>
       <ol>
-        <li>Select products using row checkboxes.</li>
-        <li>Use the header checkbox to select all visible rows when needed.</li>
-        <li>When at least one row is selected, the dark bulk action bar appears
-        with the selected count.</li>
+        <li>Select products using the row checkboxes.</li>
+        <li>Use the header checkbox to select all visible rows if needed.</li>
+        <li>When at least one row is selected, the bulk action bar appears at the bottom.</li>
       </ol>
 
-      <p>Open the Approve menu in the bulk bar and choose one option:</p>
+      <p>Open the <strong>Approve</strong> menu in the bulk bar. All three options open the same <strong>Bulk Approve Products</strong> modal — nothing is applied until you confirm in that modal:</p>
       <ul>
-        <li><strong>Approve at Optimal Price</strong> to set each selected product to its
-        current <strong>Optimal price</strong>.</li>
-        <li><strong>Approve at custom markup</strong> — opens a confirmation modal with
-        <strong>Approve at Optimal Price + Markup %</strong> as an option, plus an optional
-        expiry date for all approved base prices.</li>
-        <li><strong>Keep current price</strong> to re-approve selected products at their
-        existing <strong>Approved base price</strong>.</li>
+        <li><strong>Approve at optimal price</strong></li>
+        <li><strong>Keep current price</strong></li>
+        <li><strong>Approve at custom markup…</strong> — inside the modal this option is labelled <strong>Approve at Optimal Price + Markup %</strong></li>
       </ul>
 
-      <p>The confirmation modal shows how many products will be approved and which
-      price basis will be used. Confirm to continue.</p>
+      <p>In the modal, pick one of the three radio buttons, then click Confirm. You can also set an optional <strong>valid until</strong> date that applies to all products in the batch.</p>
 
-      <p>After bulk approval, selected products move to <strong>Approved</strong> and
-      rule-based prices in <strong>Price levels</strong> recalculate from the updated
-      <strong>Approved base price</strong> values.</p>`,
+      <p><strong>Keep current price</strong> re-approves each product at its existing approved base price. Products with no current selling price and no existing approved price are skipped. The summary tells you how many were approved and how many were skipped.</p>
+
+      <p>After bulk approval, approved products move to <strong>Approved</strong> status. Rule-based prices in <strong>Price levels</strong> recalculate from the updated approved base prices.</p>`,
   },
 
   {
@@ -860,25 +842,22 @@ export const helpArticles: HelpArticle[] = [
     title: 'Setting up price levels',
     keywords: ['price level', 'tier', 'discount', 'markup', 'wholesale', 'retail', 'customer tier'],
     content: `
-      <p>Price levels let you apply a standard discount or markup to a group
-      of customers without setting individual prices for every product.</p>
+      <p>Price levels let you set different prices for different customer types — wholesale, retail, export, or a named customer — without entering every price by hand.</p>
 
-      <p>Go to <strong>Price Levels</strong> in the Setup section of the navigation.
-      First-time creation uses a four-step wizard — click <strong>+ Create your first price level</strong>:</p>
+      <p>Go to <strong>Price Levels</strong> in the Setup section. To create your first level, click <strong>+ Create your first price level</strong>. The wizard has four steps:</p>
 
       <ol>
-        <li><strong>Step 1 — Name your price level.</strong> Enter a name for your customer type — for example Wholesale, Retail, Distributor, or Export.</li>
-        <li><strong>Step 2 — Set pricing rules.</strong> Choose percentage markup, percentage discount, or fixed amount adjustments.</li>
-        <li><strong>Step 3 — Add products to the level.</strong> Select which products belong in this price level.</li>
+        <li><strong>Step 1 — Name and currency.</strong> Enter a name for the level (for example Wholesale or Retail). Choose the price list currency — your base currency or any other active currency in your settings.</li>
+        <li><strong>Step 2 — Add products.</strong> Select which approved products belong in this price level.</li>
+        <li><strong>Step 3 — Set pricing rules.</strong> For each product, choose percentage markup, percentage discount, fixed amount add, fixed amount deduct, or a custom price.</li>
         <li><strong>Step 4 — Review and confirm.</strong> Check the summary and create the level.</li>
       </ol>
 
-      <p>For each level, you can also set either rule-based pricing (discount/markup) or
-      custom prices per product. A discount rule applies below the approved
-      base price and a markup rule applies above it.</p>
+      <p>When a level is first created, each product price starts as <strong>pending</strong>. You must approve pending prices before you can export the price list.</p>
 
-      <p>Once the prices inside a level are approved, you can export that
-      level as a price list in Excel or PDF format for sharing.</p>`,
+      <p>You can add <strong>pack sizes</strong> to a product in the level. Each pack shows both unit price and pack price on the table and on the exported list.</p>
+
+      <p>After prices are approved, export the level as Excel or PDF to share with customers.</p>`,
   },
 
   {
@@ -889,31 +868,31 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>When you create your first price level, PriceRight walks you through a four-step wizard.</p>
 
-      <p>To start, click <strong>Price levels</strong> in the sidebar, then click
-      <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>.</p>
+      <p>Click <strong>Price Levels</strong> in the sidebar, then <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>.</p>
 
-      <p><strong>Step 1 — Name your price level</strong><br />
-      Give the level a descriptive name such as Retail, Wholesale, Export, or a specific customer name. Add an optional description.</p>
+      <p><strong>Step 1 — Name and currency</strong><br />
+      Enter a name such as Retail, Wholesale, or a customer name. Choose the <strong>Price list currency</strong> — your base currency or another active currency. Prices will be converted using the current exchange rate when shown and exported.</p>
 
-      <p><strong>Step 2 — Set pricing rules</strong><br />
-      Choose how prices in this level are calculated:</p>
+      <p><strong>Step 2 — Add products</strong><br />
+      Search and select the products to include. Only products with an approved base price can be added. You can select all or pick individual products.</p>
+
+      <p><strong>Step 3 — Set pricing rules</strong><br />
+      Set a rule for each product, or use <strong>Apply to all</strong> to set the same rule type for every selected product. Options include:</p>
       <ul>
-        <li><strong>Percentage markup:</strong> add a percentage on top of the approved base price</li>
-        <li><strong>Percentage discount:</strong> reduce the approved base price by a percentage</li>
-        <li><strong>No default rule:</strong> set prices individually per product</li>
+        <li>Percentage markup — add a percentage on top of the approved base price</li>
+        <li>Percentage discount — reduce the approved base price by a percentage</li>
+        <li>Fixed amount add or deduct</li>
+        <li>Custom price per product</li>
       </ul>
 
-      <p><strong>Step 3 — Add products</strong><br />
-      Select which products to include in this price level. You can add all products or select specific ones. Each product shows its base price and the calculated level price based on your rule.</p>
-
       <p><strong>Step 4 — Review and confirm</strong><br />
-      Review the complete price list before saving. Check that all prices look correct. Click Confirm to create the level.</p>
+      Review the product list, rules, and calculated final prices. Click Confirm to create the level. New prices start as <strong>pending</strong> until you approve them on the Price Levels page.</p>
 
       <p><strong>After creating the level:</strong></p>
       <ul>
-        <li>You can edit individual product prices to override the default rule</li>
-        <li>Approve the level prices before exporting</li>
-        <li>Export as Excel or PDF to share with customers</li>
+        <li>Approve pending prices using <strong>Approve all pending</strong> or by approving individual rows</li>
+        <li>Add pack sizes from the row actions menu if needed</li>
+        <li>Export as Excel or PDF once prices are approved</li>
       </ul>`,
   },
 
@@ -939,15 +918,11 @@ export const helpArticles: HelpArticle[] = [
     title: 'Setting customer-specific prices with price levels',
     keywords: ['price levels', 'custom price', 'override', 'negotiated', 'individual price'],
     content: `
-      <p>Price levels support both rule-based pricing and custom prices per
-      product.</p>
+      <p>Price levels support both rule-based pricing and custom prices per product.</p>
 
-      <p>When a customer needs negotiated prices, create a dedicated price
-      level named after that customer (for example, Accra Supermart Ltd).
-      Use that level as the customer-specific pricing sheet.</p>
+      <p>When a customer needs negotiated prices, create a dedicated price level named after that customer. Use it as their pricing sheet.</p>
 
-      <p>Open the <strong>Price Levels</strong> page, add products to that level, and set
-      each product using one of these override types:</p>
+      <p>Open <strong>Price Levels</strong>, add products to the level, and set each product using one of these override types:</p>
       <ul>
         <li>Percentage markup</li>
         <li>Percentage discount</li>
@@ -956,16 +931,13 @@ export const helpArticles: HelpArticle[] = [
         <li>Deduct amount</li>
       </ul>
 
-        <p>When a product's approved base price changes after a cost update,
-        rule-based prices recalculate automatically. Custom prices do not
-        recalculate automatically, so they show a stale custom price alert and
-        must be reviewed manually.</p>
+      <p><strong>Pack size pricing</strong> — after a product is in the level, open the row actions menu (<strong>···</strong>) and choose <strong>Manage packs</strong>. Add pack sizes (for example 6 or 12). Each pack shows unit price and pack price (unit price × pack quantity) in the table and on export.</p>
 
-        <p>See <strong>Stale custom price alerts</strong> for more detail on handling
-        outdated custom prices.</p>
+      <p><strong>Pending re-approval</strong> — when you change a pricing rule or custom price on an existing level, the affected item returns to <strong>pending</strong> status. Approve it again before exporting the price list.</p>
 
-      <p>Price level item prices must be approved before they are used in
-      generated price lists.</p>`,
+      <p>When a product's approved base price changes, rule-based level prices recalculate automatically. Custom prices stay fixed and may show a stale price warning until you review them. See <strong>Stale custom price alerts</strong> for more detail.</p>
+
+      <p>All level prices must be <strong>approved</strong> before they appear on an exported price list.</p>`,
   },
 
   {
@@ -974,27 +946,21 @@ export const helpArticles: HelpArticle[] = [
     title: 'Generating a price list',
     keywords: ['price list', 'generate', 'export', 'customer price list', 'create price list'],
     content: `
-      <p>Generate price lists from the <strong>Price Levels</strong> page. Select a
-      level in the left panel, then click <strong>Export price list</strong> in the
-      level header on the right.</p>
+      <p>Generate price lists from the <strong>Price Levels</strong> page. Select a level in the left panel, then click <strong>Export price list</strong>.</p>
 
-      <p>The export modal shows products in that level. You can select or
-      deselect products before export, then choose Excel or PDF.</p>
+      <p>Only products with <strong>approved</strong> prices in that level can be exported. Pending items are excluded. Before exporting, use <strong>Approve all pending</strong> or select individual rows and approve them.</p>
 
-      <p>Each row in the export includes product name,
-      <strong>Approved base price</strong>, final level price, and the applied rule
-      (for example discount, markup, or custom price). Values are generated
-      from current approved data at export time.</p>
+      <p>The export modal lists approved products. You can select or deselect products, then choose Excel or PDF.</p>
 
-      <p>If custom prices were set before a newer base-price approval, the modal
-      shows an amber stale warning. Export still works, and you can decide to
-      review custom entries first or export as-is.</p>
+      <p>Each row includes the product name, approved base price, final level price, and the rule applied (discount, markup, custom price, and so on).</p>
 
-      <p>Products with no approved base value can appear with 0.00 in your base currency, so confirm
-      approvals before sending a final customer list.</p>
+      <p>If you have configured <strong>pack sizes</strong>, each pack appears as its own row with pack quantity, unit price, and pack price.</p>
 
-      <p>Excel is recommended when you need a spreadsheet for sharing or editing.
-      PDF opens a print-ready view for distribution.</p>`,
+      <p>If the price level uses a currency other than your base currency, exported prices appear in that chosen currency. A note at the bottom of the export shows the exchange rate used.</p>
+
+      <p>If custom prices were set before a newer base-price approval, the modal shows an amber stale warning. You can review those entries first or export as-is.</p>
+
+      <p>Excel works well for editing or sharing spreadsheets. PDF gives a print-ready layout for customers.</p>`,
   },
 
   {
@@ -1003,18 +969,17 @@ export const helpArticles: HelpArticle[] = [
     title: 'Converting price lists to other currencies',
     keywords: ['currency', 'price list currency', 'USD price list', 'convert', 'foreign currency'],
     content: `
-      <p>PriceRight works in your base currency. Exported price lists from
-      Price Levels show prices in that currency.</p>
+      <p>PriceRight can show and export a price list in a currency other than your base currency. You do not need to convert prices manually in Excel.</p>
 
-      <p>If a customer pays in USD or another currency, use the
-      <strong>Currency Exposure</strong> report in the Pricing section to understand
-      your foreign currency exposure.</p>
+      <p><strong>When creating a price level</strong> — in Step 1 of the wizard, choose <strong>Price list currency</strong>. You can keep your base currency or pick any other active currency from your settings.</p>
 
-      <p>For price lists in other currencies, export the price list to Excel in your base currency,
-      then apply the current exchange rate manually in your worksheet.</p>
+      <p><strong>When editing an existing level</strong> — open the level and change <strong>Price list currency</strong> in the level settings if needed.</p>
 
-      <p>Currency still matters for costing because exchange-rate changes update
-      material values and can move products to <strong>Needs review</strong>.</p>`,
+      <p>PriceRight converts all prices to the selected currency using the current exchange rate. Unit prices, pack prices, and exported lists all use that currency.</p>
+
+      <p>When you export, a note on the document shows which exchange rate was used and when.</p>
+
+      <p><strong>Currency Exposure report</strong> (under Reports) is a separate tool. It shows how many materials you buy in each purchase currency. It helps you understand exchange-rate risk on material costs — it is not used to convert price lists for customers.</p>`,
   },
 
   // ── REPORTS AND ANALYSIS ───────────────────────────────────────────────────
@@ -1025,26 +990,17 @@ export const helpArticles: HelpArticle[] = [
     title: 'Using the Products Analysis tab',
     keywords: ['pricing analysis', 'catalog', 'variance', 'overpriced', 'underpriced', 'production calculator'],
     content: `
-      <p>Go to <strong>Products</strong> in the Setup section and open the
-      <strong>Analysis</strong> tab next to Products.</p>
+      <p>Go to <strong>Products</strong> in the Setup section and open the <strong>Analysis</strong> tab.</p>
 
-      <p>The tab gives a portfolio view of pricing health with four sections:</p>
+      <p>The tab has four sections:</p>
       <ol>
-        <li><strong>Pricing health summary</strong> cards for Healthy markup,
-        Low markup, Critical markup, and Not priced. Click a card to filter
-        the table.</li>
-        <li><strong>Margin distribution</strong> showing product counts by margin
-        band. Click a band to filter results.</li>
-        <li><strong>Products by margin</strong> table of active products with
-        <strong>Production cost</strong>, <strong>Approved base price</strong>, and
-        margin indicators. Click a row to open that product.</li>
-        <li><strong>Price level coverage</strong> showing which products are in at
-        least one approved <strong>Price level</strong> and which are not.</li>
+        <li><strong>Pricing health</strong> — summary cards for Healthy markup, Low markup, Critical markup, and Not priced. Click a card to filter the table below.</li>
+        <li><strong>Margin distribution</strong> — a bar chart of product counts by markup band. Click a band to filter the table.</li>
+        <li><strong>Products by margin</strong> — a table of active products. Columns include Product, Category, Production cost, Approved base price, Actual Markup %, Actual Gross Margin %, and a Needs review icon column. Click any row to open that product's detail page. Use the <strong>Lowest first / Highest first</strong> sort button to rank products by margin.</li>
+        <li><strong>Price level coverage</strong> — shows which products are in at least one approved price level and which are not.</li>
       </ol>
 
-      <p>Use this tab regularly to spot products with weak margins, products that
-      need pricing decisions, and products not yet covered by approved
-      <strong>Price levels</strong> for export workflows.</p>`,
+      <p>Use this tab to spot weak margins, products that still need a price, and products not yet on a price level for export.</p>`,
   },
 
   {
@@ -1053,20 +1009,27 @@ export const helpArticles: HelpArticle[] = [
     title: 'Running the Pricing Status report',
     keywords: ['pricing status', 'report', 'above optimal', 'below optimal', 'export report'],
     content: `
-      <p>Go to Reports and select Pricing Status Report. Filter by category
-      or pricing status if needed, then click Generate Report.</p>
+      <p>Go to <strong>Reports</strong>, select <strong>Pricing Status Report</strong>, set filters if needed, then click <strong>Generate Report</strong>.</p>
 
-      <p>The report shows all active products grouped into sections —
-      above optimal, below optimal, at optimal, and no approved base price set.
-      Summary cards at the top give you the headline numbers.</p>
+      <p>Summary cards at the top include Total Products, Above Optimal, Below Optimal, and <strong>Avg Profit %</strong> (based on products with an approved base price set).</p>
 
-      <p>The Approval Status column shows whether each product has been
-      approved, is pending, or needs review — so you can see both pricing
-      health and approval status in one view.</p>
+      <p>Products are grouped into sections in this order:</p>
+      <ol>
+        <li><strong>Below Optimal</strong> — requires attention</li>
+        <li><strong>Above Optimal</strong></li>
+        <li><strong>No approved base price set</strong></li>
+        <li><strong>At Optimal</strong></li>
+      </ol>
 
-      <p>To export, click Export to Excel for a spreadsheet or Export PDF
-      to print. The PDF hides the navigation and filters so only the
-      report content is visible.</p>`,
+      <p>The table has two columns that look similar but mean different things:</p>
+      <ul>
+        <li><strong>Approval</strong> — the approval workflow status: pending, approved, or needs review</li>
+        <li><strong>Status</strong> — the pricing position: Above Optimal, Below Optimal, At Optimal, or blank when there is no approved base price</li>
+      </ul>
+
+      <p>Other columns include Product Name, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, and Profit %.</p>
+
+      <p>Export the report as Excel, PDF, or use Print. PDF and print hide the navigation so only the report content is shown.</p>`,
   },
 
   {
@@ -1120,24 +1083,34 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     keywords: ['price list summary', 'report', 'price lists', 'coverage', 'export coverage'],
     content: `
-      <p>The Price List Summary report gives an overview of all your price levels and how many products are covered in each.</p>
+      <p>The Price List Summary report shows all your price levels and whether each list is still valid or coming up for renewal.</p>
 
-      <p>To run it, go to <strong>Reports</strong> and select <strong>Price List Summary</strong> from the list.</p>
+      <p>Go to <strong>Reports</strong>, select <strong>Price List Summary</strong>, then click <strong>Generate Report</strong>.</p>
 
-      <p>The report shows:</p>
+      <p>Summary cards show:</p>
       <ul>
-        <li>Each price level by name</li>
-        <li>Number of products in the level</li>
-        <li>Number of products with approved prices in the level</li>
-        <li>Number of products pending approval in the level</li>
-        <li>Whether the level is ready to export</li>
+        <li>Total Price Lists</li>
+        <li>Active</li>
+        <li>Expiring Within 30 Days</li>
+        <li>Expired</li>
       </ul>
 
-      <p>Use this report to identify price levels that are incomplete before sharing them with customers.</p>
+      <p>The table columns are:</p>
+      <ul>
+        <li>Price List Name</li>
+        <li>Type</li>
+        <li>Customer / Level</li>
+        <li>Products Covered</li>
+        <li>Valid From</li>
+        <li>Valid Until</li>
+        <li>Days Until Expiry</li>
+        <li>Last Updated</li>
+        <li>Status</li>
+      </ul>
 
-      <p>A level is ready to export when all products in it have approved prices.</p>
+      <p>Use this report to see which price lists are active, which are expiring soon, and which have already expired. It does not show per-product approval status inside each level.</p>
 
-      <p>Click <strong>Export</strong> to download the report as an Excel file.</p>`,
+      <p>Export the report as Excel, PDF, or print.</p>`,
   },
 
   {
@@ -1146,32 +1119,36 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     keywords: ['approval history', 'report', 'price approvals', 'history', 'audit trail'],
     content: `
-      <p>The Approval History report shows a complete record of every price approval in your system.</p>
+      <p>The Approval History report lists products and their current approval-related figures. Use it to review pricing decisions across your catalogue.</p>
 
-      <p>To run it, go to <strong>Reports</strong> and select <strong>Approval History</strong> from the list.</p>
+      <p>Go to <strong>Reports</strong>, select <strong>Approval History</strong>, set your filters, then click <strong>Generate Report</strong>.</p>
 
-      <p>The report shows:</p>
+      <p><strong>Filters:</strong></p>
       <ul>
-        <li>Product name</li>
-        <li>Approved price</li>
-        <li>Production cost at time of approval</li>
-        <li>Markup % at approval</li>
-        <li>Gross Margin % at approval</li>
-        <li>Approved by (user)</li>
-        <li>Approved on (date)</li>
-        <li>Valid until (expiry date)</li>
+        <li>Date range (From and To)</li>
+        <li>Approval status — approved, pending, needs review, or rejected</li>
+        <li>Category</li>
       </ul>
 
-      <p><strong>Use this report for:</strong></p>
+      <p>Summary cards show counts for Total Products, Approved, Pending, Needs Review, and Rejected.</p>
+
+      <p><strong>Table columns:</strong></p>
       <ul>
-        <li>Auditing pricing decisions over time</li>
-        <li>Comparing how prices have changed across approval cycles</li>
-        <li>Providing a pricing history to management or auditors</li>
+        <li>Product Name</li>
+        <li>Category</li>
+        <li>Current Status</li>
+        <li>Approved base price</li>
+        <li>Optimal Price (current)</li>
+        <li>Actual Markup %</li>
+        <li>Actual Gross Margin %</li>
+        <li>Approved On</li>
+        <li>Approved By</li>
+        <li>Active?</li>
       </ul>
 
-      <p>Filter by date range to focus on a specific period.</p>
+      <p><strong>Important:</strong> Optimal Price shows the value calculated today, not the optimal price at the time of approval. PriceRight does not store historical optimal prices. There is no Valid Until column in this report — check the Products page or the Price history tab on a product for expiry dates.</p>
 
-      <p>Click <strong>Export</strong> to download as Excel.</p>`,
+      <p>Export as PDF or print. You can also export to Excel from the report toolbar.</p>`,
   },
 
   // ── ACTIVITY AND HISTORY ──────────────────────────────────────────────────
