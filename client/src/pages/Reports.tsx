@@ -133,8 +133,6 @@ type CurrencyExposureComputedRow = {
   currencyName: string;
   currencyCode: string;
   materialsCount: number;
-  totalValueGhs: number;
-  exposurePct: number;
   currentRateToGhs: number;
   isBaseCurrency: boolean;
   materials: Array<{
@@ -169,7 +167,6 @@ type ReportResultMap = {
   'currency-exposure': {
     rows: CurrencyExposureComputedRow[];
     totalMaterials: number;
-    localExposurePct: number;
   };
 };
 
@@ -528,13 +525,11 @@ export default function Reports() {
         });
 
         const byCurrency = new Map<number, CurrencyExposureComputedRow>();
-        let totalAllMaterials = 0;
 
         materials.forEach((material) => {
           const unitPriceGhs = toNumber(material.unitPrice);
           const originalPrice = toNumber(material.bulkPrice) / Math.max(1, toNumber(material.bulkQuantity));
           const rateToGhs = ratesByCurrencyId.get(material.purchaseCurrencyId) || 1;
-          totalAllMaterials += unitPriceGhs;
 
           const currency = currencies.find((c) => c.id === material.purchaseCurrencyId);
           const code = material.purchaseCurrencyCode || currency?.code || 'N/A';
@@ -543,7 +538,6 @@ export default function Reports() {
           const existing = byCurrency.get(material.purchaseCurrencyId);
           if (existing) {
             existing.materialsCount += 1;
-            existing.totalValueGhs += unitPriceGhs;
             existing.materials.push({
               materialName: material.name,
               category: material.category,
@@ -557,8 +551,6 @@ export default function Reports() {
               currencyName: name,
               currencyCode: code,
               materialsCount: 1,
-              totalValueGhs: unitPriceGhs,
-              exposurePct: 0,
               currentRateToGhs: rateToGhs,
               isBaseCurrency: code === baseCurrency,
               materials: [
@@ -576,16 +568,9 @@ export default function Reports() {
         });
 
         const rows = Array.from(byCurrency.values())
-          .map((row) => ({
-            ...row,
-            exposurePct: totalAllMaterials > 0 ? (row.totalValueGhs / totalAllMaterials) * 100 : 0,
-          }))
-          .sort((a, b) => b.exposurePct - a.exposurePct);
+          .sort((a, b) => b.materialsCount - a.materialsCount);
 
-        const baseCurrencyRow = rows.find((row) => row.currencyCode === baseCurrency);
-        const localExposurePct = baseCurrencyRow ? baseCurrencyRow.exposurePct : 0;
-
-        setReportData({ rows, totalMaterials: materials.length, localExposurePct });
+        setReportData({ rows, totalMaterials: materials.length });
       }
 
       setGeneratedAt(new Date());
@@ -727,8 +712,6 @@ export default function Reports() {
       currency: row.currencyName,
       currencyCode: row.currencyCode,
       materialsCount: row.materialsCount,
-      totalValueGhs: Number(row.totalValueGhs.toFixed(2)),
-      exposurePct: Number(row.exposurePct.toFixed(1)),
       currentRateToGhs: Number(row.currentRateToGhs.toFixed(4)),
     }));
 
@@ -738,8 +721,6 @@ export default function Reports() {
         { key: 'currency', label: 'Currency' },
         { key: 'currencyCode', label: 'Currency Code' },
         { key: 'materialsCount', label: 'Materials Count' },
-        { key: 'totalValueGhs', label: `Total Value (${baseCurrency})` },
-        { key: 'exposurePct', label: 'Exposure %' },
         { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
       ],
       filename: 'currency-exposure-report.csv',
@@ -752,8 +733,6 @@ export default function Reports() {
         currency: row.currencyName,
         code: row.currencyCode,
         materialsCount: row.materialsCount,
-        totalValueGhs: Number(row.totalValueGhs.toFixed(2)),
-        exposurePct: Number(row.exposurePct.toFixed(1)),
         currentRateToGhs: Number(row.currentRateToGhs.toFixed(4)),
       }));
 
@@ -776,8 +755,6 @@ export default function Reports() {
               { key: 'currency', label: 'Currency' },
               { key: 'code', label: 'Code' },
               { key: 'materialsCount', label: 'Materials Count' },
-              { key: 'totalValueGhs', label: `Total Value (${baseCurrency})` },
-              { key: 'exposurePct', label: 'Exposure %' },
               { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
             ],
           },
@@ -1163,15 +1140,12 @@ export default function Reports() {
     }
 
     const data = reportData as ReportResultMap['currency-exposure'];
-    const highestExposure = data.rows[0];
 
     return (
       <div id="reporting-centre-print-area">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
           <StatCard label="Total Materials" value={String(data.totalMaterials)} />
           <StatCard label="Currencies Used" value={String(data.rows.length)} />
-          <StatCard label="Highest Exposure" value={highestExposure ? `${highestExposure.currencyCode} (${formatPct(highestExposure.exposurePct)})` : '—'} />
-          <StatCard label={`Local (${baseCurrency}) Exposure %`} value={formatPct(data.localExposurePct)} />
         </div>
 
         <div className="app-table-wrap">
@@ -1181,8 +1155,6 @@ export default function Reports() {
                 <th>Currency</th>
                 <th>Currency Code</th>
                 <th style={{ textAlign: 'right' }}>Materials Count</th>
-                <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Total Value<br/>({baseCurrency})</th>
-                <th style={{ textAlign: 'right' }}>Exposure %</th>
                 <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Rate<br/>to {baseCurrency}</th>
               </tr>
             </thead>
@@ -1192,15 +1164,6 @@ export default function Reports() {
                   <td>{row.currencyName}</td>
                   <td>{row.currencyCode}</td>
                   <td style={{ textAlign: 'right' }}>{row.materialsCount}</td>
-                  <td style={{ textAlign: 'right' }}>{formatCurrency(row.totalValueGhs)}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ width: '100%', minWidth: '200px' }}>
-                      <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, Math.max(0, row.exposurePct))}%`, height: '100%', backgroundColor: '#0F2847' }} />
-                      </div>
-                      <div style={{ marginTop: '4px', fontWeight: 600 }}>{formatPct(row.exposurePct)}</div>
-                    </div>
-                  </td>
                   <td style={{ textAlign: 'right' }}>{row.currentRateToGhs.toFixed(4)}</td>
                 </tr>
               ))}
@@ -1271,7 +1234,7 @@ export default function Reports() {
         </div>
 
         <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-          Exposure calculated from unit costs converted to {baseCurrency} at current rates. Changes in exchange rates directly impact production costs for foreign-currency materials.
+          Shows how many active materials are purchased in each currency. Expand a currency to see individual materials and current exchange rates.
         </div>
       </div>
     );

@@ -1103,21 +1103,15 @@ export const helpArticles: HelpArticle[] = [
     title: 'Currency exposure',
     keywords: ['currency exposure', 'FX risk', 'exchange rate risk', 'USD exposure', 'foreign currency risk'],
     content: `
-      <p>The Currency Exposure report shows what percentage of your total
-      material costs are in each currency. This tells you how exposed
-      your business is to exchange rate movements.</p>
+      <p>The Currency Exposure report shows how your active materials are spread across purchase currencies. This helps you see which currencies your material catalogue depends on.</p>
 
       <p>Go to Reports and select Currency Exposure Report, then click
       Generate Report.</p>
 
-      <p>The report shows each currency with the total value in your base currency of
-      materials purchased in that currency and the exposure percentage.
+      <p>The report shows each currency with a count of materials purchased in that currency.
       Expand any currency row to see the individual materials.</p>
 
-      <p>If 60% of your material costs are in USD, a 10% depreciation in your local
-      currency effectively increases your production costs by 6% on average. Use
-      this report to understand that risk and make informed pricing
-      decisions when exchange rates move.</p>`,
+      <p>Materials purchased in foreign currencies are exposed to exchange rate risk. When rates move, production costs for those materials change. Use this report to understand which currencies matter most to your business.</p>`,
   },
 
   {

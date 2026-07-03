@@ -168,17 +168,16 @@ export default function MaterialsAnalysisTab(props: {
   }, [products, materials]);
 
   const currencyExposure = useMemo(() => {
-    const groups = new Map<string, { code: string; count: number; totalValue: number }>();
+    const groups = new Map<string, { code: string; count: number }>();
 
     for (const material of materials) {
       const code = (material.purchaseCurrencyCode || 'GHS').trim() || 'GHS';
-      const existing = groups.get(code) || { code, count: 0, totalValue: 0 };
+      const existing = groups.get(code) || { code, count: 0 };
       existing.count += 1;
-      existing.totalValue += toNumber(material.unitPrice);
       groups.set(code, existing);
     }
 
-    return Array.from(groups.values()).sort((a, b) => b.totalValue - a.totalValue);
+    return Array.from(groups.values()).sort((a, b) => b.count - a.count);
   }, [materials]);
 
   const uncostedMaterials = useMemo(() => {
@@ -291,7 +290,7 @@ export default function MaterialsAnalysisTab(props: {
     );
   }
 
-  const maxCurrencyValue = Math.max(...currencyExposure.map((item) => item.totalValue), 1);
+  const maxCurrencyCount = Math.max(...currencyExposure.map((item) => item.count), 1);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px' }}>
@@ -487,14 +486,13 @@ export default function MaterialsAnalysisTab(props: {
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
               {currencyExposure.map((entry) => {
-                const widthPercent = (entry.totalValue / maxCurrencyValue) * 100;
+                const widthPercent = (entry.count / maxCurrencyCount) * 100;
                 return (
-                  <div key={entry.code} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '10px', alignItems: 'center', padding: '12px', borderRadius: '12px', background: '#f8fafc' }}>
+                  <div key={entry.code} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '10px', alignItems: 'center', padding: '12px', borderRadius: '12px', background: '#f8fafc' }}>
                     <div style={{ minWidth: '52px', padding: '6px 12px', borderRadius: '999px', background: '#e2e8f0', color: '#0f172a', fontWeight: 700, fontSize: '13px', textAlign: 'center' }}>{entry.code}</div>
                     <div style={{ width: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '6px', fontSize: '13px' }}>
+                      <div style={{ marginBottom: '6px', fontSize: '13px' }}>
                         <span>{entry.count} material{entry.count !== 1 ? 's' : ''}</span>
-                        <span>{formatMoney(entry.totalValue)}</span>
                       </div>
                       <div style={{ height: '8px', backgroundColor: '#e5e7eb', borderRadius: '4px' }}>
                         <div style={{ width: `${Math.max(4, widthPercent)}%`, height: '8px', borderRadius: '4px', backgroundColor: '#0F2847' }} />
