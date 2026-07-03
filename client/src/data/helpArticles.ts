@@ -1305,4 +1305,166 @@ export const helpArticles: HelpArticle[] = [
       <p>After editing Master Data, click <strong>Save Master Data</strong>. The new values are available across the app immediately.</p>`,
   },
 
+  {
+    id: 'column-selector',
+    section: 'Products',
+    title: 'Choosing which columns to show in tables',
+    keywords: ['columns', 'column selector', 'table', 'show hide', 'density', 'compact'],
+    content: `
+      <p>The Products, Materials, and Intermediate Materials tables each have a column selector in the toolbar.</p>
+
+      <p>Click the <strong>Columns</strong> button in the toolbar to open a panel showing all available columns with checkboxes. Tick or untick columns to show or hide them. Your choices are saved automatically and stay the same the next time you open the app.</p>
+
+      <p>The density toggle in the same toolbar switches the table between compact and comfortable row spacing. Use compact when you have many items and want to see more on screen at once.</p>`,
+  },
+
+  {
+    id: 'active-inactive-filter',
+    section: 'Products',
+    title: 'Filtering active and inactive items',
+    keywords: ['active', 'inactive', 'filter', 'hide', 'archive'],
+    content: `
+      <p>Products, Materials, and Intermediate Materials each have an <strong>Active</strong>, <strong>Inactive</strong>, or <strong>All</strong> filter in the toolbar.</p>
+
+      <p>By default only active items are shown — inactive items are hidden from the table. Switch to <strong>Inactive</strong> to see only inactive items, or <strong>All</strong> to see everything together.</p>
+
+      <p>Setting a product or material to inactive removes it from day-to-day views without deleting it. Its history and cost data are preserved.</p>
+
+      <p>Inactive materials that are still used in a product BOM are flagged in the <strong>Materials Analysis</strong> tab as a warning.</p>`,
+  },
+
+  {
+    id: 'prev-next-navigation',
+    section: 'Products',
+    title: 'Moving between products and materials without closing',
+    keywords: ['previous', 'next', 'navigation', 'browse', 'edit drawer'],
+    content: `
+      <p>When you open a product, material, or intermediate material to view or edit it, you will see <strong>Previous</strong> and <strong>Next</strong> buttons.</p>
+
+      <p>These let you move to the next or previous item in the current filtered list without closing and reopening. A position counter shows where you are — for example, <strong>3 of 47</strong>.</p>
+
+      <p>The navigation follows whatever filter or sort you have applied. If you are viewing only active products sorted by name, Previous and Next move through that same filtered list.</p>
+
+      <p>This is useful when reviewing or updating many items in sequence.</p>`,
+  },
+
+  {
+    id: 'pack-size-pricing',
+    section: 'Price Levels and Exports',
+    title: 'Adding pack sizes to a price level',
+    keywords: ['pack size', 'pack price', 'manage packs', 'bulk pack', 'case price'],
+    content: `
+      <p>A price level can show both unit prices and pack prices for each product.</p>
+
+      <p>To add pack sizes, open a price level, find the product row, click the row actions menu (<strong>···</strong>), and select <strong>Manage packs</strong>.</p>
+
+      <p>In the modal, add one or more pack sizes by entering the pack quantity — for example 6, 12, or 24. The pack price is calculated automatically as unit price multiplied by pack quantity.</p>
+
+      <p>Each pack size appears as its own row in the price list table and on the exported price list. Products with no pack sizes show a single row with a dash in the Pack Size and Pack Price columns.</p>
+
+      <p>Pack sizes can be removed from the same <strong>Manage packs</strong> modal at any time.</p>`,
+  },
+
+  {
+    id: 'price-level-currency',
+    section: 'Price Levels and Exports',
+    title: 'Setting a price level to a different currency',
+    keywords: ['currency', 'exchange rate', 'foreign currency', 'price list currency', 'convert'],
+    content: `
+      <p>When creating or editing a price level, you can choose any active currency for that price list.</p>
+
+      <p>Set the currency in Step 1 of the price level wizard, or edit it later in the price level settings under <strong>Price list currency</strong>.</p>
+
+      <p>Once a currency is set, all prices in that level are shown and exported in that currency. The conversion uses the exchange rate you have entered in Settings — keep your rates up to date for accurate exported prices.</p>
+
+      <p>The <strong>Approved Base</strong> price column always shows the amount in your base currency as a reference. The level currency column shows the converted price.</p>
+
+      <p>The exported price list includes an exchange rate note at the bottom so customers can see the rate used.</p>
+
+      <p>If no currency is set, the price level uses your base currency with no conversion needed.</p>`,
+  },
+
+  {
+    id: 'price-level-approval',
+    section: 'Price Levels and Exports',
+    title: 'Approving prices within a price level',
+    keywords: ['approve', 'pending', 'price level approval', 'export', 'status'],
+    content: `
+      <p>When you add products to a price level or change pricing rules, the affected items are set to <strong>Pending</strong> status.</p>
+
+      <p>Pending items are excluded from exported price lists — only <strong>Approved</strong> items appear on exports.</p>
+
+      <p>To approve items, open the price level and use the <strong>Approve all pending</strong> button to approve everything at once, or select individual rows and use <strong>Approve selected</strong>.</p>
+
+      <p>After approving, the item status changes to Approved and it will appear on the next export.</p>
+
+      <p>If you edit a pricing rule or custom price after approval, the item resets to Pending and needs to be re-approved before the next export.</p>`,
+  },
+
+  {
+    id: 'bulk-reject',
+    section: 'Pricing and Approvals',
+    title: 'Rejecting multiple products at once',
+    keywords: ['bulk reject', 'reject', 'mass reject', 'remove from price list'],
+    content: `
+      <p>You can reject multiple products in one action from the Products page.</p>
+
+      <p>Select the products you want to reject using the checkboxes on the left of each row. When at least one row is selected, the bulk action bar appears at the bottom of the screen.</p>
+
+      <p>Open the <strong>Reject</strong> menu in the bulk bar and choose <strong>Reject selected (add reason if needed)</strong>. Confirm in the modal. You can add an optional reason before rejecting.</p>
+
+      <p>Rejected products have no valid approved price and will not appear on exported price lists.</p>
+
+      <p>You can reverse a rejection at any time by approving the product individually from its product detail page.</p>`,
+  },
+
+  {
+    id: 'undo-bulk-approve',
+    section: 'Pricing and Approvals',
+    title: 'Undoing a bulk approval',
+    keywords: ['undo', 'bulk approve', 'reverse', 'mistake'],
+    content: `
+      <p>After completing a bulk approval or bulk rejection, a confirmation banner appears at the bottom of the screen with a <strong>Yes, Undo</strong> button.</p>
+
+      <p>Click <strong>Yes, Undo</strong> to reverse the entire bulk action and return all affected products to their previous status.</p>
+
+      <p>The banner stays until you click <strong>Yes, Undo</strong> or <strong>No, Keep</strong>. If you dismiss it with <strong>No, Keep</strong>, the action cannot be reversed from this button.</p>
+
+      <p>If you miss the undo window, you can manually re-approve or reject individual products from their product detail pages.</p>`,
+  },
+
+  {
+    id: 'company-branding',
+    section: 'Settings',
+    title: 'Adding your company name and logo',
+    keywords: ['company name', 'logo', 'branding', 'dashboard', 'settings'],
+    content: `
+      <p>Go to <strong>Settings</strong> and open the <strong>General</strong> tab.</p>
+
+      <p>Enter your company name — this appears on the Dashboard and on printed and exported price lists.</p>
+
+      <p>Upload a company logo — supported formats are PNG and JPG. Keep the file under 1 MB; a square image of at least 200 × 200 pixels works well.</p>
+
+      <p>Your logo appears in the Dashboard header alongside your company name.</p>
+
+      <p>These details are stored locally on your computer and are never sent to any server. You can update your company name or logo at any time from the same Settings page.</p>`,
+  },
+
+  {
+    id: 'inline-exchange-rate',
+    section: 'Raw Materials',
+    title: 'Updating exchange rates quickly',
+    keywords: ['exchange rate', 'currency', 'toolbar', 'inline edit', 'foreign currency'],
+    content: `
+      <p>The current exchange rates for all your active foreign currencies are shown directly in the toolbar at the top of the Materials page.</p>
+
+      <p>Click the pencil icon next to any rate to edit it inline. Type the new rate and click <strong>Save</strong>. Click <strong>Cancel</strong> if you change your mind.</p>
+
+      <p>You do not need to go into Settings to update rates — this toolbar shortcut is the fastest way to keep rates current.</p>
+
+      <p>Exchange rates affect the base currency cost of any material purchased in that currency, and flow through to product costs and price level conversions automatically.</p>
+
+      <p>For full rate management including adding new currencies, go to <strong>Settings</strong> → <strong>Currencies &amp; Rates</strong>.</p>`,
+  },
+
 ];
