@@ -333,6 +333,10 @@ export default function PriceLevels() {
   const [includeGeneratedDate, setIncludeGeneratedDate] = useState(true);
   const [includeValidUntil, setIncludeValidUntil] = useState(true);
   const [exportValidUntil, setExportValidUntil] = useState('');
+  const [removeProductTargetId, setRemoveProductTargetId] = useState<number | null>(null);
+  const [showDeleteLevelModal, setShowDeleteLevelModal] = useState(false);
+  const [showBulkDeleteLevelsModal, setShowBulkDeleteLevelsModal] = useState(false);
+  const [showDiscardWizardModal, setShowDiscardWizardModal] = useState(false);
 
   const selectedLevel = useMemo(
     () => levels.find((level) => level.id === selectedLevelId) ?? null,
@@ -732,14 +736,17 @@ export default function PriceLevels() {
 
   async function removeItem(productId: number) {
     if (!selectedLevel) return;
-    if (!window.confirm('Remove this product from the price level?')) {
-      return;
-    }
+    setRemoveProductTargetId(productId);
+  }
+
+  async function confirmRemoveItem() {
+    if (!selectedLevel || removeProductTargetId === null) return;
     setSaving(true);
     try {
-      await priceLevelItemsApi.delete(selectedLevel.id, productId);
+      await priceLevelItemsApi.delete(selectedLevel.id, removeProductTargetId);
       await refreshLevelItems(selectedLevel.id);
       showToastMessage('Product removed from price level.', 'success');
+      setRemoveProductTargetId(null);
     } catch (error) {
       console.error('Failed to remove item:', error);
       showToastMessage((error as Error).message || 'Failed to remove item.', 'error');
@@ -862,11 +869,13 @@ export default function PriceLevels() {
     }
   }
 
-  async function deleteLevel() {
+  function openDeleteLevelModal() {
     if (!selectedLevel) return;
-    if (!window.confirm(`Delete price level "${selectedLevel.name}"?`)) {
-      return;
-    }
+    setShowDeleteLevelModal(true);
+  }
+
+  async function confirmDeleteLevel() {
+    if (!selectedLevel) return;
 
     setSaving(true);
     try {
@@ -880,6 +889,7 @@ export default function PriceLevels() {
       setSelectedLevelId(remaining.length > 0 ? remaining[0].id : null);
       setSelectedLevelIds((prev) => { const next = new Set(prev); next.delete(selectedLevel.id); return next; });
       showToastMessage('Price level deleted.', 'success');
+      setShowDeleteLevelModal(false);
     } catch (error) {
       console.error('Failed to delete level:', error);
       showToastMessage((error as Error).message || 'Failed to delete level.', 'error');
@@ -908,10 +918,14 @@ export default function PriceLevels() {
     });
   }
 
+  function handleOpenBulkDeleteLevelsModal() {
+    if (selectedLevelIds.size === 0) return;
+    setShowBulkDeleteLevelsModal(true);
+  }
+
   async function handleBulkDeleteLevels() {
     if (selectedLevelIds.size === 0) return;
     const count = selectedLevelIds.size;
-    if (!window.confirm(`Delete ${count} price level${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
 
     setSaving(true);
     try {
@@ -930,6 +944,7 @@ export default function PriceLevels() {
       }
       setSelectedLevelIds(new Set());
       showToastMessage(`Deleted ${count} price level${count !== 1 ? 's' : ''}.`, 'success');
+      setShowBulkDeleteLevelsModal(false);
     } catch (error) {
       console.error('Failed to bulk delete levels:', error);
       showToastMessage((error as Error).message || 'Failed to delete selected price levels.', 'error');
@@ -1003,9 +1018,16 @@ export default function PriceLevels() {
 
   function cancelWizard() {
     const hasData = wizardName.trim() || wizardSelectedProductIds.size > 0 || Object.keys(wizardRules).length > 0;
-    if (hasData && !window.confirm('Discard current wizard progress?')) {
+    if (hasData) {
+      setShowDiscardWizardModal(true);
       return;
     }
+    setShowWizard(false);
+    resetWizardState();
+  }
+
+  function confirmDiscardWizard() {
+    setShowDiscardWizardModal(false);
     setShowWizard(false);
     resetWizardState();
   }
@@ -1682,7 +1704,7 @@ export default function PriceLevels() {
                   </span>
                   <button
                     type="button"
-                    onClick={handleBulkDeleteLevels}
+                    onClick={handleOpenBulkDeleteLevelsModal}
                     disabled={saving}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}
                   >
@@ -1879,7 +1901,7 @@ export default function PriceLevels() {
                           { label: 'Edit level name', icon: Pencil, onClick: () => setEditingLevelName(true) },
                           { label: 'Duplicate', icon: Copy, onClick: () => selectedLevel ? handleDuplicateLevel(selectedLevel) : undefined },
                           { type: 'divider' as const, key: 'detail-divider' },
-                          { label: 'Delete level', icon: Trash2, onClick: deleteLevel, danger: true },
+                          { label: 'Delete level', icon: Trash2, onClick: openDeleteLevelModal, danger: true },
                         ]}
                       />
                     </div>
@@ -2904,6 +2926,70 @@ export default function PriceLevels() {
       )}
 
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+
+      {removeProductTargetId !== null && (
+        <div className="app-modal-overlay" onClick={() => setRemoveProductTargetId(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setRemoveProductTargetId(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Remove Product</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This product will be removed from the price level. You can add it back at any time.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setRemoveProductTargetId(null)} disabled={saving}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void confirmRemoveItem()} disabled={saving}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteLevelModal && selectedLevel && (
+        <div className="app-modal-overlay" onClick={() => setShowDeleteLevelModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowDeleteLevelModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Price List</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This price list and all its pricing rules will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowDeleteLevelModal(false)} disabled={saving}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void confirmDeleteLevel()} disabled={saving}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkDeleteLevelsModal && (
+        <div className="app-modal-overlay" onClick={() => setShowBulkDeleteLevelsModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowBulkDeleteLevelsModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Selected Price Lists</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              {selectedLevelIds.size} price list{selectedLevelIds.size !== 1 ? 's' : ''} will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowBulkDeleteLevelsModal(false)} disabled={saving}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleBulkDeleteLevels()} disabled={saving}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDiscardWizardModal && (
+        <div className="app-modal-overlay" onClick={() => setShowDiscardWizardModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowDiscardWizardModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Discard Changes</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              Your changes to this price list will be discarded. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowDiscardWizardModal(false)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={confirmDiscardWizard}>Discard</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

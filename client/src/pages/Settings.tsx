@@ -169,12 +169,28 @@ export default function Settings() {
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [pendingRestoreData, setPendingRestoreData] = useState<string | null>(null);
+  const [showDemoModeModal, setShowDemoModeModal] = useState(false);
+  const [pendingDemoMode, setPendingDemoMode] = useState<boolean | null>(null);
+  const [showResetDemoModal, setShowResetDemoModal] = useState(false);
+  const [resetDemoConfirmText, setResetDemoConfirmText] = useState('');
+  const [deleteCurrencyTarget, setDeleteCurrencyTarget] = useState<Currency | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
-    setHasOpenForm(showAddModal || showResetModal || showPrivacy || showTerms);
-  }, [showAddModal, showResetModal, showPrivacy, showTerms, setHasOpenForm]);
+    setHasOpenForm(
+      showAddModal
+      || showResetModal
+      || showRestoreModal
+      || showDemoModeModal
+      || showResetDemoModal
+      || deleteCurrencyTarget !== null
+      || showPrivacy
+      || showTerms
+    );
+  }, [showAddModal, showResetModal, showRestoreModal, showDemoModeModal, showResetDemoModal, deleteCurrencyTarget, showPrivacy, showTerms, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -401,7 +417,6 @@ async function loadData() {
   }
 
   async function handleRestore() {
-    setIsRestoring(true);
     setBackupUserMsg('');
     setBackupUserError('');
 
@@ -410,7 +425,7 @@ async function loadData() {
 
       if (window.electronAPI?.isElectron) {
         const result = await window.electronAPI.selectRestoreFile();
-        if (result.canceled) { setIsRestoring(false); return; }
+        if (result.canceled) return;
         if (result.error) throw new Error(result.error);
         base64Data = result.base64 ?? null;
       } else {
@@ -437,33 +452,43 @@ async function loadData() {
 
       if (!base64Data) throw new Error('No backup data');
 
-      const confirmed = window.confirm(
-        'Restore this backup?\n\nWARNING: This will replace ALL your current data with the data from the backup file.\n\nThis cannot be undone. Are you sure?'
-      );
-      if (!confirmed) { setIsRestoring(false); return; }
-
-      const response = await fetch(`${API_BASE}/backup/restore`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: base64Data }),
-      });
-      const result = await response.json() as { success?: boolean; error?: string };
-      if (!response.ok) throw new Error(result.error ?? 'Restore failed');
-
-      setBackupUserMsg('Backup restored successfully. Reloading...');
-      setTimeout(() => window.location.reload(), 1500);
+      setPendingRestoreData(base64Data);
+      setShowRestoreModal(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Restore failed';
       if (message !== 'No file selected') {
         setBackupUserError(message);
       }
+    }
+  }
+
+  async function handleConfirmRestore() {
+    if (!pendingRestoreData) return;
+
+    setIsRestoring(true);
+    try {
+      const response = await fetch(`${API_BASE}/backup/restore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: pendingRestoreData }),
+      });
+      const result = await response.json() as { success?: boolean; error?: string };
+      if (!response.ok) throw new Error(result.error ?? 'Restore failed');
+
+      setShowRestoreModal(false);
+      setPendingRestoreData(null);
+      setBackupUserMsg('Backup restored successfully. Reloading...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Restore failed';
+      setBackupUserError(message);
     } finally {
       setIsRestoring(false);
     }
   }
 
   async function handleLiveReset() {
-    if (resetConfirmText !== 'RESET') return;
+    if (resetConfirmText !== 'DELETE') return;
     setIsResetting(true);
     setResetError(null);
     try {
@@ -676,18 +701,18 @@ async function loadData() {
       return;
     }
 
-    const nextMode = !isDemoMode;
-    const confirmMessage = nextMode
-      ? 'Enable Demo Mode? The app will start reading from demo.db sample data.'
-      : 'Switch to Live Data? The app will start reading from priceright.db real data.';
+    setPendingDemoMode(!isDemoMode);
+    setShowDemoModeModal(true);
+  }
 
-    if (!window.confirm(confirmMessage)) {
+  async function handleConfirmDemoModeToggle() {
+    if (pendingDemoMode === null || demoModeLoading || isSwitchingMode) {
       return;
     }
 
     setIsSwitchingMode(true);
     try {
-      await setDemoMode(nextMode);
+      await setDemoMode(pendingDemoMode);
       try { sessionStorage.setItem('priceright_skip_pin_once', '1'); } catch {}
       window.location.reload();
     } catch (error) {
@@ -695,13 +720,18 @@ async function loadData() {
       showToastMessage('Failed to switch data mode', 'error');
     } finally {
       setIsSwitchingMode(false);
+      setShowDemoModeModal(false);
+      setPendingDemoMode(null);
     }
   }
 
+  function handleOpenResetDemoModal() {
+    setResetDemoConfirmText('');
+    setShowResetDemoModal(true);
+  }
+
   async function handleResetDemoData() {
-    if (!window.confirm('This will delete all changes in demo mode and restore the original sample data. Continue?')) {
-      return;
-    }
+    if (resetDemoConfirmText !== 'RESET') return;
 
     try {
       await demoModeApi.reset();
@@ -710,6 +740,18 @@ async function loadData() {
     } catch (error) {
       console.error('Failed to reset demo data:', error);
       showToastMessage('Failed to reset demo data', 'error');
+    }
+  }
+
+  async function handleConfirmDeleteCurrency() {
+    if (!deleteCurrencyTarget) return;
+    try {
+      await currenciesApi.delete(deleteCurrencyTarget.id);
+      loadData();
+      showToastMessage(`${deleteCurrencyTarget.code} deleted`, 'success');
+      setDeleteCurrencyTarget(null);
+    } catch (error) {
+      showToastMessage('Failed to delete currency', 'error');
     }
   }
 
@@ -1291,7 +1333,7 @@ async function loadData() {
                 type="button"
                 className="btn btn-outline"
                 onClick={() => {
-                  void handleResetDemoData();
+                  handleOpenResetDemoModal();
                 }}
               >
                 Reset demo data
@@ -1649,17 +1691,7 @@ async function loadData() {
                       </span>
                     ) : (
                       <button
-                        onClick={async () => {
-                          if (window.confirm(`Delete ${currency.code}? This cannot be undone.`)) {
-                            try {
-                              await currenciesApi.delete(currency.id);
-                              loadData();
-                              showToastMessage(`${currency.code} deleted`, 'success');
-                            } catch (error) {
-                              showToastMessage('Failed to delete currency', 'error');
-                            }
-                          }
-                        }}
+                        onClick={() => setDeleteCurrencyTarget(currency)}
                         style={{
                           padding: '6px 12px',
                           fontSize: '14px',
@@ -1688,14 +1720,14 @@ async function loadData() {
         )}
       </div>
 
-      {/* Reset All Data Modal */}
+      {/* Clear All Data Modal */}
       {showResetModal && (
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '720px' }} onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-x" onClick={() => setShowResetModal(false)} aria-label="Close">&times;</button>
+            <button className="btn-close-x" onClick={() => { setShowResetModal(false); setResetStep(1); setResetConfirmText(''); }} aria-label="Close">&times;</button>
             {resetStep === 1 && (
               <>
-                <h2 className="app-modal-title">Reset all data</h2>
+                <h2 className="app-modal-title">Clear All Data</h2>
                 <p style={{ marginTop: '8px', color: '#475569' }}>
                   This will permanently delete everything in your live database:
                 </p>
@@ -1711,7 +1743,7 @@ async function loadData() {
                 </ul>
                 <p style={{ marginTop: '12px', color: '#7f1d1d' }}><strong>This cannot be undone. Create a backup first if you want to keep a copy of your data.</strong></p>
                 <div className="app-modal-actions" style={{ marginTop: '16px' }}>
-                  <button className="btn btn-secondary" onClick={() => setShowResetModal(false)}>Cancel</button>
+                  <button className="btn btn-secondary" onClick={() => { setShowResetModal(false); setResetStep(1); setResetConfirmText(''); }}>Cancel</button>
                   <button className="btn btn-ghost" onClick={() => { setResetStep(2); }}>Create backup first</button>
                   <button className="btn btn-primary" onClick={() => { setResetStep(2); }}>Continue →</button>
                 </div>
@@ -1719,8 +1751,10 @@ async function loadData() {
             )}
             {resetStep === 2 && (
               <>
-                <h2 className="app-modal-title">Confirm reset</h2>
-                <p style={{ marginTop: '8px', color: '#475569' }}>Type <strong>RESET</strong> in the box below to confirm you want to permanently delete all data.</p>
+                <h2 className="app-modal-title">Clear All Data</h2>
+                <p style={{ marginTop: '8px', color: '#475569' }}>
+                  All your products, materials, price levels, and settings will be permanently deleted. This cannot be undone. Type <strong>DELETE</strong> to confirm.
+                </p>
                 <input
                   className="app-control"
                   value={resetConfirmText}
@@ -1733,12 +1767,91 @@ async function loadData() {
                 )}
                 <div className="app-modal-actions" style={{ marginTop: '16px' }}>
                   <button className="btn btn-secondary" onClick={() => setResetStep(1)} disabled={isResetting}>← Back</button>
-                  <button className="btn btn-danger" onClick={() => handleLiveReset()} disabled={isResetting || resetConfirmText !== 'RESET'}>
-                    {isResetting ? 'Resetting...' : 'Reset all data permanently'}
+                  <button className="btn btn-danger" onClick={() => handleLiveReset()} disabled={isResetting || resetConfirmText !== 'DELETE'}>
+                    {isResetting ? 'Clearing...' : 'Clear all data permanently'}
                   </button>
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {showRestoreModal && (
+        <div className="app-modal-overlay" onClick={() => { if (!isRestoring) { setShowRestoreModal(false); setPendingRestoreData(null); } }}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => { if (!isRestoring) { setShowRestoreModal(false); setPendingRestoreData(null); } }} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Restore Backup</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This will replace ALL your current data with the data from the backup file. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => { setShowRestoreModal(false); setPendingRestoreData(null); }} disabled={isRestoring}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleConfirmRestore()} disabled={isRestoring}>
+                {isRestoring ? 'Restoring...' : 'Restore Backup'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDemoModeModal && pendingDemoMode !== null && (
+        <div className="app-modal-overlay" onClick={() => { if (!isSwitchingMode) { setShowDemoModeModal(false); setPendingDemoMode(null); } }}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => { if (!isSwitchingMode) { setShowDemoModeModal(false); setPendingDemoMode(null); } }} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">{pendingDemoMode ? 'Enable Demo Mode' : 'Switch to Live Data'}</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              {pendingDemoMode
+                ? 'The app will start reading from demo.db sample data.'
+                : 'The app will start reading from priceright.db real data.'}
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => { setShowDemoModeModal(false); setPendingDemoMode(null); }} disabled={isSwitchingMode}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => void handleConfirmDemoModeToggle()} disabled={isSwitchingMode}>
+                {isSwitchingMode ? 'Switching...' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetDemoModal && (
+        <div className="app-modal-overlay" onClick={() => setShowResetDemoModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowResetDemoModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Reset Demo Data</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              All current data will be replaced with demo data. Type <strong>RESET</strong> to confirm.
+            </p>
+            <input
+              className="app-control"
+              value={resetDemoConfirmText}
+              onChange={(e) => setResetDemoConfirmText(e.target.value)}
+              style={{ marginBottom: '20px', width: '100%' }}
+              autoFocus
+            />
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowResetDemoModal(false)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleResetDemoData()} disabled={resetDemoConfirmText !== 'RESET'}>
+                Reset Demo Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteCurrencyTarget && (
+        <div className="app-modal-overlay" onClick={() => setDeleteCurrencyTarget(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setDeleteCurrencyTarget(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Currency</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This currency will be removed. Any materials or price levels using this currency will be affected.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDeleteCurrencyTarget(null)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleConfirmDeleteCurrency()}>Delete</button>
+            </div>
           </div>
         </div>
       )}

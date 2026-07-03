@@ -272,6 +272,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const { handlePrint } = usePrint();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<MaterialRecord | null>(null);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
   const [componentMaterialId, setComponentMaterialId] = useState<number>(0);
   const [componentQuantity, setComponentQuantity] = useState<string>('1');
@@ -761,28 +763,55 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     }
   }
 
-  async function handleDeleteMaterial(material: MaterialRecord) {
-    const confirmed = window.confirm(`Delete intermediate material "${material.name}"? This cannot be undone.`);
-    if (!confirmed) {
-      return;
-    }
+  function handleDeleteMaterial(material: MaterialRecord) {
+    setDeleteTarget(material);
+  }
+
+  async function handleConfirmDeleteMaterial() {
+    if (!deleteTarget) return;
+    const materialName = deleteTarget.name;
 
     try {
-      await materialsApi.delete(material.id);
-      if (selectedId === material.id) {
+      await materialsApi.delete(deleteTarget.id);
+      if (selectedId === deleteTarget.id) {
         setSelectedId(null);
         setForm(emptyForm);
         setBomItems([]);
         setIsFormOpen(false);
       }
+      setDeleteTarget(null);
       await loadData();
-      setStatusText(`Deleted ${material.name}.`);
-      showToastMessage(`Deleted ${material.name}`, 'success');
+      setStatusText(`Deleted ${materialName}.`);
+      showToastMessage(`Deleted ${materialName}`, 'success');
     } catch (error: any) {
       const message = error?.message || 'Failed to delete intermediate material';
       setStatusText(message);
       showToastMessage(message, 'error');
+    }
+  }
+
+  function handleOpenBulkDeleteModal() {
+    if (selectedIds.size === 0) return;
+    setShowBulkDeleteModal(true);
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) {
+      return;
+    }
+
+    setBulkDeleting(true);
+    const count = selectedIds.size;
+    try {
+      await materialsApi.bulkDeleteIntermediates(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+      await loadData();
+      showToastMessage(`Deleted ${count} intermediate material${count !== 1 ? 's' : ''}`, 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to delete selected materials', 'error');
     } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -847,31 +876,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       showToastMessage(`Updated ${targets.length} intermediate material${targets.length !== 1 ? 's' : ''}`, 'success');
     } catch (error: any) {
       showToastMessage(error?.message || 'Failed to update selected materials', 'error');
-    }
-  }
-
-  async function handleBulkDelete() {
-    if (selectedIds.size === 0) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Delete ${selectedIds.size} intermediate material${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    setBulkDeleting(true);
-    try {
-      await materialsApi.bulkDeleteIntermediates(Array.from(selectedIds));
-      setSelectedIds(new Set());
-      await loadData();
-      showToastMessage(`Deleted ${selectedIds.size} intermediate material${selectedIds.size !== 1 ? 's' : ''}`, 'success');
-    } catch (error: any) {
-      showToastMessage(error?.message || 'Failed to delete selected materials', 'error');
-    } finally {
-      setBulkDeleting(false);
     }
   }
 
@@ -1227,7 +1231,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               {selectedIds.size} selected
             </span>
             <button
-              onClick={handleBulkDelete}
+              onClick={handleOpenBulkDeleteModal}
               className="btn btn-danger-solid btn-sm"
               disabled={bulkDeleting}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
@@ -2095,6 +2099,41 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <div className="app-modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setDeleteTarget(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Intermediate Material</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This intermediate material will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleConfirmDeleteMaterial()}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkDeleteModal && (
+        <div className="app-modal-overlay" onClick={() => setShowBulkDeleteModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowBulkDeleteModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Selected</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              {selectedIds.size} intermediate material{selectedIds.size !== 1 ? 's' : ''} will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowBulkDeleteModal(false)} disabled={bulkDeleting}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleBulkDelete()} disabled={bulkDeleting}>
+                {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
     </>
   );

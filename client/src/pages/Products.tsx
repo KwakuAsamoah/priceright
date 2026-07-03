@@ -372,6 +372,7 @@ export default function Products() {
   const [bulkApproveExpiryDate, setBulkApproveExpiryDate] = useState('');
   const [showBulkResetModal, setShowBulkResetModal] = useState(false);
   const [bulkResetReason, setBulkResetReason] = useState('');
+  const [inactiveTarget, setInactiveTarget] = useState<ProductPricing | null>(null);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { setHasOpenForm } = useFormState();
@@ -583,17 +584,26 @@ export default function Products() {
   async function handleToggleProductActive(product: ProductPricing) {
     const nextActiveState = !product.isActive;
     if (!nextActiveState) {
-      const confirmed = window.confirm(
-        `Mark ${product.name} as inactive?\nIt will be hidden from Price Lists and Special Pricing unless specifically filtered.`
-      );
-      if (!confirmed) {
-        return;
-      }
+      setInactiveTarget(product);
+      return;
     }
 
     try {
-      await productsApi.update(product.id, { isActive: nextActiveState });
-      showToastMessage(`Product marked as ${nextActiveState ? 'active' : 'inactive'}`, 'success');
+      await productsApi.update(product.id, { isActive: true });
+      showToastMessage('Product marked as active', 'success');
+      await loadData();
+    } catch (error: any) {
+      console.error('Error updating product status:', error);
+      showToastMessage(error?.message || 'Failed to update product status', 'error');
+    }
+  }
+
+  async function handleConfirmSetInactive() {
+    if (!inactiveTarget) return;
+    try {
+      await productsApi.update(inactiveTarget.id, { isActive: false });
+      showToastMessage('Product marked as inactive', 'success');
+      setInactiveTarget(null);
       await loadData();
     } catch (error: any) {
       console.error('Error updating product status:', error);
@@ -2170,6 +2180,22 @@ export default function Products() {
           totalCount: filteredProducts.length,
         } : {})}
       />
+
+      {inactiveTarget && (
+        <div className="app-modal-overlay" onClick={() => setInactiveTarget(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setInactiveTarget(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Set Product Inactive</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This product will be hidden from your active products list and excluded from price lists and exports.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setInactiveTarget(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => void handleConfirmSetInactive()}>Set Inactive</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div

@@ -137,6 +137,9 @@ export default function ProductDetail() {
   const [showPriceForm, setShowPriceForm] = useState(false);
   const [staleCustomPrices, setStaleCustomPrices] = useState<Array<{ priceLevelId: number; priceLevelName: string; customPrice: number; newApprovedBasePrice: number }>>([]);
   const [staleAlertDismissed, setStaleAlertDismissed] = useState(false);
+  const [showInactiveModal, setShowInactiveModal] = useState(false);
+  const [showApproveCustomModal, setShowApproveCustomModal] = useState(false);
+  const [showResetPendingModal, setShowResetPendingModal] = useState(false);
 
   // materials list for the form drawer
   const [materials, setMaterials] = useState<any[]>([]);
@@ -314,17 +317,25 @@ export default function ProductDetail() {
 
   async function handleToggleActive() {
     if (!product) return;
-    if (!product.isActive) {
-      // activating — no confirmation needed
-    } else {
-      const confirmed = window.confirm(
-        `Mark ${product.name} as inactive?\nIt will be hidden from Price Lists and Special Pricing unless specifically filtered.`
-      );
-      if (!confirmed) return;
+    if (product.isActive) {
+      setShowInactiveModal(true);
+      return;
     }
     try {
-      await productsApi.update(productId, { isActive: !product.isActive });
-      showToastMessage(`Product marked as ${product.isActive ? 'inactive' : 'active'}`, 'success');
+      await productsApi.update(productId, { isActive: true });
+      showToastMessage('Product marked as active', 'success');
+      await loadData();
+    } catch (err: any) {
+      showToastMessage(err?.message || 'Failed to update product status', 'error');
+    }
+  }
+
+  async function handleConfirmSetInactive() {
+    if (!product) return;
+    try {
+      await productsApi.update(productId, { isActive: false });
+      showToastMessage('Product marked as inactive', 'success');
+      setShowInactiveModal(false);
       await loadData();
     } catch (err: any) {
       showToastMessage(err?.message || 'Failed to update product status', 'error');
@@ -382,6 +393,16 @@ export default function ProductDetail() {
     }
   }
 
+  function handleApproveCustomClick() {
+    if (!product) return;
+    const customPrice = parseFloat(approvalCustomPrice);
+    if (Number.isNaN(customPrice) || customPrice <= 0) {
+      showToastMessage('Enter a valid custom price', 'error');
+      return;
+    }
+    setShowApproveCustomModal(true);
+  }
+
   async function handleApproveCustom() {
     if (!product) return;
     const customPrice = parseFloat(approvalCustomPrice);
@@ -389,9 +410,6 @@ export default function ProductDetail() {
       showToastMessage('Enter a valid custom price', 'error');
       return;
     }
-    const optimalPrice = toNum(product.optimalPrice);
-    const confirmText = `Approve custom price ${baseCurrency} ${customPrice.toFixed(2)}? This differs from optimal price ${baseCurrency} ${optimalPrice.toFixed(2)}.`;
-    if (!confirm(confirmText)) return;
 
     const expiryDate = approvalExpiryDate.trim() || null;
     setApprovalLoading(true);
@@ -403,6 +421,7 @@ export default function ProductDetail() {
       });
       showToastMessage(`Custom price approved: ${baseCurrency} ${customPrice.toFixed(2)}`, 'success');
       setShowPriceForm(false);
+      setShowApproveCustomModal(false);
       setApprovalCustomPrice('');
       setApprovalReason('');
       setApprovalExpiryDate('');
@@ -418,14 +437,13 @@ export default function ProductDetail() {
 
   async function handleResetToPending() {
     if (!product) return;
-    const confirmText = `Reset pricing for ${product.name} to pending? The approved price will be cleared.`;
-    if (!confirm(confirmText)) return;
 
     setApprovalLoading(true);
     try {
       await productsApi.resetToPending(productId, { reason: approvalReason || undefined });
       showToastMessage('Price reset to pending. Re-approve when ready.', 'success');
       setShowPriceForm(false);
+      setShowResetPendingModal(false);
       await loadData();
     } catch (err: any) {
       showToastMessage(err?.message || 'Failed to reset price to pending', 'error');
@@ -859,7 +877,7 @@ export default function ProductDetail() {
               <div style={{ marginTop: '12px' }}>
                 <button
                   type="button"
-                  onClick={handleResetToPending}
+                  onClick={() => setShowResetPendingModal(true)}
                   disabled={approvalLoading}
                   style={{
                     border: '1px solid #cbd5e1',
@@ -1032,7 +1050,7 @@ export default function ProductDetail() {
                     />
                     <button
                       type="button"
-                      onClick={handleApproveCustom}
+                      onClick={handleApproveCustomClick}
                       disabled={approvalLoading}
                       className="btn btn-success btn-sm"
                       style={{
@@ -1142,6 +1160,54 @@ export default function ProductDetail() {
           await loadData();
         }}
       />
+
+      {showInactiveModal && (
+        <div className="app-modal-overlay" onClick={() => setShowInactiveModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowInactiveModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Set Product Inactive</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This product will be hidden from your active products list and excluded from price lists and exports.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowInactiveModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => void handleConfirmSetInactive()}>Set Inactive</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showApproveCustomModal && product && (
+        <div className="app-modal-overlay" onClick={() => setShowApproveCustomModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowApproveCustomModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Approve Custom Price</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              Approve custom price {baseCurrency} {parseFloat(approvalCustomPrice).toFixed(2)}? This differs from optimal price {baseCurrency} {toNum(product.optimalPrice).toFixed(2)}.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowApproveCustomModal(false)} disabled={approvalLoading}>Cancel</button>
+              <button className="btn btn-success" onClick={() => void handleApproveCustom()} disabled={approvalLoading}>Approve Custom</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showResetPendingModal && (
+        <div className="app-modal-overlay" onClick={() => setShowResetPendingModal(false)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setShowResetPendingModal(false)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Reset Pricing Status</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              Reset pricing for {product?.name}? The approved price will be cleared and the product will need to be re-approved.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowResetPendingModal(false)} disabled={approvalLoading}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => void handleResetToPending()} disabled={approvalLoading}>Reset to Pending</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

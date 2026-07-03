@@ -246,6 +246,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   
   // New state for bulk actions
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [singleDeleteTargetId, setSingleDeleteTargetId] = useState<number | null>(null);
+  const [inactiveTarget, setInactiveTarget] = useState<Material | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const [bulkCustomCategoryValue, setBulkCustomCategoryValue] = useState('');
@@ -727,16 +729,20 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     }
   }
 
-  async function handleDelete(id: number) {
-    if (window.confirm('Are you sure you want to delete this material?')) {
-      try {
-        await materialsApi.delete(id);
-        loadData(selectedStatus);
-        showToastMessage('Material deleted successfully', 'success');
-      } catch (error) {
-        console.error('Error deleting material:', error);
-        showToastMessage('Failed to delete material', 'error');
-      }
+  function handleDelete(id: number) {
+    setSingleDeleteTargetId(id);
+  }
+
+  async function handleConfirmSingleDelete() {
+    if (singleDeleteTargetId == null) return;
+    try {
+      await materialsApi.delete(singleDeleteTargetId);
+      setSingleDeleteTargetId(null);
+      loadData(selectedStatus);
+      showToastMessage('Material deleted successfully', 'success');
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      showToastMessage('Failed to delete material', 'error');
     }
   }
 
@@ -769,17 +775,26 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   async function handleToggleMaterialActive(material: Material) {
     const nextActiveState = !material.isActive;
     if (!nextActiveState) {
-      const confirmed = window.confirm(
-        `Mark ${material.name} as inactive?\nIt will remain in existing BOMs but will be flagged in the filter.`
-      );
-      if (!confirmed) {
-        return;
-      }
+      setInactiveTarget(material);
+      return;
     }
 
     try {
-      await materialsApi.update(material.id, { isActive: nextActiveState });
-      showToastMessage(`Material marked as ${nextActiveState ? 'active' : 'inactive'}`, 'success');
+      await materialsApi.update(material.id, { isActive: true });
+      showToastMessage('Material marked as active', 'success');
+      await loadData(selectedStatus);
+    } catch (error) {
+      console.error('Error updating material status:', error);
+      showToastMessage('Failed to update material status', 'error');
+    }
+  }
+
+  async function handleConfirmSetInactive() {
+    if (!inactiveTarget) return;
+    try {
+      await materialsApi.update(inactiveTarget.id, { isActive: false });
+      showToastMessage('Material marked as inactive', 'success');
+      setInactiveTarget(null);
       await loadData(selectedStatus);
     } catch (error) {
       console.error('Error updating material status:', error);
@@ -2333,6 +2348,38 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         </div>
       )}
 
+      {singleDeleteTargetId != null && (
+        <div className="app-modal-overlay" onClick={() => setSingleDeleteTargetId(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setSingleDeleteTargetId(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Delete Material</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              This material will be permanently deleted. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setSingleDeleteTargetId(null)}>Cancel</button>
+              <button className="btn btn-danger-solid" onClick={() => void handleConfirmSingleDelete()}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inactiveTarget && (
+        <div className="app-modal-overlay" onClick={() => setInactiveTarget(null)}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setInactiveTarget(null)} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Set Material Inactive</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              {inactiveTarget.name} will remain in existing BOMs but will be flagged in the inactive filter.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => setInactiveTarget(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={() => void handleConfirmSetInactive()}>Set Inactive</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && usageData && (
         <div
@@ -2347,10 +2394,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               &times;
             </button>
             <h2 className="app-modal-title" style={{ marginBottom: '8px' }}>
-              Delete {selectedMaterials.size} Material{selectedMaterials.size !== 1 ? 's' : ''}?
+              Delete Selected Materials
             </h2>
             <p style={{ color: '#64748b', marginBottom: '20px' }}>
-              Materials used in product BOMs cannot be deleted.
+              {selectedMaterials.size} material{selectedMaterials.size !== 1 ? 's' : ''} will be permanently deleted. This cannot be undone. Materials used in product BOMs cannot be deleted.
             </p>
 
             {usageData.inUse.length > 0 && (
