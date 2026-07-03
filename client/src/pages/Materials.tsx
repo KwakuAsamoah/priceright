@@ -10,7 +10,6 @@ import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
-import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
@@ -1551,23 +1550,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <AppButton
-                          onClick={(e) => { e.stopPropagation(); handleEdit(material); }}
-                          variant="ghost"
-                          size="sm"
-                          className="app-row-action-icon"
-                          title="Edit"
-                          ariaLabel={`Edit ${material.name}`}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0px',
-                            padding: '2px',
-                            minWidth: '20px',
-                          }}
-                        >
-                          <Pencil size={14} strokeWidth={2} />
-                        </AppButton>
                         <OverflowMenu
                           ariaLabel={`More actions for ${material.name}`}
                           items={[

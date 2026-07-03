@@ -2120,22 +2120,7 @@ export default function Products() {
                                 >
                                   <CheckCircle size={14} strokeWidth={2} color="#e65100" />
                                 </AppButton>
-                              ) : (
-                                <AppButton
-                                  onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="app-row-action-icon"
-                                  title="Edit product"
-                                  ariaLabel={`Edit ${product.name}`}
-                                  style={{
-                                    padding: '2px',
-                                    minWidth: '20px',
-                                  }}
-                                >
-                                  <Pencil size={14} strokeWidth={2} />
-                                </AppButton>
-                              )}
+                              ) : null}
                               <OverflowMenu
                                 ariaLabel={`More actions for ${product.name}`}
                                 items={[

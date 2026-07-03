@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Pencil, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import ActionDropdown from '../components/ActionDropdown';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
@@ -1362,9 +1362,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <AppButton onClick={(e) => { e.stopPropagation(); openEditMaterialForm(material); }} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
-                          <Pencil size={11} strokeWidth={2} />
-                        </AppButton>
                         <AppButton onClick={(e) => { e.stopPropagation(); void handleToggleMaterialActive(material); }} variant="ghost" size="sm" className="app-row-action-icon" title={material.isActive ? 'Set Inactive' : 'Set Active'} ariaLabel={`${material.isActive ? 'Set inactive' : 'Set active'} ${material.name}`} style={{ backgroundColor: 'transparent', display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           {material.isActive ? <EyeOff size={11} strokeWidth={2} /> : <Eye size={11} strokeWidth={2} />}
                         </AppButton>
