@@ -13,7 +13,7 @@ interface ProductRow {
   category?: string;
   productionMode?: 'single' | 'batch';
   batchYield?: number;
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  approvalStatus?: 'pending' | 'approved' | 'needs_review';
   currentSellingPrice?: number;
   approvedPrice?: number | null;
   totalCost: number;

@@ -246,10 +246,9 @@ function daysUntil(date: Date | null): number | null {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 }
 
-function statusBadgeVariant(status: string): 'approved' | 'pending' | 'rejected' | 'needs-review' | 'inactive' {
+function statusBadgeVariant(status: string): 'approved' | 'pending' | 'needs-review' | 'inactive' {
   if (status === 'approved') return 'approved';
-  if (status === 'pending') return 'pending';
-  if (status === 'rejected') return 'rejected';
+  if (status === 'pending' || status === 'rejected') return 'pending';
   if (status === 'needs_review') return 'needs-review';
   return 'inactive';
 }
@@ -257,8 +256,7 @@ function statusBadgeVariant(status: string): 'approved' | 'pending' | 'rejected'
 function approvalStatusLabel(status: PricingStatusComputedRow['approvalStatus']): string {
   if (status === 'needs_review') return 'Needs Review';
   if (status === 'approved') return 'Approved';
-  if (status === 'pending') return 'Pending';
-  if (status === 'rejected') return 'Rejected';
+  if (status === 'pending' || status === 'rejected') return 'Pending';
   return 'Pending';
 }
 
@@ -290,7 +288,7 @@ export default function Reports() {
     return d.toISOString().slice(0, 10);
   });
   const [approvalToDate, setApprovalToDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [approvalStatusFilter, setApprovalStatusFilter] = useState<'All' | 'approved' | 'rejected' | 'needs_review' | 'pending'>('All');
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState<'All' | 'approved' | 'needs_review' | 'pending'>('All');
   const [approvalCategoryFilter, setApprovalCategoryFilter] = useState('All');
 
   const selectedMeta = REPORT_METADATA.find((item) => item.key === selectedReport) || null;
@@ -877,7 +875,6 @@ export default function Reports() {
               <select className="app-control" value={approvalStatusFilter} onChange={(e) => setApprovalStatusFilter(e.target.value as any)}>
                 <option value="All">All</option>
                 <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
                 <option value="needs_review">Needs Review</option>
                 <option value="pending">Pending</option>
               </select>
@@ -1085,16 +1082,14 @@ export default function Reports() {
       const approved = data.rows.filter((row) => row.currentStatus === 'approved').length;
       const pending = data.rows.filter((row) => row.currentStatus === 'pending').length;
       const needsReview = data.rows.filter((row) => row.currentStatus === 'needs_review').length;
-      const rejected = data.rows.filter((row) => row.currentStatus === 'rejected').length;
 
       return (
         <div id="reporting-centre-print-area">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
             <StatCard label="Total Products" value={String(data.rows.length)} />
             <StatCard label="Approved" value={String(approved)} tone="success" />
             <StatCard label="Pending" value={String(pending)} tone="default" />
             <StatCard label="Needs Review" value={String(needsReview)} tone="warning" />
-            <StatCard label="Rejected" value={String(rejected)} tone="danger" />
           </div>
 
           <div className="app-table-wrap">

@@ -5,6 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from './schema.js';
 import { seedDemoData } from './seedDemo.js';
+import { migrateActivityLog } from './migrations/add-user-id-to-activity-log.js';
+import { migratePriceLevelCurrency } from './migrations/add-currency-to-price-levels.js';
+import { migratePriceLevelPackSizes } from './migrations/add-price-level-pack-sizes.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const isElectron = process.env.ELECTRON === 'true';
@@ -236,6 +239,8 @@ function ensureSchemaTables() {
 			action TEXT NOT NULL,
 			details TEXT,
 			performed_by TEXT,
+			user_id INTEGER NOT NULL DEFAULT 1,
+			user_name TEXT NOT NULL DEFAULT 'Admin',
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`);
@@ -265,6 +270,8 @@ function ensureSchemaTables() {
 			action TEXT NOT NULL,
 			details TEXT,
 			performed_by TEXT,
+			user_id INTEGER NOT NULL DEFAULT 1,
+			user_name TEXT NOT NULL DEFAULT 'Admin',
 			created_at INTEGER NOT NULL DEFAULT (unixepoch())
 		)
 	`;
@@ -433,11 +440,14 @@ function ensureSchemaTables() {
     if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
         sqlite.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
     }
-    if (!productColumns.some((column) => column.name === 'rejection_reason')) {
-        sqlite.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
-    }
 }
 ensureSchemaTables();
+migrateActivityLog(sqlite);
+migratePriceLevelCurrency(sqlite);
+migratePriceLevelPackSizes(sqlite);
+migrateActivityLog(demoSqlite);
+migratePriceLevelCurrency(demoSqlite);
+migratePriceLevelPackSizes(demoSqlite);
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });

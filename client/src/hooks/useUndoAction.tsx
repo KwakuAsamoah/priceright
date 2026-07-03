@@ -3,10 +3,8 @@ import { materialsApi, productsApi } from '../api';
 
 export type UndoActionType =
   | 'bulk_approve'
-  | 'bulk_reject'
   | 'bulk_delete'
-  | 'single_approve'
-  | 'single_reject';
+  | 'single_approve';
 
 export interface UndoPreviousState {
   id: number;
@@ -84,7 +82,6 @@ export function UndoActionProvider({ children }: { children: ReactNode }) {
               approvalStatus: item.approvalStatus,
               approvedPrice: item.approvedPrice,
               currentSellingPrice: item.currentSellingPrice,
-              rejectionReason: null,
             })
           )
         );

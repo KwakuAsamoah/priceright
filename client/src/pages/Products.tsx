@@ -42,7 +42,7 @@ interface Product {
   productionMode?: 'single' | 'batch';
   batchYield?: number;
   currentSellingPrice?: number;
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  approvalStatus?: 'pending' | 'approved' | 'needs_review' | 'rejected';
   approvedPrice?: number | null;
   approvedBy?: string | null;
   approvedAt?: string | null;
@@ -79,7 +79,7 @@ interface ProductPricing extends Product {
   optimalPrice: number;
 }
 
-const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Rejected', 'Needs Review'];
+const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Needs Review'];
 
 function toNumber(value: string | number | undefined) {
   if (value === undefined) return 0;
@@ -212,13 +212,6 @@ function getApprovalBadge(status?: Product['approvalStatus']) {
     return {
       label: 'Approved',
       variant: 'approved' as const,
-    };
-  }
-
-  if (status === 'rejected') {
-    return {
-      label: 'Rejected',
-      variant: 'rejected' as const,
     };
   }
 
@@ -377,8 +370,8 @@ export default function Products() {
   const [bulkApprovePriceMethod, setBulkApprovePriceMethod] = useState<'optimal' | 'selling' | 'markup'>('optimal');
   const [bulkApproveMarkup, setBulkApproveMarkup] = useState('10');
   const [bulkApproveExpiryDate, setBulkApproveExpiryDate] = useState('');
-  const [showBulkRejectModal, setShowBulkRejectModal] = useState(false);
-  const [bulkRejectReason, setBulkRejectReason] = useState('');
+  const [showBulkResetModal, setShowBulkResetModal] = useState(false);
+  const [bulkResetReason, setBulkResetReason] = useState('');
   const [bulkCategoryValue, setBulkCategoryValue] = useState('');
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { setHasOpenForm } = useFormState();
@@ -417,7 +410,7 @@ export default function Products() {
   const approvalQueryFilter = useMemo(() => {
     const params = new URLSearchParams(location.search);
     const approval = (params.get('approval') || '').toLowerCase();
-    if (approval === 'pending' || approval === 'approved' || approval === 'rejected' || approval === 'needs_review') {
+    if (approval === 'pending' || approval === 'approved' || approval === 'needs_review') {
       return approval as Product['approvalStatus'];
     }
     return null;
@@ -931,39 +924,24 @@ export default function Products() {
     }
   }
 
-  async function handleConfirmBulkReject() {
+  async function handleConfirmBulkReset() {
     const ids = Array.from(selectedProducts);
     if (ids.length === 0) return;
-    const approvedIds = ids.filter((id) => {
-      const product = products.find((entry) => entry.id === id);
-      return product?.approvalStatus === 'approved';
-    });
-    const previousStates = buildProductUndoSnapshot(approvedIds);
 
     try {
-      const result = await productsApi.bulkReject(ids, bulkRejectReason.trim() || undefined);
-      const rejectedCount = Number(result?.rejected || 0);
-      const summaryText = `Rejected ${rejectedCount} products.`;
+      const result = await productsApi.bulkResetToPending(ids, bulkResetReason.trim() || undefined);
+      const resetCount = Number(result?.reset || 0);
       showToastMessage(
-        `Rejected ${rejectedCount} products. They have been removed from active price lists.`,
+        `${resetCount} product${resetCount === 1 ? '' : 's'} reset to pending. Re-approve when ready.`,
         'success'
       );
-      if (rejectedCount > 0) {
-        registerUndo({
-          actionType: 'bulk_reject',
-          description: summaryText,
-          affectedIds: approvedIds,
-          previousStates,
-          onDataRefresh: loadData,
-        });
-      }
-      setShowBulkRejectModal(false);
-      setBulkRejectReason('');
+      setShowBulkResetModal(false);
+      setBulkResetReason('');
       setSelectedProducts(new Set());
       await loadData();
     } catch (error: any) {
-      console.error('Bulk reject failed:', error);
-      showToastMessage(error?.message || 'Failed to bulk reject products', 'error');
+      console.error('Bulk reset to pending failed:', error);
+      showToastMessage(error?.message || 'Failed to reset products to pending', 'error');
     }
   }
 
@@ -1327,13 +1305,14 @@ export default function Products() {
         (selectedStatus === 'Below Optimal' && status === 'below-optimal');
 
       const approvalStatus = product.approvalStatus || 'pending';
+      const normalizedApprovalStatus = approvalStatus === 'rejected' ? 'pending' : approvalStatus;
       const matchesApprovalStatus =
         selectedApprovalStatus === 'All' ||
-        (selectedApprovalStatus === 'Pending' && approvalStatus === 'pending') ||
-        (selectedApprovalStatus === 'Approved' && approvalStatus === 'approved') ||
-        (selectedApprovalStatus === 'Rejected' && approvalStatus === 'rejected') ||
-        (selectedApprovalStatus === 'Needs Review' && approvalStatus === 'needs_review');
-      const matchesApprovalQuery = !approvalQueryFilter || approvalStatus === approvalQueryFilter;
+        (selectedApprovalStatus === 'Pending' && normalizedApprovalStatus === 'pending') ||
+        (selectedApprovalStatus === 'Approved' && normalizedApprovalStatus === 'approved') ||
+        (selectedApprovalStatus === 'Needs Review' && normalizedApprovalStatus === 'needs_review');
+      const matchesApprovalQuery = !approvalQueryFilter
+        || (approvalQueryFilter === 'rejected' ? normalizedApprovalStatus === 'pending' : approvalStatus === approvalQueryFilter);
 
       const actualProfitOnCost = calculateActualProfitOnCost(product);
       const matchesLowMargin = !lowMarginOnly || (actualProfitOnCost !== null && actualProfitOnCost < 12);
@@ -1495,12 +1474,6 @@ export default function Products() {
       return (status === 'pending' || status === 'needs_review') && product.optimalPrice > 0;
     }).length;
   }, [filteredProducts]);
-
-  const selectedApprovedCount = useMemo(() => {
-    return filteredProducts.filter((product) => selectedProducts.has(product.id) && product.approvalStatus === 'approved').length;
-  }, [filteredProducts, selectedProducts]);
-
-  const selectedNonApprovedCount = Math.max(0, selectedProducts.size - selectedApprovedCount);
 
   const isBulkApproveMarkupValid = (() => {
     if (bulkApprovePriceMethod !== 'markup') return true;
@@ -1735,21 +1708,15 @@ export default function Products() {
             />
 
             <ActionDropdown
-              label="Reject"
-              buttonClassName="btn btn-secondary btn-sm"
-              items={[
-                {
-                  key: 'reject-selected',
-                  label: 'Reject selected (add reason if needed)',
-                  onSelect: () => setShowBulkRejectModal(true),
-                },
-              ]}
-            />
-
-            <ActionDropdown
               label="More"
               buttonClassName="btn btn-ghost btn-sm"
               items={[
+                {
+                  key: 'bulk-reset-pending',
+                  label: 'Reset to Pending',
+                  onSelect: () => setShowBulkResetModal(true),
+                },
+                { key: 'divider-reset', type: 'divider' as const },
                 {
                   key: 'bulk-set-active',
                   label: 'Set active',
@@ -2174,7 +2141,12 @@ export default function Products() {
           overflowY: 'auto',
           padding: '8px 0',
         }}>
-          <ProductsAnalysisTab products={products} />
+          <ProductsAnalysisTab
+            products={products.map((product) => ({
+              ...product,
+              approvalStatus: product.approvalStatus === 'rejected' ? 'pending' : product.approvalStatus,
+            }))}
+          />
         </div>
       )}
       </div>
@@ -2430,41 +2402,35 @@ export default function Products() {
         </div>
       )}
 
-      {showBulkRejectModal && (
+      {showBulkResetModal && (
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '620px' }} onClick={(e) => e.stopPropagation()}>
-            <button className="btn-close-x" onClick={() => setShowBulkRejectModal(false)} aria-label="Close">
+            <button className="btn-close-x" onClick={() => setShowBulkResetModal(false)} aria-label="Close">
               &times;
             </button>
-            <h2 className="app-modal-title">Reject Selected Prices</h2>
+            <h2 className="app-modal-title">Reset Pricing Status</h2>
             <p style={{ color: '#475569', marginBottom: '10px' }}>
-              Reject Approved base prices for {selectedProducts.size} selected products? Products will be moved to Rejected status and removed from price lists until re-approved.
+              Selected products will be moved back to pending. Their approved prices will be cleared and will need to be re-approved.
             </p>
-            {selectedNonApprovedCount > 0 && (
-              <div style={{ marginBottom: '10px', fontSize: '15px', color: '#92400e', backgroundColor: '#fef3c7', borderRadius: '8px', padding: '8px 10px' }}>
-                {selectedNonApprovedCount} of your selected products are not currently approved and will be skipped.
-              </div>
-            )}
             <div style={{ marginBottom: '16px' }}>
-              <label className="app-settings-label">Reason for rejection (optional)</label>
+              <label className="app-settings-label">Reason (optional)</label>
               <input
                 className="app-control"
                 type="text"
-                value={bulkRejectReason}
-                onChange={(e) => setBulkRejectReason(e.target.value)}
-                placeholder="e.g. Cost update required, pricing review needed"
+                value={bulkResetReason}
+                onChange={(e) => setBulkResetReason(e.target.value)}
+                placeholder="e.g. Pricing review needed"
                 style={{ width: '100%' }}
               />
             </div>
 
             <div className="app-modal-actions">
-              <button className="btn btn-danger-solid" onClick={() => setShowBulkRejectModal(false)}>Close</button>
+              <button className="btn btn-secondary" onClick={() => setShowBulkResetModal(false)}>Close</button>
               <button
-                className="btn btn-danger-solid"
-                onClick={handleConfirmBulkReject}
-                disabled={selectedApprovedCount === 0}
+                className="btn btn-primary"
+                onClick={handleConfirmBulkReset}
               >
-                Reject {selectedApprovedCount} Products
+                Reset {selectedProducts.size} Products
               </button>
             </div>
           </div>

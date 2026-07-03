@@ -1342,11 +1342,6 @@ textarea {
   color: var(--color-warning-text);
 }
 
-.status-rejected {
-  background: var(--color-error-soft);
-  color: var(--color-error-text);
-}
-
 .status-active,
 .status-info {
   background: #f3f4f6;
@@ -1427,8 +1422,7 @@ textarea {
   border-color: #FDE68A;
 }
 
-.app-badge-danger,
-.app-badge-rejected {
+.app-badge-danger {
   background: #FEF2F2;
   color: #DC2626;
   border-color: #FECACA;

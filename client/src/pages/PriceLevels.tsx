@@ -138,9 +138,8 @@ function marginTone(margin: number): 'success' | 'warning' | 'danger' {
   return 'danger';
 }
 
-function itemStatusVariant(status: PriceLevelItemResponse['status']): 'pending' | 'approved' | 'rejected' {
+function itemStatusVariant(status: PriceLevelItemResponse['status']): 'pending' | 'approved' {
   if (status === 'approved') return 'approved';
-  if (status === 'rejected') return 'rejected';
   return 'pending';
 }
 
@@ -241,9 +240,6 @@ function describeLevelActivity(entry: ActivityEntry): string {
   if (entry.action === 'price_level_item.approved') {
     return `${String(details.productName || entry.entityName || 'Item')} approved (${String(details.levelName || 'Level')})`;
   }
-  if (entry.action === 'price_level_item.rejected') {
-    return `${String(details.productName || entry.entityName || 'Item')} rejected (${String(details.levelName || 'Level')})`;
-  }
   if (entry.action === 'price_level_item.bulk_approved') {
     return `${Number(details.count || 0)} items bulk approved (${String(details.levelName || 'Level')})`;
   }
@@ -253,7 +249,7 @@ function describeLevelActivity(entry: ActivityEntry): string {
 
 function levelActivityIcon(action: string) {
   if (action.endsWith('approved')) return { Icon: CheckCircle2, color: '#16a34a' };
-  if (action.endsWith('rejected') || action.endsWith('deleted')) return { Icon: XCircle, color: '#dc2626' };
+  if (action.endsWith('deleted')) return { Icon: XCircle, color: '#dc2626' };
   return { Icon: Clock3, color: '#64748b' };
 }
 
@@ -729,28 +725,6 @@ export default function PriceLevels() {
     } catch (error) {
       console.error('Failed to approve item:', error);
       showToastMessage((error as Error).message || 'Failed to approve item.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function rejectItem(productId: number) {
-    if (!selectedLevel) return;
-    const reason = window.prompt('Enter rejection reason');
-    if (!reason || !reason.trim()) {
-      return;
-    }
-    setSaving(true);
-    try {
-      await priceLevelItemsApi.reject(selectedLevel.id, productId, {
-        approvedBy: 'user',
-        justification: reason.trim(),
-      });
-      await refreshLevelItems(selectedLevel.id);
-      showToastMessage('Item rejected.', 'success');
-    } catch (error) {
-      console.error('Failed to reject item:', error);
-      showToastMessage((error as Error).message || 'Failed to reject item.', 'error');
     } finally {
       setSaving(false);
     }
@@ -2130,53 +2104,22 @@ export default function PriceLevels() {
                                                 { label: 'Edit price', icon: Pencil, onClick: () => openInlineEdit(item) },
                                                 { type: 'divider' as const, key: `pending-divider-${item.productId}` },
                                                 {
-                                                  label: 'Reject',
-                                                  icon: XCircle,
-                                                  onClick: () => {
-                                                    if (window.confirm(`Reject ${item.productName}?`)) {
-                                                      void rejectItem(item.productId);
-                                                    }
-                                                  },
-                                                  danger: true,
-                                                },
-                                                {
                                                   label: 'Delete',
                                                   icon: Trash2,
                                                   onClick: () => removeItem(item.productId),
                                                   danger: true,
                                                 },
                                               ]
-                                              : item.status === 'approved'
-                                                ? [
-                                                  { label: 'Re-approve at optimal', icon: Check, onClick: () => approveItem(item.productId) },
-                                                  { type: 'divider' as const, key: `approved-divider-${item.productId}` },
-                                                  {
-                                                    label: 'Reject',
-                                                    icon: XCircle,
-                                                    onClick: () => {
-                                                      if (window.confirm(`Reject ${item.productName}?`)) {
-                                                        void rejectItem(item.productId);
-                                                      }
-                                                    },
-                                                    danger: true,
-                                                  },
-                                                  {
-                                                    label: 'Delete',
-                                                    icon: Trash2,
-                                                    onClick: () => removeItem(item.productId),
-                                                    danger: true,
-                                                  },
-                                                ]
-                                                : [
-                                                  { label: 'Edit and re-submit', icon: Pencil, onClick: () => openInlineEdit(item) },
-                                                  { type: 'divider' as const, key: `rejected-divider-${item.productId}` },
-                                                  {
-                                                    label: 'Delete',
-                                                    icon: Trash2,
-                                                    onClick: () => removeItem(item.productId),
-                                                    danger: true,
-                                                  },
-                                                ]),
+                                              : [
+                                                { label: 'Re-approve at optimal', icon: Check, onClick: () => approveItem(item.productId) },
+                                                { type: 'divider' as const, key: `approved-divider-${item.productId}` },
+                                                {
+                                                  label: 'Delete',
+                                                  icon: Trash2,
+                                                  onClick: () => removeItem(item.productId),
+                                                  danger: true,
+                                                },
+                                              ]),
                                           ]}
                                         />
                                       </div>

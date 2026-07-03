@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Tag,
   TrendingUp,
-  XCircle,
 } from 'lucide-react';
 import {
   demoModeApi,
@@ -27,7 +26,7 @@ import {
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { formatCurrency } from '../utils/currency';
 
-type ProductApprovalStatus = 'pending' | 'approved' | 'rejected' | 'needs_review';
+type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
 type BannerTone = 'success' | 'error';
 
 interface Product {
@@ -124,7 +123,7 @@ function dashboardIconBoxStyle(backgroundColor: string): CSSProperties {
 
 function getProductStatus(product: Product): ProductApprovalStatus {
   const status = product.approvalStatus;
-  if (status === 'approved' || status === 'rejected' || status === 'needs_review') return status;
+  if (status === 'approved' || status === 'needs_review') return status;
   return 'pending';
 }
 
@@ -366,13 +365,11 @@ export default function Dashboard() {
     let approved = 0;
     let pending = 0;
     let needsReview = 0;
-    let rejected = 0;
 
     activeProducts.forEach((product) => {
       const status = getProductStatus(product);
       if (status === 'approved') approved += 1;
       else if (status === 'needs_review') needsReview += 1;
-      else if (status === 'rejected') rejected += 1;
       else pending += 1;
     });
 
@@ -383,7 +380,6 @@ export default function Dashboard() {
       approved,
       pending,
       needsReview,
-      rejected,
     };
   }, [products]);
 
@@ -642,8 +638,6 @@ export default function Dashboard() {
       .slice(0, 10);
   }, [products, exchangeRates, currencyLookup, baseCurrency]);
 
-  const rejectedIconBg = productCounts.rejected > 0 ? '#DC2626' : '#059669';
-  const rejectedValueColor = rejectedIconBg;
   const marginIconBg = marginHealthColor(averageApprovedMargin);
   const marginValueColor = marginHealthColor(averageApprovedMargin);
   const exportReadyIconBg = priceLevelSummary.exportReadyLevels > 0 ? '#059669' : '#64748b';
@@ -878,16 +872,6 @@ export default function Dashboard() {
             <div className="dashboard-stat-sub">{productCounts.active} active · {productCounts.inactive} inactive</div>
           </button>
 
-          <button className="app-card dashboard-stat-card" onClick={() => navigate('/products?approval=rejected')} title="Open rejected products">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(rejectedIconBg)}><XCircle size={20} color="#ffffff" /></div>
-            </div>
-            <div className="dashboard-stat-title">Rejected Products</div>
-            <div className="dashboard-stat-value" style={{ color: rejectedValueColor }}>{productCounts.rejected}</div>
-            <div className="dashboard-stat-hint">Click to reprice and re-approve</div>
-            <div className="dashboard-stat-sub">Require repricing and re-approval</div>
-          </button>
-
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div className="dashboard-icon-box" style={dashboardIconBoxStyle(marginIconBg)}><TrendingUp size={20} color="#ffffff" /></div>
@@ -1118,10 +1102,6 @@ export default function Dashboard() {
                 <div style={{ fontSize: '14px', color: '#64748b' }}>
                   {needsReviewBreakdown.costChanges} cost changes · {needsReviewBreakdown.priceExpired} price expired · {needsReviewBreakdown.other} other
                 </div>
-                <button className="btn btn-secondary btn-sem-approvals" style={{ justifyContent: 'space-between', display: 'flex', width: '100%' }} onClick={() => navigate('/products?approval=rejected')}>
-                  <span>Rejected</span>
-                  <strong className="dashboard-number-xs">{productCounts.rejected}</strong>
-                </button>
               </div>
             </div>
 

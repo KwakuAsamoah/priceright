@@ -550,7 +550,7 @@ async function toPriceLevelItemResponse(
     finalPriceConverted,
     currencyCode,
     rateToBase,
-    status: item.status as 'pending' | 'approved' | 'rejected',
+    status: (item.status === 'rejected' ? 'pending' : item.status) as 'pending' | 'approved',
     approvedBy: item.approvedBy ?? null,
     approvedAt: item.approvedAt ?? null,
     justification: item.justification ?? null,
@@ -2206,29 +2206,6 @@ function persistProductComputedValues(productId: number, materialCost: number, o
   updateStatement.run(...values, productId);
 }
 
-let rejectionReasonColumnChecked = false;
-
-function ensureProductRejectionReasonColumn() {
-  if (rejectionReasonColumnChecked) {
-    return;
-  }
-
-  const sqliteClient = getSqliteClient();
-  if (!sqliteClient) {
-    return;
-  }
-
-  const productColumns = sqliteClient
-    .prepare("SELECT name FROM pragma_table_info('products')")
-    .all() as Array<{ name: string }>;
-
-  if (!productColumns.some((column) => column.name === 'rejection_reason')) {
-    sqliteClient.prepare('ALTER TABLE products ADD COLUMN rejection_reason TEXT').run();
-  }
-
-  rejectionReasonColumnChecked = true;
-}
-
 async function setNeedsReviewIfOutdated(productId: number): Promise<{ reviewed: boolean; movedToNeedsReview: boolean }> {
   const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
   if (productRows.length === 0) {
@@ -2888,12 +2865,6 @@ app.post('/api/products/:id/approve', async (req, res) => {
 
     await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
 
-    const sqliteClient = getSqliteClient();
-    if (sqliteClient) {
-      ensureProductRejectionReasonColumn();
-      sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
-    }
-
     const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
 
     // Compute production cost for the response — mirrors GET /api/products/:id
@@ -2982,40 +2953,60 @@ app.post('/api/products/:id/approve', async (req, res) => {
   }
 });
 
-app.post('/api/products/:id/reject', async (req, res) => {
+app.post('/api/products/:id/reset-to-pending', async (req, res) => {
   try {
     const productId = parseInt(req.params.id);
+    if (!Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid product id' });
+    }
+
+    const existingRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
-    ensureProductRejectionReasonColumn();
 
     await getActiveDb().update(products).set({
-      approvalStatus: 'rejected',
+      approvalStatus: 'pending',
       approvedPrice: null,
       approvedBy: null,
       approvedAt: null,
-      needsReviewReason: null,
       updatedAt: new Date(),
     }).where(eq(products.id, productId));
 
-    const sqliteClient = getSqliteClient();
-    if (sqliteClient) {
-      sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(reason || null, productId);
+    const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
+
+    let computedProductionCost = 0;
+    let computedOptimalPrice = 0;
+    try {
+      const snapshot = await calculateProductCostSnapshot(productId);
+      const denominator = 1 + Number(updated[0].profitMargin || 0) / 100;
+      computedProductionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+      computedOptimalPrice = snapshot.optimalPrice;
+    } catch {
+      // keep 0 — non-fatal
     }
 
-    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-    const product = productRows[0];
+    const updatedProduct = withDerivedProductFields({
+      ...updated[0],
+      productionCost: computedProductionCost,
+      optimalPrice: computedOptimalPrice,
+    });
+
     await logActivity({
       entityType: 'product',
       entityId: productId,
-      entityName: product?.name || null,
-      action: 'product.rejected',
+      entityName: updatedProduct.name,
+      action: 'product.reset_to_pending',
       details: { reason: reason || null },
       performedBy: await getCurrentUserName(),
     });
 
-    res.json(product);
+    res.json(updatedProduct);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to reject price' });
+    console.error('Error resetting product to pending:', error);
+    res.status(500).json({ error: 'Failed to reset product to pending' });
   }
 });
 
@@ -3068,7 +3059,6 @@ app.post('/api/products/bulk-approve', async (req, res) => {
     let approved = 0;
     let skipped = 0;
     const skippedProducts: string[] = [];
-    const rejected: string[] = [];
     const performedBy = await getCurrentUserName();
 
     for (const productId of productIds) {
@@ -3120,10 +3110,6 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       };
 
       await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
-      const sqliteClient = getSqliteClient();
-      if (sqliteClient) {
-        sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
-      }
 
       const productionCost = await calculateProductionCostForProduct(current, productId);
       const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
@@ -3146,7 +3132,6 @@ app.post('/api/products/bulk-approve', async (req, res) => {
 
     res.json({
       approved,
-      rejected,
       skipped,
       skippedProducts,
       priceMethod: normalizedMethod,
@@ -3158,52 +3143,40 @@ app.post('/api/products/bulk-approve', async (req, res) => {
   }
 });
 
-app.post('/api/products/bulk-reject', async (req, res) => {
+app.post('/api/products/bulk-reset-to-pending', async (req, res) => {
   try {
-    const { productIds, reason } = req.body as { productIds?: number[]; reason?: string };
+    const { productIds } = req.body as { productIds?: number[] };
     if (!Array.isArray(productIds) || productIds.length === 0) {
       return res.status(400).json({ error: 'No products provided' });
     }
 
-    ensureProductRejectionReasonColumn();
-    const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
-    let rejected = 0;
-    let skipped = 0;
+    let reset = 0;
 
     for (const productId of productIds) {
-      const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-      if (currentRows.length === 0) {
-        skipped += 1;
+      if (!Number.isInteger(productId)) {
         continue;
       }
 
-      const current = currentRows[0];
-      if (current.approvalStatus !== 'approved') {
-        skipped += 1;
+      const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+      if (currentRows.length === 0) {
         continue;
       }
 
       await getActiveDb().update(products).set({
-        approvalStatus: 'rejected',
+        approvalStatus: 'pending',
         approvedPrice: null,
         approvedBy: null,
-        approvedAt: new Date(),
-        needsReviewReason: null,
+        approvedAt: null,
         updatedAt: new Date(),
       }).where(eq(products.id, productId));
 
-      const sqliteClient = getSqliteClient();
-      if (sqliteClient) {
-        sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(normalizedReason || null, productId);
-      }
-
-      rejected += 1;
+      reset += 1;
     }
 
-    res.json({ rejected, skipped });
+    res.json({ reset });
   } catch (error) {
-    console.error('Bulk reject failed:', error);
-    res.status(500).json({ error: 'Failed to bulk reject products' });
+    console.error('Bulk reset to pending failed:', error);
+    res.status(500).json({ error: 'Failed to bulk reset products to pending' });
   }
 });
 
@@ -4155,72 +4128,6 @@ app.post('/api/price-levels/:id/items/:productId/approve', async (req, res) => {
   } catch (error) {
     console.error('Error approving price level item:', error);
     res.status(500).json({ error: 'Failed to approve price level item' });
-  }
-});
-
-app.post('/api/price-levels/:id/items/:productId/reject', async (req, res) => {
-  try {
-    const priceLevelId = parseInt(req.params.id);
-    const productId = parseInt(req.params.productId);
-    if (!Number.isInteger(priceLevelId) || !Number.isInteger(productId)) {
-      return res.status(400).json({ error: 'Invalid price level id or product id' });
-    }
-
-    const rejectionJustification = typeof req.body?.justification === 'string' ? req.body.justification.trim() : '';
-    if (!rejectionJustification) {
-      return res.status(400).json({ error: 'justification is required for rejection' });
-    }
-
-    const existingRows = await getActiveDb()
-      .select()
-      .from(priceLevelItems)
-      .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
-
-    if (existingRows.length === 0) {
-      return res.status(404).json({ error: 'Price level item not found' });
-    }
-
-    const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
-      ? req.body.approvedBy.trim()
-      : 'user';
-
-    await getActiveDb().update(priceLevelItems)
-      .set({
-        status: 'rejected',
-        approvedBy,
-        approvedAt: new Date(),
-        justification: rejectionJustification,
-        updatedAt: new Date(),
-      })
-      .where(eq(priceLevelItems.id, existingRows[0].id));
-
-    const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
-    const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-    const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
-    const levelCurrency = levelRows[0]
-      ? await resolvePriceLevelCurrencyContext(levelRows[0])
-      : undefined;
-    const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0], levelCurrency);
-
-    const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
-    const productName = productRows[0]?.name || `Product ${productId}`;
-    await logActivity({
-      entityType: 'price_level_item',
-      entityId: updatedRows[0].id,
-      entityName: productName,
-      action: 'price_level_item.rejected',
-      details: {
-        levelName,
-        productName,
-        reason: rejectionJustification || null,
-      },
-      performedBy: await getCurrentUserName(),
-    });
-
-    res.json(response);
-  } catch (error) {
-    console.error('Error rejecting price level item:', error);
-    res.status(500).json({ error: 'Failed to reject price level item' });
   }
 });
 

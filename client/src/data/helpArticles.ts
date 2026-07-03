@@ -663,7 +663,7 @@ export const helpArticles: HelpArticle[] = [
     id: 'how-approval-works',
     section: 'Pricing and Approvals',
     title: 'How price approval works',
-    keywords: ['approval', 'approve', 'reject', 'pending', 'workflow', 'status'],
+    keywords: ['approval', 'approve', 'reset to pending', 'pending', 'workflow', 'status'],
     content: `
       <p>Approval is the step where you set the product's official
       <strong>Approved base price</strong>. PriceRight calculates an <strong>Optimal price</strong>
@@ -683,7 +683,7 @@ export const helpArticles: HelpArticle[] = [
             <strong>Approved base price</strong> when the product is in <strong>Needs review</strong>.</li>
             <li>Enter a value in the <strong>Custom Price</strong> field, then click
             <strong>Approve Custom</strong> to approve a specific amount.</li>
-            <li><strong>Reject</strong> to decline and continue review.</li>
+            <li><strong>Reset to Pending</strong> returns the product to pending status, clears the approved price, and requires re-approval before the price can be used in exports.</li>
           </ul>
         </li>
         <li>After approval, status becomes <strong>Approved</strong> and that
@@ -1126,11 +1126,11 @@ export const helpArticles: HelpArticle[] = [
       <p><strong>Filters:</strong></p>
       <ul>
         <li>Date range (From and To)</li>
-        <li>Approval status — approved, pending, needs review, or rejected</li>
+        <li>Approval status — approved, pending, or needs review</li>
         <li>Category</li>
       </ul>
 
-      <p>Summary cards show counts for Total Products, Approved, Pending, Needs Review, and Rejected.</p>
+      <p>Summary cards show counts for Total Products, Approved, Pending, and Needs Review.</p>
 
       <p><strong>Table columns:</strong></p>
       <ul>
@@ -1161,11 +1161,11 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>The Activity log is a complete record of significant actions in PriceRight. It helps you see who changed what, when it happened, and the key details of the change. Open <strong>Activity</strong> from the Pricing section of the sidebar.</p>
 
-      <p>The log records product base price approvals and rejections, products moved to <strong>Needs review</strong>, material cost updates, materials created, exchange-rate updates, price levels created or deleted, price level item approvals and rejections, and bulk price level approvals.</p>
+      <p>The log records product base price approvals, products reset to pending, products moved to <strong>Needs review</strong>, material cost updates, materials created, exchange-rate updates, price levels created or deleted, price level item approvals, and bulk price level approvals.</p>
 
       <p>Each entry shows an action icon, a clear description, the time, and the person who performed the action. Descriptions include practical detail such as old and new prices, <strong>Gross Margin %</strong>, production cost values, and affected product counts where relevant.</p>
 
-      <p>Use filters at the top to narrow results by entity type, action group, and date range. Entity type includes Products, Materials, Price Levels, and Exchange Rates. Action groups include Approvals, Rejections, Cost changes, Created, and Deleted.</p>
+      <p>Use filters at the top to narrow results by entity type, action group, and date range. Entity type includes Products, Materials, Price Levels, and Exchange Rates. Action groups include Approvals, Cost changes, Created, and Deleted. Reset to Pending actions appear in the activity list when a product price is moved back to pending.</p>
 
       <p>Click <strong>Clear filters</strong> to reset all filters quickly. Results are shown newest first.</p>
 
@@ -1188,7 +1188,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>The most recent approval row is highlighted in light blue. This is the currently active approved price.</p>
 
-      <p>This tab does not show rejections or review flags. Use the full <strong>Activity log</strong> page for those events. If no approvals exist yet, the tab shows an empty state prompting first approval.</p>`,
+      <p>This tab does not show reset-to-pending events or review flags. Use the full <strong>Activity log</strong> page for those events. If no approvals exist yet, the tab shows an empty state prompting first approval.</p>`,
   },
 
   {
@@ -1402,35 +1402,18 @@ export const helpArticles: HelpArticle[] = [
   },
 
   {
-    id: 'bulk-reject',
-    section: 'Pricing and Approvals',
-    title: 'Rejecting multiple products at once',
-    keywords: ['bulk reject', 'reject', 'mass reject', 'remove from price list'],
-    content: `
-      <p>You can reject multiple products in one action from the Products page.</p>
-
-      <p>Select the products you want to reject using the checkboxes on the left of each row. When at least one row is selected, the bulk action bar appears at the bottom of the screen.</p>
-
-      <p>Open the <strong>Reject</strong> menu in the bulk bar and choose <strong>Reject selected (add reason if needed)</strong>. Confirm in the modal. You can add an optional reason before rejecting.</p>
-
-      <p>Rejected products have no valid approved price and will not appear on exported price lists.</p>
-
-      <p>You can reverse a rejection at any time by approving the product individually from its product detail page.</p>`,
-  },
-
-  {
     id: 'undo-bulk-approve',
     section: 'Pricing and Approvals',
     title: 'Undoing a bulk approval',
     keywords: ['undo', 'bulk approve', 'reverse', 'mistake'],
     content: `
-      <p>After completing a bulk approval or bulk rejection, a confirmation banner appears at the bottom of the screen with a <strong>Yes, Undo</strong> button.</p>
+      <p>After completing a bulk approval, a confirmation banner appears at the bottom of the screen with a <strong>Yes, Undo</strong> button.</p>
 
-      <p>Click <strong>Yes, Undo</strong> to reverse the entire bulk action and return all affected products to their previous status.</p>
+      <p>Click <strong>Yes, Undo</strong> to reverse the entire bulk approval and return all affected products to their previous status.</p>
 
       <p>The banner stays until you click <strong>Yes, Undo</strong> or <strong>No, Keep</strong>. If you dismiss it with <strong>No, Keep</strong>, the action cannot be reversed from this button.</p>
 
-      <p>If you miss the undo window, you can manually re-approve or reject individual products from their product detail pages.</p>`,
+      <p>If you miss the undo window, you can manually re-approve individual products from their product detail pages, or use <strong>Reset to Pending</strong> from the Products bulk bar if you need to clear approved prices.</p>`,
   },
 
   {

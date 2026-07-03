@@ -10,7 +10,6 @@ type BadgeVariant =
   | 'inactive'
   | 'approved'
   | 'pending'
-  | 'rejected'
   | 'needs-review';
 
 type BadgeSize = 'sm' | 'md';
@@ -44,8 +43,6 @@ function variantClass(variant: BadgeVariant) {
       return 'app-badge-approved';
     case 'pending':
       return 'app-badge-pending';
-    case 'rejected':
-      return 'app-badge-rejected';
     case 'needs-review':
       return 'app-badge-needs-review';
     default:

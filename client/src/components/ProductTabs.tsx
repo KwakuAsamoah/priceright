@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Clock3, History, TrendingUp, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 interface Product {
@@ -91,6 +91,10 @@ function describeProductActivity(action: string, details: Record<string, unknown
       ? `Approved base price at ${currencyCode} ${newPrice.toFixed(2)}`
       : 'Approved product base price';
   }
+  if (action === 'product.reset_to_pending') {
+    const reason = data.reason ? ` - ${String(data.reason)}` : '';
+    return `Price reset to pending${reason}`;
+  }
   if (action === 'product.rejected') {
     const reason = data.reason ? ` - ${String(data.reason)}` : '';
     return `Rejected product price${reason}`;
@@ -107,6 +111,9 @@ function describeProductActivity(action: string, details: Record<string, unknown
 function getActivityVisual(action: string) {
   if (action === 'product.approved') {
     return { Icon: CheckCircle2, color: '#16a34a' };
+  }
+  if (action === 'product.reset_to_pending') {
+    return { Icon: RotateCcw, color: '#64748b' };
   }
   if (action === 'product.rejected') {
     return { Icon: XCircle, color: '#dc2626' };

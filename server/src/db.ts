@@ -478,9 +478,6 @@ function ensureSchemaTables() {
 	if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
 		sqlite.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
 	}
-	if (!productColumns.some((column) => column.name === 'rejection_reason')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
-	}
 }
 
 ensureSchemaTables();

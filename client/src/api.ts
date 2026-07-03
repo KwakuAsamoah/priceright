@@ -84,7 +84,7 @@ export interface ProductRecord {
   productionMode?: 'single' | 'batch';
   batchYield?: number;
   currentSellingPrice?: number;
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  approvalStatus?: 'pending' | 'approved' | 'needs_review';
   approvedPrice?: number | null;
   approvedBy?: string | null;
   approvedAt?: string | number | null;
@@ -161,7 +161,7 @@ export interface PriceLevelItemResponse {
   finalPriceConverted?: number;
   currencyCode?: string;
   rateToBase?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved';
   approvedBy: string | null;
   approvedAt: number | null;
   justification: string | null;
@@ -518,15 +518,27 @@ export const productsApi = {
     }
     return res.json();
   },
-  reject: async (productId: number, data: { reason?: string }) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/reject`, {
+  resetToPending: async (productId: number, data?: { reason?: string }) => {
+    const res = await fetch(`${API_BASE}/products/${productId}/reset-to-pending`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify(data || {}),
     });
     if (!res.ok) {
       const error = await res.json();
-      throw new Error(error.error || 'Failed to reject price');
+      throw new Error(error.error || 'Failed to reset price to pending');
+    }
+    return res.json();
+  },
+  bulkResetToPending: async (productIds: number[], reason?: string) => {
+    const res = await fetch(`${API_BASE}/products/bulk-reset-to-pending`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productIds, reason }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to bulk reset products to pending');
     }
     return res.json();
   },
@@ -546,18 +558,6 @@ export const productsApi = {
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || 'Failed to bulk approve products');
-    }
-    return res.json();
-  },
-  bulkReject: async (productIds: number[], reason?: string) => {
-    const res = await fetch(`${API_BASE}/products/bulk-reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ productIds, reason }),
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || 'Failed to bulk reject products');
     }
     return res.json();
   },
@@ -642,21 +642,6 @@ export const priceLevelItemsApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
-    });
-    return parseResponse(res);
-  },
-  reject: async (
-    priceLevelId: number,
-    productId: number,
-    data: {
-      approvedBy?: string;
-      justification: string;
-    }
-  ): Promise<PriceLevelItemResponse> => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}/reject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
     });
     return parseResponse(res);
   },

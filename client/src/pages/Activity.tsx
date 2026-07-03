@@ -12,8 +12,7 @@ import {
   Tag,
   Trash2,
   TrendingUp,
-  XCircle,
-  XSquare,
+  RotateCcw,
 } from 'lucide-react';
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { usePrint } from '../hooks/usePrint';
@@ -22,7 +21,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 const PAGE_SIZE = 50;
 
 type EntityFilter = 'all' | 'product' | 'material' | 'price_level' | 'exchange_rate';
-type ActionGroupFilter = 'all' | 'approvals' | 'rejections' | 'cost_changes' | 'created' | 'deleted';
+type ActionGroupFilter = 'all' | 'approvals' | 'cost_changes' | 'created' | 'deleted';
 
 type EntryVisual = {
   Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
@@ -98,8 +97,8 @@ function resolveEntryVisual(action: string): EntryVisual {
   switch (action) {
     case 'product.approved':
       return { Icon: CheckCircle2, color: '#16a34a' };
-    case 'product.rejected':
-      return { Icon: XCircle, color: '#dc2626' };
+    case 'product.reset_to_pending':
+      return { Icon: RotateCcw, color: '#64748b' };
     case 'product.needs_review':
       return { Icon: AlertTriangle, color: '#d97706' };
     case 'material.cost_updated':
@@ -114,8 +113,6 @@ function resolveEntryVisual(action: string): EntryVisual {
       return { Icon: Trash2, color: '#dc2626' };
     case 'price_level_item.approved':
       return { Icon: CheckSquare, color: '#16a34a' };
-    case 'price_level_item.rejected':
-      return { Icon: XSquare, color: '#dc2626' };
     case 'price_level_item.bulk_approved':
       return { Icon: CheckCheck, color: '#16a34a' };
     default:
@@ -158,10 +155,10 @@ function getActivityDescription(entry: ActivityEntry, currencyCode: string): { t
         subline: `Gross Margin %: ${toNumberString(details.margin)}% | Production cost: ${currencyCode} ${toMoney(details.productionCost)}`,
       };
     }
-    case 'product.rejected': {
+    case 'product.reset_to_pending': {
       const reason = details.reason ? `Reason: ${String(details.reason)}` : undefined;
       return {
-        title: `${entityName} base price rejected`,
+        title: 'Price reset to pending',
         subline: reason,
       };
     }
@@ -197,11 +194,6 @@ function getActivityDescription(entry: ActivityEntry, currencyCode: string): { t
         title: `${String(details.productName || entityName)} price approved in ${String(details.levelName || 'Price level')}`,
         subline: `${formatOverrideType(details.overrideType, details.value, currencyCode)} - ${currencyCode} ${toMoney(details.finalPrice)}`,
       };
-    case 'price_level_item.rejected':
-      return {
-        title: `${String(details.productName || entityName)} price rejected in ${String(details.levelName || 'Price level')}`,
-        subline: details.reason ? `Reason: ${String(details.reason)}` : undefined,
-      };
     case 'price_level_item.bulk_approved':
       return {
         title: `${toNumberString(details.count, 0)} prices approved in ${String(details.levelName || entityName || 'Price level')}`,
@@ -225,9 +217,6 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
   if (filter === 'all') return true;
   if (filter === 'approvals') {
     return entry.action.endsWith('.approved') || entry.action.endsWith('.bulk_approved');
-  }
-  if (filter === 'rejections') {
-    return entry.action.endsWith('.rejected');
   }
   if (filter === 'cost_changes') {
     return entry.action === 'material.cost_updated' || entry.action === 'exchange_rate.updated' || entry.action === 'product.needs_review';
@@ -390,7 +379,6 @@ export default function Activity() {
                   <select className="app-control" value={actionGroup} onChange={(e) => setActionGroup(e.target.value as ActionGroupFilter)}>
                     <option value="all">All actions</option>
                     <option value="approvals">Approvals</option>
-                    <option value="rejections">Rejections</option>
                     <option value="cost_changes">Cost changes</option>
                     <option value="created">Created</option>
                     <option value="deleted">Deleted</option>

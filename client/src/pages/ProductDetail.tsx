@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff, XCircle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, CheckCircle, ChevronLeft, ChevronRight, Pencil, Eye, EyeOff } from 'lucide-react';
 import { productsApi, materialsApi, activityLogApi, type ActivityEntry } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
@@ -25,7 +25,7 @@ interface Product {
   productionMode?: 'single' | 'batch';
   batchYield?: number;
   currentSellingPrice?: number | null;
-  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'needs_review';
+  approvalStatus?: 'pending' | 'approved' | 'needs_review' | 'rejected';
   approvedPrice?: number | null;
   approvedAt?: string | null;
   approvedBy?: string | null;
@@ -69,14 +69,12 @@ function toNum(v: unknown): number {
 
 function getApprovalBadge(status?: Product['approvalStatus']) {
   if (status === 'approved') return { label: 'Approved', variant: 'approved' as const };
-  if (status === 'rejected') return { label: 'Rejected', variant: 'rejected' as const };
   if (status === 'needs_review') return { label: 'Needs Review', variant: 'needs-review' as const };
   return { label: 'Pending', variant: 'pending' as const };
 }
 
 function getApprovalPanelColors(status?: Product['approvalStatus']) {
   if (status === 'approved') return { background: '#f0fdf4', border: '#bbf7d0' };
-  if (status === 'rejected') return { background: '#fef2f2', border: '#fecaca' };
   if (status === 'needs_review') return { background: '#fff7ed', border: '#fed7aa' };
   return { background: '#f0f9ff', border: '#bae6fd' };
 }
@@ -418,18 +416,19 @@ export default function ProductDetail() {
     }
   }
 
-  async function handleReject() {
+  async function handleResetToPending() {
     if (!product) return;
-    const confirmText = `Reject price for ${product.name}? Product will be excluded from price lists.`;
+    const confirmText = `Reset pricing for ${product.name} to pending? The approved price will be cleared.`;
     if (!confirm(confirmText)) return;
 
     setApprovalLoading(true);
     try {
-      await productsApi.reject(productId, { reason: approvalReason || undefined });
-      showToastMessage('Price rejected. Product excluded from price lists.', 'success');
+      await productsApi.resetToPending(productId, { reason: approvalReason || undefined });
+      showToastMessage('Price reset to pending. Re-approve when ready.', 'success');
+      setShowPriceForm(false);
       await loadData();
     } catch (err: any) {
-      showToastMessage(err?.message || 'Failed to reject price', 'error');
+      showToastMessage(err?.message || 'Failed to reset price to pending', 'error');
     } finally {
       setApprovalLoading(false);
     }
@@ -855,6 +854,29 @@ export default function ProductDetail() {
                 </div>
               )}
             </div>
+
+            {(product.approvalStatus === 'approved' || product.approvalStatus === 'needs_review') && (
+              <div style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={handleResetToPending}
+                  disabled={approvalLoading}
+                  style={{
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#64748b',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                    opacity: approvalLoading ? 0.7 : 1,
+                  }}
+                >
+                  Reset to Pending
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Needs review context */}
@@ -1052,29 +1074,6 @@ export default function ProductDetail() {
                     If set, this product will be flagged for review on this date.
                   </div>
                 </div>
-
-                {/* Reject */}
-                <button
-                  type="button"
-                  onClick={handleReject}
-                  disabled={approvalLoading}
-                  className="btn btn-danger"
-                  style={{
-                    width: '100%',
-                    justifyContent: 'center',
-                    padding: '10px 16px',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    opacity: approvalLoading ? 0.7 : 1,
-                    cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <XCircle size={14} strokeWidth={2.2} />
-                  Reject
-                </button>
 
                 {showPriceForm && !needsPriceAction && (
                   <button

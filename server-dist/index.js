@@ -7,8 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
-import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, priceLevelPackSizes, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10) || 3000;
@@ -60,6 +60,8 @@ async function logActivity(params) {
             action: params.action,
             details: params.details ? JSON.stringify(params.details) : null,
             performedBy: params.performedBy ?? 'Admin',
+            userId: 1,
+            userName: 'Admin',
             createdAt: new Date(),
         });
     }
@@ -210,6 +212,62 @@ async function resolveBaseCurrency() {
         symbol: resolvedCurrency.symbol,
     };
 }
+async function resolvePriceLevelCurrencyContext(level) {
+    const base = await resolveBaseCurrency();
+    if (!level.currencyId) {
+        return {
+            currencyId: null,
+            currencyCode: null,
+            rateToBase: 1,
+            baseCurrencyCode: base.code,
+        };
+    }
+    const currencyRows = await getActiveDb()
+        .select()
+        .from(currencies)
+        .where(eq(currencies.id, level.currencyId));
+    const currencyRow = currencyRows[0];
+    if (!currencyRow) {
+        return {
+            currencyId: null,
+            currencyCode: null,
+            rateToBase: 1,
+            baseCurrencyCode: base.code,
+        };
+    }
+    const rateRows = await getActiveDb()
+        .select()
+        .from(exchangeRates)
+        .where(eq(exchangeRates.currencyId, level.currencyId))
+        .orderBy(desc(exchangeRates.effectiveDate))
+        .limit(1);
+    const rateToBase = rateRows.length > 0 && Number(rateRows[0].rateToBase) > 0
+        ? Number(rateRows[0].rateToBase)
+        : 1;
+    return {
+        currencyId: level.currencyId,
+        currencyCode: currencyRow.code,
+        rateToBase,
+        baseCurrencyCode: base.code,
+    };
+}
+async function enrichPriceLevelRow(level) {
+    const currencyContext = await resolvePriceLevelCurrencyContext(level);
+    return {
+        ...level,
+        currencyCode: currencyContext.currencyCode,
+    };
+}
+function parseOptionalCurrencyId(value) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null || value === '') {
+        return null;
+    }
+    const numericValue = Number(value);
+    return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null;
+}
 async function calculateProductionCostForProduct(selectedProduct, productId) {
     const productionCostResponse = await db
         .select({
@@ -288,7 +346,19 @@ function normalizeLegacyCustomPriceOverride(input) {
         approvedPrice: input.approvedPrice,
     };
 }
-async function toPriceLevelItemResponse(item, productRow) {
+function buildPackSizesResponse(packSizeRows, finalPrice, finalPriceConverted) {
+    return packSizeRows.map((row) => {
+        const packPrice = roundToFour(finalPrice * row.packQuantity);
+        const packPriceConverted = roundToFour(finalPriceConverted * row.packQuantity);
+        return {
+            id: row.id,
+            packQuantity: row.packQuantity,
+            packPrice,
+            packPriceConverted,
+        };
+    });
+}
+async function toPriceLevelItemResponse(item, productRow, levelCurrency, packSizeRows) {
     const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
     const approvedPrice = Number(productRow.approvedPrice || 0);
     const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
@@ -311,6 +381,36 @@ async function toPriceLevelItemResponse(item, productRow) {
         && productApprovedAt != null
         && item.updatedAt != null
         && productApprovedAt > item.updatedAt);
+    const finalPrice = computePriceLevelItemFinalPrice({
+        overrideType,
+        adjustmentPercentage,
+        customPrice,
+        approvedPrice,
+    });
+    const currencyContext = levelCurrency ?? {
+        currencyId: null,
+        currencyCode: null,
+        rateToBase: 1,
+        baseCurrencyCode: 'GHS',
+    };
+    const hasConvertedCurrency = Boolean(currencyContext.currencyCode && currencyContext.currencyId);
+    const rateToBase = hasConvertedCurrency && currencyContext.rateToBase > 0
+        ? currencyContext.rateToBase
+        : 1;
+    const finalPriceConverted = hasConvertedCurrency
+        ? roundToFour(finalPrice / rateToBase)
+        : finalPrice;
+    const currencyCode = hasConvertedCurrency
+        ? currencyContext.currencyCode
+        : currencyContext.baseCurrencyCode;
+    const resolvedPackSizeRows = packSizeRows ?? await getActiveDb()
+        .select({
+        id: priceLevelPackSizes.id,
+        packQuantity: priceLevelPackSizes.packQuantity,
+    })
+        .from(priceLevelPackSizes)
+        .where(eq(priceLevelPackSizes.priceLevelItemId, item.id));
+    const packSizes = buildPackSizesResponse(resolvedPackSizeRows, finalPrice, finalPriceConverted);
     return {
         id: item.id,
         priceLevelId: item.priceLevelId,
@@ -323,13 +423,11 @@ async function toPriceLevelItemResponse(item, productRow) {
         overrideType,
         adjustmentPercentage,
         customPrice,
-        finalPrice: computePriceLevelItemFinalPrice({
-            overrideType,
-            adjustmentPercentage,
-            customPrice,
-            approvedPrice,
-        }),
-        status: item.status,
+        finalPrice,
+        finalPriceConverted,
+        currencyCode,
+        rateToBase,
+        status: (item.status === 'rejected' ? 'pending' : item.status),
         approvedBy: item.approvedBy ?? null,
         approvedAt: item.approvedAt ?? null,
         justification: item.justification ?? null,
@@ -337,6 +435,7 @@ async function toPriceLevelItemResponse(item, productRow) {
         updatedAt: item.updatedAt,
         productApprovedAt,
         isStalePrice,
+        packSizes,
     };
 }
 function parseStatusFilter(value) {
@@ -452,7 +551,7 @@ app.post('/api/backup', (req, res) => {
 });
 app.get('/api/backup/status', (req, res) => {
     try {
-        const backupsDir = path.resolve(process.cwd(), 'backups');
+        const backupsDir = path.resolve(path.dirname(DATABASE_FILE_PATH), 'backups');
         const backupCount = fs.existsSync(backupsDir)
             ? fs.readdirSync(backupsDir).filter((fileName) => fileName.startsWith('backup-') && fileName.endsWith('.db')).length
             : 0;
@@ -476,6 +575,11 @@ app.get('/api/backup/status', (req, res) => {
 });
 // --- User-initiated backup download ---
 app.get('/api/backup/download', (_req, res) => {
+    if (readDemoModeState()) {
+        return res.status(400).json({
+            error: 'Cannot backup or restore while in demo mode. Switch to your real data first in Settings → Data & Backups.',
+        });
+    }
     try {
         if (!fs.existsSync(DATABASE_FILE_PATH)) {
             res.status(404).json({ error: 'Database file not found' });
@@ -495,6 +599,11 @@ app.get('/api/backup/download', (_req, res) => {
 });
 // --- Restore from user-uploaded backup (base64 JSON body) ---
 app.post('/api/backup/restore', express.json({ limit: '200mb' }), async (req, res) => {
+    if (readDemoModeState()) {
+        return res.status(400).json({
+            error: 'Cannot backup or restore while in demo mode. Switch to your real data first in Settings → Data & Backups.',
+        });
+    }
     const { data } = req.body;
     if (!data) {
         res.status(400).json({ error: 'No backup data provided' });
@@ -1758,23 +1867,6 @@ function persistProductComputedValues(productId, materialCost, optimalPrice) {
     const updateStatement = sqliteClient.prepare(`UPDATE products SET ${setClauses.join(', ')} WHERE id = ?`);
     updateStatement.run(...values, productId);
 }
-let rejectionReasonColumnChecked = false;
-function ensureProductRejectionReasonColumn() {
-    if (rejectionReasonColumnChecked) {
-        return;
-    }
-    const sqliteClient = getSqliteClient();
-    if (!sqliteClient) {
-        return;
-    }
-    const productColumns = sqliteClient
-        .prepare("SELECT name FROM pragma_table_info('products')")
-        .all();
-    if (!productColumns.some((column) => column.name === 'rejection_reason')) {
-        sqliteClient.prepare('ALTER TABLE products ADD COLUMN rejection_reason TEXT').run();
-    }
-    rejectionReasonColumnChecked = true;
-}
 async function setNeedsReviewIfOutdated(productId) {
     const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
     if (productRows.length === 0) {
@@ -2343,11 +2435,6 @@ app.post('/api/products/:id/approve', async (req, res) => {
             updatedAt: new Date(),
         };
         await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
-        const sqliteClient = getSqliteClient();
-        if (sqliteClient) {
-            ensureProductRejectionReasonColumn();
-            sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
-        }
         const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
         // Compute production cost for the response — mirrors GET /api/products/:id
         let computedProductionCost = 0;
@@ -2425,37 +2512,54 @@ app.post('/api/products/:id/approve', async (req, res) => {
         res.status(500).json({ error: 'Failed to approve price' });
     }
 });
-app.post('/api/products/:id/reject', async (req, res) => {
+app.post('/api/products/:id/reset-to-pending', async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
+        if (!Number.isInteger(productId)) {
+            return res.status(400).json({ error: 'Invalid product id' });
+        }
+        const existingRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+        if (existingRows.length === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
         const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
-        ensureProductRejectionReasonColumn();
         await getActiveDb().update(products).set({
-            approvalStatus: 'rejected',
+            approvalStatus: 'pending',
             approvedPrice: null,
             approvedBy: null,
             approvedAt: null,
-            needsReviewReason: null,
             updatedAt: new Date(),
         }).where(eq(products.id, productId));
-        const sqliteClient = getSqliteClient();
-        if (sqliteClient) {
-            sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(reason || null, productId);
+        const updated = await getActiveDb().select().from(products).where(eq(products.id, productId));
+        let computedProductionCost = 0;
+        let computedOptimalPrice = 0;
+        try {
+            const snapshot = await calculateProductCostSnapshot(productId);
+            const denominator = 1 + Number(updated[0].profitMargin || 0) / 100;
+            computedProductionCost = denominator > 0 ? snapshot.optimalPrice / denominator : 0;
+            computedOptimalPrice = snapshot.optimalPrice;
         }
-        const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-        const product = productRows[0];
+        catch {
+            // keep 0 — non-fatal
+        }
+        const updatedProduct = withDerivedProductFields({
+            ...updated[0],
+            productionCost: computedProductionCost,
+            optimalPrice: computedOptimalPrice,
+        });
         await logActivity({
             entityType: 'product',
             entityId: productId,
-            entityName: product?.name || null,
-            action: 'product.rejected',
+            entityName: updatedProduct.name,
+            action: 'product.reset_to_pending',
             details: { reason: reason || null },
             performedBy: await getCurrentUserName(),
         });
-        res.json(product);
+        res.json(updatedProduct);
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to reject price' });
+        console.error('Error resetting product to pending:', error);
+        res.status(500).json({ error: 'Failed to reset product to pending' });
     }
 });
 app.post('/api/products/bulk-approve', async (req, res) => {
@@ -2495,7 +2599,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             : normalizedPriceExpiryDate;
         let approved = 0;
         let skipped = 0;
-        const rejected = [];
+        const skippedProducts = [];
         const performedBy = await getCurrentUserName();
         for (const productId of productIds) {
             const bomItems = await db
@@ -2514,7 +2618,12 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             let priceToApprove = optimalPrice;
             if (normalizedMethod === 'selling') {
                 const currentSellingPrice = Number(current.currentSellingPrice || 0);
-                priceToApprove = currentSellingPrice > 0 ? currentSellingPrice : optimalPrice;
+                if (currentSellingPrice <= 0) {
+                    skipped += 1;
+                    skippedProducts.push(current.name);
+                    continue;
+                }
+                priceToApprove = currentSellingPrice;
             }
             else if (normalizedMethod === 'markup') {
                 priceToApprove = roundToTwo(optimalPrice * (1 + (normalizedMarkupPercentage / 100)));
@@ -2535,10 +2644,6 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                 updatedAt: new Date(),
             };
             await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
-            const sqliteClient = getSqliteClient();
-            if (sqliteClient) {
-                sqliteClient.prepare('UPDATE products SET rejection_reason = NULL WHERE id = ?').run(productId);
-            }
             const productionCost = await calculateProductionCostForProduct(current, productId);
             const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
             await logActivity({
@@ -2558,8 +2663,8 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         }
         res.json({
             approved,
-            rejected,
             skipped,
+            skippedProducts,
             priceMethod: normalizedMethod,
             ...(normalizedMethod === 'markup' ? { markupPercentage: normalizedMarkupPercentage } : {}),
         });
@@ -2569,46 +2674,35 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         res.status(500).json({ error: 'Failed to bulk approve products' });
     }
 });
-app.post('/api/products/bulk-reject', async (req, res) => {
+app.post('/api/products/bulk-reset-to-pending', async (req, res) => {
     try {
-        const { productIds, reason } = req.body;
+        const { productIds } = req.body;
         if (!Array.isArray(productIds) || productIds.length === 0) {
             return res.status(400).json({ error: 'No products provided' });
         }
-        ensureProductRejectionReasonColumn();
-        const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
-        let rejected = 0;
-        let skipped = 0;
+        let reset = 0;
         for (const productId of productIds) {
-            const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-            if (currentRows.length === 0) {
-                skipped += 1;
+            if (!Number.isInteger(productId)) {
                 continue;
             }
-            const current = currentRows[0];
-            if (current.approvalStatus !== 'approved') {
-                skipped += 1;
+            const currentRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
+            if (currentRows.length === 0) {
                 continue;
             }
             await getActiveDb().update(products).set({
-                approvalStatus: 'rejected',
+                approvalStatus: 'pending',
                 approvedPrice: null,
                 approvedBy: null,
-                approvedAt: new Date(),
-                needsReviewReason: null,
+                approvedAt: null,
                 updatedAt: new Date(),
             }).where(eq(products.id, productId));
-            const sqliteClient = getSqliteClient();
-            if (sqliteClient) {
-                sqliteClient.prepare('UPDATE products SET rejection_reason = ? WHERE id = ?').run(normalizedReason || null, productId);
-            }
-            rejected += 1;
+            reset += 1;
         }
-        res.json({ rejected, skipped });
+        res.json({ reset });
     }
     catch (error) {
-        console.error('Bulk reject failed:', error);
-        res.status(500).json({ error: 'Failed to bulk reject products' });
+        console.error('Bulk reset to pending failed:', error);
+        res.status(500).json({ error: 'Failed to bulk reset products to pending' });
     }
 });
 app.delete('/api/products/:id', async (req, res) => {
@@ -2767,7 +2861,8 @@ app.get('/api/products/:id/calculate', async (req, res) => {
 app.get('/api/price-levels', async (_req, res) => {
     try {
         const levels = await getActiveDb().select().from(priceLevels);
-        res.json(levels);
+        const enriched = await Promise.all(levels.map((level) => enrichPriceLevelRow(level)));
+        res.json(enriched);
     }
     catch (error) {
         console.error('Error fetching price levels:', error);
@@ -2776,7 +2871,7 @@ app.get('/api/price-levels', async (_req, res) => {
 });
 app.post('/api/price-levels', async (req, res) => {
     try {
-        const { name, description, adjustmentType, adjustmentPercentage } = req.body;
+        const { name, description, adjustmentType, adjustmentPercentage, currencyId } = req.body;
         if (!name || typeof name !== 'string' || !name.trim()) {
             return res.status(400).json({ error: 'name is required' });
         }
@@ -2786,12 +2881,20 @@ app.post('/api/price-levels', async (req, res) => {
         const multiplier = normalizedAdjustmentType === 'markup'
             ? 1 + (safePercentage / 100)
             : 1 - (safePercentage / 100);
+        const parsedCurrencyId = parseOptionalCurrencyId(currencyId);
+        if (parsedCurrencyId) {
+            const currencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, parsedCurrencyId));
+            if (currencyRows.length === 0) {
+                return res.status(400).json({ error: 'Invalid currencyId' });
+            }
+        }
         const result = await getActiveDb().insert(priceLevels).values({
             name: name.trim(),
             multiplier,
             adjustmentType: normalizedAdjustmentType,
             adjustmentPercentage: safePercentage,
             description: typeof description === 'string' ? description.trim() : null,
+            currencyId: parsedCurrencyId ?? null,
         }).returning();
         await logActivity({
             entityType: 'price_level',
@@ -2801,7 +2904,7 @@ app.post('/api/price-levels', async (req, res) => {
             details: null,
             performedBy: await getCurrentUserName(),
         });
-        res.json(result[0]);
+        res.json(await enrichPriceLevelRow(result[0]));
     }
     catch (error) {
         console.error('Error creating price level:', error);
@@ -2811,7 +2914,8 @@ app.post('/api/price-levels', async (req, res) => {
 app.get('/api/price-level-rules', async (req, res) => {
     try {
         const rules = await getActiveDb().select().from(priceLevels);
-        res.json(rules);
+        const enriched = await Promise.all(rules.map((level) => enrichPriceLevelRow(level)));
+        res.json(enriched);
     }
     catch (error) {
         console.error('Error fetching price level rules:', error);
@@ -2820,7 +2924,7 @@ app.get('/api/price-level-rules', async (req, res) => {
 });
 app.post('/api/price-level-rules', async (req, res) => {
     try {
-        const { name, adjustmentType, adjustmentPercentage, description } = req.body;
+        const { name, adjustmentType, adjustmentPercentage, description, currencyId } = req.body;
         if (!name || !adjustmentType || adjustmentPercentage === undefined || adjustmentPercentage === null) {
             return res.status(400).json({ error: 'name, adjustmentType, and adjustmentPercentage are required' });
         }
@@ -2840,12 +2944,20 @@ app.post('/api/price-level-rules', async (req, res) => {
         const multiplier = adjustmentType === 'markup'
             ? 1 + (numericPercentage / 100)
             : 1 - (numericPercentage / 100);
+        const parsedCurrencyId = parseOptionalCurrencyId(currencyId);
+        if (parsedCurrencyId) {
+            const currencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, parsedCurrencyId));
+            if (currencyRows.length === 0) {
+                return res.status(400).json({ error: 'Invalid currencyId' });
+            }
+        }
         const result = await getActiveDb().insert(priceLevels).values({
             name,
             multiplier,
             adjustmentType,
             adjustmentPercentage: numericPercentage,
             description,
+            currencyId: parsedCurrencyId ?? null,
         }).returning();
         await logActivity({
             entityType: 'price_level',
@@ -2855,7 +2967,7 @@ app.post('/api/price-level-rules', async (req, res) => {
             details: null,
             performedBy: await getCurrentUserName(),
         });
-        res.json(result[0]);
+        res.json(await enrichPriceLevelRow(result[0]));
     }
     catch (error) {
         console.error('Error creating customer price rule:', error);
@@ -2866,7 +2978,7 @@ app.put('/api/price-level-rules/:id', async (req, res) => {
     try {
         const rawId = req.params.id;
         const id = Array.isArray(rawId) ? rawId[0] : rawId;
-        const { name, adjustmentType, adjustmentPercentage, description, isActive } = req.body;
+        const { name, adjustmentType, adjustmentPercentage, description, isActive, currencyId } = req.body;
         if (!name || !adjustmentType || adjustmentPercentage === undefined || adjustmentPercentage === null) {
             return res.status(400).json({ error: 'name, adjustmentType, and adjustmentPercentage are required' });
         }
@@ -2886,8 +2998,14 @@ app.put('/api/price-level-rules/:id', async (req, res) => {
         const multiplier = adjustmentType === 'markup'
             ? 1 + (numericPercentage / 100)
             : 1 - (numericPercentage / 100);
-        await getActiveDb().update(priceLevels)
-            .set({
+        const parsedCurrencyId = parseOptionalCurrencyId(currencyId);
+        if (parsedCurrencyId) {
+            const currencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, parsedCurrencyId));
+            if (currencyRows.length === 0) {
+                return res.status(400).json({ error: 'Invalid currencyId' });
+            }
+        }
+        const updateValues = {
             name,
             multiplier,
             adjustmentType,
@@ -2895,10 +3013,15 @@ app.put('/api/price-level-rules/:id', async (req, res) => {
             description,
             isActive,
             updatedAt: new Date(),
-        })
+        };
+        if (currencyId !== undefined) {
+            updateValues.currencyId = parsedCurrencyId ?? null;
+        }
+        const updated = await getActiveDb().update(priceLevels)
+            .set(updateValues)
             .where(eq(priceLevels.id, parseInt(id)))
             .returning();
-        res.json({ success: true });
+        res.json(updated[0] ? await enrichPriceLevelRow(updated[0]) : { success: true });
     }
     catch (error) {
         console.error('Error updating customer price rule:', error);
@@ -2952,6 +3075,8 @@ app.get('/api/price-levels/:id/items', async (req, res) => {
         if (levelRows.length === 0) {
             return res.status(404).json({ error: 'Price level not found' });
         }
+        const levelRow = levelRows[0];
+        const levelCurrency = await resolvePriceLevelCurrencyContext(levelRow);
         const items = await getActiveDb()
             .select()
             .from(priceLevelItems)
@@ -2965,14 +3090,120 @@ app.get('/api/price-levels/:id/items', async (req, res) => {
             .from(products)
             .where(inArray(products.id, productIds));
         const productById = new Map(productRows.map((row) => [row.id, row]));
+        const itemIds = items.map((item) => item.id);
+        const allPackRows = itemIds.length > 0
+            ? await getActiveDb()
+                .select({
+                id: priceLevelPackSizes.id,
+                priceLevelItemId: priceLevelPackSizes.priceLevelItemId,
+                packQuantity: priceLevelPackSizes.packQuantity,
+            })
+                .from(priceLevelPackSizes)
+                .where(inArray(priceLevelPackSizes.priceLevelItemId, itemIds))
+            : [];
+        const packSizesByItemId = new Map();
+        for (const row of allPackRows) {
+            const existing = packSizesByItemId.get(row.priceLevelItemId) || [];
+            existing.push({ id: row.id, packQuantity: row.packQuantity });
+            packSizesByItemId.set(row.priceLevelItemId, existing);
+        }
         const response = await Promise.all(items
             .filter((item) => productById.has(item.productId))
-            .map((item) => toPriceLevelItemResponse(item, productById.get(item.productId))));
+            .map((item) => toPriceLevelItemResponse(item, productById.get(item.productId), levelCurrency, packSizesByItemId.get(item.id) ?? [])));
         res.json(response);
     }
     catch (error) {
         console.error('Error fetching price level items:', error);
         res.status(500).json({ error: 'Failed to fetch price level items' });
+    }
+});
+app.get('/api/price-level-items/:itemId/pack-sizes', async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.itemId);
+        if (!Number.isInteger(itemId)) {
+            return res.status(400).json({ error: 'Invalid price level item id' });
+        }
+        const itemRows = await getActiveDb()
+            .select({ id: priceLevelItems.id })
+            .from(priceLevelItems)
+            .where(eq(priceLevelItems.id, itemId));
+        if (itemRows.length === 0) {
+            return res.status(404).json({ error: 'Price level item not found' });
+        }
+        const rows = await getActiveDb()
+            .select({
+            id: priceLevelPackSizes.id,
+            packQuantity: priceLevelPackSizes.packQuantity,
+        })
+            .from(priceLevelPackSizes)
+            .where(eq(priceLevelPackSizes.priceLevelItemId, itemId))
+            .orderBy(asc(priceLevelPackSizes.packQuantity));
+        res.json(rows);
+    }
+    catch (error) {
+        console.error('Error fetching pack sizes:', error);
+        res.status(500).json({ error: 'Failed to fetch pack sizes' });
+    }
+});
+app.post('/api/price-level-items/:itemId/pack-sizes', async (req, res) => {
+    try {
+        const itemId = parseInt(req.params.itemId);
+        if (!Number.isInteger(itemId)) {
+            return res.status(400).json({ error: 'Invalid price level item id' });
+        }
+        const packQuantity = Number(req.body?.packQuantity);
+        if (!Number.isInteger(packQuantity) || packQuantity <= 1) {
+            return res.status(400).json({ error: 'packQuantity must be an integer greater than 1' });
+        }
+        const itemRows = await getActiveDb()
+            .select({ id: priceLevelItems.id })
+            .from(priceLevelItems)
+            .where(eq(priceLevelItems.id, itemId));
+        if (itemRows.length === 0) {
+            return res.status(404).json({ error: 'Price level item not found' });
+        }
+        const duplicateRows = await getActiveDb()
+            .select({ id: priceLevelPackSizes.id })
+            .from(priceLevelPackSizes)
+            .where(and(eq(priceLevelPackSizes.priceLevelItemId, itemId), eq(priceLevelPackSizes.packQuantity, packQuantity)));
+        if (duplicateRows.length > 0) {
+            return res.status(400).json({ error: 'Pack quantity already exists for this item' });
+        }
+        const created = await getActiveDb()
+            .insert(priceLevelPackSizes)
+            .values({ priceLevelItemId: itemId, packQuantity })
+            .returning();
+        res.status(201).json({
+            id: created[0].id,
+            packQuantity: created[0].packQuantity,
+        });
+    }
+    catch (error) {
+        console.error('Error adding pack size:', error);
+        res.status(500).json({ error: 'Failed to add pack size' });
+    }
+});
+app.delete('/api/price-level-pack-sizes/:id', async (req, res) => {
+    try {
+        const packSizeId = parseInt(req.params.id);
+        if (!Number.isInteger(packSizeId)) {
+            return res.status(400).json({ error: 'Invalid pack size id' });
+        }
+        const existingRows = await getActiveDb()
+            .select({ id: priceLevelPackSizes.id })
+            .from(priceLevelPackSizes)
+            .where(eq(priceLevelPackSizes.id, packSizeId));
+        if (existingRows.length === 0) {
+            return res.status(404).json({ error: 'Pack size not found' });
+        }
+        await getActiveDb()
+            .delete(priceLevelPackSizes)
+            .where(eq(priceLevelPackSizes.id, packSizeId));
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Error deleting pack size:', error);
+        res.status(500).json({ error: 'Failed to delete pack size' });
     }
 });
 app.post('/api/price-levels/:id/items', async (req, res) => {
@@ -2985,6 +3216,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
         if (levelRows.length === 0) {
             return res.status(404).json({ error: 'Price level not found' });
         }
+        const levelCurrency = await resolvePriceLevelCurrencyContext(levelRows[0]);
         const productId = Number(req.body?.productId);
         if (!Number.isInteger(productId)) {
             return res.status(400).json({ error: 'productId is required' });
@@ -3022,8 +3254,8 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
             resolvedAdjustment = adjustmentPercentage;
         }
         else {
-            if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-                return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
+            if (customPrice == null || Number.isNaN(customPrice) || customPrice < 0) {
+                return res.status(400).json({ error: 'customPrice must be non-negative for fixed amount pricing' });
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
             const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
@@ -3044,7 +3276,9 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
                     },
                 });
             }
-            const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+            const resultingMarginPercentage = proposedFinalPrice > 0
+                ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+                : 0;
             if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
                 return res.status(400).json({
                     error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
@@ -3108,7 +3342,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
             savedId = created[0].id;
         }
         const savedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, savedId));
-        const response = await toPriceLevelItemResponse(savedRows[0], selectedProduct);
+        const response = await toPriceLevelItemResponse(savedRows[0], selectedProduct, levelCurrency);
         res.status(existingRows.length > 0 ? 200 : 201).json(response);
     }
     catch (error) {
@@ -3130,6 +3364,11 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
         if (existingRows.length === 0) {
             return res.status(404).json({ error: 'Price level item not found' });
         }
+        const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+        if (levelRows.length === 0) {
+            return res.status(404).json({ error: 'Price level not found' });
+        }
+        const levelCurrency = await resolvePriceLevelCurrencyContext(levelRows[0]);
         const existing = existingRows[0];
         const productRows = await getActiveDb().select().from(products).where(eq(products.id, existing.productId));
         if (productRows.length === 0) {
@@ -3161,8 +3400,8 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
             resolvedAdjustment = adjustmentPercentage;
         }
         else {
-            if (customPrice == null || Number.isNaN(customPrice) || customPrice <= 0) {
-                return res.status(400).json({ error: 'customPrice must be greater than 0 for fixed amount pricing' });
+            if (customPrice == null || Number.isNaN(customPrice) || customPrice < 0) {
+                return res.status(400).json({ error: 'customPrice must be non-negative for fixed amount pricing' });
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
             const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
@@ -3183,7 +3422,9 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
                     },
                 });
             }
-            const resultingMarginPercentage = ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100;
+            const resultingMarginPercentage = proposedFinalPrice > 0
+                ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+                : 0;
             if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
                 return res.status(400).json({
                     error: `Justification is required when resulting margin is below ${MIN_MARGIN_PERCENTAGE}%`,
@@ -3222,7 +3463,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
         })
             .where(eq(priceLevelItems.id, itemId));
         const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, itemId));
-        const response = await toPriceLevelItemResponse(updatedRows[0], selectedProduct);
+        const response = await toPriceLevelItemResponse(updatedRows[0], selectedProduct, levelCurrency);
         res.json(response);
     }
     catch (error) {
@@ -3279,8 +3520,11 @@ app.post('/api/price-levels/:id/items/:productId/approve', async (req, res) => {
             .where(eq(priceLevelItems.id, existingRows[0].id));
         const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
         const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-        const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0]);
         const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
+        const levelCurrency = levelRows[0]
+            ? await resolvePriceLevelCurrencyContext(levelRows[0])
+            : undefined;
+        const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0], levelCurrency);
         const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
         const productName = productRows[0]?.name || `Product ${productId}`;
         await logActivity({
@@ -3302,61 +3546,6 @@ app.post('/api/price-levels/:id/items/:productId/approve', async (req, res) => {
     catch (error) {
         console.error('Error approving price level item:', error);
         res.status(500).json({ error: 'Failed to approve price level item' });
-    }
-});
-app.post('/api/price-levels/:id/items/:productId/reject', async (req, res) => {
-    try {
-        const priceLevelId = parseInt(req.params.id);
-        const productId = parseInt(req.params.productId);
-        if (!Number.isInteger(priceLevelId) || !Number.isInteger(productId)) {
-            return res.status(400).json({ error: 'Invalid price level id or product id' });
-        }
-        const rejectionJustification = typeof req.body?.justification === 'string' ? req.body.justification.trim() : '';
-        if (!rejectionJustification) {
-            return res.status(400).json({ error: 'justification is required for rejection' });
-        }
-        const existingRows = await getActiveDb()
-            .select()
-            .from(priceLevelItems)
-            .where(and(eq(priceLevelItems.priceLevelId, priceLevelId), eq(priceLevelItems.productId, productId)));
-        if (existingRows.length === 0) {
-            return res.status(404).json({ error: 'Price level item not found' });
-        }
-        const approvedBy = typeof req.body?.approvedBy === 'string' && req.body.approvedBy.trim().length > 0
-            ? req.body.approvedBy.trim()
-            : 'user';
-        await getActiveDb().update(priceLevelItems)
-            .set({
-            status: 'rejected',
-            approvedBy,
-            approvedAt: new Date(),
-            justification: rejectionJustification,
-            updatedAt: new Date(),
-        })
-            .where(eq(priceLevelItems.id, existingRows[0].id));
-        const updatedRows = await getActiveDb().select().from(priceLevelItems).where(eq(priceLevelItems.id, existingRows[0].id));
-        const productRows = await getActiveDb().select().from(products).where(eq(products.id, productId));
-        const response = await toPriceLevelItemResponse(updatedRows[0], productRows[0]);
-        const levelRows = await getActiveDb().select().from(priceLevels).where(eq(priceLevels.id, priceLevelId));
-        const levelName = levelRows[0]?.name || `Level ${priceLevelId}`;
-        const productName = productRows[0]?.name || `Product ${productId}`;
-        await logActivity({
-            entityType: 'price_level_item',
-            entityId: updatedRows[0].id,
-            entityName: productName,
-            action: 'price_level_item.rejected',
-            details: {
-                levelName,
-                productName,
-                reason: rejectionJustification || null,
-            },
-            performedBy: await getCurrentUserName(),
-        });
-        res.json(response);
-    }
-    catch (error) {
-        console.error('Error rejecting price level item:', error);
-        res.status(500).json({ error: 'Failed to reject price level item' });
     }
 });
 app.post('/api/price-levels/:id/items/bulk-approve', async (req, res) => {
