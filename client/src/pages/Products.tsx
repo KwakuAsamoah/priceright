@@ -389,6 +389,8 @@ export default function Products() {
   }, [setHasOpenForm]);
 
   const [isApprovingAll, setIsApprovingAll] = useState(false);
+  const [showApproveAllEligibleModal, setShowApproveAllEligibleModal] = useState(false);
+  const [approveAllEligibleIds, setApproveAllEligibleIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<'products' | 'analysis'>('products');
 
   const productCategories = useMemo(() => {
@@ -968,13 +970,19 @@ export default function Products() {
       return;
     }
 
-    const confirmText = `Approve optimal base rate for ${eligibleIds.length} product${eligibleIds.length !== 1 ? 's' : ''} in this filtered view?`;
-    if (!confirm(confirmText)) return;
+    setApproveAllEligibleIds(eligibleIds);
+    setShowApproveAllEligibleModal(true);
+  }
+
+  async function handleConfirmApproveAllEligible() {
+    if (approveAllEligibleIds.length === 0) return;
 
     setIsApprovingAll(true);
     try {
-      await productsApi.bulkApprove(eligibleIds);
-      showToastMessage(`${eligibleIds.length} product${eligibleIds.length !== 1 ? 's' : ''} approved`, 'success');
+      await productsApi.bulkApprove(approveAllEligibleIds);
+      showToastMessage(`${approveAllEligibleIds.length} product${approveAllEligibleIds.length !== 1 ? 's' : ''} approved`, 'success');
+      setShowApproveAllEligibleModal(false);
+      setApproveAllEligibleIds([]);
       setSelectedProducts(new Set());
       await loadData();
     } catch (error: any) {
@@ -2192,6 +2200,24 @@ export default function Products() {
             <div className="app-modal-actions">
               <button className="btn btn-secondary" onClick={() => setInactiveTarget(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={() => void handleConfirmSetInactive()}>Set Inactive</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showApproveAllEligibleModal && (
+        <div className="app-modal-overlay" onClick={() => { if (!isApprovingAll) { setShowApproveAllEligibleModal(false); setApproveAllEligibleIds([]); } }}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => { if (!isApprovingAll) { setShowApproveAllEligibleModal(false); setApproveAllEligibleIds([]); } }} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Approve All Eligible Products</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              All products with a calculated price will be approved at their optimal price. This cannot be undone.
+            </p>
+            <div className="app-modal-actions">
+              <button className="btn btn-secondary" onClick={() => { setShowApproveAllEligibleModal(false); setApproveAllEligibleIds([]); }} disabled={isApprovingAll}>Cancel</button>
+              <button className="btn btn-success" onClick={() => void handleConfirmApproveAllEligible()} disabled={isApprovingAll}>
+                {isApprovingAll ? 'Approving...' : 'Approve All'}
+              </button>
             </div>
           </div>
         </div>
