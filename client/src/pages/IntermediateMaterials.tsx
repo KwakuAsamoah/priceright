@@ -249,6 +249,8 @@ interface IntermediateMaterialsProps {
   isActive?: boolean;
 }
 
+const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
+
 export default function IntermediateMaterials({ refreshKey = 0, isActive = true }: IntermediateMaterialsProps) {
   const { version: materialCostVersion } = useMaterialCostSync();
   const [materials, setMaterials] = useState<MaterialRecord[]>([]);
@@ -272,6 +274,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const { handlePrint } = usePrint();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+  const [showPrevNextHint, setShowPrevNextHint] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialRecord | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -394,6 +397,35 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     if (!selectedMaterial) return -1;
     return filteredMaterials.findIndex((m) => m.id === selectedMaterial.id);
   }, [selectedMaterial, filteredMaterials]);
+
+  const prevNextNavVisible = isFormOpen && Boolean(selectedMaterial) && filteredMaterials.length > 1;
+
+  function dismissPrevNextHint() {
+    setShowPrevNextHint(false);
+    try {
+      localStorage.setItem(PREV_NEXT_HINT_KEY, 'true');
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  useEffect(() => {
+    if (!prevNextNavVisible) {
+      return;
+    }
+    try {
+      if (localStorage.getItem(PREV_NEXT_HINT_KEY) === 'true') {
+        return;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    setShowPrevNextHint(true);
+    const timeoutId = window.setTimeout(() => {
+      dismissPrevNextHint();
+    }, 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [prevNextNavVisible]);
 
   function isIntermediateColumnVisible(key: IntermediateColumnKey) {
     if (INTERMEDIATE_LOCKED_KEYS.has(key)) return true;
@@ -1431,37 +1463,80 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   {selectedMaterial && (
                     <div style={{
                       display: 'flex',
-                      alignItems: 'center',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
                       gap: '6px',
                       marginLeft: '12px',
                     }}>
-                      <button
-                        type="button"
-                        onClick={handleIntermediateMaterialPrev}
-                        disabled={editingIntermediateIndex === 0}
-                        className="btn btn-ghost btn-sm"
-                        style={{ padding: '4px 8px' }}
-                        title="Previous intermediate material"
-                      >
-                        ← Prev
-                      </button>
-                      <span style={{
-                        fontSize: '12px',
-                        color: '#94a3b8',
-                        whiteSpace: 'nowrap',
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
                       }}>
-                        {editingIntermediateIndex + 1} of {filteredMaterials.length}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleIntermediateMaterialNext}
-                        disabled={editingIntermediateIndex === filteredMaterials.length - 1}
-                        className="btn btn-ghost btn-sm"
-                        style={{ padding: '4px 8px' }}
-                        title="Next intermediate material"
-                      >
-                        Next →
-                      </button>
+                        <button
+                          type="button"
+                          onClick={handleIntermediateMaterialPrev}
+                          disabled={editingIntermediateIndex === 0}
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '4px 8px' }}
+                          title="Previous intermediate material"
+                        >
+                          ← Prev
+                        </button>
+                        <span style={{
+                          fontSize: '12px',
+                          color: '#94a3b8',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {editingIntermediateIndex + 1} of {filteredMaterials.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleIntermediateMaterialNext}
+                          disabled={editingIntermediateIndex === filteredMaterials.length - 1}
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '4px 8px' }}
+                          title="Next intermediate material"
+                        >
+                          Next →
+                        </button>
+                      </div>
+                      {showPrevNextHint && prevNextNavVisible && filteredMaterials.length > 1 ? (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            backgroundColor: '#DCFCE7',
+                            border: '1px solid #16A34A',
+                            color: '#15803D',
+                            fontSize: '12px',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            maxWidth: '320px',
+                          }}
+                        >
+                          <span>Tip: Use Previous and Next to move between items without going back to the list</span>
+                          <button
+                            type="button"
+                            onClick={dismissPrevNextHint}
+                            aria-label="Dismiss tip"
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#15803D',
+                              cursor: 'pointer',
+                              fontSize: '14px',
+                              lineHeight: 1,
+                              padding: '0 2px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>

@@ -195,6 +195,8 @@ interface MaterialsPageProps {
   onPrimaryCostChange?: () => void;
 }
 
+const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
+
 export default function Materials({ materialType = 'primary', onPrimaryCostChange }: MaterialsPageProps) {
   const { notifyMaterialCostsChanged } = useMaterialCostSync();
   const { baseCurrency } = useBaseCurrency();
@@ -242,6 +244,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+  const [showPrevNextHint, setShowPrevNextHint] = useState(false);
   const [detailBom, setDetailBom] = useState<Array<any>>([]);
   
   // New state for bulk actions
@@ -1015,6 +1018,35 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     return filteredMaterials.findIndex((m) => m.id === editingMaterial.id);
   }, [editingMaterial, filteredMaterials]);
 
+  const prevNextNavVisible = Boolean(editingMaterial) && filteredMaterials.length > 1;
+
+  function dismissPrevNextHint() {
+    setShowPrevNextHint(false);
+    try {
+      localStorage.setItem(PREV_NEXT_HINT_KEY, 'true');
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  useEffect(() => {
+    if (!prevNextNavVisible) {
+      return;
+    }
+    try {
+      if (localStorage.getItem(PREV_NEXT_HINT_KEY) === 'true') {
+        return;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    setShowPrevNextHint(true);
+    const timeoutId = window.setTimeout(() => {
+      dismissPrevNextHint();
+    }, 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [prevNextNavVisible]);
+
   function handleMaterialPrev() {
     if (editingMaterialIndex <= 0) return;
     const prev = filteredMaterials[editingMaterialIndex - 1];
@@ -1759,37 +1791,80 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               {editingMaterial && (
                 <div style={{
                   display: 'flex',
-                  alignItems: 'center',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
                   gap: '6px',
                   marginLeft: '12px',
                 }}>
-                  <button
-                    type="button"
-                    onClick={handleMaterialPrev}
-                    disabled={editingMaterialIndex === 0}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '4px 8px' }}
-                    title="Previous material"
-                  >
-                    ← Prev
-                  </button>
-                  <span style={{
-                    fontSize: '12px',
-                    color: '#94a3b8',
-                    whiteSpace: 'nowrap',
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}>
-                    {editingMaterialIndex + 1} of {filteredMaterials.length}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleMaterialNext}
-                    disabled={editingMaterialIndex === filteredMaterials.length - 1}
-                    className="btn btn-ghost btn-sm"
-                    style={{ padding: '4px 8px' }}
-                    title="Next material"
-                  >
-                    Next →
-                  </button>
+                    <button
+                      type="button"
+                      onClick={handleMaterialPrev}
+                      disabled={editingMaterialIndex === 0}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '4px 8px' }}
+                      title="Previous material"
+                    >
+                      ← Prev
+                    </button>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#94a3b8',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {editingMaterialIndex + 1} of {filteredMaterials.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleMaterialNext}
+                      disabled={editingMaterialIndex === filteredMaterials.length - 1}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '4px 8px' }}
+                      title="Next material"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                  {showPrevNextHint && prevNextNavVisible && filteredMaterials.length > 1 ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '8px',
+                        backgroundColor: '#DCFCE7',
+                        border: '1px solid #16A34A',
+                        color: '#15803D',
+                        fontSize: '12px',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        maxWidth: '320px',
+                      }}
+                    >
+                      <span>Tip: Use Previous and Next to move between items without going back to the list</span>
+                      <button
+                        type="button"
+                        onClick={dismissPrevNextHint}
+                        aria-label="Dismiss tip"
+                        style={{
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#15803D',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          lineHeight: 1,
+                          padding: '0 2px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>

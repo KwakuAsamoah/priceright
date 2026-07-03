@@ -104,6 +104,8 @@ function getDisplayBOM(bomItems: BOMMaterial[], product: Product): BOMMaterial[]
 
 // ─── component ───────────────────────────────────────────────────────────────
 
+const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
+
 export default function ProductDetail() {
   const { baseCurrency } = useBaseCurrency();
   const { id } = useParams<{ id: string }>();
@@ -140,6 +142,7 @@ export default function ProductDetail() {
   const [showInactiveModal, setShowInactiveModal] = useState(false);
   const [showApproveCustomModal, setShowApproveCustomModal] = useState(false);
   const [showResetPendingModal, setShowResetPendingModal] = useState(false);
+  const [showPrevNextHint, setShowPrevNextHint] = useState(false);
 
   // materials list for the form drawer
   const [materials, setMaterials] = useState<any[]>([]);
@@ -278,6 +281,34 @@ export default function ProductDetail() {
     : null;
   const productCounterCurrent = currentProductIndex >= 0 ? currentProductIndex + 1 : 1;
   const productCounterTotal = productOrder.length > 0 ? productOrder.length : 1;
+  const prevNextNavVisible = productOrder.length > 1;
+
+  function dismissPrevNextHint() {
+    setShowPrevNextHint(false);
+    try {
+      localStorage.setItem(PREV_NEXT_HINT_KEY, 'true');
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  useEffect(() => {
+    if (!prevNextNavVisible) {
+      return;
+    }
+    try {
+      if (localStorage.getItem(PREV_NEXT_HINT_KEY) === 'true') {
+        return;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    setShowPrevNextHint(true);
+    const timeoutId = window.setTimeout(() => {
+      dismissPrevNextHint();
+    }, 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [prevNextNavVisible]);
 
   function navigateToProduct(target: ProductNavItem | null) {
     if (!target) return;
@@ -563,56 +594,94 @@ export default function ProductDetail() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', marginBottom: '12px', gap: '12px' }}>
-          <button
-            type="button"
-            onClick={() => navigateToProduct(previousProduct)}
-            disabled={!previousProduct}
-            title={previousProduct?.name || ''}
-            style={{
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
-              color: previousProduct ? '#334155' : '#94a3b8',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: previousProduct ? 'pointer' : 'not-allowed',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <ChevronLeft size={14} strokeWidth={2} />
-            Previous
-          </button>
+        <div style={{ display: 'grid', gap: '6px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f0f0f0', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => navigateToProduct(previousProduct)}
+              disabled={!previousProduct}
+              title={previousProduct?.name || ''}
+              style={{
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: previousProduct ? '#334155' : '#94a3b8',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: previousProduct ? 'pointer' : 'not-allowed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <ChevronLeft size={14} strokeWidth={2} />
+              Previous
+            </button>
 
-          <div style={{ fontSize: '14px', color: '#888', fontWeight: 400 }}>
-            {productCounterCurrent} of {productCounterTotal} products
+            <div style={{ fontSize: '14px', color: '#888', fontWeight: 400 }}>
+              {productCounterCurrent} of {productCounterTotal} products
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigateToProduct(nextProduct)}
+              disabled={!nextProduct}
+              title={nextProduct?.name || ''}
+              style={{
+                border: '1px solid #e2e8f0',
+                background: '#ffffff',
+                color: nextProduct ? '#334155' : '#94a3b8',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: nextProduct ? 'pointer' : 'not-allowed',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              Next
+              <ChevronRight size={14} strokeWidth={2} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigateToProduct(nextProduct)}
-            disabled={!nextProduct}
-            title={nextProduct?.name || ''}
-            style={{
-              border: '1px solid #e2e8f0',
-              background: '#ffffff',
-              color: nextProduct ? '#334155' : '#94a3b8',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: nextProduct ? 'pointer' : 'not-allowed',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            Next
-            <ChevronRight size={14} strokeWidth={2} />
-          </button>
+          {showPrevNextHint && prevNextNavVisible ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                backgroundColor: '#DCFCE7',
+                border: '1px solid #16A34A',
+                color: '#15803D',
+                fontSize: '12px',
+                padding: '6px 10px',
+                borderRadius: '6px',
+              }}
+            >
+              <span>Tip: Use Previous and Next to move between items without going back to the list</span>
+              <button
+                type="button"
+                onClick={dismissPrevNextHint}
+                aria-label="Dismiss tip"
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#15803D',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  lineHeight: 1,
+                  padding: '0 2px',
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
