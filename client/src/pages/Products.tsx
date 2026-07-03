@@ -351,6 +351,7 @@ export default function Products() {
   const productsTableRef = useRef<HTMLDivElement | null>(null);
 
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
+  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
 
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -1932,26 +1933,34 @@ export default function Products() {
                           style={{
                             borderBottom: '1px solid #e2e8f0',
                             borderLeft: isNeedsReview ? '3px solid #f97316' : '3px solid transparent',
-                            backgroundColor: isNeedsReview ? '#fffbf5' : 'transparent',
+                            backgroundColor: hoveredRowId === product.id ? '#f8fafc' : (isNeedsReview ? '#fffbf5' : 'transparent'),
                             color: product.isActive ? undefined : '#aaaaaa',
+                            cursor: 'pointer',
                           }}
+                          onMouseEnter={() => setHoveredRowId(product.id)}
+                          onMouseLeave={() => setHoveredRowId(null)}
+                          onClick={() => openProductDetail(product.id)}
                         >
                           <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={selectedProducts.has(product.id)}
-                              onChange={() => handleSelectProduct(product.id)}
+                              onChange={(e) => { e.stopPropagation(); handleSelectProduct(product.id); }}
+                              onClick={(e) => e.stopPropagation()}
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
-                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => openProductDetail(product.id)}>
+                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <span
                                 title={`SKU: ${product.sku || '-'}`}
+                                onClick={(e) => { e.stopPropagation(); openProductDetail(product.id); }}
                                 style={{
                                   fontWeight: 600,
                                   fontSize: '14px',
-                                  color: product.isActive ? undefined : '#aaaaaa',
+                                  color: hoveredRowId === product.id ? '#16A34A' : (product.isActive ? undefined : '#aaaaaa'),
+                                  textDecoration: hoveredRowId === product.id ? 'underline' : 'none',
+                                  cursor: 'pointer',
                                   overflow: 'hidden',
                                   textOverflow: 'ellipsis',
                                   minWidth: 0,
@@ -2092,10 +2101,13 @@ export default function Products() {
                             </div>
                           </td>
                           <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}>
+                            <div
+                              style={{ display: 'flex', gap: '4px', justifyContent: 'center', whiteSpace: 'nowrap', alignItems: 'center' }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               {isNeedsReview ? (
                                 <AppButton
-                                  onClick={() => openProductDetail(product.id)}
+                                  onClick={(e) => { e.stopPropagation(); openProductDetail(product.id); }}
                                   variant="ghost"
                                   size="sm"
                                   className="app-row-action-icon"
@@ -2110,7 +2122,7 @@ export default function Products() {
                                 </AppButton>
                               ) : (
                                 <AppButton
-                                  onClick={() => handleEdit(product)}
+                                  onClick={(e) => { e.stopPropagation(); handleEdit(product); }}
                                   variant="ghost"
                                   size="sm"
                                   className="app-row-action-icon"

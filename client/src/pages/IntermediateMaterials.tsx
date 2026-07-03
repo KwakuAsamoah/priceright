@@ -271,6 +271,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const { downloading, handleDownload } = useTemplateDownload();
   const { handlePrint } = usePrint();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialRecord | null>(null);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -1309,7 +1310,14 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 {filteredMaterials.map((material) => (
                   <tr
                     key={material.id}
-                    style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa', cursor: 'pointer' }}
+                    style={{
+                      borderBottom: '1px solid #e2e8f0',
+                      color: material.isActive ? undefined : '#aaaaaa',
+                      cursor: 'pointer',
+                      backgroundColor: hoveredRowId === material.id ? '#f8fafc' : 'transparent',
+                    }}
+                    onMouseEnter={() => setHoveredRowId(material.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
                     onClick={() => navigate(`/intermediate-materials/${material.id}`, { state: { from: '/materials?tab=intermediate' } })}
                   >
                     <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
@@ -1322,7 +1330,24 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       />
                     </td>
                     <td style={{ padding: '8px 14px', minWidth: '220px' }}>
-                      <div style={{ fontWeight: '600', fontSize: '14px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/intermediate-materials/${material.id}`, { state: { from: '/materials?tab=intermediate' } });
+                        }}
+                        style={{
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          color: hoveredRowId === material.id ? '#16A34A' : undefined,
+                          textDecoration: hoveredRowId === material.id ? 'underline' : 'none',
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}
+                      >
+                        {material.name}
+                      </div>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
                     </td>
                     {isIntermediateColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
@@ -1333,7 +1358,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     </td>}
                     <td style={{ padding: '8px 14px' }}><AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">{material.isActive ? 'Active' : 'Inactive'}</AppBadge></td>
                     <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}>
+                      <div
+                        style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <AppButton onClick={(e) => { e.stopPropagation(); openEditMaterialForm(material); }} variant="ghost" size="sm" className="app-row-action-icon" title="Edit" ariaLabel={`Edit ${material.name}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '2px', minWidth: '20px' }}>
                           <Pencil size={11} strokeWidth={2} />
                         </AppButton>

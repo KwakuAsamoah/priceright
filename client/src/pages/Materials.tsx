@@ -242,6 +242,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [selectedMaterialUsage, setSelectedMaterialUsage] = useState<MaterialUsage | null>(null);
   const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   const [detailBom, setDetailBom] = useState<Array<any>>([]);
   
   // New state for bulk actions
@@ -1487,7 +1488,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 {filteredMaterials.map((material, idx) => (
                   <tr
                     key={material.id}
-                    style={{ borderBottom: '1px solid #e2e8f0', color: material.isActive ? undefined : '#aaaaaa', cursor: 'pointer' }}
+                    style={{
+                      borderBottom: '1px solid #e2e8f0',
+                      color: material.isActive ? undefined : '#aaaaaa',
+                      cursor: 'pointer',
+                      backgroundColor: hoveredRowId === material.id ? '#f8fafc' : 'transparent',
+                    }}
+                    onMouseEnter={() => setHoveredRowId(material.id)}
+                    onMouseLeave={() => setHoveredRowId(null)}
                     onClick={() => openDetail(material)}
                   >
                     <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
@@ -1495,12 +1503,27 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         type="checkbox"
                         checked={selectedMaterials.has(material.id)}
                         onChange={(e) => { e.stopPropagation(); handleSelectMaterial(material.id); }}
+                        onClick={(e) => e.stopPropagation()}
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
                     <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                     <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontWeight: '600', fontSize: '14px', color: material.isActive ? undefined : '#aaaaaa', overflow: 'hidden', textOverflow: 'ellipsis' }} title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}>{material.name}</div>
+                      <div
+                        onClick={(e) => { e.stopPropagation(); openDetail(material); }}
+                        style={{
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          color: hoveredRowId === material.id ? '#16A34A' : (material.isActive ? undefined : '#aaaaaa'),
+                          textDecoration: hoveredRowId === material.id ? 'underline' : 'none',
+                          cursor: 'pointer',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                        title={material.sku ? `${material.name} (SKU: ${material.sku})` : material.name}
+                      >
+                        {material.name}
+                      </div>
                     </td>
                     {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       <span style={{ fontSize: '13px', color: '#475569' }}>{material.category}</span>
@@ -1524,7 +1547,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       </AppBadge>
                     </td>
                     <td style={{ padding: '8px 14px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}>
+                      <div
+                        style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap', alignItems: 'center', justifyContent: 'center' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <AppButton
                           onClick={(e) => { e.stopPropagation(); handleEdit(material); }}
                           variant="ghost"
