@@ -1034,17 +1034,8 @@ textarea {
   color: #0f172a;
 }
 
-.help-centre {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
+.help-page .app-page-content {
   background: #f8fafc;
-}
-
-.help-centre__scroll {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .help-centre__inner {

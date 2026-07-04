@@ -218,8 +218,8 @@ export default function HelpPage() {
   };
 
   return (
-    <div className="help-centre">
-      <div ref={contentScrollRef} className="help-centre__scroll">
+    <div className="app-page help-page">
+      <div ref={contentScrollRef} className="app-page-content">
         <div className="help-centre__inner">
           {!showArticleView && (
             <header className="help-centre__hero">
