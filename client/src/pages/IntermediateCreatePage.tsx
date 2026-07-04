@@ -94,8 +94,20 @@ const rightPanelStyle = {
   flexDirection: 'column' as const,
   overflow: 'hidden',
   minHeight: 0,
+  minWidth: 0,
   borderLeft: '1px solid #E2E8F0',
   paddingLeft: '16px',
+  paddingRight: '16px',
+  boxSizing: 'border-box' as const,
+};
+
+const bomControlsRowStyle = {
+  display: 'flex',
+  flexWrap: 'nowrap' as const,
+  gap: '8px',
+  marginBottom: '4px',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
 };
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -564,8 +576,8 @@ export default function IntermediateCreatePage() {
                   <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
                   <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
                   <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={{ marginBottom: '8px' }} />
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                    <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1 }}>
+                  <div style={bomControlsRowStyle}>
+                    <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }}>
                       <option value={0}>Select component material...</option>
                       {filteredAvailableComponents.map((material) => (
                         <option key={material.id} value={material.id}>{material.name}</option>
@@ -581,9 +593,9 @@ export default function IntermediateCreatePage() {
                         commitMathExpression(componentQuantity, setComponentQuantity);
                       }}
                       placeholder="Qty or =2+2"
-                      style={{ width: '120px' }}
+                      style={{ width: '100px', flexShrink: 0 }}
                     />
-                    <button className="btn btn-secondary btn-sm" type="button" onClick={addToTempBomItems}>Add</button>
+                    <button className="btn btn-secondary btn-sm" type="button" onClick={addToTempBomItems} style={{ flexShrink: 0 }}>Add</button>
                   </div>
                   <div style={{ fontSize: 12, color: '#64748b' }}>
                     Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials

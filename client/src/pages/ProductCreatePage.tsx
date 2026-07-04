@@ -103,8 +103,11 @@ const rightPanelStyle = {
   flexDirection: 'column' as const,
   overflow: 'hidden',
   minHeight: 0,
+  minWidth: 0,
   borderLeft: '1px solid #E2E8F0',
   paddingLeft: '16px',
+  paddingRight: '16px',
+  boxSizing: 'border-box' as const,
 };
 
 export default function ProductCreatePage() {
