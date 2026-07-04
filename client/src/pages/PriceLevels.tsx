@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, Package, Pencil, Plus, Printer, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   currenciesApi,
@@ -287,14 +287,14 @@ export default function PriceLevels() {
   const [wizardRules, setWizardRules] = useState<Record<number, WizardRuleDraft>>({});
   const [wizardApplyAllType, setWizardApplyAllType] = useState<OverrideType>('rule_discount');
   const [wizardApplyAllValue, setWizardApplyAllValue] = useState('');
-  const [showExportModal, setShowExportModal] = useState(false);
+  const [showExportSelectedModal, setShowExportSelectedModal] = useState(false);
   const [managePacksItem, setManagePacksItem] = useState<PriceLevelItemResponse | null>(null);
   const [managePacksNewQuantity, setManagePacksNewQuantity] = useState('');
   const { setHasOpenForm } = useFormState();
 
   useEffect(() => {
-    setHasOpenForm(showAddProductsModal || showWizard || showExportModal || managePacksItem != null);
-  }, [showAddProductsModal, showWizard, showExportModal, managePacksItem, setHasOpenForm]);
+    setHasOpenForm(showAddProductsModal || showWizard || showExportSelectedModal || managePacksItem != null);
+  }, [showAddProductsModal, showWizard, showExportSelectedModal, managePacksItem, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -1249,7 +1249,7 @@ export default function PriceLevels() {
     }
   }
 
-  function openExportModal() {
+  function openExportSelectedModal() {
     const approvedIds = approvedSelectedLevelItems.map((item) => item.productId);
     setSelectedExportProductIds(new Set(approvedIds));
     setIncludeCompanyName(true);
@@ -1257,7 +1257,21 @@ export default function PriceLevels() {
     setIncludeGeneratedDate(true);
     setIncludeValidUntil(true);
     setExportValidUntil('');
-    setShowExportModal(true);
+    setShowExportSelectedModal(true);
+  }
+
+  function exportAllApprovedToExcel() {
+    if (!selectedLevel || approvedSelectedLevelItems.length === 0) {
+      return;
+    }
+    exportSelectedRowsToExcel(exportRows, approvedSelectedLevelItems);
+  }
+
+  function exportAllApprovedToPdf() {
+    if (!selectedLevel || approvedSelectedLevelItems.length === 0) {
+      return;
+    }
+    exportSelectedRowsToPdf(exportRows);
   }
 
   function toggleExportProduct(productId: number, checked: boolean) {
@@ -1280,19 +1294,29 @@ export default function PriceLevels() {
     setSelectedExportProductIds(new Set(exportRows.map((row) => row.productId)));
   }
 
-  function exportSelectedRowsToExcel() {
-    if (!selectedLevel || selectedExportRows.length === 0) {
+  function exportSelectedRowsToExcel(
+    rowsOverride?: ExportRow[],
+    itemsOverride?: PriceLevelItemResponse[],
+  ) {
+    const rows = rowsOverride ?? selectedExportRows;
+    const exportedItems = itemsOverride ?? approvedSelectedLevelItems.filter((item) => selectedExportProductIds.has(item.productId));
+    const usingDirectExport = rowsOverride != null;
+    const headerCompanyName = usingDirectExport ? (isDemoMode ? 'Savanna' : '') : exportCompanyName;
+    const showCompanyName = usingDirectExport ? true : includeCompanyName;
+    const showGeneratedDate = usingDirectExport ? true : includeGeneratedDate;
+    const showValidUntil = usingDirectExport ? true : includeValidUntil;
+    const validUntilValue = usingDirectExport ? '' : exportValidUntil;
+
+    if (!selectedLevel || rows.length === 0) {
       return;
     }
-
-    const exportedItems = approvedSelectedLevelItems.filter((item) => selectedExportProductIds.has(item.productId));
     const unitPriceLabel = levelCurrencyCode ? `Unit Price (${levelCurrencyCode})` : `Unit Price (${baseCurrency})`;
     const packPriceLabel = levelCurrencyCode ? `Pack Price (${levelCurrencyCode})` : `Pack Price (${baseCurrency})`;
 
     const now = new Date();
     const metadataLine = [
-      includeGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
-      includeValidUntil && exportValidUntil ? `Valid until: ${exportValidUntil}` : '',
+      showGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
+      showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
     ].filter(Boolean).join('   |   ');
 
     const headerRow = ['#', 'Product Name', 'Pack Size', unitPriceLabel, packPriceLabel];
@@ -1326,7 +1350,7 @@ export default function PriceLevels() {
     }
 
     const worksheet = XLSX.utils.aoa_to_sheet([
-      [includeCompanyName ? exportCompanyName.trim() : ''],
+      [showCompanyName ? headerCompanyName.trim() : ''],
       [`Price List: ${selectedLevel.name}`],
       [metadataLine],
       [],
@@ -1394,8 +1418,18 @@ export default function PriceLevels() {
     XLSX.writeFile(workbook, sanitizeExportFilename(selectedLevel.name, now));
   }
 
-  function exportSelectedRowsToPdf() {
-    if (!selectedLevel || selectedExportRows.length === 0) {
+  function exportSelectedRowsToPdf(
+    rowsOverride?: ExportRow[],
+  ) {
+    const rows = rowsOverride ?? selectedExportRows;
+    const usingDirectExport = rowsOverride != null;
+    const headerCompanyName = usingDirectExport ? (isDemoMode ? 'Savanna' : '') : exportCompanyName;
+    const showCompanyName = usingDirectExport ? true : includeCompanyName;
+    const showGeneratedDate = usingDirectExport ? true : includeGeneratedDate;
+    const showValidUntil = usingDirectExport ? true : includeValidUntil;
+    const validUntilValue = usingDirectExport ? '' : exportValidUntil;
+
+    if (!selectedLevel || rows.length === 0) {
       return;
     }
 
@@ -1407,11 +1441,11 @@ export default function PriceLevels() {
     }
 
     const metadata = [
-      includeGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
-      includeValidUntil && exportValidUntil ? `Valid until: ${exportValidUntil}` : '',
+      showGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
+      showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
     ].filter(Boolean).join(' | ');
 
-    const rowsHtml = selectedExportRows
+    const rowsHtml = rows
       .map(
         (row, index) => `
           <tr>
@@ -1444,7 +1478,7 @@ export default function PriceLevels() {
           </style>
         </head>
         <body>
-          <h1>${includeCompanyName ? exportCompanyName.trim() : ''}</h1>
+          <h1>${showCompanyName ? headerCompanyName.trim() : ''}</h1>
           <h2>Price List: ${selectedLevel.name}</h2>
           <p>${metadata}</p>
           <table>
@@ -1886,30 +1920,75 @@ export default function PriceLevels() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <AppBadge variant={levelStatus(selectedLevelItems).variant}>{levelStatus(selectedLevelItems).label}</AppBadge>
-                      <AppButton
-                        variant="primary"
-                        size="sm"
-                        onClick={openExportModal}
-                        disabled={approvedSelectedLevelItems.length === 0}
-                        title={approvedSelectedLevelItems.length === 0 ? 'Approve at least one price before exporting.' : 'Export price list'}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <Download size={14} />
-                        Export price list
-                      </AppButton>
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-sm"
-                        onClick={() => {
-                          if (selectedLevelItems.length === 0) return;
-                          void handlePrintPriceList();
-                        }}
-                        disabled={selectedLevelItems.length === 0}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <Printer size={14} />
-                        Print price list
-                      </button>
+                      {(() => {
+                        const exportDisabled = !selectedLevel || approvedSelectedLevelItems.length === 0;
+                        const exportDisabledTitle = !selectedLevel
+                          ? 'Select a price level first.'
+                          : approvedSelectedLevelItems.length === 0
+                            ? 'Approve at least one price before exporting.'
+                            : undefined;
+                        return (
+                          <>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={exportAllApprovedToPdf}
+                                disabled={exportDisabled}
+                                title={exportDisabledTitle}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <FileText size={14} />
+                                Export PDF
+                              </button>
+                              <button
+                                type="button"
+                                onClick={openExportSelectedModal}
+                                disabled={exportDisabled}
+                                title={exportDisabledTitle || 'Export selected products'}
+                                aria-label="Export selected products"
+                                style={{
+                                  border: '1px solid #e2e8f0',
+                                  background: '#ffffff',
+                                  color: exportDisabled ? '#94a3b8' : '#64748b',
+                                  borderRadius: '6px',
+                                  padding: '4px 6px',
+                                  cursor: exportDisabled ? 'not-allowed' : 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <ChevronDown size={14} />
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={exportAllApprovedToExcel}
+                              disabled={exportDisabled}
+                              title={exportDisabledTitle}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <Table size={14} />
+                              Export Excel
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => {
+                                if (exportDisabled) return;
+                                void handlePrintPriceList();
+                              }}
+                              disabled={exportDisabled}
+                              title={exportDisabledTitle}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <Printer size={14} />
+                              Print
+                            </button>
+                          </>
+                        );
+                      })()}
                       <OverflowMenu
                         ariaLabel="More actions for selected price level"
                         items={[
@@ -2504,15 +2583,15 @@ export default function PriceLevels() {
         </div>
       )}
 
-      {showExportModal && selectedLevel && createPortal(
+      {showExportSelectedModal && selectedLevel && createPortal(
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '920px', width: '100%', padding: 0, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ padding: '18px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
               <div>
-                <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>Export price list</h2>
+                <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>Export selected products</h2>
                 <div className="app-modal-subtitle">{selectedLevel.name} · {approvedSelectedLevelItems.length} approved product{approvedSelectedLevelItems.length === 1 ? '' : 's'} available</div>
               </div>
-              <button className="btn-close-x" onClick={() => setShowExportModal(false)} aria-label="Close export modal">
+              <button className="btn-close-x" onClick={() => setShowExportSelectedModal(false)} aria-label="Close export modal">
                 &times;
               </button>
             </div>
@@ -2650,9 +2729,9 @@ export default function PriceLevels() {
                 Choose the approved products you want to include, then download Excel or PDF.
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <AppButton variant="secondary" onClick={() => setShowExportModal(false)}>Cancel</AppButton>
-                <AppButton variant="secondary" onClick={exportSelectedRowsToPdf} disabled={selectedExportRows.length === 0}>Download PDF</AppButton>
-                <AppButton variant="primary" onClick={exportSelectedRowsToExcel} disabled={selectedExportRows.length === 0}>Download Excel</AppButton>
+                <AppButton variant="secondary" onClick={() => setShowExportSelectedModal(false)}>Cancel</AppButton>
+                <AppButton variant="secondary" onClick={() => exportSelectedRowsToPdf()} disabled={selectedExportRows.length === 0}>Download PDF</AppButton>
+                <AppButton variant="primary" onClick={() => exportSelectedRowsToExcel()} disabled={selectedExportRows.length === 0}>Download Excel</AppButton>
               </div>
             </div>
           </div>
