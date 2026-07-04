@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
-  CheckCircle,
-  Clock,
   FileText,
   Layers,
   LayoutDashboard,
@@ -79,13 +77,6 @@ interface BannerState {
   message: string;
 }
 
-interface ActivityItem {
-  id: string;
-  type: 'approved' | 'review' | 'exchange';
-  text: string;
-  timestamp: Date;
-}
-
 interface PriceLevelSummary {
   exportReadyLevels: number;
   fullyApprovedLevels: number;
@@ -136,23 +127,6 @@ function formatCurrentDate(date: Date): string {
   }).format(date);
 }
 
-function relativeTime(date: Date): string {
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffHours < 1) {
-    const diffMinutes = Math.max(1, Math.floor(diffMs / (1000 * 60)));
-    return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
-  }
-  if (diffHours < 24) {
-    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  }
-  if (diffDays === 1) return 'Yesterday';
-  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
@@ -163,7 +137,6 @@ export default function Dashboard() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
   const [productionCostByProductId, setProductionCostByProductId] = useState<Record<number, number>>({});
-  const [priceLevelsCount, setPriceLevelsCount] = useState(0);
   const [priceLevelSummary, setPriceLevelSummary] = useState<PriceLevelSummary>({
     exportReadyLevels: 0,
     fullyApprovedLevels: 0,
@@ -282,7 +255,6 @@ export default function Dashboard() {
       setMaterials(materialsData || []);
       setExchangeRates(exchangeRatesData || []);
       setProductionCostByProductId(productionCostMap);
-      setPriceLevelsCount(Array.isArray(priceLevelsData) ? priceLevelsData.length : 0);
       setPriceLevelSummary(nextPriceLevelSummary);
     } catch (fetchError) {
       if (!isMounted) return;
@@ -546,21 +518,6 @@ export default function Dashboard() {
     ];
   }, [priceLevelSummary]);
 
-  const currencyLookup = useMemo(() => {
-    const map: Record<number, { code: string; symbol: string }> = {};
-    materials.forEach((material) => {
-      const currencyId = toNumber(material.purchaseCurrencyId);
-      if (!currencyId) return;
-      if (!map[currencyId]) {
-        map[currencyId] = {
-          code: material.purchaseCurrencyCode || `CUR-${currencyId}`,
-          symbol: material.purchaseCurrencySymbol || '',
-        };
-      }
-    });
-    return map;
-  }, [materials]);
-
   const sortedRates = useMemo(() => {
     return [...exchangeRates].sort((a, b) => {
       const firstDate = parseDate(a.effectiveDate ?? a.updatedAt);
@@ -597,50 +554,6 @@ export default function Dashboard() {
 
     return { staleCount, oldestAgeDays, latestLabel };
   }, [sortedRates]);
-
-  const activityItems = useMemo(() => {
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const events: ActivityItem[] = [];
-
-    products.forEach((product) => {
-      const approvedAt = parseDate(product.approvedAt ?? null);
-      if (approvedAt && approvedAt.getTime() >= sevenDaysAgo && getProductStatus(product) === 'approved') {
-        events.push({
-          id: `product-approved-${product.id}-${approvedAt.getTime()}`,
-          type: 'approved',
-          text: `Product ${product.name} approved at ${formatCurrency(toNumber(product.approvedPrice ?? 0), baseCurrency)}`,
-          timestamp: approvedAt,
-        });
-      }
-
-      const updatedAt = parseDate(product.updatedAt ?? null);
-      if (updatedAt && updatedAt.getTime() >= sevenDaysAgo && getProductStatus(product) === 'needs_review') {
-        events.push({
-          id: `product-review-${product.id}-${updatedAt.getTime()}`,
-          type: 'review',
-          text: `Product ${product.name} flagged for review`,
-          timestamp: updatedAt,
-        });
-      }
-    });
-
-    exchangeRates.forEach((rate) => {
-      const changedAt = parseDate(rate.effectiveDate ?? rate.updatedAt ?? null);
-      if (!changedAt || changedAt.getTime() < sevenDaysAgo) return;
-      const currencyMeta = currencyLookup[rate.currencyId];
-      const code = currencyMeta?.code || `CUR-${rate.currencyId}`;
-      events.push({
-        id: `exchange-${rate.id}-${changedAt.getTime()}`,
-        type: 'exchange',
-        text: `Exchange rate updated: ${code} → ${toNumber(rate.rateToBase).toFixed(2)} ${baseCurrency}`,
-        timestamp: changedAt,
-      });
-    });
-
-    return events
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, 10);
-  }, [products, exchangeRates, currencyLookup, baseCurrency]);
 
   const marginIconBg = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
   const marginValueColor = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
@@ -893,22 +806,12 @@ export default function Dashboard() {
 
           <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box" style={dashboardIconBoxStyle('#0D9488')}><Tag size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(exportReadyIconBg)}><Tag size={20} color="#ffffff" /></div>
             </div>
-            <div className="dashboard-stat-title">Price levels</div>
-            <div className="dashboard-stat-value">{priceLevelsCount}</div>
-            <div className="dashboard-stat-hint">Click to manage level pricing rules</div>
-            <div className="dashboard-stat-sub">{priceLevelsCount} price levels configured</div>
-          </button>
-
-          <button className="app-card dashboard-stat-card" onClick={() => navigate('/price-levels')} title="Open price levels">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(exportReadyIconBg)}><FileText size={20} color="#ffffff" /></div>
-            </div>
-            <div className="dashboard-stat-title">Export-ready Levels</div>
+            <div className="dashboard-stat-title">Price lists</div>
             <div className="dashboard-stat-value">{priceLevelSummary.exportReadyLevels}</div>
-            <div className="dashboard-stat-hint">Open price levels to export approved pricing</div>
-            <div className="dashboard-stat-sub">{priceLevelSummary.fullyApprovedLevels} fully approved · {priceLevelSummary.pendingItems} pending items</div>
+            <div className="dashboard-stat-hint">Click to open price levels</div>
+            <div className="dashboard-stat-sub">{priceLevelSummary.levelsWithPendingItems} pending approval</div>
           </button>
 
 
@@ -1141,42 +1044,6 @@ export default function Dashboard() {
                   <strong className="dashboard-number-xs">{priceLevelSummary.pendingItems}</strong>
                 </button>
               </div>
-            </div>
-
-            <div className="app-card" style={{ padding: '20px' }}>
-              <div className="dashboard-widget-head">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Clock size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Recent Activity</h3>
-                </div>
-              </div>
-
-              {activityItems.length < 3 ? (
-                <div className="dashboard-empty">
-                  <span>Activity will appear here as you use PriceRight</span>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {activityItems.map((item) => {
-                    const icon =
-                      item.type === 'approved' ? <CheckCircle size={14} strokeWidth={2} />
-                        : item.type === 'review' ? <AlertTriangle size={14} strokeWidth={2} />
-                          : <RefreshCw size={14} strokeWidth={2} />;
-
-                    return (
-                      <div key={item.id} style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                          <span style={{ color: '#475569', marginTop: '1px' }}>{icon}</span>
-                          <div>
-                            <div style={{ fontSize: '15px', fontWeight: 400, color: '#0f172a' }}>{item.text}</div>
-                            <div style={{ fontSize: '13px', color: '#64748b' }}>{relativeTime(item.timestamp)}</div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
         </div>
 
