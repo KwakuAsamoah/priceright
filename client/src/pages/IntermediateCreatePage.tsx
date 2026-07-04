@@ -63,19 +63,38 @@ const fieldInputStyle = {
   border: '1px solid #e2e8f0',
 } as const;
 
-const panelShellStyle = {
+const pageContainerStyle = {
+  position: 'fixed' as const,
+  top: 0,
+  right: 0,
+  bottom: 0,
+  width: '780px',
   background: '#ffffff',
-  borderRadius: '8px',
-  border: '1px solid #E2E8F0',
-  padding: '20px',
+  boxShadow: '-4px 0 24px rgba(0,0,0,0.10)',
+  zIndex: 100,
   display: 'flex',
   flexDirection: 'column' as const,
   overflow: 'hidden',
-  height: '100%',
+};
+
+const leftPanelStyle = {
+  width: '320px',
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  overflow: 'hidden',
   minHeight: 0,
 };
 
-const panelsHeight = 'calc(100vh - 200px)';
+const rightPanelStyle = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  overflow: 'hidden',
+  minHeight: 0,
+  borderLeft: '1px solid #E2E8F0',
+  paddingLeft: '16px',
+};
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -387,29 +406,30 @@ export default function IntermediateCreatePage() {
   }
 
   return (
-    <div className="app-page" style={{ backgroundColor: '#ffffff', overflow: 'hidden', height: '100vh' }}>
+    <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div className="app-page-content" style={{ padding: '24px', overflow: 'hidden', height: '100%' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={pageContainerStyle}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
             onClick={() => navigate('/materials?tab=intermediate')}
-            style={{ marginBottom: '16px', paddingLeft: 0, flexShrink: 0 }}
+            style={{ marginBottom: '8px', paddingLeft: 0 }}
           >
             ← Back to Intermediate Materials
           </button>
 
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: '0 0 24px', flexShrink: 0 }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
             New Intermediate Material
           </h1>
+        </div>
 
-          {loading ? (
-            <div style={{ color: '#64748b' }}>Loading form...</div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '24px', height: panelsHeight, minHeight: 0 }}>
+        {loading ? (
+          <div style={{ padding: '16px 20px', color: '#64748b' }}>Loading form...</div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', padding: '16px', gap: '16px', minHeight: 0 }}>
               {/* Left panel — form fields */}
-              <div style={panelShellStyle}>
+              <div style={leftPanelStyle}>
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
                   <h3 style={panelTitleStyle}>Material Details</h3>
                   <div style={{ display: 'grid', gap: '12px' }}>
@@ -537,7 +557,7 @@ export default function IntermediateCreatePage() {
               </div>
 
               {/* Right panel — BOM + cost summary */}
-              <div style={panelShellStyle}>
+              <div style={rightPanelStyle}>
                 <div style={{ flexShrink: 0, marginBottom: '12px' }}>
                   <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
                   <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
@@ -646,10 +666,9 @@ export default function IntermediateCreatePage() {
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </>
   );
 }
