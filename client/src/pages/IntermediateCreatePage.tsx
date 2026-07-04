@@ -28,82 +28,6 @@ interface TempBomItem {
   unitCost: number;
 }
 
-interface StepDef {
-  number: number;
-  label: string;
-}
-
-function StepIndicator({
-  steps,
-  currentStep,
-  completedSteps,
-  onStepClick,
-}: {
-  steps: StepDef[];
-  currentStep: number;
-  completedSteps: number[];
-  onStepClick: (step: number) => void;
-}) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', marginBottom: '24px' }}>
-      {steps.map((step, index) => {
-        const isCompleted = completedSteps.includes(step.number);
-        const isCurrent = currentStep === step.number;
-        const isFuture = !isCompleted && !isCurrent;
-
-        const circleBg = isCompleted ? '#16A34A' : isCurrent ? '#0F2847' : '#E2E8F0';
-        const circleColor = isFuture ? '#94A3B8' : '#ffffff';
-        const labelColor = isCompleted ? '#16A34A' : isCurrent ? '#0F2847' : '#94A3B8';
-        const connectorGreen = completedSteps.includes(step.number);
-
-        return (
-          <div key={step.number} style={{ display: 'flex', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '100px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (isCompleted) onStepClick(step.number);
-                }}
-                disabled={isFuture}
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: circleBg,
-                  color: circleColor,
-                  fontWeight: '600',
-                  fontSize: '14px',
-                  cursor: isCompleted ? 'pointer' : isFuture ? 'not-allowed' : 'default',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {step.number}
-              </button>
-              <span style={{ marginTop: '6px', fontSize: '12px', color: labelColor, textAlign: 'center', maxWidth: '110px' }}>
-                {step.label}
-              </span>
-            </div>
-            {index < steps.length - 1 ? (
-              <div
-                style={{
-                  width: '60px',
-                  height: '2px',
-                  background: connectorGreen ? '#16A34A' : '#E2E8F0',
-                  marginTop: '17px',
-                  flexShrink: 0,
-                }}
-              />
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 const emptyForm: MaterialFormState = {
   name: '',
   sku: '',
@@ -117,11 +41,13 @@ const emptyForm: MaterialFormState = {
   yieldPercentage: '100',
 };
 
-const STEPS: StepDef[] = [
-  { number: 1, label: 'Material Basics' },
-  { number: 2, label: 'Cost Settings' },
-  { number: 3, label: 'Recipe and Review' },
-];
+const panelTitleStyle = {
+  fontSize: '14px',
+  fontWeight: 600,
+  color: '#64748b',
+  marginBottom: '16px',
+  marginTop: 0,
+} as const;
 
 const fieldLabelStyle = {
   display: 'block',
@@ -137,16 +63,19 @@ const fieldInputStyle = {
   border: '1px solid #e2e8f0',
 } as const;
 
-const panelContainerStyle = {
+const panelShellStyle = {
   background: '#ffffff',
   borderRadius: '8px',
   border: '1px solid #E2E8F0',
+  padding: '20px',
   display: 'flex',
   flexDirection: 'column' as const,
-  height: 'calc(100vh - 248px)',
-  padding: '20px 24px',
   overflow: 'hidden',
+  height: '100%',
+  minHeight: 0,
 };
+
+const panelsHeight = 'calc(100vh - 200px)';
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -238,9 +167,7 @@ export default function IntermediateCreatePage() {
   const { setHasOpenForm } = useFormState();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [panelErrors, setPanelErrors] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -400,7 +327,7 @@ export default function IntermediateCreatePage() {
     setComponentSearch('');
   }
 
-  function validateStep1() {
+  function validateForm() {
     const errors: Record<string, string> = {};
     if (!form.name.trim()) {
       errors.name = 'Material name is required.';
@@ -412,45 +339,13 @@ export default function IntermediateCreatePage() {
     if (Number.isNaN(yieldVal) || yieldVal <= 0) {
       errors.yieldPercentage = 'Yield % must be greater than 0.';
     }
-    setPanelErrors(errors);
+    setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
-  function markStepCompleted(step: number) {
-    setCompletedSteps((prev) => (prev.includes(step) ? prev : [...prev, step]));
-  }
-
-  function handleNext() {
-    if (currentStep === 1) {
-      if (!validateStep1()) return;
-      markStepCompleted(1);
-      setCurrentStep(2);
-      setPanelErrors({});
-      return;
-    }
-
-    if (currentStep === 2) {
-      markStepCompleted(2);
-      setCurrentStep(3);
-      setPanelErrors({});
-    }
-  }
-
-  function handleBack() {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-      setPanelErrors({});
-    }
-  }
-
-  function handleStepClick(step: number) {
-    if (completedSteps.includes(step)) {
-      setCurrentStep(step);
-      setPanelErrors({});
-    }
-  }
-
   async function saveMaterial() {
+    if (!validateForm()) return;
+
     setSaving(true);
     try {
       const resolvedCategory = resolveCategoryForSave();
@@ -491,276 +386,11 @@ export default function IntermediateCreatePage() {
     }
   }
 
-  function renderPanelNav(options: { showBack: boolean; showNext: boolean }) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, height: '52px', marginTop: 'auto', paddingTop: '8px' }}>
-        {options.showBack ? (
-          <button type="button" className="btn btn-outline btn-sm" onClick={handleBack}>
-            Back
-          </button>
-        ) : (
-          <div />
-        )}
-        {options.showNext ? (
-          <button type="button" className="btn btn-primary btn-sm" onClick={handleNext}>
-            Next
-          </button>
-        ) : (
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => void saveMaterial()} disabled={saving || !form.name.trim() || !form.unit.trim()}>
-            {saving ? 'Saving...' : 'Create Intermediate'}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  function renderPanel1() {
-    return (
-      <div style={panelContainerStyle}>
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <h3 className="app-form-section-title" style={{ marginTop: 0 }}>Material Basics</h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div>
-              <label style={fieldLabelStyle}>Material Name *</label>
-              <input className="app-input" type="text" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} style={fieldInputStyle} />
-              {panelErrors.name ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{panelErrors.name}</div> : null}
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Unit *</label>
-              <input className="app-input" type="text" value={form.unit} onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))} style={fieldInputStyle} />
-              {panelErrors.unit ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{panelErrors.unit}</div> : null}
-            </div>
-            <div>
-              <label style={fieldLabelStyle}>Yield % *</label>
-              <input className="app-input" type="number" step="0.1" value={form.yieldPercentage} onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))} style={fieldInputStyle} />
-              <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
-                Enter the usable output as a percentage. For example if 100g of ingredients yields 80g of finished material enter 80.
-              </div>
-              {panelErrors.yieldPercentage ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{panelErrors.yieldPercentage}</div> : null}
-            </div>
-          </div>
-        </div>
-        {renderPanelNav({ showBack: false, showNext: true })}
-      </div>
-    );
-  }
-
-  function renderPanel2() {
-    return (
-      <div style={panelContainerStyle}>
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <h3 className="app-form-section-title" style={{ marginTop: 0 }}>Cost Settings</h3>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={fieldLabelStyle}>SKU</label>
-                <input className="app-input" type="text" value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} style={fieldInputStyle} />
-              </div>
-              <div>
-                <label style={fieldLabelStyle}>Category *</label>
-                <select
-                  className="app-input"
-                  value={form.category}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setForm((prev) => ({ ...prev, category: value }));
-                    if (value !== '__custom__') {
-                      setMaterialCustomCategoryValue('');
-                    }
-                  }}
-                  style={fieldInputStyle}
-                >
-                  <option value="" disabled>Select category</option>
-                  {materialCategories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                  <option value="__custom__">+ Add new category...</option>
-                </select>
-                {form.category === '__custom__' ? (
-                  <input
-                    className="app-input"
-                    type="text"
-                    value={materialCustomCategoryValue}
-                    onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
-                    placeholder="Enter new category"
-                    style={{ ...fieldInputStyle, marginTop: '8px' }}
-                  />
-                ) : null}
-              </div>
-            </div>
-
-            <div>
-              <label style={fieldLabelStyle}>Description</label>
-              <textarea className="app-input" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} style={{ ...fieldInputStyle, minHeight: '60px', resize: 'none' }} />
-            </div>
-
-            <div>
-              <label style={fieldLabelStyle}>Costing Method</label>
-              <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
-                <button className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'completed_output'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}>
-                  Completed output
-                </button>
-                <button className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'yield'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}>
-                  Yield-based
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={fieldLabelStyle}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Quantity *' : 'Batch Quantity *'}</label>
-              <input
-                className="app-input"
-                type="text"
-                inputMode="decimal"
-                value={form.bulkQuantity}
-                onChange={(e) => setForm((prev) => ({ ...prev, bulkQuantity: e.target.value }))}
-                onBlur={() => {
-                  commitMathExpression(form.bulkQuantity, (value) => setForm((prev) => ({ ...prev, bulkQuantity: value })));
-                }}
-                style={fieldInputStyle}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div>
-                <label style={fieldLabelStyle}>Overhead % *</label>
-                <input className="app-input" type="number" step="0.1" value={form.overheadPercentage} onChange={(e) => setForm((prev) => ({ ...prev, overheadPercentage: e.target.value }))} style={fieldInputStyle} />
-              </div>
-              <div>
-                <label style={{ ...fieldLabelStyle, display: 'inline-flex', alignItems: 'center' }}>
-                  Markup % *
-                  <MarkupInfoTooltip />
-                </label>
-                <input className="app-input" type="number" step="0.1" value={form.marginPercentage} onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))} style={fieldInputStyle} />
-              </div>
-            </div>
-          </div>
-        </div>
-        {renderPanelNav({ showBack: true, showNext: true })}
-      </div>
-    );
-  }
-
-  function renderPanel3() {
-    return (
-      <div style={panelContainerStyle}>
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ flexShrink: 0, marginBottom: '8px' }}>
-            <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px' }}>Bill of Materials</h3>
-            <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-            <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={{ marginBottom: '8px' }} />
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-              <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1 }}>
-                <option value={0}>Select component material...</option>
-                {filteredAvailableComponents.map((material) => (
-                  <option key={material.id} value={material.id}>{material.name}</option>
-                ))}
-              </select>
-              <input
-                className="app-input"
-                type="text"
-                inputMode="decimal"
-                value={componentQuantity}
-                onChange={(e) => setComponentQuantity(e.target.value)}
-                onBlur={() => {
-                  commitMathExpression(componentQuantity, setComponentQuantity);
-                }}
-                placeholder="Qty or =2+2"
-                style={{ width: '120px' }}
-              />
-              <button className="btn btn-secondary btn-sm" type="button" onClick={addToTempBomItems}>Add</button>
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b' }}>
-              Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
-            </div>
-          </div>
-
-          <div style={{ flex: 1, minHeight: '250px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-            <table className="app-table app-table-compact" style={{ width: '100%' }}>
-              <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
-                <tr>
-                  <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
-                  <th style={{ textAlign: 'right' }}>Quantity</th>
-                  <th style={{ textAlign: 'right' }}>Unit Price</th>
-                  <th style={{ textAlign: 'right' }}>Total</th>
-                  <th style={{ textAlign: 'center' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tempBomItems.map((item, index) => {
-                  const rowTotal = item.quantity * item.unitCost;
-                  return (
-                    <tr key={`${item.componentMaterialId}-${index}`}>
-                      <td style={{ textAlign: 'left' }}>{item.componentName}</td>
-                      <td style={{ textAlign: 'right' }}>{item.quantity.toFixed(3)} {item.componentUnit}</td>
-                      <td style={{ textAlign: 'right' }}>{formatMoney(item.unitCost)}</td>
-                      <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {tempBomItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ color: '#64748b', textAlign: 'center', padding: '32px' }}>No BOM components yet.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', maxHeight: '220px', overflow: 'hidden' }}>
-            {tempBomItems.length > 0 && estimatedCostPerUnit != null ? (
-              <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px' }}>
-                Estimated cost per unit (before save): {formatMoney(estimatedCostPerUnit)}
-              </div>
-            ) : null}
-            <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px' }}>Cost Summary (per unit)</h3>
-            <div style={{ display: 'grid', gap: '4px', fontSize: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>Material Cost (batch)</span>
-                <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>
-                <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchOverheadCost)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>Total Production Cost (batch)</span>
-                <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
-                <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>Cost Per Unit</span>
-                <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
-                <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span style={{ fontWeight: '700' }}>Optimal Price</span>
-                <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        {renderPanelNav({ showBack: true, showNext: false })}
-      </div>
-    );
-  }
-
   return (
     <div className="app-page" style={{ backgroundColor: '#ffffff', overflow: 'hidden', height: '100vh' }}>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       <div className="app-page-content" style={{ padding: '24px', overflow: 'hidden', height: '100%' }}>
-        <div style={{ maxWidth: '860px', margin: '0 auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ maxWidth: '1100px', margin: '0 auto', height: '100%', display: 'flex', flexDirection: 'column' }}>
           <button
             type="button"
             className="btn btn-ghost btn-sm"
@@ -770,24 +400,253 @@ export default function IntermediateCreatePage() {
             ← Back to Intermediate Materials
           </button>
 
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: '0 0 16px', flexShrink: 0 }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: '0 0 24px', flexShrink: 0 }}>
             New Intermediate Material
           </h1>
 
           {loading ? (
             <div style={{ color: '#64748b' }}>Loading form...</div>
           ) : (
-            <>
-              <StepIndicator
-                steps={STEPS}
-                currentStep={currentStep}
-                completedSteps={completedSteps}
-                onStepClick={handleStepClick}
-              />
-              {currentStep === 1 ? renderPanel1() : null}
-              {currentStep === 2 ? renderPanel2() : null}
-              {currentStep === 3 ? renderPanel3() : null}
-            </>
+            <div style={{ display: 'grid', gridTemplateColumns: '420px 1fr', gap: '24px', height: panelsHeight, minHeight: 0 }}>
+              {/* Left panel — form fields */}
+              <div style={panelShellStyle}>
+                <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
+                  <h3 style={panelTitleStyle}>Material Details</h3>
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div>
+                      <label style={fieldLabelStyle}>Material Name *</label>
+                      <input className="app-input" type="text" value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} style={fieldInputStyle} />
+                      {fieldErrors.name ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.name}</div> : null}
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Unit *</label>
+                      <input className="app-input" type="text" value={form.unit} onChange={(e) => setForm((prev) => ({ ...prev, unit: e.target.value }))} style={fieldInputStyle} />
+                      {fieldErrors.unit ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.unit}</div> : null}
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Yield % *</label>
+                      <input className="app-input" type="number" step="0.1" value={form.yieldPercentage} onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))} style={fieldInputStyle} />
+                      <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
+                        Enter the usable output as a percentage. For example if 100g of ingredients yields 80g of finished material enter 80.
+                      </div>
+                      {fieldErrors.yieldPercentage ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.yieldPercentage}</div> : null}
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: '1px solid #E2E8F0', margin: '16px 0' }} />
+
+                  <h3 style={panelTitleStyle}>Cost Settings</h3>
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={fieldLabelStyle}>SKU</label>
+                        <input className="app-input" type="text" value={form.sku} onChange={(e) => setForm((prev) => ({ ...prev, sku: e.target.value }))} style={fieldInputStyle} />
+                      </div>
+                      <div>
+                        <label style={fieldLabelStyle}>Category *</label>
+                        <select
+                          className="app-input"
+                          value={form.category}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setForm((prev) => ({ ...prev, category: value }));
+                            if (value !== '__custom__') {
+                              setMaterialCustomCategoryValue('');
+                            }
+                          }}
+                          style={fieldInputStyle}
+                        >
+                          <option value="" disabled>Select category</option>
+                          {materialCategories.map((category) => (
+                            <option key={category} value={category}>{category}</option>
+                          ))}
+                          <option value="__custom__">+ Add new category...</option>
+                        </select>
+                        {form.category === '__custom__' ? (
+                          <input
+                            className="app-input"
+                            type="text"
+                            value={materialCustomCategoryValue}
+                            onChange={(e) => setMaterialCustomCategoryValue(e.target.value)}
+                            placeholder="Enter new category"
+                            style={{ ...fieldInputStyle, marginTop: '8px' }}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={fieldLabelStyle}>Description</label>
+                      <textarea className="app-input" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} style={{ ...fieldInputStyle, minHeight: '60px', resize: 'none' }} />
+                    </div>
+
+                    <div>
+                      <label style={fieldLabelStyle}>Costing Method</label>
+                      <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
+                        <button className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'completed_output'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}>
+                          Completed output
+                        </button>
+                        <button className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'yield'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}>
+                          Yield-based
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={fieldLabelStyle}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Quantity *' : 'Batch Quantity *'}</label>
+                      <input
+                        className="app-input"
+                        type="text"
+                        inputMode="decimal"
+                        value={form.bulkQuantity}
+                        onChange={(e) => setForm((prev) => ({ ...prev, bulkQuantity: e.target.value }))}
+                        onBlur={() => {
+                          commitMathExpression(form.bulkQuantity, (value) => setForm((prev) => ({ ...prev, bulkQuantity: value })));
+                        }}
+                        style={fieldInputStyle}
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={fieldLabelStyle}>Overhead % *</label>
+                        <input className="app-input" type="number" step="0.1" value={form.overheadPercentage} onChange={(e) => setForm((prev) => ({ ...prev, overheadPercentage: e.target.value }))} style={fieldInputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ ...fieldLabelStyle, display: 'inline-flex', alignItems: 'center' }}>
+                          Markup % *
+                          <MarkupInfoTooltip />
+                        </label>
+                        <input className="app-input" type="number" step="0.1" value={form.marginPercentage} onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))} style={fieldInputStyle} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ flexShrink: 0, marginTop: 'auto', paddingTop: '16px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: '100%' }}
+                    onClick={() => void saveMaterial()}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Create Intermediate'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right panel — BOM + cost summary */}
+              <div style={panelShellStyle}>
+                <div style={{ flexShrink: 0, marginBottom: '12px' }}>
+                  <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
+                  <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
+                  <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={{ marginBottom: '8px' }} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                    <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1 }}>
+                      <option value={0}>Select component material...</option>
+                      {filteredAvailableComponents.map((material) => (
+                        <option key={material.id} value={material.id}>{material.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="app-input"
+                      type="text"
+                      inputMode="decimal"
+                      value={componentQuantity}
+                      onChange={(e) => setComponentQuantity(e.target.value)}
+                      onBlur={() => {
+                        commitMathExpression(componentQuantity, setComponentQuantity);
+                      }}
+                      placeholder="Qty or =2+2"
+                      style={{ width: '120px' }}
+                    />
+                    <button className="btn btn-secondary btn-sm" type="button" onClick={addToTempBomItems}>Add</button>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                  </div>
+                </div>
+
+                <div style={{ flex: 1, minHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                    <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
+                      <tr>
+                        <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
+                        <th style={{ textAlign: 'right' }}>Quantity</th>
+                        <th style={{ textAlign: 'right' }}>Unit Price</th>
+                        <th style={{ textAlign: 'right' }}>Total</th>
+                        <th style={{ textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tempBomItems.map((item, index) => {
+                        const rowTotal = item.quantity * item.unitCost;
+                        return (
+                          <tr key={`${item.componentMaterialId}-${index}`}>
+                            <td style={{ textAlign: 'left' }}>{item.componentName}</td>
+                            <td style={{ textAlign: 'right' }}>{item.quantity.toFixed(3)} {item.componentUnit}</td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(item.unitCost)}</td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>
+                                <Trash2 size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {tempBomItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ color: '#64748b', textAlign: 'center', padding: '32px' }}>
+                            No components yet — search and add raw materials on the left.
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px' }}>
+                  {tempBomItems.length > 0 && estimatedCostPerUnit != null ? (
+                    <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px' }}>
+                      Estimated cost per unit (before save): {formatMoney(estimatedCostPerUnit)}
+                    </div>
+                  ) : null}
+                  <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px', fontSize: '14px' }}>Cost Summary (per unit)</h3>
+                  <div style={{ display: 'grid', gap: '4px', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>Material Cost (batch)</span>
+                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>
+                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchOverheadCost)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>Total Production Cost (batch)</span>
+                      <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
+                      <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>Cost Per Unit</span>
+                      <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
+                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                      <span style={{ fontWeight: '700' }}>Optimal Price</span>
+                      <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
