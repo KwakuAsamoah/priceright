@@ -85,10 +85,11 @@ export default function MarginLegendCard() {
     <div
       style={{
         position: 'fixed',
-        bottom: '24px',
-        right: '24px',
+        bottom: '32px',
+        right: '32px',
         zIndex: 50,
         width: '220px',
+        maxWidth: 'calc(100vw - 64px)',
         backgroundColor: '#ffffff',
         border: '1px solid #E2E8F0',
         borderRadius: '10px',
