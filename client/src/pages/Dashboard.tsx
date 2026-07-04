@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
+  Check,
   FileText,
   Layers,
   LayoutDashboard,
@@ -22,9 +23,9 @@ import {
   type PriceLevelItemResponse,
 } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { useLowMarginThreshold } from '../hooks/useLowMarginThreshold';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { formatCurrency } from '../utils/currency';
-import { calculateActualGrossMarginPercent, getThresholdMarginColor } from '../utils/margin';
+import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import MarginLegendCard from '../components/MarginLegendCard';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
@@ -105,8 +106,8 @@ function parseDate(value: string | number | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function marginHealthColor(margin: number, threshold: number): string {
-  return getThresholdMarginColor(margin, threshold);
+function markupHealthColor(markup: number, threshold: number): string {
+  return getThresholdMarkupColor(markup, threshold);
 }
 
 function dashboardIconBoxStyle(backgroundColor: string): CSSProperties {
@@ -131,7 +132,7 @@ function formatCurrentDate(date: Date): string {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
-  const lowMarginThreshold = useLowMarginThreshold();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -396,16 +397,18 @@ export default function Dashboard() {
       .slice(0, 5);
   }, [products]);
 
-  const lowMarginProducts = useMemo(() => {
+  const lowMarkupProducts = useMemo(() => {
     return products
       .filter((product) => {
         if (product.isActive !== true || getProductStatus(product) !== 'approved') return false;
-        return toNumber(product.approvedPrice) > 0;
+        const approvedPrice = toNumber(product.approvedPrice);
+        const productionCost = toNumber(productionCostByProductId[product.id]);
+        return approvedPrice > 0 && productionCost > 0;
       })
       .map((product) => {
         const approvedPrice = toNumber(product.approvedPrice);
         const productionCost = toNumber(productionCostByProductId[product.id]);
-        const realisedMargin = calculateActualGrossMarginPercent(approvedPrice, productionCost);
+        const actualMarkup = calculateActualMarkupPercent(approvedPrice, productionCost);
 
         return {
           product,
@@ -413,29 +416,31 @@ export default function Dashboard() {
           referencePriceLabel: 'Approved base price',
           approvedPrice,
           productionCost,
-          realisedMargin,
+          actualMarkup,
         };
       })
-      .filter((entry) => entry.realisedMargin !== null && (entry.realisedMargin as number) < lowMarginThreshold)
-      .sort((a, b) => (a.realisedMargin as number) - (b.realisedMargin as number));
-  }, [products, productionCostByProductId, lowMarginThreshold]);
+      .filter((entry) => entry.actualMarkup !== null && (entry.actualMarkup as number) < lowMarkupThreshold)
+      .sort((a, b) => (a.actualMarkup as number) - (b.actualMarkup as number));
+  }, [products, productionCostByProductId, lowMarkupThreshold]);
 
-  const averageApprovedMargin = useMemo(() => {
-    const realisedMargins = products
+  const averageApprovedMarkup = useMemo(() => {
+    const markupValues = products
       .filter((product) => {
         if (product.isActive !== true || getProductStatus(product) !== 'approved') return false;
-        return toNumber(product.approvedPrice) > 0;
+        const approvedPrice = toNumber(product.approvedPrice);
+        const productionCost = toNumber(productionCostByProductId[product.id]);
+        return approvedPrice > 0 && productionCost > 0;
       })
       .map((product) => {
         const approvedPrice = toNumber(product.approvedPrice);
         const productionCost = toNumber(productionCostByProductId[product.id]);
-        return calculateActualGrossMarginPercent(approvedPrice, productionCost);
+        return calculateActualMarkupPercent(approvedPrice, productionCost);
       })
-      .filter((margin): margin is number => margin !== null);
+      .filter((markup): markup is number => markup !== null);
 
-    if (realisedMargins.length === 0) return 0;
-    const sum = realisedMargins.reduce((acc, margin) => acc + margin, 0);
-    return sum / realisedMargins.length;
+    if (markupValues.length === 0) return 0;
+    const sum = markupValues.reduce((acc, markup) => acc + markup, 0);
+    return sum / markupValues.length;
   }, [products, productionCostByProductId]);
 
   const materialCounts = useMemo(() => {
@@ -485,18 +490,20 @@ export default function Dashboard() {
 
 
 
-  const lowMarginTopTen = useMemo(() => {
-    return lowMarginProducts
+  const lowMarkupTopTen = useMemo(() => {
+    return lowMarkupProducts
       .slice(0, 10)
       .map((entry) => ({
         product: entry.product,
-        realisedMargin: entry.realisedMargin as number,
+        actualMarkup: entry.actualMarkup as number,
         referencePrice: entry.referencePrice,
         referencePriceLabel: entry.referencePriceLabel,
         approvedPrice: entry.approvedPrice,
         productionCost: entry.productionCost,
       }));
-  }, [lowMarginProducts]);
+  }, [lowMarkupProducts]);
+
+  const markupBarScaleMax = Math.min(lowMarkupThreshold * 2, 100);
 
   const currencyExposureData = useMemo(() => {
     const colors = ['#2563eb', '#0ea5e9', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6'];
@@ -556,8 +563,8 @@ export default function Dashboard() {
     return { staleCount, oldestAgeDays, latestLabel };
   }, [sortedRates]);
 
-  const marginIconBg = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
-  const marginValueColor = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
+  const markupIconBg = markupHealthColor(averageApprovedMarkup, lowMarkupThreshold);
+  const markupValueColor = markupHealthColor(averageApprovedMarkup, lowMarkupThreshold);
   const exportReadyIconBg = priceLevelSummary.exportReadyLevels > 0 ? '#059669' : '#64748b';
 
   const skeletonCards = (
@@ -792,16 +799,16 @@ export default function Dashboard() {
 
           <div className="app-card dashboard-stat-card" style={{ cursor: 'default' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(marginIconBg)}><TrendingUp size={20} color="#ffffff" /></div>
+              <div className="dashboard-icon-box" style={dashboardIconBoxStyle(markupIconBg)}><TrendingUp size={20} color="#ffffff" /></div>
             </div>
-            <div className="dashboard-stat-title">Average Margin</div>
+            <div className="dashboard-stat-title">Average Markup</div>
             <div
               className="dashboard-stat-value"
-              style={{ color: marginValueColor }}
+              style={{ color: markupValueColor }}
             >
-              {averageApprovedMargin.toFixed(1)}%
+              {averageApprovedMarkup.toFixed(1)}%
             </div>
-            <div className="dashboard-stat-hint">Target healthy margin ≥ {lowMarginThreshold}%</div>
+            <div className="dashboard-stat-hint">Target healthy markup ≥ {lowMarkupThreshold}%</div>
             <div className="dashboard-stat-sub">Across approved products</div>
           </div>
 
@@ -821,18 +828,35 @@ export default function Dashboard() {
         <div className="dashboard-chart-grid">
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Low-Margin Top 10</h3>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Below Markup Target</h3>
             </div>
-            <p className="dashboard-help-text">Products with the weakest margins first. Click a row to open low-margin product view.</p>
-            {lowMarginTopTen.length === 0 ? (
-              <div className="dashboard-empty">No low-margin products</div>
+            <p className="dashboard-help-text">Products below your {lowMarkupThreshold}% markup target</p>
+            {lowMarkupTopTen.length === 0 ? (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  alignItems: 'center',
+                  backgroundColor: '#f0fdf4',
+                  border: '1px solid #bbf7d0',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  color: '#166534',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                <Check size={16} strokeWidth={2.5} />
+                All products above your {lowMarkupThreshold}% markup target
+              </div>
             ) : (
               <div style={{ display: 'grid', gap: '7px' }}>
-                {lowMarginTopTen.map(({ product, realisedMargin, referencePrice, referencePriceLabel, productionCost }) => {
-                  const widthPercent = Math.max(8, Math.min(100, (realisedMargin / lowMarginThreshold) * 100));
+                {lowMarkupTopTen.map(({ product, actualMarkup, referencePrice, referencePriceLabel, productionCost }) => {
+                  const markupColor = getThresholdMarkupColor(actualMarkup, lowMarkupThreshold);
+                  const widthPercent = Math.max(8, Math.min(100, (actualMarkup / markupBarScaleMax) * 100));
                   return (
                     <button
-                      key={`low-margin-chart-${product.id}`}
+                      key={`below-markup-chart-${product.id}`}
                       onClick={() => navigate(`/products?lowMargin=1&productId=${product.id}`)}
                       style={{
                         background: 'transparent',
@@ -844,7 +868,7 @@ export default function Dashboard() {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '3px', gap: '8px' }}>
                         <span className="dashboard-chart-label" style={{ color: '#475569' }}>{product.name}</span>
-                        <span className="dashboard-number-sm" style={{ color: '#e65100' }}>{realisedMargin.toFixed(1)}%</span>
+                        <span className="dashboard-number-sm" style={{ color: markupColor }}>{actualMarkup.toFixed(1)}% markup</span>
                       </div>
                       <div
                         style={{
@@ -857,13 +881,20 @@ export default function Dashboard() {
                         {referencePriceLabel}: {formatCurrency(referencePrice, baseCurrency)} · Cost: {formatCurrency(productionCost, baseCurrency)}
                       </div>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#fee2e2' }}>
-                        <div style={{ width: `${widthPercent}%`, height: '8px', borderRadius: '999px', backgroundColor: '#f59e0b' }} />
+                        <div style={{ width: `${widthPercent}%`, height: '8px', borderRadius: '999px', backgroundColor: markupColor }} />
                       </div>
                     </button>
                   );
                 })}
               </div>
             )}
+            <button
+              className="btn btn-secondary"
+              style={{ marginTop: '12px', padding: '6px 10px', fontSize: '14px', fontWeight: 700, width: '100%' }}
+              onClick={() => navigate('/reports?group=products&report=margin-health')}
+            >
+              View Markup Analysis →
+            </button>
           </div>
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
