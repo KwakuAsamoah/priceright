@@ -11,6 +11,7 @@ interface ReportWrapperProps {
   error: string | null;
   isEmpty: boolean;
   generatedAt: Date | null;
+  emptyStateExtra?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ export default function ReportWrapper({
   error,
   isEmpty,
   generatedAt,
+  emptyStateExtra,
   children,
 }: ReportWrapperProps) {
   return (
@@ -78,6 +80,7 @@ export default function ReportWrapper({
       {!isLoading && !error && isEmpty && (
         <div style={{ marginTop: '16px', backgroundColor: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
           No data matches the selected filters.
+          {emptyStateExtra}
         </div>
       )}
 

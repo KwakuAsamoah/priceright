@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -10,9 +10,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
-import AppButton from '../components/AppButton';
 import ReportWrapper from '../components/ReportWrapper';
-import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
+import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, settingsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
@@ -208,6 +207,47 @@ const REPORT_METADATA: Array<{
   },
 ];
 
+const DEFAULT_LOW_MARGIN_THRESHOLD = 20;
+
+function getDefaultApprovalFromDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 90);
+  return d.toISOString().slice(0, 10);
+}
+
+function getDefaultApprovalToDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+type ActiveFilterChip = {
+  key: string;
+  label: string;
+  onClear: () => void;
+};
+
+const FILTER_CHIP_STYLE: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  backgroundColor: '#F1F5F9',
+  border: '1px solid #CBD5E1',
+  color: '#475569',
+  fontSize: '12px',
+  padding: '3px 8px',
+  borderRadius: '12px',
+};
+
+const FILTER_CHIP_CLEAR_STYLE: CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: '#94A3B8',
+  cursor: 'pointer',
+  fontSize: '14px',
+  lineHeight: 1,
+  padding: '2px 4px',
+  margin: '-2px -4px -2px 0',
+};
+
 function toNumber(value: unknown): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -274,20 +314,17 @@ export default function Reports() {
   const [reportData, setReportData] = useState<ReportResultMap[ReportKey] | null>(null);
   const [expandedCurrencyCodes, setExpandedCurrencyCodes] = useState<Set<string>>(new Set());
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [defaultLowMarginThreshold, setDefaultLowMarginThreshold] = useState(DEFAULT_LOW_MARGIN_THRESHOLD);
 
   const [pricingCategoryFilter, setPricingCategoryFilter] = useState('All');
   const [pricingStatusFilter, setPricingStatusFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal' | 'At Optimal'>('All');
   const [pricingSort, setPricingSort] = useState<'Product Name' | 'Profit % desc' | 'Profit % asc' | 'Variance desc' | 'Variance asc'>('Product Name');
 
-  const [lowMarginThreshold, setLowMarginThreshold] = useState(15);
+  const [lowMarginThreshold, setLowMarginThreshold] = useState(DEFAULT_LOW_MARGIN_THRESHOLD);
   const [lowMarginCategoryFilter, setLowMarginCategoryFilter] = useState('All');
 
-  const [approvalFromDate, setApprovalFromDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 90);
-    return d.toISOString().slice(0, 10);
-  });
-  const [approvalToDate, setApprovalToDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [approvalFromDate, setApprovalFromDate] = useState(getDefaultApprovalFromDate);
+  const [approvalToDate, setApprovalToDate] = useState(getDefaultApprovalToDate);
   const [approvalStatusFilter, setApprovalStatusFilter] = useState<'All' | 'approved' | 'needs_review' | 'pending'>('All');
   const [approvalCategoryFilter, setApprovalCategoryFilter] = useState('All');
 
@@ -322,6 +359,50 @@ export default function Reports() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDefaultThreshold() {
+      try {
+        const settings = await settingsApi.getAll();
+        if (cancelled) return;
+        const marginSetting = settings.find((entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'defaultProfitMargin');
+        if (marginSetting?.settingValue) {
+          const parsed = Number(marginSetting.settingValue);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            setDefaultLowMarginThreshold(parsed);
+            setLowMarginThreshold((current) => (current === DEFAULT_LOW_MARGIN_THRESHOLD ? parsed : current));
+          }
+        }
+      } catch {
+        // Keep default threshold.
+      }
+    }
+
+    void loadDefaultThreshold();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedReport) return;
+    void generateReport();
+  }, [
+    selectedReport,
+    pricingCategoryFilter,
+    pricingStatusFilter,
+    pricingSort,
+    lowMarginThreshold,
+    lowMarginCategoryFilter,
+    approvalFromDate,
+    approvalToDate,
+    approvalStatusFilter,
+    approvalCategoryFilter,
+    baseCurrency,
+  ]);
 
   const generatedRowsCount = useMemo(() => {
     if (!reportData) return 0;
@@ -798,6 +879,153 @@ export default function Reports() {
   const lowMarginCategories = useMemo(() => availableCategories, [availableCategories]);
   const approvalCategories = useMemo(() => availableCategories, [availableCategories]);
 
+  function resetFiltersForReport(report: ReportKey) {
+    if (report === 'pricing-status') {
+      setPricingCategoryFilter('All');
+      setPricingStatusFilter('All');
+      setPricingSort('Product Name');
+      return;
+    }
+
+    if (report === 'low-margin') {
+      setLowMarginThreshold(defaultLowMarginThreshold);
+      setLowMarginCategoryFilter('All');
+      return;
+    }
+
+    if (report === 'approval-history') {
+      setApprovalFromDate(getDefaultApprovalFromDate());
+      setApprovalToDate(getDefaultApprovalToDate());
+      setApprovalStatusFilter('All');
+      setApprovalCategoryFilter('All');
+    }
+  }
+
+  function getActiveFilterChips(): ActiveFilterChip[] {
+    if (!selectedReport) return [];
+
+    if (selectedReport === 'pricing-status') {
+      const chips: ActiveFilterChip[] = [];
+      if (pricingCategoryFilter !== 'All') {
+        chips.push({
+          key: 'pricing-category',
+          label: `Category: ${pricingCategoryFilter}`,
+          onClear: () => setPricingCategoryFilter('All'),
+        });
+      }
+      if (pricingStatusFilter !== 'All') {
+        chips.push({
+          key: 'pricing-status',
+          label: `Pricing Status: ${pricingStatusFilter}`,
+          onClear: () => setPricingStatusFilter('All'),
+        });
+      }
+      return chips;
+    }
+
+    if (selectedReport === 'low-margin') {
+      const chips: ActiveFilterChip[] = [];
+      if (lowMarginThreshold !== defaultLowMarginThreshold) {
+        chips.push({
+          key: 'low-margin-threshold',
+          label: `Margin below: ${lowMarginThreshold}%`,
+          onClear: () => setLowMarginThreshold(defaultLowMarginThreshold),
+        });
+      }
+      if (lowMarginCategoryFilter !== 'All') {
+        chips.push({
+          key: 'low-margin-category',
+          label: `Category: ${lowMarginCategoryFilter}`,
+          onClear: () => setLowMarginCategoryFilter('All'),
+        });
+      }
+      return chips;
+    }
+
+    if (selectedReport === 'approval-history') {
+      const chips: ActiveFilterChip[] = [];
+      if (approvalFromDate !== getDefaultApprovalFromDate()) {
+        chips.push({
+          key: 'approval-from',
+          label: `From: ${approvalFromDate}`,
+          onClear: () => setApprovalFromDate(getDefaultApprovalFromDate()),
+        });
+      }
+      if (approvalToDate !== getDefaultApprovalToDate()) {
+        chips.push({
+          key: 'approval-to',
+          label: `To: ${approvalToDate}`,
+          onClear: () => setApprovalToDate(getDefaultApprovalToDate()),
+        });
+      }
+      if (approvalStatusFilter !== 'All') {
+        chips.push({
+          key: 'approval-status',
+          label: `Approval status: ${approvalStatusFilter}`,
+          onClear: () => setApprovalStatusFilter('All'),
+        });
+      }
+      if (approvalCategoryFilter !== 'All') {
+        chips.push({
+          key: 'approval-category',
+          label: `Category: ${approvalCategoryFilter}`,
+          onClear: () => setApprovalCategoryFilter('All'),
+        });
+      }
+      return chips;
+    }
+
+    return [];
+  }
+
+  function clearAllFiltersForReport() {
+    if (!selectedReport) return;
+    resetFiltersForReport(selectedReport);
+  }
+
+  function renderEmptyStateGuidance() {
+    const activeFilters = getActiveFilterChips();
+    const hasNonDefaultFilters = activeFilters.length > 0;
+
+    return (
+      <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
+        <div style={{ color: '#64748b', fontSize: '14px' }}>
+          No results match your current filters
+        </div>
+        {hasNonDefaultFilters ? (
+          <>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {activeFilters.map((chip) => (
+                <span key={chip.key} style={FILTER_CHIP_STYLE}>
+                  {chip.label}
+                  <button
+                    type="button"
+                    onClick={chip.onClear}
+                    aria-label={`Clear ${chip.label}`}
+                    style={FILTER_CHIP_CLEAR_STYLE}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={clearAllFiltersForReport}
+              style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600, justifySelf: 'start' }}
+            >
+              Clear all filters
+            </button>
+          </>
+        ) : (
+          <div style={{ color: '#64748b', fontSize: '14px' }}>
+            No data available yet. Data will appear here once you have products, approvals, or price levels set up.
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function renderFilters() {
     if (!selectedReport) return null;
 
@@ -1269,10 +1497,12 @@ export default function Reports() {
                     type="button"
                     key={report.key}
                     onClick={() => {
+                      resetFiltersForReport(report.key);
                       setSelectedReport(report.key);
-                      setGeneratedAt(null);
                       setReportData(null);
+                      setGeneratedAt(null);
                       setError(null);
+                      setExpandedCurrencyCodes(new Set());
                     }}
                     className={`app-panel-tab ${isActive ? 'is-active' : ''}`}
                   >
@@ -1319,34 +1549,28 @@ export default function Reports() {
               </div>
             )}
 
-            {selectedReport && (
+            {selectedReport && selectedMeta && (
               <>
-                {!generatedAt && !isLoading && (
-                  <div className="app-card" style={{ padding: '16px', marginBottom: '10px' }}>
-                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{selectedMeta?.name}</h2>
-                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{selectedMeta?.description}</p>
-                    <div style={{ marginTop: '10px' }}>{renderFilters()}</div>
-                    <AppButton className="report-generate-btn" variant="primary" onClick={generateReport}>
-                      Generate Report
-                    </AppButton>
-                  </div>
-                )}
+                <div className="app-card" style={{ padding: '16px', marginBottom: '10px' }}>
+                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{selectedMeta.name}</h2>
+                  <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{selectedMeta.description}</p>
+                  <div style={{ marginTop: '10px' }}>{renderFilters()}</div>
+                </div>
 
-                {(generatedAt || isLoading || error) && selectedMeta && (
-                  <ReportWrapper
-                    title={selectedMeta.name}
-                    subtitle={selectedMeta.description}
-                    onExportPDF={handleExportPDF}
-                    onExportExcel={handleExportExcel}
-                    onPrint={handlePrintReport}
-                    isLoading={isLoading}
-                    error={error}
-                    isEmpty={!isLoading && !error && generatedRowsCount === 0}
-                    generatedAt={generatedAt}
-                  >
-                    {renderReportBody()}
-                  </ReportWrapper>
-                )}
+                <ReportWrapper
+                  title={selectedMeta.name}
+                  subtitle={selectedMeta.description}
+                  onExportPDF={handleExportPDF}
+                  onExportExcel={handleExportExcel}
+                  onPrint={handlePrintReport}
+                  isLoading={isLoading}
+                  error={error}
+                  isEmpty={!isLoading && !error && generatedRowsCount === 0}
+                  generatedAt={generatedAt}
+                  emptyStateExtra={renderEmptyStateGuidance()}
+                >
+                  {renderReportBody()}
+                </ReportWrapper>
               </>
             )}
           </section>
