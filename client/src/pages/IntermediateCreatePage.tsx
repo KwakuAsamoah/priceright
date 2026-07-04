@@ -61,6 +61,7 @@ const fieldInputStyle = {
   padding: '10px',
   borderRadius: '8px',
   border: '1px solid #e2e8f0',
+  boxSizing: 'border-box' as const,
 } as const;
 
 const pageContainerStyle = {
@@ -68,7 +69,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: '780px',
+  width: 'calc((100vw - 220px) * 2 / 3)',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -80,12 +81,14 @@ const pageContainerStyle = {
 };
 
 const leftPanelStyle = {
-  width: '320px',
+  width: '35%',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
   overflow: 'hidden',
   minHeight: 0,
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
 };
 
 const rightPanelStyle = {
@@ -108,6 +111,68 @@ const bomControlsRowStyle = {
   marginBottom: '4px',
   minWidth: 0,
   boxSizing: 'border-box' as const,
+};
+
+const bodyRowStyle = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'row' as const,
+  overflow: 'hidden',
+  padding: '16px',
+  gap: '16px',
+  minHeight: 0,
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+};
+
+const bomSectionStyle = {
+  flexShrink: 0,
+  marginBottom: '12px',
+  width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+};
+
+const bomSearchInputFullWidthStyle = {
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  marginBottom: '8px',
+};
+
+const bomTableContainerStyle = {
+  flex: 1,
+  minHeight: '200px',
+  minWidth: 0,
+  overflowX: 'auto' as const,
+  overflowY: 'auto' as const,
+  border: '1px solid #e2e8f0',
+  borderRadius: '8px',
+  boxSizing: 'border-box' as const,
+};
+
+const bomTableStyle = {
+  width: '100%',
+  minWidth: '480px',
+};
+
+const costSummaryRowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  minWidth: 0,
+  alignItems: 'flex-start',
+};
+
+const costSummaryValueStyle = {
+  flexShrink: 0,
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomActionCellStyle = {
+  textAlign: 'center' as const,
+  whiteSpace: 'nowrap' as const,
+  minWidth: '72px',
 };
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -441,7 +506,7 @@ export default function IntermediateCreatePage() {
         {loading ? (
           <div style={{ padding: '16px 20px', color: '#64748b' }}>Loading form...</div>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', padding: '16px', gap: '16px', minHeight: 0 }}>
+          <div style={bodyRowStyle}>
               {/* Left panel — form fields */}
               <div style={leftPanelStyle}>
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
@@ -572,10 +637,10 @@ export default function IntermediateCreatePage() {
 
               {/* Right panel — BOM + cost summary */}
               <div style={rightPanelStyle}>
-                <div style={{ flexShrink: 0, marginBottom: '12px' }}>
+                <div style={bomSectionStyle}>
                   <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
                   <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-                  <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={{ marginBottom: '8px' }} />
+                  <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={bomSearchInputFullWidthStyle} />
                   <div style={bomControlsRowStyle}>
                     <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }}>
                       <option value={0}>Select component material...</option>
@@ -602,15 +667,15 @@ export default function IntermediateCreatePage() {
                   </div>
                 </div>
 
-                <div style={{ flex: 1, minHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                <div style={bomTableContainerStyle}>
+                  <table className="app-table app-table-compact" style={bomTableStyle}>
                     <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                       <tr>
-                        <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
-                        <th style={{ textAlign: 'right' }}>Quantity</th>
-                        <th style={{ textAlign: 'right' }}>Unit Price</th>
-                        <th style={{ textAlign: 'right' }}>Total</th>
-                        <th style={{ textAlign: 'center' }}>Action</th>
+                        <th style={{ textAlign: 'left', minWidth: '140px' }}>Material</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Quantity</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
+                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
+                        <th style={bomActionCellStyle}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -618,11 +683,11 @@ export default function IntermediateCreatePage() {
                         const rowTotal = item.quantity * item.unitCost;
                         return (
                           <tr key={`${item.componentMaterialId}-${index}`}>
-                            <td style={{ textAlign: 'left' }}>{item.componentName}</td>
-                            <td style={{ textAlign: 'right' }}>{item.quantity.toFixed(3)} {item.componentUnit}</td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(item.unitCost)}</td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '140px' }}>{item.componentName}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{item.quantity.toFixed(3)} {item.componentUnit}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(item.unitCost)}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(rowTotal)}</td>
+                            <td style={bomActionCellStyle}>
                               <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>
                                 <Trash2 size={14} />
                               </button>
@@ -641,7 +706,7 @@ export default function IntermediateCreatePage() {
                   </table>
                 </div>
 
-                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px' }}>
+                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', boxSizing: 'border-box', minWidth: 0 }}>
                   {tempBomItems.length > 0 && estimatedCostPerUnit != null ? (
                     <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px' }}>
                       Estimated cost per unit (before save): {formatMoney(estimatedCostPerUnit)}
@@ -649,33 +714,33 @@ export default function IntermediateCreatePage() {
                   ) : null}
                   <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px', fontSize: '14px' }}>Cost Summary (per unit)</h3>
                   <div style={{ display: 'grid', gap: '4px', fontSize: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>Material Cost (batch)</span>
-                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Material Cost (batch)</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>
-                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.batchOverheadCost)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.batchOverheadCost)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>Total Production Cost (batch)</span>
-                      <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Total Production Cost (batch)</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
-                      <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>Cost Per Unit</span>
-                      <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Cost Per Unit</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
-                      <span style={{ fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                      <span style={{ fontWeight: '700' }}>Optimal Price</span>
-                      <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ fontWeight: '700', minWidth: 0 }}>Optimal Price</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{formatMoney(liveCost.optimalPrice)}</span>
                     </div>
                   </div>
                 </div>

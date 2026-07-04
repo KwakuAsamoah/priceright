@@ -70,6 +70,7 @@ const fieldInputStyle = {
   padding: '10px',
   borderRadius: '8px',
   border: '1px solid #e2e8f0',
+  boxSizing: 'border-box' as const,
 } as const;
 
 const pageContainerStyle = {
@@ -77,7 +78,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: '780px',
+  width: 'calc((100vw - 220px) * 2 / 3)',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -89,12 +90,14 @@ const pageContainerStyle = {
 };
 
 const leftPanelStyle = {
-  width: '320px',
+  width: '35%',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
   overflow: 'hidden',
   minHeight: 0,
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
 };
 
 const rightPanelStyle = {
@@ -108,6 +111,79 @@ const rightPanelStyle = {
   paddingLeft: '16px',
   paddingRight: '16px',
   boxSizing: 'border-box' as const,
+};
+
+const bodyRowStyle = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'row' as const,
+  overflow: 'hidden',
+  padding: '16px',
+  gap: '16px',
+  minHeight: 0,
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+};
+
+const bomSectionStyle = {
+  flexShrink: 0,
+  marginBottom: '12px',
+  width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+};
+
+const bomSearchWrapperStyle = {
+  position: 'relative' as const,
+  width: '100%',
+  minWidth: 0,
+  boxSizing: 'border-box' as const,
+};
+
+const bomTableContainerStyle = {
+  flex: 1,
+  minHeight: '200px',
+  minWidth: 0,
+  overflowX: 'auto' as const,
+  overflowY: 'auto' as const,
+  border: '1px solid #e2e8f0',
+  borderRadius: '8px',
+  boxSizing: 'border-box' as const,
+  display: 'flex',
+  flexDirection: 'column' as const,
+};
+
+const bomTableStyle = {
+  width: '100%',
+  minWidth: '520px',
+};
+
+const costSummaryRowStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  minWidth: 0,
+  alignItems: 'flex-start',
+};
+
+const costSummaryValueStyle = {
+  flexShrink: 0,
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomActionCellStyle = {
+  textAlign: 'center' as const,
+  whiteSpace: 'nowrap' as const,
+  minWidth: '120px',
+};
+
+const bomActionButtonsStyle = {
+  display: 'flex',
+  gap: '4px',
+  justifyContent: 'center',
+  flexWrap: 'nowrap' as const,
+  flexShrink: 0,
 };
 
 export default function ProductCreatePage() {
@@ -385,7 +461,7 @@ export default function ProductCreatePage() {
         {loading ? (
           <div style={{ padding: '16px 20px', color: '#64748b' }}>Loading form...</div>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'row', overflow: 'hidden', padding: '16px', gap: '16px', minHeight: 0 }}>
+          <div style={bodyRowStyle}>
               {/* Left panel — form fields */}
               <div style={leftPanelStyle}>
                 <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingRight: '4px' }}>
@@ -548,10 +624,10 @@ export default function ProductCreatePage() {
 
               {/* Right panel — BOM + cost summary */}
               <div style={rightPanelStyle}>
-                <div style={{ flexShrink: 0, marginBottom: '12px' }}>
+                <div style={bomSectionStyle}>
                   <h3 style={panelTitleStyle}>Bill of Materials</h3>
                   <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-                  <div style={{ position: 'relative' }}>
+                  <div style={bomSearchWrapperStyle}>
                     <input
                       ref={materialInputRef}
                       className="app-input"
@@ -568,6 +644,7 @@ export default function ProductCreatePage() {
                       onKeyDown={handleMaterialKeyDown}
                       style={{
                         width: '100%',
+                        boxSizing: 'border-box',
                         padding: '10px 12px',
                         borderRadius: '8px',
                         border: `1px solid ${materialDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
@@ -604,10 +681,12 @@ export default function ProductCreatePage() {
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
+                              gap: '8px',
+                              minWidth: 0,
                             }}
                           >
-                            <span style={{ fontSize: '14px', fontWeight: '500' }}>{material.name}</span>
-                            <span style={{ fontSize: '13px', color: '#64748b' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '500', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.name}</span>
+                            <span style={{ fontSize: '13px', color: '#64748b', flexShrink: 0, whiteSpace: 'nowrap' }}>
                               {baseCurrency} {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
                             </span>
                           </div>
@@ -617,16 +696,16 @@ export default function ProductCreatePage() {
                   </div>
                 </div>
 
-                <div style={{ flex: 1, minHeight: '200px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', display: 'flex', flexDirection: 'column' }}>
+                <div style={bomTableContainerStyle}>
                   {tempBomMaterials.length > 0 ? (
-                    <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                    <table className="app-table app-table-compact" style={bomTableStyle}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
-                          <th style={{ textAlign: 'left' }}>Material</th>
-                          <th style={{ textAlign: 'right' }}>Quantity</th>
-                          <th style={{ textAlign: 'right' }}>Unit Price</th>
-                          <th style={{ textAlign: 'right' }}>Total</th>
-                          <th style={{ textAlign: 'center' }}>Action</th>
+                          <th style={{ textAlign: 'left', minWidth: '140px' }}>Material</th>
+                          <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Quantity</th>
+                          <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
+                          <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
+                          <th style={bomActionCellStyle}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -634,8 +713,8 @@ export default function ProductCreatePage() {
                           const totalCost = item.quantity * parseFloat(item.unitPrice);
                           return (
                             <tr key={item.id}>
-                              <td style={{ textAlign: 'left' }}>{item.materialName}</td>
-                              <td style={{ textAlign: 'right' }}>
+                              <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '140px' }}>{item.materialName}</td>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                 {editingBomId === item.id ? (
                                   <input
                                     type="number"
@@ -649,16 +728,16 @@ export default function ProductCreatePage() {
                                   `${item.quantity.toFixed(3)} ${item.unit}`
                                 )}
                               </td>
-                              <td style={{ textAlign: 'right' }}>{baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}</td>
-                              <td style={{ textAlign: 'right', fontWeight: '600' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
-                              <td style={{ textAlign: 'center' }}>
+                              <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}</td>
+                              <td style={{ textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
+                              <td style={bomActionCellStyle}>
                                 {editingBomId === item.id ? (
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                  <div style={bomActionButtonsStyle}>
                                     <button type="button" onClick={() => handleSaveBomEdit(item.id)} className="btn btn-success btn-sm">Save</button>
                                     <button type="button" onClick={handleCancelBomEdit} className="btn btn-ghost btn-sm">Cancel</button>
                                   </div>
                                 ) : (
-                                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                  <div style={bomActionButtonsStyle}>
                                     <button type="button" onClick={() => handleEditBomItem(item.id, item.quantity.toString())} className="btn btn-secondary btn-sm">Edit</button>
                                     <button type="button" onClick={() => handleRemoveMaterialFromTemp(item.id)} className="btn btn-danger btn-sm">Delete</button>
                                   </div>
@@ -681,31 +760,31 @@ export default function ProductCreatePage() {
                   ) : null}
                 </div>
 
-                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px' }}>
+                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', boxSizing: 'border-box', minWidth: 0 }}>
                   <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px', fontSize: '14px' }}>Cost Summary (per unit)</h3>
                   <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Material Cost</span>
-                      <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.materialCost.toFixed(2)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#64748b', minWidth: 0 }}>Material Cost</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{baseCurrency} {liveCost.materialCost.toFixed(2)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Overhead ({formData.overheadPercentage}%)</span>
-                      <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.overheadCost.toFixed(2)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#64748b', minWidth: 0 }}>Overhead ({formData.overheadPercentage}%)</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{baseCurrency} {liveCost.overheadCost.toFixed(2)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b' }}>Total Production Cost</span>
-                      <span style={{ fontWeight: '700' }}>{baseCurrency} {liveCost.totalCost.toFixed(2)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#64748b', minWidth: 0 }}>Total Production Cost</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '700' }}>{baseCurrency} {liveCost.totalCost.toFixed(2)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
                         Markup ({formData.profitMargin}%)
                         <MarkupInfoTooltip />
                       </span>
-                      <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.profitAmount.toFixed(2)}</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{baseCurrency} {liveCost.profitAmount.toFixed(2)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#0F2847', fontWeight: '700' }}>Optimal Price</span>
-                      <span style={{ fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{baseCurrency} {liveCost.optimalPrice.toFixed(2)}</span>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#0F2847', fontWeight: '700', minWidth: 0 }}>Optimal Price</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '700', color: '#16a34a', fontSize: '16px' }}>{baseCurrency} {liveCost.optimalPrice.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
