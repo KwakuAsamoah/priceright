@@ -10,10 +10,34 @@ export const PRODUCTS_COLUMNS: ColumnConfig[] = [
   { id: 'optimalPrice', label: 'Optimal Price', locked: false, defaultVisible: true },
   { id: 'validUntil', label: 'Valid Until', locked: false, defaultVisible: false },
   { id: 'approvedBasePrice', label: 'Approved Base Price', locked: false, defaultVisible: true },
-  { id: 'optimalMarkup', label: 'Optimal Markup %', locked: false, defaultVisible: false },
-  { id: 'optimalGrossMargin', label: 'Optimal Gross Margin %', locked: false, defaultVisible: false },
-  { id: 'actualMarkup', label: 'Actual Markup %', locked: false, defaultVisible: false },
-  { id: 'actualGrossMargin', label: 'Actual Gross Margin %', locked: false, defaultVisible: true },
+  {
+    id: 'optimalMarkup',
+    label: 'Optimal Markup %',
+    locked: false,
+    defaultVisible: true,
+    description: 'The target markup based on your default markup setting. Calculated as (Optimal Price − Production Cost) ÷ Production Cost × 100',
+  },
+  {
+    id: 'optimalGrossMargin',
+    label: 'Optimal Gross Margin % (reference)',
+    locked: false,
+    defaultVisible: false,
+    description: 'For reference only. Gross Margin = (Optimal Price − Production Cost) ÷ Optimal Price × 100',
+  },
+  {
+    id: 'actualMarkup',
+    label: 'Actual Markup %',
+    locked: false,
+    defaultVisible: true,
+    description: 'Your actual profit as a percentage of production cost. Calculated as (Approved Price − Production Cost) ÷ Production Cost × 100',
+  },
+  {
+    id: 'actualGrossMargin',
+    label: 'Actual Gross Margin % (reference)',
+    locked: false,
+    defaultVisible: false,
+    description: 'For reference only. PriceRight uses Markup on Cost for all health calculations. Gross Margin = (Approved Price − Production Cost) ÷ Approved Price × 100',
+  },
   { id: 'status', label: 'Status', locked: true, defaultVisible: true },
   { id: 'actions', label: 'Actions', locked: true, defaultVisible: true },
 ];
@@ -44,6 +68,10 @@ export const PRODUCT_COLUMN_KEY_TO_ID: Record<ProductColumnKey, string> = {
   status: 'status',
   actions: 'actions',
 };
+
+export function getProductsColumnConfig(id: string): ColumnConfig | undefined {
+  return PRODUCTS_COLUMNS.find((column) => column.id === id);
+}
 
 export function getDefaultVisibleColumnKeys(): ProductColumnKey[] {
   return (Object.entries(PRODUCT_COLUMN_KEY_TO_ID) as Array<[ProductColumnKey, string]>)

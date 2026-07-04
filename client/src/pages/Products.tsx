@@ -14,7 +14,7 @@ import MarginLegendCard from '../components/MarginLegendCard';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { useLowMarginThreshold } from '../hooks/useLowMarginThreshold';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { usePrint } from '../hooks/usePrint';
@@ -26,11 +26,12 @@ import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductCreatePanel from '../components/ProductCreatePanel';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
+  getProductsColumnConfig,
   PRODUCT_COLUMN_KEY_TO_ID,
   PRODUCTS_COLUMNS,
   type ProductColumnKey,
 } from '../config/productsColumns';
-import { getThresholdMarginColor } from '../utils/margin';
+import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 
 interface Product {
   id: number;
@@ -302,7 +303,7 @@ function parseCsvText(text: string) {
 
 export default function Products() {
   const { baseCurrency } = useBaseCurrency();
-  const lowMarginThreshold = useLowMarginThreshold();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   const location = useLocation();
   const navigate = useNavigate();
   const [products, setProducts] = useState<ProductPricing[]>([]);
@@ -777,9 +778,9 @@ export default function Products() {
       'Total Cost': product.totalCost.toFixed(2),
       'Valid until': normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
       'Optimal Markup %': optimalProfitOnCost != null ? optimalProfitOnCost.toFixed(1) : '—',
-      'Optimal Gross Margin %': optimalProfitOnSales != null ? optimalProfitOnSales.toFixed(1) : '—',
+      'Optimal Gross Margin % (reference)': optimalProfitOnSales != null ? optimalProfitOnSales.toFixed(1) : '—',
       'Actual Markup %': actualProfitOnCost != null ? actualProfitOnCost.toFixed(1) : '—',
-      'Actual Gross Margin %': actualProfitOnSales != null ? actualProfitOnSales.toFixed(1) : '—',
+      'Actual Gross Margin % (reference)': actualProfitOnSales != null ? actualProfitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
       'Approved base price': product.approvalStatus === 'approved' && product.approvedPrice != null
         ? Number(product.approvedPrice).toFixed(2)
@@ -1213,9 +1214,9 @@ export default function Products() {
       'Valid until',
       'Approved base price',
       'Optimal Markup %',
-      'Optimal Gross Margin %',
+      'Optimal Gross Margin % (reference)',
       'Actual Markup %',
-      'Actual Gross Margin %',
+      'Actual Gross Margin % (reference)',
       `Variance (${baseCurrency})`,
       'Variance (%)',
       'Pricing Status',
@@ -1339,8 +1340,14 @@ export default function Products() {
       const matchesApprovalQuery = !approvalQueryFilter
         || (approvalQueryFilter === 'rejected' ? normalizedApprovalStatus === 'pending' : approvalStatus === approvalQueryFilter);
 
-      const actualProfitOnSales = calculateActualProfitOnSales(product);
-      const matchesLowMargin = !lowMarginOnly || (actualProfitOnSales !== null && actualProfitOnSales < lowMarginThreshold);
+      const actualMarkupPercent = product.approvalStatus === 'approved' && product.approvedPrice != null
+        ? calculateActualMarkupPercent(Number(product.approvedPrice), Number(product.totalCost))
+        : null;
+      const matchesLowMargin = !lowMarginOnly || (
+        product.approvalStatus === 'approved'
+        && actualMarkupPercent !== null
+        && actualMarkupPercent < lowMarkupThreshold
+      );
       const productDaysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
       const matchesExpiringSoon = !expiringSoonOnly || (
         approvalStatus === 'approved'
@@ -1362,7 +1369,7 @@ export default function Products() {
         && matchesExpiringSoon
         && matchesActive;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter, lowMarginThreshold]);
+  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter, lowMarkupThreshold]);
 
   const hasActiveProductFilters = searchInput.trim() !== ''
     || selectedApprovalStatus !== 'All'
@@ -1524,7 +1531,7 @@ export default function Products() {
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Optimal Markup %', 'Optimal Gross Margin %', 'Actual Markup %', 'Actual Gross Margin %', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Optimal Markup %', 'Optimal Gross Margin % (reference)', 'Actual Markup %', 'Actual Gross Margin % (reference)', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
       rows
     );
 
@@ -1935,9 +1942,10 @@ export default function Products() {
                     {isProductColumnVisible('profitOnCost') && (
                       <th
                         style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
+                        title={getProductsColumnConfig('optimalMarkup')?.description}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Optimal Markup %
+                          {getProductsColumnConfig('optimalMarkup')?.label ?? 'Optimal Markup %'}
                           <OptimalMarkupInfoTooltip position="bottom" />
                         </span>
                       </th>
@@ -1945,9 +1953,10 @@ export default function Products() {
                     {isProductColumnVisible('profitOnSales') && (
                       <th
                         style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
+                        title={getProductsColumnConfig('optimalGrossMargin')?.description}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Optimal Gross Margin %
+                          {getProductsColumnConfig('optimalGrossMargin')?.label ?? 'Optimal Gross Margin % (reference)'}
                           <OptimalGrossMarginInfoTooltip position="bottom" />
                         </span>
                       </th>
@@ -1955,9 +1964,10 @@ export default function Products() {
                     {isProductColumnVisible('actualProfitOnCost') && (
                       <th
                         style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
+                        title={getProductsColumnConfig('actualMarkup')?.description}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Actual Markup %
+                          {getProductsColumnConfig('actualMarkup')?.label ?? 'Actual Markup %'}
                           <ActualMarkupInfoTooltip position="bottom" />
                         </span>
                       </th>
@@ -1965,9 +1975,10 @@ export default function Products() {
                     {isProductColumnVisible('actualProfitOnSales') && (
                       <th
                         style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'normal' }}
+                        title={getProductsColumnConfig('actualGrossMargin')?.description}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Actual Gross Margin %
+                          {getProductsColumnConfig('actualGrossMargin')?.label ?? 'Actual Gross Margin % (reference)'}
                           <ActualGrossMarginInfoTooltip position="bottom" />
                         </span>
                       </th>
@@ -2104,7 +2115,7 @@ export default function Products() {
                             ) : (
                               <span
                                 style={{
-                                  color: optimalProfitOnCost < 0 ? '#dc2626' : '#16a34a',
+                                  color: getThresholdMarkupColor(optimalProfitOnCost, lowMarkupThreshold),
                                   fontWeight: 500,
                                 }}
                               >
@@ -2116,12 +2127,7 @@ export default function Products() {
                             {optimalProfitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
-                              <span
-                                style={{
-                                  color: optimalProfitOnSales >= 15 ? '#16a34a' : optimalProfitOnSales >= 10 ? '#d97706' : '#dc2626',
-                                  fontWeight: 500,
-                                }}
-                              >
+                              <span style={{ fontWeight: 500 }}>
                                 {optimalProfitOnSales.toFixed(1)}%
                               </span>
                             )}
@@ -2132,7 +2138,7 @@ export default function Products() {
                             ) : (
                               <span
                                 style={{
-                                  color: actualProfitOnCost < 0 ? '#dc2626' : '#16a34a',
+                                  color: getThresholdMarkupColor(actualProfitOnCost, lowMarkupThreshold),
                                   fontWeight: 500,
                                 }}
                               >
@@ -2144,12 +2150,7 @@ export default function Products() {
                             {actualProfitOnSales == null ? (
                               <span style={{ color: '#94a3b8' }}>—</span>
                             ) : (
-                              <span
-                                style={{
-                                  color: getThresholdMarginColor(actualProfitOnSales, lowMarginThreshold),
-                                  fontWeight: 500,
-                                }}
-                              >
+                              <span style={{ fontWeight: 500 }}>
                                 {actualProfitOnSales.toFixed(1)}%
                               </span>
                             )}

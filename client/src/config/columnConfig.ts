@@ -3,4 +3,5 @@ export interface ColumnConfig {
   label: string;
   locked: boolean;
   defaultVisible: boolean;
+  description?: string;
 }
