@@ -2987,16 +2987,6 @@ export default function Reports() {
             />
           </div>
 
-          <div style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>
-              <span>Products above target</span>
-              <span>{aboveTargetPct.toFixed(1)}%</span>
-            </div>
-            <div style={{ height: '10px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, Math.max(0, aboveTargetPct))}%`, height: '100%', backgroundColor: '#16a34a', borderRadius: '999px' }} />
-            </div>
-          </div>
-
           <div className="app-card" style={{ padding: '16px', marginBottom: '14px', display: 'grid', gap: '12px' }}>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Markup distribution</div>
             {distributionBands.map((band) => {
