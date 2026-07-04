@@ -529,13 +529,25 @@ const REPORTS_WITH_CUSTOM_EMPTY_BODY = new Set<ReportKey>([
 const ROWS_PER_PAGE = 15;
 
 const REPORT_PILL_STYLE: CSSProperties = {
-  border: 'none',
   borderRadius: '999px',
   padding: '8px 14px',
   fontSize: '14px',
-  fontWeight: 600,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+};
+
+const REPORT_PILL_ACTIVE_STYLE: CSSProperties = {
+  backgroundColor: '#16A34A',
+  color: '#ffffff',
+  border: '1.5px solid #16A34A',
+  fontWeight: 600,
+};
+
+const REPORT_PILL_INACTIVE_STYLE: CSSProperties = {
+  backgroundColor: '#F1F5F9',
+  color: '#475569',
+  border: '1.5px solid #E2E8F0',
+  fontWeight: 400,
 };
 
 const REPORT_SELECTOR_STICKY_STYLE: CSSProperties = {
@@ -2985,18 +2997,48 @@ export default function Reports() {
             </div>
           </div>
 
-          <div className="app-card" style={{ padding: '16px', marginBottom: '14px', display: 'grid', gap: '10px' }}>
+          <div className="app-card" style={{ padding: '16px', marginBottom: '14px', display: 'grid', gap: '12px' }}>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Markup distribution</div>
             {distributionBands.map((band) => {
-              const pct = data.totalAnalysed > 0 ? (band.count / data.totalAnalysed) * 100 : 0;
+              const pct = data.totalAnalysed > 0
+                ? Math.round((band.count / data.totalAnalysed) * 1000) / 10
+                : 0;
+              const productLabel = `${band.count} product${band.count === 1 ? '' : 's'}`;
               return (
-                <div key={band.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px', gap: '8px' }}>
-                    <span style={{ color: '#475569' }}>{band.label} ({band.sub})</span>
-                    <span style={{ fontWeight: 600, color: band.color }}>{band.count} · {pct.toFixed(1)}%</span>
+                <div
+                  key={band.label}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(110px, 140px) 1fr 80px',
+                    gap: '12px',
+                    alignItems: 'center',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                    <span
+                      style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '999px',
+                        backgroundColor: band.color,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ color: '#475569', fontSize: '13px', fontWeight: 600 }}>{band.label}</span>
                   </div>
-                  <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#f1f5f9' }}>
-                    <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', backgroundColor: band.color, borderRadius: '999px' }} />
+                  <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#f1f5f9', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${Math.max(0, Math.min(100, pct))}%`,
+                        height: '100%',
+                        backgroundColor: band.color,
+                        borderRadius: '999px',
+                      }}
+                    />
+                  </div>
+                  <div style={{ width: '80px', textAlign: 'right', display: 'grid', gap: '2px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F2847' }}>{productLabel}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>{pct.toFixed(1)}%</div>
                   </div>
                 </div>
               );
@@ -3873,8 +3915,7 @@ export default function Reports() {
                   onClick={() => selectReport(reportKey)}
                   style={{
                     ...REPORT_PILL_STYLE,
-                    backgroundColor: isActive ? '#0F2847' : '#F1F5F9',
-                    color: isActive ? '#ffffff' : '#0F2847',
+                    ...(isActive ? REPORT_PILL_ACTIVE_STYLE : REPORT_PILL_INACTIVE_STYLE),
                   }}
                 >
                   {report.pillLabel}
@@ -3885,7 +3926,10 @@ export default function Reports() {
         )}
 
         {activeGroup === 'materials' && (
-          <div style={REPORT_SELECTOR_STICKY_STYLE}>
+          <div style={{ ...REPORT_SELECTOR_STICKY_STYLE, display: 'grid', gap: '6px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#16A34A' }}>
+              Active report: {selectedMeta.pillLabel}
+            </div>
             <select
               className="app-control"
               value={selectedReport}
@@ -3895,7 +3939,11 @@ export default function Reports() {
                   selectReport(nextValue);
                 }
               }}
-              style={{ maxWidth: '280px', width: '100%' }}
+              style={{
+                maxWidth: '280px',
+                width: '100%',
+                borderLeft: '3px solid #16A34A',
+              }}
               aria-label="Select materials report"
             >
               <option value="" disabled>Select report</option>
