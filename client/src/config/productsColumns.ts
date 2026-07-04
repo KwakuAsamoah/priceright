@@ -9,11 +9,11 @@ export const PRODUCTS_COLUMNS: ColumnConfig[] = [
   { id: 'productionCost', label: 'Production Cost', locked: false, defaultVisible: true },
   { id: 'optimalPrice', label: 'Optimal Price', locked: false, defaultVisible: true },
   { id: 'validUntil', label: 'Valid Until', locked: false, defaultVisible: false },
-  { id: 'approvedBasePrice', label: 'Approved Base Price', locked: false, defaultVisible: false },
+  { id: 'approvedBasePrice', label: 'Approved Base Price', locked: false, defaultVisible: true },
   { id: 'optimalMarkup', label: 'Optimal Markup %', locked: false, defaultVisible: false },
   { id: 'optimalGrossMargin', label: 'Optimal Gross Margin %', locked: false, defaultVisible: false },
   { id: 'actualMarkup', label: 'Actual Markup %', locked: false, defaultVisible: false },
-  { id: 'actualGrossMargin', label: 'Actual Gross Margin %', locked: false, defaultVisible: false },
+  { id: 'actualGrossMargin', label: 'Actual Gross Margin %', locked: false, defaultVisible: true },
   { id: 'status', label: 'Status', locked: true, defaultVisible: true },
   { id: 'actions', label: 'Actions', locked: true, defaultVisible: true },
 ];
