@@ -891,7 +891,7 @@ export default function Dashboard() {
             <button
               className="btn btn-secondary"
               style={{ marginTop: '12px', padding: '6px 10px', fontSize: '14px', fontWeight: 700, width: '100%' }}
-              onClick={() => navigate('/reports?group=products&report=margin-health')}
+              onClick={() => navigate('/reports?group=pricing&report=markup-analysis')}
             >
               View Markup Analysis →
             </button>

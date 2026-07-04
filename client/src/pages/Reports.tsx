@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -17,19 +17,25 @@ import {
 import AppBadge from '../components/AppBadge';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
-import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, settingsApi } from '../api';
+import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
-import { getThresholdMarginColor } from '../utils/margin';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import {
+  calculateActualGrossMarginPercent,
+  calculateActualMarkupPercent,
+  getMarkupHealthBand,
+  getThresholdMarkupColor,
+} from '../utils/margin';
 import MarginLegendCard from '../components/MarginLegendCard';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
   | 'pricing-status'
-  | 'low-margin'
+  | 'markup-analysis'
   | 'price-list-summary'
   | 'approval-history'
   | 'currency-exposure'
@@ -79,7 +85,7 @@ type ProfitabilityRankingRow = {
   category: string;
   productionCost: number;
   approvedPrice: number;
-  grossMarginPercent: number;
+  actualMarkupPercent: number;
 };
 
 type PriceVsCostDriftRow = {
@@ -87,9 +93,9 @@ type PriceVsCostDriftRow = {
   category: string;
   approvedPrice: number;
   currentCost: number;
-  currentGrossMarginPercent: number;
+  currentMarkupPercent: number;
   targetMarkupPercent: number;
-  marginDrift: number;
+  markupDrift: number;
 };
 
 type OptimalVsActualGapRow = {
@@ -191,7 +197,7 @@ type ProductPricingOverviewRow = {
   productionCost: number;
   approvedPrice: number | null;
   optimalPrice: number;
-  grossMarginPercent: number | null;
+  actualMarkupPercent: number | null;
   approvalStatus: 'pending' | 'approved' | 'needs_review';
   pricingHealth: 'Healthy' | 'Low' | 'Critical' | 'Not Priced';
 };
@@ -220,18 +226,17 @@ type PricingStatusComputedRow = {
   variance: number;
   variancePct: number;
   profit: number;
-  profitPct: number;
+  markupPct: number;
   pricingStatus: 'Above Optimal' | 'Below Optimal' | 'At Optimal';
 };
 
-type LowMarginComputedRow = {
+type MarkupAnalysisComputedRow = {
   productName: string;
   category: string;
-  currentSellingPrice: number;
   productionCost: number;
-  realisedMargin: number;
-  targetMargin: number;
-  gap: number;
+  approvedPrice: number;
+  actualMarkupPercent: number;
+  targetGap: number;
 };
 type PriceListSummaryComputedRow = {
   priceListName: string;
@@ -253,7 +258,6 @@ type ApprovalHistoryComputedRow = {
   optimalPrice: number;
   productionCost: number;
   actualMarkupPercent: number | null;
-  actualGrossMarginPercent: number | null;
   approvedOn: string | number | null;
   approvedBy: string;
   isActive: boolean;
@@ -279,11 +283,16 @@ type ReportResultMap = {
   'pricing-status': {
     rows: PricingStatusComputedRow[];
   };
-  'low-margin': {
-    rows: LowMarginComputedRow[];
+  'markup-analysis': {
+    rows: MarkupAnalysisComputedRow[];
+    totalAnalysed: number;
+    aboveTargetCount: number;
+    belowTargetCount: number;
+    averageMarkup: number;
+    criticalCount: number;
+    lowCount: number;
+    healthyCount: number;
     threshold: number;
-    allApprovedAverage: number;
-    reviewedCount: number;
   };
   'price-list-summary': {
     rows: PriceListSummaryComputedRow[];
@@ -344,9 +353,9 @@ type ReportResultMap = {
     approvedCount: number;
     pendingCount: number;
     needsReviewCount: number;
-    healthyMarginCount: number;
-    lowMarginCount: number;
-    criticalMarginCount: number;
+    healthyMarkupCount: number;
+    lowMarkupCount: number;
+    criticalMarkupCount: number;
     notPricedCount: number;
   };
   'margin-health': {
@@ -383,10 +392,10 @@ const REPORT_METADATA: Array<{
     icon: TrendingUp,
   },
   {
-    key: 'low-margin',
-    name: 'Low Margin Report',
-    pillLabel: 'Low Margin',
-    description: 'Products with realised margin below threshold',
+    key: 'markup-analysis',
+    name: 'Markup Analysis',
+    pillLabel: 'Markup Analysis',
+    description: 'Markup on cost vs target threshold with distribution and gap analysis',
     icon: AlertTriangle,
   },
   {
@@ -463,14 +472,14 @@ const REPORT_METADATA: Array<{
     key: 'profitability-ranking',
     name: 'Profitability Ranking',
     pillLabel: 'Profitability Ranking',
-    description: 'Products ranked by Actual Gross Margin %',
+    description: 'Products ranked by Actual Markup %',
     icon: TrendingUp,
   },
   {
     key: 'price-vs-cost-drift',
     name: 'Price vs Cost Drift',
     pillLabel: 'Price vs Cost Drift',
-    description: 'Margin drift since price approval as costs change',
+    description: 'Markup drift since price approval as costs change',
     icon: AlertTriangle,
   },
   {
@@ -489,7 +498,7 @@ const REPORT_METADATA_BY_KEY = Object.fromEntries(
 type ReportGroupId = 'pricing' | 'products' | 'materials';
 
 const GROUP_REPORT_KEYS: Record<ReportGroupId, ReportKey[]> = {
-  pricing: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
+  pricing: ['pricing-status', 'markup-analysis', 'approval-history', 'price-list-summary'],
   products: ['product-pricing-overview', 'margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
   materials: [
     'currency-exposure',
@@ -511,6 +520,7 @@ const MATERIALS_DROPDOWN_OPTIONS: Array<{ value: ReportKey; label: string }> = [
 ];
 
 const REPORTS_WITH_CUSTOM_EMPTY_BODY = new Set<ReportKey>([
+  'markup-analysis',
   'material-price-history',
   'inactive-in-boms',
   'price-volatility',
@@ -555,8 +565,6 @@ const INLINE_FILTER_FIELD: CSSProperties = {
   gap: '4px',
   minWidth: '130px',
 };
-
-const DEFAULT_LOW_MARGIN_THRESHOLD = 20;
 
 function getDefaultApprovalFromDate(): string {
   const d = new Date();
@@ -609,21 +617,6 @@ function formatSignedNumber(value: number): string {
 
 function formatPct(value: number): string {
   return `${value.toFixed(1)}%`;
-}
-
-function calculateActualGrossMarginPercent(approvedPrice: number, productionCost: number): number | null {
-  if (approvedPrice <= 0 || productionCost <= 0) {
-    return null;
-  }
-  return ((approvedPrice - productionCost) / approvedPrice) * 100;
-}
-
-function calculateTargetGrossMarginFromMarkup(approvedPrice: number, profitMargin: number): number | null {
-  if (approvedPrice <= 0 || profitMargin <= 0) {
-    return null;
-  }
-  const impliedCostAtApproval = approvedPrice / (1 + profitMargin / 100);
-  return ((approvedPrice - impliedCostAtApproval) / approvedPrice) * 100;
 }
 
 function mapProductForAnalysisTab(product: ProductRow): MarginHealthProduct {
@@ -751,19 +744,19 @@ function getOverviewApprovedPrice(product: ProductRow): number | null {
   return approved > 0 ? approved : null;
 }
 
-function getOverviewGrossMargin(product: ProductRow): number | null {
+function getOverviewMarkup(product: ProductRow): number | null {
   const approved = getOverviewApprovedPrice(product);
   const cost = toNumber(product.productionCost);
   if (approved == null || cost <= 0) return null;
-  return calculateActualGrossMarginPercent(approved, cost);
+  return calculateActualMarkupPercent(approved, cost);
 }
 
-function getOverviewPricingHealth(margin: number | null, threshold: number): ProductPricingOverviewRow['pricingHealth'] {
-  if (margin == null) return 'Not Priced';
-  const halfThreshold = threshold / 2;
-  if (margin >= threshold) return 'Healthy';
-  if (margin >= halfThreshold) return 'Low';
-  return 'Critical';
+function getOverviewPricingHealth(markup: number | null, threshold: number): ProductPricingOverviewRow['pricingHealth'] {
+  const band = getMarkupHealthBand(markup, threshold);
+  if (band === 'healthy') return 'Healthy';
+  if (band === 'low') return 'Low';
+  if (band === 'critical') return 'Critical';
+  return 'Not Priced';
 }
 
 function getOverviewApprovalSortOrder(status: ProductPricingOverviewRow['approvalStatus']): number {
@@ -788,7 +781,9 @@ function pricingHealthBadgeVariant(health: ProductPricingOverviewRow['pricingHea
 
 export default function Reports() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { baseCurrency } = useBaseCurrency();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   const formatCurrency = (value: number) => {
     const absValue = Math.abs(value);
     const text = formatCurrencyAmount(absValue, baseCurrency);
@@ -803,15 +798,17 @@ export default function Reports() {
   const [reportData, setReportData] = useState<ReportResultMap[ReportKey] | null>(null);
   const [expandedCurrencyCodes, setExpandedCurrencyCodes] = useState<Set<string>>(new Set());
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const [defaultLowMarginThreshold, setDefaultLowMarginThreshold] = useState(DEFAULT_LOW_MARGIN_THRESHOLD);
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('reportsZoomPercent');
 
   const [pricingCategoryFilter, setPricingCategoryFilter] = useState('All');
   const [pricingStatusFilter, setPricingStatusFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal' | 'At Optimal'>('All');
-  const [pricingSort, setPricingSort] = useState<'Product Name' | 'Profit % desc' | 'Profit % asc' | 'Variance desc' | 'Variance asc'>('Product Name');
+  const [pricingSort, setPricingSort] = useState<'Product Name' | 'Markup % desc' | 'Markup % asc' | 'Variance desc' | 'Variance asc'>('Product Name');
 
-  const [lowMarginThreshold, setLowMarginThreshold] = useState(DEFAULT_LOW_MARGIN_THRESHOLD);
-  const [lowMarginCategoryFilter, setLowMarginCategoryFilter] = useState('All');
+  const [markupAnalysisThreshold, setMarkupAnalysisThreshold] = useState(lowMarkupThreshold);
+  const [markupAnalysisFilter, setMarkupAnalysisFilter] = useState<'all' | 'above' | 'below' | 'custom'>('all');
+  const [markupAnalysisCategory, setMarkupAnalysisCategory] = useState('All');
+  const [markupAnalysisMinRange, setMarkupAnalysisMinRange] = useState('');
+  const [markupAnalysisMaxRange, setMarkupAnalysisMaxRange] = useState('');
 
   const [approvalFromDate, setApprovalFromDate] = useState(getDefaultApprovalFromDate);
   const [approvalToDate, setApprovalToDate] = useState(getDefaultApprovalToDate);
@@ -819,7 +816,7 @@ export default function Reports() {
   const [approvalCategoryFilter, setApprovalCategoryFilter] = useState('All');
 
   const [profitabilityCategoryFilter, setProfitabilityCategoryFilter] = useState('All');
-  const [profitabilitySort, setProfitabilitySort] = useState<'Margin desc' | 'Margin asc' | 'Product Name'>('Margin desc');
+  const [profitabilitySort, setProfitabilitySort] = useState<'Markup desc' | 'Markup asc' | 'Product Name'>('Markup desc');
 
   const [driftFilter, setDriftFilter] = useState<'Negative only' | 'All'>('Negative only');
 
@@ -832,7 +829,7 @@ export default function Reports() {
 
   const [overviewCategoryFilter, setOverviewCategoryFilter] = useState('All');
   const [overviewApprovalFilter, setOverviewApprovalFilter] = useState<'All' | 'pending' | 'approved' | 'needs_review'>('All');
-  const [overviewPricingHealthFilter, setOverviewPricingHealthFilter] = useState<'All' | 'Healthy' | 'Low Margin' | 'Critical'>('All');
+  const [overviewPricingHealthFilter, setOverviewPricingHealthFilter] = useState<'All' | 'Healthy' | 'Low Markup' | 'Critical'>('All');
 
   const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
   const { handlePrint } = usePrint();
@@ -873,8 +870,11 @@ export default function Reports() {
     pricingCategoryFilter,
     pricingStatusFilter,
     pricingSort,
-    lowMarginThreshold,
-    lowMarginCategoryFilter,
+    markupAnalysisThreshold,
+    markupAnalysisFilter,
+    markupAnalysisCategory,
+    markupAnalysisMinRange,
+    markupAnalysisMaxRange,
     approvalFromDate,
     approvalToDate,
     approvalStatusFilter,
@@ -921,31 +921,24 @@ export default function Reports() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    setMarkupAnalysisThreshold(lowMarkupThreshold);
+  }, [lowMarkupThreshold]);
 
-    async function loadDefaultThreshold() {
-      try {
-        const settings = await settingsApi.getAll();
-        if (cancelled) return;
-        const marginSetting = settings.find((entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'defaultProfitMargin');
-        if (marginSetting?.settingValue) {
-          const parsed = Number(marginSetting.settingValue);
-          if (Number.isFinite(parsed) && parsed > 0) {
-            setDefaultLowMarginThreshold(parsed);
-            setLowMarginThreshold((current) => (current === DEFAULT_LOW_MARGIN_THRESHOLD ? parsed : current));
-          }
-        }
-      } catch {
-        // Keep default threshold.
+  useEffect(() => {
+    const group = searchParams.get('group');
+    const report = searchParams.get('report');
+    if (group === 'pricing' || group === 'products' || group === 'materials') {
+      const groupReports = GROUP_REPORT_KEYS[group as ReportGroupId];
+      if (report && groupReports.includes(report as ReportKey)) {
+        setActiveGroup(group as ReportGroupId);
+        setSelectedReport(report as ReportKey);
+        setReportData(null);
+        setGeneratedAt(null);
+        setError(null);
+        setCurrentPage(1);
       }
     }
-
-    void loadDefaultThreshold();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     void generateReport();
@@ -954,8 +947,11 @@ export default function Reports() {
     pricingCategoryFilter,
     pricingStatusFilter,
     pricingSort,
-    lowMarginThreshold,
-    lowMarginCategoryFilter,
+    markupAnalysisThreshold,
+    markupAnalysisFilter,
+    markupAnalysisCategory,
+    markupAnalysisMinRange,
+    markupAnalysisMaxRange,
     approvalFromDate,
     approvalToDate,
     approvalStatusFilter,
@@ -1036,7 +1032,9 @@ export default function Reports() {
           const variance = hasApprovedPrice ? sellingPrice - optimalPrice : 0;
           const variancePct = hasApprovedPrice && optimalPrice > 0 ? (variance / optimalPrice) * 100 : 0;
           const profit = hasApprovedPrice ? sellingPrice - productionCost : 0;
-          const profitPct = hasApprovedPrice && sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+          const markupPct = hasApprovedPrice && productionCost > 0
+            ? (calculateActualMarkupPercent(sellingPrice, productionCost) ?? 0)
+            : 0;
           const pricingStatus: 'Above Optimal' | 'Below Optimal' | 'At Optimal' =
             !hasApprovedPrice ? 'At Optimal' :
             sellingPrice > optimalPrice + 0.01 ? 'Above Optimal' :
@@ -1054,7 +1052,7 @@ export default function Reports() {
             variance,
             variancePct,
             profit,
-            profitPct,
+            markupPct,
             pricingStatus,
           };
         });
@@ -1065,8 +1063,8 @@ export default function Reports() {
 
         filtered.sort((a, b) => {
           if (pricingSort === 'Product Name') return a.productName.localeCompare(b.productName);
-          if (pricingSort === 'Profit % desc') return b.profitPct - a.profitPct;
-          if (pricingSort === 'Profit % asc') return a.profitPct - b.profitPct;
+          if (pricingSort === 'Markup % desc') return b.markupPct - a.markupPct;
+          if (pricingSort === 'Markup % asc') return a.markupPct - b.markupPct;
           if (pricingSort === 'Variance desc') return b.variance - a.variance;
           return a.variance - b.variance;
         });
@@ -1074,45 +1072,79 @@ export default function Reports() {
         setReportData({ rows: filtered });
       }
 
-      if (selectedReport === 'low-margin') {
+      if (selectedReport === 'markup-analysis') {
         const products = (await productsApi.getAll('all')) as ProductRow[];
-        const approvedActive = products.filter((p) => {
-          const approvedPrice = p.approvedPrice != null ? toNumber(p.approvedPrice) : 0;
-          return p.approvalStatus === 'approved' && p.isActive && approvedPrice > 0 && toNumber(p.productionCost) > 0;
-        });
+        const approvedRows = products
+          .filter((product) => {
+            const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : 0;
+            return product.approvalStatus === 'approved' && product.isActive !== false && approvedPrice > 0 && toNumber(product.productionCost) > 0;
+          })
+          .map((product) => {
+            const approvedPrice = toNumber(product.approvedPrice);
+            const productionCost = toNumber(product.productionCost);
+            const actualMarkupPercent = calculateActualMarkupPercent(approvedPrice, productionCost) ?? 0;
+            const targetGap = actualMarkupPercent - markupAnalysisThreshold;
 
-        const allRows = approvedActive.map((product) => {
-          const approvedPrice = toNumber(product.approvedPrice);
-          const productionCost = toNumber(product.productionCost);
-          const realisedMargin = approvedPrice > 0 ? ((approvedPrice - productionCost) / approvedPrice) * 100 : 0;
-          const targetMargin = toNumber(product.profitMargin);
-          const gap = realisedMargin - targetMargin;
+            return {
+              productName: product.name,
+              category: product.category || 'Uncategorised',
+              productionCost,
+              approvedPrice,
+              actualMarkupPercent,
+              targetGap,
+            };
+          });
 
-          return {
-            productName: product.name,
-            category: product.category || 'Uncategorised',
-            currentSellingPrice: approvedPrice,
-            productionCost,
-            realisedMargin,
-            targetMargin,
-            gap,
-          };
-        });
+        const afterCategory = approvedRows.filter((row) =>
+          markupAnalysisCategory === 'All' ? true : row.category === markupAnalysisCategory,
+        );
 
-        const avgAcrossAllApproved = allRows.length > 0
-          ? allRows.reduce((sum, row) => sum + row.realisedMargin, 0) / allRows.length
+        const threshold = markupAnalysisThreshold;
+        const halfThreshold = threshold / 2;
+        const totalAnalysed = afterCategory.length;
+        const aboveTargetCount = afterCategory.filter((row) => row.actualMarkupPercent >= threshold).length;
+        const belowTargetCount = afterCategory.filter((row) => row.actualMarkupPercent < threshold).length;
+        const averageMarkup = totalAnalysed > 0
+          ? afterCategory.reduce((sum, row) => sum + row.actualMarkupPercent, 0) / totalAnalysed
           : 0;
+        const criticalCount = afterCategory.filter((row) => row.actualMarkupPercent < halfThreshold).length;
+        const lowCount = afterCategory.filter((row) => row.actualMarkupPercent >= halfThreshold && row.actualMarkupPercent < threshold).length;
+        const healthyCount = afterCategory.filter((row) => row.actualMarkupPercent >= threshold).length;
 
-        const belowThreshold = allRows
-          .filter((row) => row.realisedMargin < lowMarginThreshold)
-          .filter((row) => (lowMarginCategoryFilter === 'All' ? true : row.category === lowMarginCategoryFilter))
-          .sort((a, b) => a.realisedMargin - b.realisedMargin);
+        let filtered = afterCategory;
+        if (markupAnalysisFilter === 'above') {
+          filtered = filtered.filter((row) => row.actualMarkupPercent >= threshold);
+        } else if (markupAnalysisFilter === 'below') {
+          filtered = filtered.filter((row) => row.actualMarkupPercent < threshold);
+        } else if (markupAnalysisFilter === 'custom') {
+          const min = markupAnalysisMinRange === '' ? null : Number(markupAnalysisMinRange);
+          const max = markupAnalysisMaxRange === '' ? null : Number(markupAnalysisMaxRange);
+          filtered = filtered.filter((row) => {
+            if (min != null && Number.isFinite(min) && row.actualMarkupPercent < min) return false;
+            if (max != null && Number.isFinite(max) && row.actualMarkupPercent > max) return false;
+            return true;
+          });
+        }
+
+        filtered.sort((a, b) => {
+          const aBelow = a.actualMarkupPercent < threshold;
+          const bBelow = b.actualMarkupPercent < threshold;
+          if (aBelow && !bBelow) return -1;
+          if (!aBelow && bBelow) return 1;
+          if (aBelow && bBelow) return a.actualMarkupPercent - b.actualMarkupPercent;
+          return b.actualMarkupPercent - a.actualMarkupPercent;
+        });
 
         setReportData({
-          rows: belowThreshold,
-          threshold: lowMarginThreshold,
-          allApprovedAverage: avgAcrossAllApproved,
-          reviewedCount: allRows.length,
+          rows: filtered,
+          totalAnalysed,
+          aboveTargetCount,
+          belowTargetCount,
+          averageMarkup,
+          criticalCount,
+          lowCount,
+          healthyCount,
+          threshold,
         });
       }
 
@@ -1164,10 +1196,7 @@ export default function Reports() {
             const approvedPrice = product.approvedPrice ?? null;
             const productionCost = toNumber(product.productionCost);
             const actualMarkupPercent = approvedPrice != null && productionCost > 0
-              ? ((approvedPrice - productionCost) / productionCost) * 100
-              : null;
-            const actualGrossMarginPercent = approvedPrice != null && approvedPrice > 0 && productionCost > 0
-              ? ((approvedPrice - productionCost) / approvedPrice) * 100
+              ? calculateActualMarkupPercent(toNumber(approvedPrice), productionCost)
               : null;
 
             return {
@@ -1178,7 +1207,6 @@ export default function Reports() {
               optimalPrice: toNumber(product.optimalPrice),
               productionCost,
               actualMarkupPercent,
-              actualGrossMarginPercent,
               approvedOn: product.approvedAt || null,
               approvedBy: product.approvedBy || '—',
               isActive: Boolean(product.isActive),
@@ -1563,24 +1591,24 @@ export default function Reports() {
         let approvedCount = 0;
         let pendingCount = 0;
         let needsReviewCount = 0;
-        let healthyMarginCount = 0;
-        let lowMarginCount = 0;
-        let criticalMarginCount = 0;
+        let healthyMarkupCount = 0;
+        let lowMarkupCount = 0;
+        let criticalMarkupCount = 0;
         let notPricedCount = 0;
 
         const allRows = activeProducts.map((product) => {
           const approvedPrice = getOverviewApprovedPrice(product);
-          const grossMarginPercent = getOverviewGrossMargin(product);
-          const pricingHealth = getOverviewPricingHealth(grossMarginPercent, lowMarginThreshold);
+          const actualMarkupPercent = getOverviewMarkup(product);
+          const pricingHealth = getOverviewPricingHealth(actualMarkupPercent, lowMarkupThreshold);
           const approvalStatus = normalizeOverviewApprovalStatus(product.approvalStatus);
 
           if (approvalStatus === 'approved') approvedCount += 1;
           else if (approvalStatus === 'needs_review') needsReviewCount += 1;
           else pendingCount += 1;
 
-          if (pricingHealth === 'Healthy') healthyMarginCount += 1;
-          else if (pricingHealth === 'Low') lowMarginCount += 1;
-          else if (pricingHealth === 'Critical') criticalMarginCount += 1;
+          if (pricingHealth === 'Healthy') healthyMarkupCount += 1;
+          else if (pricingHealth === 'Low') lowMarkupCount += 1;
+          else if (pricingHealth === 'Critical') criticalMarkupCount += 1;
           else notPricedCount += 1;
 
           return {
@@ -1590,7 +1618,7 @@ export default function Reports() {
             productionCost: toNumber(product.productionCost),
             approvedPrice,
             optimalPrice: toNumber(product.optimalPrice),
-            grossMarginPercent,
+            actualMarkupPercent,
             approvalStatus,
             pricingHealth,
           };
@@ -1602,15 +1630,15 @@ export default function Reports() {
           .filter((row) => {
             if (overviewPricingHealthFilter === 'All') return true;
             if (overviewPricingHealthFilter === 'Healthy') return row.pricingHealth === 'Healthy';
-            if (overviewPricingHealthFilter === 'Low Margin') return row.pricingHealth === 'Low';
+            if (overviewPricingHealthFilter === 'Low Markup') return row.pricingHealth === 'Low';
             return row.pricingHealth === 'Critical';
           })
           .sort((a, b) => {
             const statusDiff = getOverviewApprovalSortOrder(a.approvalStatus) - getOverviewApprovalSortOrder(b.approvalStatus);
             if (statusDiff !== 0) return statusDiff;
-            const aMargin = a.grossMarginPercent ?? Number.POSITIVE_INFINITY;
-            const bMargin = b.grossMarginPercent ?? Number.POSITIVE_INFINITY;
-            return aMargin - bMargin;
+            const aMarkup = a.actualMarkupPercent ?? Number.POSITIVE_INFINITY;
+            const bMarkup = b.actualMarkupPercent ?? Number.POSITIVE_INFINITY;
+            return aMarkup - bMarkup;
           });
 
         setReportData({
@@ -1619,9 +1647,9 @@ export default function Reports() {
           approvedCount,
           pendingCount,
           needsReviewCount,
-          healthyMarginCount,
-          lowMarginCount,
-          criticalMarginCount,
+          healthyMarkupCount,
+          lowMarkupCount,
+          criticalMarkupCount,
           notPricedCount,
         });
       }
@@ -1636,21 +1664,21 @@ export default function Reports() {
           .map((product) => {
             const approvedPrice = toNumber(product.approvedPrice);
             const productionCost = toNumber(product.productionCost);
-            const grossMarginPercent = calculateActualGrossMarginPercent(approvedPrice, productionCost) ?? 0;
+            const actualMarkupPercent = calculateActualMarkupPercent(approvedPrice, productionCost) ?? 0;
             return {
               productName: product.name,
               category: product.category || 'Uncategorised',
               productionCost,
               approvedPrice,
-              grossMarginPercent,
+              actualMarkupPercent,
             };
           })
           .filter((row) => (profitabilityCategoryFilter === 'All' ? true : row.category === profitabilityCategoryFilter));
 
         rows.sort((a, b) => {
           if (profitabilitySort === 'Product Name') return a.productName.localeCompare(b.productName);
-          if (profitabilitySort === 'Margin asc') return a.grossMarginPercent - b.grossMarginPercent;
-          return b.grossMarginPercent - a.grossMarginPercent;
+          if (profitabilitySort === 'Markup asc') return a.actualMarkupPercent - b.actualMarkupPercent;
+          return b.actualMarkupPercent - a.actualMarkupPercent;
         });
 
         setReportData({ rows, rankedCount: rows.length });
@@ -1664,29 +1692,28 @@ export default function Reports() {
             const approvedPrice = toNumber(product.approvedPrice);
             const currentCost = toNumber(product.productionCost);
             const targetMarkupPercent = toNumber(product.profitMargin);
-            const currentGrossMarginPercent = calculateActualGrossMarginPercent(approvedPrice, currentCost) ?? 0;
-            const targetGrossMarginPercent = calculateTargetGrossMarginFromMarkup(approvedPrice, targetMarkupPercent) ?? 0;
-            const marginDrift = currentGrossMarginPercent - targetGrossMarginPercent;
+            const currentMarkupPercent = calculateActualMarkupPercent(approvedPrice, currentCost) ?? 0;
+            const markupDrift = currentMarkupPercent - targetMarkupPercent;
 
             return {
               productName: product.name,
               category: product.category || 'Uncategorised',
               approvedPrice,
               currentCost,
-              currentGrossMarginPercent,
+              currentMarkupPercent,
               targetMarkupPercent,
-              marginDrift,
+              markupDrift,
             };
           })
           .filter((row) => row.approvedPrice > 0 && row.currentCost > 0);
 
         const filteredRows = allRows
-          .filter((row) => (driftFilter === 'Negative only' ? row.marginDrift < 0 : true))
-          .sort((a, b) => a.marginDrift - b.marginDrift);
+          .filter((row) => (driftFilter === 'Negative only' ? row.markupDrift < 0 : true))
+          .sort((a, b) => a.markupDrift - b.markupDrift);
 
         setReportData({
           rows: filteredRows,
-          affectedCount: allRows.filter((row) => row.marginDrift < 0).length,
+          affectedCount: allRows.filter((row) => row.markupDrift < 0).length,
         });
       }
 
@@ -1758,7 +1785,7 @@ export default function Reports() {
         variance: row.hasSellingPrice ? Number(row.variance.toFixed(2)) : null,
         variancePct: row.hasSellingPrice ? Number(row.variancePct.toFixed(1)) : null,
         profit: row.hasSellingPrice ? Number(row.profit.toFixed(2)) : null,
-        profitPct: row.hasSellingPrice ? Number(row.profitPct.toFixed(1)) : null,
+        markupPct: row.hasSellingPrice ? Number(row.markupPct.toFixed(1)) : null,
         pricingStatus: row.pricingStatus,
       }));
 
@@ -1774,38 +1801,34 @@ export default function Reports() {
           { key: 'variance', label: `Variance (${baseCurrency})` },
           { key: 'variancePct', label: 'Variance %' },
           { key: 'profit', label: `Profit (${baseCurrency})` },
-          { key: 'profitPct', label: 'Profit %' },
+          { key: 'markupPct', label: 'Actual Markup %' },
           { key: 'pricingStatus', label: 'Pricing Status' },
         ],
         filename: 'pricing-status-report.csv',
       };
     }
 
-    if (selectedReport === 'low-margin') {
-      const data = reportData as ReportResultMap['low-margin'];
+    if (selectedReport === 'markup-analysis') {
+      const data = reportData as ReportResultMap['markup-analysis'];
       const rows = data.rows.map((row) => ({
         productName: row.productName,
         category: row.category,
-        currentSellingPrice: Number(row.currentSellingPrice.toFixed(2)),
         productionCost: Number(row.productionCost.toFixed(2)),
-        realisedMargin: Number(row.realisedMargin.toFixed(1)),
-        targetMargin: Number(row.targetMargin.toFixed(1)),
-        gap: Number(row.gap.toFixed(1)),
-        thresholdApplied: Number(data.threshold.toFixed(1)),
+        approvedPrice: Number(row.approvedPrice.toFixed(2)),
+        actualMarkupPercent: Number(row.actualMarkupPercent.toFixed(1)),
+        targetGap: Number(row.targetGap.toFixed(1)),
       }));
       return {
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'currentSellingPrice', label: `Approved base price (${baseCurrency})` },
           { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'realisedMargin', label: 'Actual Gross Margin %' },
-          { key: 'targetMargin', label: 'Target Markup %' },
-          { key: 'gap', label: 'Gap %' },
-          { key: 'thresholdApplied', label: 'Threshold Applied' },
+          { key: 'approvedPrice', label: `Approved Price (${baseCurrency})` },
+          { key: 'actualMarkupPercent', label: 'Actual Markup %' },
+          { key: 'targetGap', label: 'Target Gap %' },
         ],
-        filename: 'low-margin-report.csv',
+        filename: 'markup-analysis-report.csv',
       };
     }
 
@@ -1846,7 +1869,6 @@ export default function Reports() {
         approvedPrice: row.approvedPrice === null ? '' : row.approvedPrice.toFixed(2),
         currentOptimalPrice: row.optimalPrice.toFixed(2),
         actualMarkupPercent: row.actualMarkupPercent == null ? '' : row.actualMarkupPercent.toFixed(1),
-        actualGrossMarginPercent: row.actualGrossMarginPercent == null ? '' : row.actualGrossMarginPercent.toFixed(1),
         approvedOn: parseDate(row.approvedOn)?.toLocaleString() || '—',
         approvedBy: row.approvedBy,
         active: row.isActive ? 'Yes' : 'No',
@@ -1860,7 +1882,6 @@ export default function Reports() {
           { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
           { key: 'currentOptimalPrice', label: `Current Optimal Price (${baseCurrency})` },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
-          { key: 'actualGrossMarginPercent', label: 'Actual Gross Margin %' },
           { key: 'approvedOn', label: 'Approved On' },
           { key: 'approvedBy', label: 'Approved By' },
           { key: 'active', label: 'Active' },
@@ -1876,7 +1897,7 @@ export default function Reports() {
         productionCost: Number(row.productionCost.toFixed(2)),
         approvedPrice: row.approvedPrice == null ? '' : Number(row.approvedPrice.toFixed(2)),
         optimalPrice: Number(row.optimalPrice.toFixed(2)),
-        grossMarginPercent: row.grossMarginPercent == null ? '' : Number(row.grossMarginPercent.toFixed(1)),
+        actualMarkupPercent: row.actualMarkupPercent == null ? '' : Number(row.actualMarkupPercent.toFixed(1)),
         approvalStatus: row.approvalStatus,
         pricingHealth: row.pricingHealth,
       }));
@@ -1888,7 +1909,7 @@ export default function Reports() {
           { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
           { key: 'approvedPrice', label: `Approved Base Price (${baseCurrency})` },
           { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
-          { key: 'grossMarginPercent', label: 'Actual Gross Margin %' },
+          { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'approvalStatus', label: 'Approval Status' },
           { key: 'pricingHealth', label: 'Pricing Health' },
         ],
@@ -1937,7 +1958,7 @@ export default function Reports() {
         category: row.category,
         productionCost: Number(row.productionCost.toFixed(2)),
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
-        grossMarginPercent: Number(row.grossMarginPercent.toFixed(1)),
+        actualMarkupPercent: Number(row.actualMarkupPercent.toFixed(1)),
       }));
       return {
         rows,
@@ -1947,7 +1968,7 @@ export default function Reports() {
           { key: 'category', label: 'Category' },
           { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
           { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'grossMarginPercent', label: 'Actual Gross Margin %' },
+          { key: 'actualMarkupPercent', label: 'Actual Markup %' },
         ],
         filename: 'profitability-ranking-report.csv',
       };
@@ -1959,9 +1980,9 @@ export default function Reports() {
         category: row.category,
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
         currentCost: Number(row.currentCost.toFixed(2)),
-        currentGrossMarginPercent: Number(row.currentGrossMarginPercent.toFixed(1)),
+        currentMarkupPercent: Number(row.currentMarkupPercent.toFixed(1)),
         targetMarkupPercent: Number(row.targetMarkupPercent.toFixed(1)),
-        marginDrift: Number(row.marginDrift.toFixed(1)),
+        markupDrift: Number(row.markupDrift.toFixed(1)),
       }));
       return {
         rows,
@@ -1970,9 +1991,9 @@ export default function Reports() {
           { key: 'category', label: 'Category' },
           { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
           { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
-          { key: 'currentGrossMarginPercent', label: 'Current Gross Margin %' },
+          { key: 'currentMarkupPercent', label: 'Current Markup %' },
           { key: 'targetMarkupPercent', label: 'Target Markup %' },
-          { key: 'marginDrift', label: 'Margin Drift' },
+          { key: 'markupDrift', label: 'Markup Drift' },
         ],
         filename: 'price-vs-cost-drift-report.csv',
       };
@@ -2204,7 +2225,7 @@ export default function Reports() {
   }
 
   const pricingCategories = useMemo(() => availableCategories, [availableCategories]);
-  const lowMarginCategories = useMemo(() => availableCategories, [availableCategories]);
+  const markupAnalysisCategories = useMemo(() => availableCategories, [availableCategories]);
   const approvalCategories = useMemo(() => availableCategories, [availableCategories]);
   const productReportCategories = useMemo(() => availableCategories, [availableCategories]);
 
@@ -2216,9 +2237,12 @@ export default function Reports() {
       return;
     }
 
-    if (report === 'low-margin') {
-      setLowMarginThreshold(defaultLowMarginThreshold);
-      setLowMarginCategoryFilter('All');
+    if (report === 'markup-analysis') {
+      setMarkupAnalysisThreshold(lowMarkupThreshold);
+      setMarkupAnalysisFilter('all');
+      setMarkupAnalysisCategory('All');
+      setMarkupAnalysisMinRange('');
+      setMarkupAnalysisMaxRange('');
       return;
     }
 
@@ -2232,7 +2256,7 @@ export default function Reports() {
 
     if (report === 'profitability-ranking') {
       setProfitabilityCategoryFilter('All');
-      setProfitabilitySort('Margin desc');
+      setProfitabilitySort('Markup desc');
       return;
     }
 
@@ -2297,20 +2321,42 @@ export default function Reports() {
       return chips;
     }
 
-    if (selectedReport === 'low-margin') {
+    if (selectedReport === 'markup-analysis') {
       const chips: ActiveFilterChip[] = [];
-      if (lowMarginThreshold !== defaultLowMarginThreshold) {
+      if (markupAnalysisThreshold !== lowMarkupThreshold) {
         chips.push({
-          key: 'low-margin-threshold',
-          label: `Margin below: ${lowMarginThreshold}%`,
-          onClear: () => setLowMarginThreshold(defaultLowMarginThreshold),
+          key: 'markup-analysis-threshold',
+          label: `Target: ${markupAnalysisThreshold}%`,
+          onClear: () => setMarkupAnalysisThreshold(lowMarkupThreshold),
         });
       }
-      if (lowMarginCategoryFilter !== 'All') {
+      if (markupAnalysisFilter !== 'all') {
+        const filterLabel = markupAnalysisFilter === 'above'
+          ? 'Above target'
+          : markupAnalysisFilter === 'below'
+            ? 'Below target'
+            : 'Custom range';
         chips.push({
-          key: 'low-margin-category',
-          label: `Category: ${lowMarginCategoryFilter}`,
-          onClear: () => setLowMarginCategoryFilter('All'),
+          key: 'markup-analysis-filter',
+          label: `Showing: ${filterLabel}`,
+          onClear: () => setMarkupAnalysisFilter('all'),
+        });
+      }
+      if (markupAnalysisCategory !== 'All') {
+        chips.push({
+          key: 'markup-analysis-category',
+          label: `Category: ${markupAnalysisCategory}`,
+          onClear: () => setMarkupAnalysisCategory('All'),
+        });
+      }
+      if (markupAnalysisFilter === 'custom' && (markupAnalysisMinRange !== '' || markupAnalysisMaxRange !== '')) {
+        chips.push({
+          key: 'markup-analysis-range',
+          label: `Range: ${markupAnalysisMinRange || '…'}%–${markupAnalysisMaxRange || '…'}%`,
+          onClear: () => {
+            setMarkupAnalysisMinRange('');
+            setMarkupAnalysisMaxRange('');
+          },
         });
       }
       return chips;
@@ -2358,11 +2404,11 @@ export default function Reports() {
           onClear: () => setProfitabilityCategoryFilter('All'),
         });
       }
-      if (profitabilitySort !== 'Margin desc') {
+      if (profitabilitySort !== 'Markup desc') {
         chips.push({
           key: 'profitability-sort',
           label: `Sort: ${profitabilitySort}`,
-          onClear: () => setProfitabilitySort('Margin desc'),
+          onClear: () => setProfitabilitySort('Markup desc'),
         });
       }
       return chips;
@@ -2544,8 +2590,8 @@ export default function Reports() {
             <label className="app-settings-label">Sort by</label>
             <select className="app-control" value={pricingSort} onChange={(e) => setPricingSort(e.target.value as typeof pricingSort)}>
               <option>Product Name</option>
-              <option>Profit % desc</option>
-              <option>Profit % asc</option>
+              <option>Markup % desc</option>
+              <option>Markup % asc</option>
               <option>Variance desc</option>
               <option>Variance asc</option>
             </select>
@@ -2554,21 +2600,64 @@ export default function Reports() {
       );
     }
 
-    if (selectedReport === 'low-margin') {
+    if (selectedReport === 'markup-analysis') {
       return (
         <>
-          <div style={INLINE_FILTER_FIELD}>
-            <label className="app-settings-label">Flag products with margin below:</label>
+          <div style={{ ...INLINE_FILTER_FIELD, minWidth: '150px' }}>
+            <label className="app-settings-label">Target markup %</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input className="app-control" type="number" value={lowMarginThreshold} onChange={(e) => setLowMarginThreshold(Number(e.target.value || 0))} />
+              <input
+                className="app-control"
+                type="number"
+                value={markupAnalysisThreshold}
+                onChange={(e) => setMarkupAnalysisThreshold(Number(e.target.value || 0))}
+              />
               <span style={{ fontWeight: 600 }}>%</span>
             </div>
+            <span style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.35 }}>
+              Defaults to your system threshold. Change system default in Settings → Pricing Engine
+            </span>
           </div>
           <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Show</label>
+            <select
+              className="app-control"
+              value={markupAnalysisFilter}
+              onChange={(e) => setMarkupAnalysisFilter(e.target.value as typeof markupAnalysisFilter)}
+            >
+              <option value="all">All products</option>
+              <option value="above">Above target</option>
+              <option value="below">Below target</option>
+              <option value="custom">Custom range</option>
+            </select>
+          </div>
+          {markupAnalysisFilter === 'custom' && (
+            <>
+              <div style={INLINE_FILTER_FIELD}>
+                <label className="app-settings-label">Min %</label>
+                <input
+                  className="app-control"
+                  type="number"
+                  value={markupAnalysisMinRange}
+                  onChange={(e) => setMarkupAnalysisMinRange(e.target.value)}
+                />
+              </div>
+              <div style={INLINE_FILTER_FIELD}>
+                <label className="app-settings-label">Max %</label>
+                <input
+                  className="app-control"
+                  type="number"
+                  value={markupAnalysisMaxRange}
+                  onChange={(e) => setMarkupAnalysisMaxRange(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+          <div style={INLINE_FILTER_FIELD}>
             <label className="app-settings-label">Category</label>
-            <select className="app-control" value={lowMarginCategoryFilter} onChange={(e) => setLowMarginCategoryFilter(e.target.value)}>
+            <select className="app-control" value={markupAnalysisCategory} onChange={(e) => setMarkupAnalysisCategory(e.target.value)}>
               <option value="All">All</option>
-              {lowMarginCategories.map((category) => (
+              {markupAnalysisCategories.map((category) => (
                 <option key={category} value={category}>{category}</option>
               ))}
             </select>
@@ -2625,8 +2714,8 @@ export default function Reports() {
           <div style={INLINE_FILTER_FIELD}>
             <label className="app-settings-label">Sort by</label>
             <select className="app-control" value={profitabilitySort} onChange={(e) => setProfitabilitySort(e.target.value as typeof profitabilitySort)}>
-              <option>Margin desc</option>
-              <option>Margin asc</option>
+              <option>Markup desc</option>
+              <option>Markup asc</option>
               <option>Product Name</option>
             </select>
           </div>
@@ -2738,7 +2827,7 @@ export default function Reports() {
             <select className="app-control" value={overviewPricingHealthFilter} onChange={(e) => setOverviewPricingHealthFilter(e.target.value as typeof overviewPricingHealthFilter)}>
               <option value="All">All</option>
               <option value="Healthy">Healthy</option>
-              <option value="Low Margin">Low Margin</option>
+              <option value="Low Markup">Low Markup</option>
               <option value="Critical">Critical</option>
             </select>
           </div>
@@ -2830,9 +2919,9 @@ export default function Reports() {
       const approvedCount = data.rows.filter((row) => row.approvalStatus === 'approved').length;
       const pendingCount = data.rows.filter((row) => row.approvalStatus === 'pending').length;
       const needsReviewCount = data.rows.filter((row) => row.approvalStatus === 'needs_review').length;
-      const profitEligibleRows = withSellingPrice.filter((row) => row.productionCost > 0 && row.sellingPrice > 0);
-      const avgProfitPct = profitEligibleRows.length > 0
-        ? profitEligibleRows.reduce((sum, row) => sum + (((row.sellingPrice - row.productionCost) / row.sellingPrice) * 100), 0) / profitEligibleRows.length
+      const markupEligibleRows = withSellingPrice.filter((row) => row.productionCost > 0 && row.sellingPrice > 0);
+      const avgMarkupPct = markupEligibleRows.length > 0
+        ? markupEligibleRows.reduce((sum, row) => sum + row.markupPct, 0) / markupEligibleRows.length
         : null;
       const paginatedPricingRows = paginateRows(data.rows, currentPage);
 
@@ -2843,29 +2932,75 @@ export default function Reports() {
             <StatCard label="Above Optimal" value={String(aboveCount)} tone="success" />
             <StatCard label="Below Optimal" value={String(belowCount)} tone="danger" />
             <StatCard
-              label="Avg Profit %"
-              value={avgProfitPct === null ? '—' : formatPct(avgProfitPct)}
-              secondary={`Based on ${profitEligibleRows.length} products with approved base prices set`}
+              label="Avg Markup %"
+              value={avgMarkupPct === null ? '—' : formatPct(avgMarkupPct)}
+              secondary={`Based on ${markupEligibleRows.length} products with approved base prices set`}
+              tone={avgMarkupPct != null && avgMarkupPct >= lowMarkupThreshold ? 'success' : avgMarkupPct != null ? 'warning' : 'default'}
             />
           </div>
 
-          {renderPricingStatusTable(paginatedPricingRows, { formatCurrency })}
+          {renderPricingStatusTable(paginatedPricingRows, { formatCurrency, markupThreshold: lowMarkupThreshold })}
           {renderPaginationControls(data.rows.length)}
         </div>
       );
     }
 
-    if (selectedReport === 'low-margin') {
-      const data = reportData as ReportResultMap['low-margin'];
-      const paginatedLowMarginRows = paginateRows(data.rows, currentPage);
+    if (selectedReport === 'markup-analysis') {
+      const data = reportData as ReportResultMap['markup-analysis'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+      const threshold = data.threshold;
+      const halfThreshold = threshold / 2;
+      const aboveTargetPct = data.totalAnalysed > 0 ? (data.aboveTargetCount / data.totalAnalysed) * 100 : 0;
+      const distributionBands = [
+        { label: 'Critical', count: data.criticalCount, color: '#dc2626', sub: `< ${halfThreshold.toFixed(1)}%` },
+        { label: 'Low', count: data.lowCount, color: '#d97706', sub: `${halfThreshold.toFixed(1)}–${threshold.toFixed(1)}%` },
+        { label: 'Healthy', count: data.healthyCount, color: '#16a34a', sub: `≥ ${threshold.toFixed(1)}%` },
+      ];
 
       return (
         <div id="reporting-centre-print-area">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
-            <StatCard label="Products Reviewed" value={String(data.reviewedCount)} />
-            <StatCard label="Below Threshold" value={String(data.rows.length)} tone="danger" />
-            <StatCard label="Avg Actual Gross Margin" value={formatPct(data.allApprovedAverage)} />
-            <StatCard label="Threshold Applied" value={formatPct(data.threshold)} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(110px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Total Products Analysed" value={String(data.totalAnalysed)} />
+            <StatCard label="Above Target" value={String(data.aboveTargetCount)} tone="success" />
+            <StatCard label="Below Target" value={String(data.belowTargetCount)} tone="danger" />
+            <StatCard
+              label="Average Markup"
+              value={formatPct(data.averageMarkup)}
+              tone={data.averageMarkup >= threshold ? 'success' : data.averageMarkup >= halfThreshold ? 'warning' : 'danger'}
+            />
+            <StatCard
+              label="Distribution"
+              value={`${aboveTargetPct.toFixed(0)}% above target`}
+              secondary={`Target: ${threshold.toFixed(1)}% markup`}
+            />
+          </div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>
+              <span>Products above target</span>
+              <span>{aboveTargetPct.toFixed(1)}%</span>
+            </div>
+            <div style={{ height: '10px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, Math.max(0, aboveTargetPct))}%`, height: '100%', backgroundColor: '#16a34a', borderRadius: '999px' }} />
+            </div>
+          </div>
+
+          <div className="app-card" style={{ padding: '16px', marginBottom: '14px', display: 'grid', gap: '10px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Markup distribution</div>
+            {distributionBands.map((band) => {
+              const pct = data.totalAnalysed > 0 ? (band.count / data.totalAnalysed) * 100 : 0;
+              return (
+                <div key={band.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px', gap: '8px' }}>
+                    <span style={{ color: '#475569' }}>{band.label} ({band.sub})</span>
+                    <span style={{ fontWeight: 600, color: band.color }}>{band.count} · {pct.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#f1f5f9' }}>
+                    <div style={{ width: `${Math.max(0, Math.min(100, pct))}%`, height: '100%', backgroundColor: band.color, borderRadius: '999px' }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="app-table-wrap">
@@ -2874,34 +3009,33 @@ export default function Reports() {
                 <tr>
                   <th style={{ textAlign: 'left' }}>Product Name</th>
                   <th style={{ textAlign: 'left' }}>Category</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
-                  <th style={{ textAlign: 'right' }}>Prod. Cost</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
-                  <th style={{ textAlign: 'right' }}>Target Markup %</th>
-                  <th style={{ textAlign: 'right' }}>Gap</th>
+                  <th style={{ textAlign: 'right' }}>Production Cost</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>Price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Markup %</th>
+                  <th style={{ textAlign: 'right' }}>Target Gap</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedLowMarginRows.map((row) => (
+                {paginatedRows.map((row) => (
                   <tr key={row.productName}>
                     <td style={{ textAlign: 'left' }}>{row.productName}</td>
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentSellingPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <InlinePercentBar value={row.realisedMargin} />
+                      <ThresholdMarkupBar value={row.actualMarkupPercent} threshold={threshold} />
                     </td>
-                    <td style={{ textAlign: 'right' }}>{formatPct(row.targetMargin)}</td>
-                    <td style={{ textAlign: 'right', color: row.gap < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{formatPct(row.gap)}</td>
+                    <td style={{ textAlign: 'right', color: row.targetGap >= 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>
+                      {formatPct(row.targetGap)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           {renderPaginationControls(data.rows.length)}
-
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-            Actual gross margin = (Approved base price − Production Cost) / Approved base price. Only approved products with an official approved price are included.
+            Actual markup = (Approved Price − Production Cost) / Production Cost × 100. Target gap = Actual Markup % − target threshold. Only approved products with price and cost are included.
           </div>
         </div>
       );
@@ -2996,7 +3130,6 @@ export default function Reports() {
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Optimal Price</th>
                   <th style={{ textAlign: 'right' }}>Actual Markup %</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
                   <th style={{ textAlign: 'left' }}>Approved On</th>
                   <th style={{ textAlign: 'left' }}>Approved By</th>
                   <th style={{ textAlign: 'left' }}>Active?</th>
@@ -3011,7 +3144,6 @@ export default function Reports() {
                     <td style={{ textAlign: 'right' }}>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
-                    <td style={{ textAlign: 'right' }}>{row.actualGrossMarginPercent == null ? '—' : formatPct(row.actualGrossMarginPercent)}</td>
                     <td style={{ textAlign: 'left' }}>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
                     <td style={{ textAlign: 'left' }}>{row.approvedBy}</td>
                     <td style={{ textAlign: 'left' }}>{row.isActive ? 'Yes' : 'No'}</td>
@@ -3035,7 +3167,7 @@ export default function Reports() {
         <div id="reporting-centre-print-area">
           <ProductsAnalysisTab
             products={data.products}
-            lowMarginThreshold={lowMarginThreshold}
+            lowMarginThreshold={lowMarkupThreshold}
           />
         </div>
       );
@@ -3044,28 +3176,28 @@ export default function Reports() {
     if (selectedReport === 'product-pricing-overview') {
       const data = reportData as ReportResultMap['product-pricing-overview'];
       const paginatedRows = paginateRows(data.rows, currentPage);
-      const halfThreshold = lowMarginThreshold / 2;
-      const marginHealthCards = [
+      const halfThreshold = lowMarkupThreshold / 2;
+      const markupHealthCards = [
         {
-          count: data.healthyMarginCount,
-          label: 'Healthy gross margin',
-          sub: `Actual Gross Margin % >= ${lowMarginThreshold}%`,
+          count: data.healthyMarkupCount,
+          label: 'Healthy markup',
+          sub: `Actual Markup % >= ${lowMarkupThreshold}%`,
           color: '#16a34a',
           background: '#f0fdf4',
           border: '#bbf7d0',
         },
         {
-          count: data.lowMarginCount,
-          label: 'Low gross margin',
-          sub: `Actual Gross Margin % ${halfThreshold.toFixed(1)}-${lowMarginThreshold}%`,
+          count: data.lowMarkupCount,
+          label: 'Low markup',
+          sub: `Actual Markup % ${halfThreshold.toFixed(1)}-${lowMarkupThreshold}%`,
           color: '#d97706',
           background: '#fffbeb',
           border: '#fde68a',
         },
         {
-          count: data.criticalMarginCount,
-          label: 'Critical gross margin',
-          sub: `Actual Gross Margin % < ${halfThreshold.toFixed(1)}%`,
+          count: data.criticalMarkupCount,
+          label: 'Critical markup',
+          sub: `Actual Markup % < ${halfThreshold.toFixed(1)}%`,
           color: '#dc2626',
           background: '#fef2f2',
           border: '#fecaca',
@@ -3087,15 +3219,15 @@ export default function Reports() {
             <StatCard label="Approved" value={String(data.approvedCount)} tone="success" />
             <StatCard label="Pending Approval" value={String(data.pendingCount)} tone="warning" />
             <StatCard label="Needs Review" value={String(data.needsReviewCount)} tone="warning" />
-            <StatCard label="Healthy Margin" value={String(data.healthyMarginCount)} tone="success" />
-            <StatCard label="Low Margin" value={String(data.lowMarginCount)} tone="warning" />
-            <StatCard label="Critical Margin" value={String(data.criticalMarginCount)} tone="danger" />
+            <StatCard label="Healthy Markup" value={String(data.healthyMarkupCount)} tone="success" />
+            <StatCard label="Low Markup" value={String(data.lowMarkupCount)} tone="warning" />
+            <StatCard label="Critical Markup" value={String(data.criticalMarkupCount)} tone="danger" />
           </div>
 
           <div className="app-card" style={{ display: 'grid', gap: '10px', marginBottom: '14px', padding: '16px' }}>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Pricing health</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
-              {marginHealthCards.map((card) => (
+              {markupHealthCards.map((card) => (
                 <div
                   key={card.label}
                   style={{
@@ -3128,7 +3260,7 @@ export default function Reports() {
                   <th style={{ textAlign: 'right' }}>Production Cost</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>Base Price</th>
                   <th style={{ textAlign: 'right' }}>Optimal Price</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Markup %</th>
                   <th style={{ textAlign: 'left' }}>Approval Status</th>
                   <th style={{ textAlign: 'left' }}>Pricing Health</th>
                 </tr>
@@ -3149,7 +3281,11 @@ export default function Reports() {
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
                     <td style={{ textAlign: 'right' }}>{row.approvedPrice == null ? '—' : formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
-                    <td style={{ textAlign: 'right' }}>{row.grossMarginPercent == null ? '—' : formatPct(row.grossMarginPercent)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      {row.actualMarkupPercent == null ? '—' : (
+                        <ThresholdMarkupBar value={row.actualMarkupPercent} threshold={lowMarkupThreshold} />
+                      )}
+                    </td>
                     <td style={{ textAlign: 'left' }}>
                       <AppBadge variant={statusBadgeVariant(row.approvalStatus)} size="sm">
                         {row.approvalStatus === 'needs_review' ? 'Needs Review' : row.approvalStatus === 'approved' ? 'Approved' : 'Pending'}
@@ -3189,7 +3325,7 @@ export default function Reports() {
                   <th style={{ textAlign: 'left' }}>Category</th>
                   <th style={{ textAlign: 'right' }}>Production Cost</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '120px' }}>Actual Gross<br/>Margin %</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '120px' }}>Actual Markup %</th>
                 </tr>
               </thead>
               <tbody>
@@ -3201,7 +3337,7 @@ export default function Reports() {
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>
-                      <ThresholdMarginBar value={row.grossMarginPercent} threshold={lowMarginThreshold} />
+                      <ThresholdMarkupBar value={row.actualMarkupPercent} threshold={lowMarkupThreshold} />
                     </td>
                   </tr>
                 ))}
@@ -3220,7 +3356,7 @@ export default function Reports() {
       return (
         <div id="reporting-centre-print-area">
           <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
-            {data.affectedCount} product{data.affectedCount === 1 ? '' : 's'} with cost changes affecting margin
+            {data.affectedCount} product{data.affectedCount === 1 ? '' : 's'} with cost changes affecting markup
           </div>
           <div className="app-table-wrap">
             <table className="app-table">
@@ -3230,9 +3366,9 @@ export default function Reports() {
                   <th style={{ textAlign: 'left' }}>Category</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
                   <th style={{ textAlign: 'right' }}>Current Cost</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Gross<br/>Margin %</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Markup %</th>
                   <th style={{ textAlign: 'right' }}>Target Markup %</th>
-                  <th style={{ textAlign: 'right' }}>Margin Drift</th>
+                  <th style={{ textAlign: 'right' }}>Markup Drift</th>
                 </tr>
               </thead>
               <tbody>
@@ -3242,10 +3378,10 @@ export default function Reports() {
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentCost)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatPct(row.currentGrossMarginPercent)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPct(row.currentMarkupPercent)}</td>
                     <td style={{ textAlign: 'right' }}>{formatPct(row.targetMarkupPercent)}</td>
-                    <td style={{ textAlign: 'right', color: row.marginDrift >= 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>
-                      {formatPct(row.marginDrift)}
+                    <td style={{ textAlign: 'right', color: row.markupDrift >= 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>
+                      {formatPct(row.markupDrift)}
                     </td>
                   </tr>
                 ))}
@@ -3254,7 +3390,7 @@ export default function Reports() {
           </div>
           {renderPaginationControls(data.rows.length)}
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-            Margin drift compares current Actual Gross Margin % to the target gross margin implied by the product&apos;s markup target at approval. Negative drift means costs have risen since approval.
+            Markup drift compares current Actual Markup % to the target markup stored at approval (profit margin). Negative drift means costs have risen since approval.
           </div>
         </div>
       );
@@ -3819,9 +3955,10 @@ export default function Reports() {
   );
 }
 
-function ThresholdMarginBar({ value, threshold }: { value: number; threshold: number }) {
-  const color = getThresholdMarginColor(value, threshold);
-  const widthPercent = Math.min(100, Math.max(0, value));
+function ThresholdMarkupBar({ value, threshold }: { value: number; threshold: number }) {
+  const color = getThresholdMarkupColor(value, threshold);
+  const scaleMax = Math.min(threshold * 2, 100);
+  const widthPercent = scaleMax > 0 ? Math.min(100, Math.max(0, (value / scaleMax) * 100)) : 0;
 
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
@@ -3829,20 +3966,6 @@ function ThresholdMarginBar({ value, threshold }: { value: number; threshold: nu
         <div style={{ width: `${widthPercent}%`, height: '100%', backgroundColor: color, borderRadius: '999px' }} />
       </div>
       <span style={{ color, fontWeight: 600 }}>{formatPct(value)}</span>
-    </div>
-  );
-}
-
-function InlinePercentBar({ value }: { value: number }) {
-  const clampedWidth = Math.min(100, Math.max(0, value));
-  const negative = value < 0;
-
-  return (
-    <div style={{ display: 'grid', gap: '4px' }}>
-      <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden', maxWidth: '140px' }}>
-        <div style={{ width: `${clampedWidth}%`, height: '100%', backgroundColor: negative ? '#dc2626' : '#16a34a' }} />
-      </div>
-      <span style={{ color: negative ? '#b91c1c' : '#166534', fontWeight: 600 }}>{formatPct(value)}</span>
     </div>
   );
 }
@@ -3885,10 +4008,11 @@ function StatCard({
 
 function renderPricingStatusTable(
   rows: PricingStatusComputedRow[],
-  options?: { noSellingPriceMode?: boolean; formatCurrency?: (value: number) => string },
+  options?: { noSellingPriceMode?: boolean; formatCurrency?: (value: number) => string; markupThreshold?: number },
 ) {
   const noSellingPriceMode = options?.noSellingPriceMode === true;
   const formatMoney = options?.formatCurrency ?? ((value: number) => formatCurrencyAmount(value, 'GHS'));
+  const markupThreshold = options?.markupThreshold ?? 20;
 
   return (
     <div className="app-table-wrap">
@@ -3903,7 +4027,7 @@ function renderPricingStatusTable(
             <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
             <th style={{ textAlign: 'right' }}>Variance</th>
             <th style={{ textAlign: 'right' }}>Profit</th>
-            <th style={{ textAlign: 'right' }}>Profit %</th>
+            <th style={{ textAlign: 'right' }}>Actual Markup %</th>
             <th style={{ textAlign: 'left' }}>Status</th>
           </tr>
         </thead>
@@ -3922,7 +4046,11 @@ function renderPricingStatusTable(
               <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? formatMoney(row.sellingPrice) : '—'}</td>
               <td style={{ textAlign: 'right', color: row.variance < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.variance) : '—'}</td>
               <td style={{ textAlign: 'right', color: row.profit < 0 ? '#b91c1c' : '#166534', fontWeight: 600 }}>{row.hasSellingPrice && !noSellingPriceMode ? formatSignedNumber(row.profit) : '—'}</td>
-              <td style={{ textAlign: 'right' }}>{row.hasSellingPrice && !noSellingPriceMode ? <InlinePercentBar value={row.profitPct} /> : '—'}</td>
+              <td style={{ textAlign: 'right' }}>
+                {row.hasSellingPrice && !noSellingPriceMode ? (
+                  <ThresholdMarkupBar value={row.markupPct} threshold={markupThreshold} />
+                ) : '—'}
+              </td>
               <td style={{ textAlign: 'left' }}>
                 {row.hasSellingPrice && !noSellingPriceMode ? (
                   <AppBadge variant={row.pricingStatus === 'Above Optimal' ? 'success' : row.pricingStatus === 'Below Optimal' ? 'danger' : 'info'} size="sm">
