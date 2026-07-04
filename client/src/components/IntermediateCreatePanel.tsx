@@ -34,7 +34,7 @@ const emptyForm: MaterialFormState = {
   category: '',
   unit: 'kg',
   intermediateCostMode: 'completed_output',
-  bulkQuantity: '1',
+  bulkQuantity: '0',
   overheadPercentage: '0',
   marginPercentage: '0',
   yieldPercentage: '100',
@@ -197,6 +197,7 @@ const panelHeaderStyle = {
   padding: '16px 20px',
   borderBottom: '1px solid #E2E8F0',
   flexShrink: 0,
+  position: 'relative' as const,
 };
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -515,14 +516,6 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
       <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
         <div style={panelHeaderStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={onClose}
-              style={{ marginBottom: '8px', paddingLeft: 0 }}
-            >
-              ← Back to Intermediate Materials
-            </button>
             <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
               New Intermediate Material
             </h1>
@@ -541,12 +534,14 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: closeButtonHovered ? '#0F2847' : '#64748b',
+              color: '#64748b',
               borderRadius: '6px',
               flexShrink: 0,
+              position: 'relative',
+              zIndex: 1,
             }}
           >
-            <X size={20} />
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
 

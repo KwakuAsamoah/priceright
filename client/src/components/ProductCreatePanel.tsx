@@ -209,6 +209,7 @@ const panelHeaderStyle = {
   padding: '16px 20px',
   borderBottom: '1px solid #E2E8F0',
   flexShrink: 0,
+  position: 'relative' as const,
 };
 
 export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePanelProps) {
@@ -472,14 +473,6 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
       <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
         <div style={panelHeaderStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={onClose}
-              style={{ marginBottom: '8px', paddingLeft: 0 }}
-            >
-              ← Back to Products
-            </button>
             <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
               New Product
             </h1>
@@ -498,12 +491,14 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: closeButtonHovered ? '#0F2847' : '#64748b',
+              color: '#64748b',
               borderRadius: '6px',
               flexShrink: 0,
+              position: 'relative',
+              zIndex: 1,
             }}
           >
-            <X size={20} />
+            <X size={20} strokeWidth={2} />
           </button>
         </div>
 
