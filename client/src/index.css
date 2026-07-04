@@ -1235,8 +1235,6 @@ textarea {
   font-size: 14px;
   font-weight: 600;
   color: #0F2847;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 
@@ -1245,11 +1243,6 @@ textarea {
   font-size: 13px;
   line-height: 1.45;
   color: #64748b;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 
@@ -1352,8 +1345,6 @@ textarea {
   font-size: 15px;
   font-weight: 700;
   color: #0F2847;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 
@@ -1361,8 +1352,6 @@ textarea {
   font-size: 13px;
   color: #64748b;
   margin-top: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 
