@@ -130,6 +130,7 @@ export default function Settings() {
   const [defaultOverhead, setDefaultOverhead] = useState('30');
   const { setHasOpenForm } = useFormState();
   const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
+  const [healthyMarkupThreshold, setHealthyMarkupThreshold] = useState('20');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
   const [isSavingBranding, setIsSavingBranding] = useState(false);
@@ -289,6 +290,11 @@ async function loadData() {
       const profitMarginSetting = settingsData.find((s: any) => s.settingKey === 'defaultProfitMargin');
       if (profitMarginSetting) {
         setDefaultProfitMargin(profitMarginSetting.settingValue);
+      }
+
+      const healthyMarkupSetting = settingsData.find((s: any) => s.settingKey === 'healthyMarkupThreshold');
+      if (healthyMarkupSetting) {
+        setHealthyMarkupThreshold(healthyMarkupSetting.settingValue);
       }
 
       const companyNameSetting = settingsData.find((s: any) => s.settingKey === 'companyName');
@@ -542,6 +548,16 @@ async function loadData() {
     } catch (error) {
       console.error('Error saving default profit margin:', error);
       showToastMessage('Failed to save default Markup %', 'error');
+    }
+  }
+
+  async function handleSaveHealthyMarkupThreshold() {
+    try {
+      await settingsApi.save({ settingKey: 'healthyMarkupThreshold', settingValue: healthyMarkupThreshold });
+      showToastMessage('Healthy markup threshold saved successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving healthy markup threshold:', error);
+      showToastMessage('Failed to save healthy markup threshold', 'error');
     }
   }
 
@@ -1054,6 +1070,46 @@ async function loadData() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveDefaultProfitMargin}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
+              <div className="app-settings-row-end" style={{ marginBottom: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="app-settings-label">
+                    Healthy markup threshold (%)
+                  </label>
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px', marginBottom: '8px' }}>
+                    Products with a markup below this value are flagged as Low or Critical across the app — on the Dashboard, in Reports, and in the Products table. Healthy means markup at or above this value.
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      min="1"
+                      max="200"
+                      step="0.1"
+                      value={healthyMarkupThreshold}
+                      onChange={(e) => setHealthyMarkupThreshold(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        paddingRight: '35px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '16px',
+                      }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#94A3B8' }}>
+                    This threshold is used app-wide. Changing it updates all health indicators immediately.
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveHealthyMarkupThreshold}
                   style={{ whiteSpace: 'nowrap' }}
                 >
                   Save

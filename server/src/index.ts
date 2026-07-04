@@ -897,10 +897,29 @@ app.post('/api/pin/reset', async (_req, res) => {
   });
 });
 
+/** Default values for settings not yet stored in the database. */
+const SETTING_DEFAULTS: Record<string, string> = {
+  healthyMarkupThreshold: '20',
+};
+
 app.get('/api/settings', async (req, res) => {
   try {
     const allSettings = await getActiveDb().select().from(settings);
-    res.json(allSettings);
+    const existingKeys = new Set(allSettings.map((entry) => entry.settingKey));
+
+    const mergedSettings = [...allSettings];
+    for (const [settingKey, settingValue] of Object.entries(SETTING_DEFAULTS)) {
+      if (!existingKeys.has(settingKey)) {
+        mergedSettings.push({
+          id: 0,
+          settingKey,
+          settingValue,
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    res.json(mergedSettings);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch settings' });
   }
