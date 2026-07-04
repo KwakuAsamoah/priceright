@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 
-const TABLE_ZOOM_STORAGE_KEY = 'tableZoomPercent';
+const DEFAULT_TABLE_ZOOM_STORAGE_KEY = 'tableZoomPercent';
 const ZOOM_LEVELS = [75, 85, 100, 115, 130] as const;
 type ZoomLevel = typeof ZOOM_LEVELS[number];
 
-function getStoredZoomPercent(): ZoomLevel {
+function getStoredZoomPercent(storageKey: string): ZoomLevel {
   if (typeof window === 'undefined') {
     return 100;
   }
 
   try {
-    const storedValue = window.localStorage.getItem(TABLE_ZOOM_STORAGE_KEY);
+    const storedValue = window.localStorage.getItem(storageKey);
     const parsedValue = Number(storedValue);
     if (ZOOM_LEVELS.includes(parsedValue as ZoomLevel)) {
       return parsedValue as ZoomLevel;
@@ -22,18 +22,18 @@ function getStoredZoomPercent(): ZoomLevel {
   return 100;
 }
 
-export default function useTableZoom() {
-  const [zoomPercent, setZoomPercentState] = useState<ZoomLevel>(() => getStoredZoomPercent());
+export default function useTableZoom(storageKey: string = DEFAULT_TABLE_ZOOM_STORAGE_KEY) {
+  const [zoomPercent, setZoomPercentState] = useState<ZoomLevel>(() => getStoredZoomPercent(storageKey));
 
   const currentIndex = useMemo(() => ZOOM_LEVELS.indexOf(zoomPercent), [zoomPercent]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(TABLE_ZOOM_STORAGE_KEY, String(zoomPercent));
+      window.localStorage.setItem(storageKey, String(zoomPercent));
     } catch {
       // Ignore localStorage write errors.
     }
-  }, [zoomPercent]);
+  }, [storageKey, zoomPercent]);
 
   const setZoomPercent = (value: number) => {
     if (ZOOM_LEVELS.includes(value as ZoomLevel)) {

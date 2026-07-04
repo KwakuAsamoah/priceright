@@ -4,7 +4,6 @@ import { useFormState } from '../context/FormStateContext';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
-import TableDensityToggle from '../components/TableDensityToggle';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl } from '../api';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -215,7 +214,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('active');
-  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
   const [visibleColumns, setVisibleColumns] = usePersistedColumns<MaterialColumnKey>(
     'priceright_columns_materials',
     DEFAULT_MATERIAL_COLUMNS,
@@ -1492,10 +1490,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 toggleColumn={handleToggleMaterialColumn}
                 resetToDefaults={resetMaterialColumns}
               />
-              <TableDensityToggle
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
               <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>
           </div>
@@ -1515,7 +1509,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
           )}
 
           <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
-            <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+            <table className="app-table app-table-uniform-numbers app-table-compact">
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                   <th style={{ textAlign: 'center', fontWeight: '700', color: '#475569', width: '32px', whiteSpace: 'nowrap' }}>

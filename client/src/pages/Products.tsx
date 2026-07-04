@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
-import TableDensityToggle from '../components/TableDensityToggle';
 import ActionDropdown from '../components/ActionDropdown';
 import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } from '../api';
 import AppBadge from '../components/AppBadge';
@@ -313,7 +312,6 @@ export default function Products() {
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('compact');
   const {
     isVisible: isColumnIdVisible,
     toggleColumn,
@@ -1876,10 +1874,6 @@ export default function Products() {
                 toggleColumn={handleToggleProductColumn}
                 resetToDefaults={resetProductColumns}
               />
-              <TableDensityToggle
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
               <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>
           </div>
@@ -1914,7 +1908,7 @@ export default function Products() {
             )
           ) : (
             <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
-              <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+              <table className="app-table app-table-uniform-numbers app-table-compact">
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
                     <th style={{ fontWeight: '700', width: '32px', textAlign: 'center', whiteSpace: 'nowrap' }}>

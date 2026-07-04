@@ -16,10 +16,12 @@ import {
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
+import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, settingsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import { getThresholdMarginColor } from '../utils/margin';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
@@ -801,6 +803,7 @@ export default function Reports() {
   const [expandedCurrencyCodes, setExpandedCurrencyCodes] = useState<Set<string>>(new Set());
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [defaultLowMarginThreshold, setDefaultLowMarginThreshold] = useState(DEFAULT_LOW_MARGIN_THRESHOLD);
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('reportsZoomPercent');
 
   const [pricingCategoryFilter, setPricingCategoryFilter] = useState('All');
   const [pricingStatusFilter, setPricingStatusFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal' | 'At Optimal'>('All');
@@ -2749,7 +2752,8 @@ export default function Reports() {
     const exportDisabled = !generatedAt || isLoading || !!error || !canExportReport;
 
     return (
-      <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
         <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <Printer size={14} strokeWidth={2} />
@@ -3802,7 +3806,11 @@ export default function Reports() {
             </div>
           )}
 
-          {!isLoading && !error && shouldShowReportBody && renderReportBody()}
+          {!isLoading && !error && shouldShowReportBody && (
+            <div style={{ zoom: `${zoomPercent}%` }}>
+              {renderReportBody()}
+            </div>
+          )}
         </div>
       </div>
     </div>
