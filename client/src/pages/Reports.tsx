@@ -289,9 +289,6 @@ type ReportResultMap = {
     aboveTargetCount: number;
     belowTargetCount: number;
     averageMarkup: number;
-    criticalCount: number;
-    lowCount: number;
-    healthyCount: number;
     threshold: number;
   };
   'price-list-summary': {
@@ -1112,16 +1109,12 @@ export default function Reports() {
         );
 
         const threshold = markupAnalysisThreshold;
-        const halfThreshold = threshold / 2;
         const totalAnalysed = afterCategory.length;
         const aboveTargetCount = afterCategory.filter((row) => row.actualMarkupPercent >= threshold).length;
         const belowTargetCount = afterCategory.filter((row) => row.actualMarkupPercent < threshold).length;
         const averageMarkup = totalAnalysed > 0
           ? afterCategory.reduce((sum, row) => sum + row.actualMarkupPercent, 0) / totalAnalysed
           : 0;
-        const criticalCount = afterCategory.filter((row) => row.actualMarkupPercent < halfThreshold).length;
-        const lowCount = afterCategory.filter((row) => row.actualMarkupPercent >= halfThreshold && row.actualMarkupPercent < threshold).length;
-        const healthyCount = afterCategory.filter((row) => row.actualMarkupPercent >= threshold).length;
 
         let filtered = afterCategory;
         if (markupAnalysisFilter === 'above') {
@@ -1153,9 +1146,6 @@ export default function Reports() {
           aboveTargetCount,
           belowTargetCount,
           averageMarkup,
-          criticalCount,
-          lowCount,
-          healthyCount,
           threshold,
         });
       }
@@ -2963,11 +2953,6 @@ export default function Reports() {
       const threshold = data.threshold;
       const halfThreshold = threshold / 2;
       const aboveTargetPct = data.totalAnalysed > 0 ? (data.aboveTargetCount / data.totalAnalysed) * 100 : 0;
-      const distributionBands = [
-        { label: 'Critical', count: data.criticalCount, color: '#dc2626', sub: `< ${halfThreshold.toFixed(1)}%` },
-        { label: 'Low', count: data.lowCount, color: '#d97706', sub: `${halfThreshold.toFixed(1)}–${threshold.toFixed(1)}%` },
-        { label: 'Healthy', count: data.healthyCount, color: '#16a34a', sub: `≥ ${threshold.toFixed(1)}%` },
-      ];
 
       return (
         <div id="reporting-centre-print-area">
@@ -2985,54 +2970,6 @@ export default function Reports() {
               value={`${aboveTargetPct.toFixed(0)}% above target`}
               secondary={`Target: ${threshold.toFixed(1)}% markup`}
             />
-          </div>
-
-          <div className="app-card" style={{ padding: '16px', marginBottom: '14px', display: 'grid', gap: '12px' }}>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Markup distribution</div>
-            {distributionBands.map((band) => {
-              const pct = data.totalAnalysed > 0
-                ? Math.round((band.count / data.totalAnalysed) * 1000) / 10
-                : 0;
-              const productLabel = `${band.count} product${band.count === 1 ? '' : 's'}`;
-              return (
-                <div
-                  key={band.label}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(110px, 140px) 1fr 80px',
-                    gap: '12px',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                    <span
-                      style={{
-                        width: '10px',
-                        height: '10px',
-                        borderRadius: '999px',
-                        backgroundColor: band.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ color: '#475569', fontSize: '13px', fontWeight: 600 }}>{band.label}</span>
-                  </div>
-                  <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#f1f5f9', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${Math.max(0, Math.min(100, pct))}%`,
-                        height: '100%',
-                        backgroundColor: band.color,
-                        borderRadius: '999px',
-                      }}
-                    />
-                  </div>
-                  <div style={{ width: '80px', textAlign: 'right', display: 'grid', gap: '2px' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0F2847' }}>{productLabel}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>{pct.toFixed(1)}%</div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
 
           <div className="app-table-wrap">
