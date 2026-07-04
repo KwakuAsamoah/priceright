@@ -14,6 +14,7 @@ import AppToast from '../components/AppToast';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarginThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { usePrint } from '../hooks/usePrint';
@@ -30,6 +31,7 @@ import {
   PRODUCTS_COLUMNS,
   type ProductColumnKey,
 } from '../config/productsColumns';
+import { getThresholdMarginColor } from '../utils/margin';
 
 interface Product {
   id: number;
@@ -301,6 +303,7 @@ function parseCsvText(text: string) {
 
 export default function Products() {
   const { baseCurrency } = useBaseCurrency();
+  const lowMarginThreshold = useLowMarginThreshold();
   const location = useLocation();
   const navigate = useNavigate();
   const [products, setProducts] = useState<ProductPricing[]>([]);
@@ -1339,8 +1342,8 @@ export default function Products() {
       const matchesApprovalQuery = !approvalQueryFilter
         || (approvalQueryFilter === 'rejected' ? normalizedApprovalStatus === 'pending' : approvalStatus === approvalQueryFilter);
 
-      const actualProfitOnCost = calculateActualProfitOnCost(product);
-      const matchesLowMargin = !lowMarginOnly || (actualProfitOnCost !== null && actualProfitOnCost < 12);
+      const actualProfitOnSales = calculateActualProfitOnSales(product);
+      const matchesLowMargin = !lowMarginOnly || (actualProfitOnSales !== null && actualProfitOnSales < lowMarginThreshold);
       const productDaysUntilExpiry = typeof product.daysUntilExpiry === 'number' ? product.daysUntilExpiry : null;
       const matchesExpiringSoon = !expiringSoonOnly || (
         approvalStatus === 'approved'
@@ -1362,7 +1365,7 @@ export default function Products() {
         && matchesExpiringSoon
         && matchesActive;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter]);
+  }, [products, debouncedSearch, selectedStatus, selectedApprovalStatus, approvalQueryFilter, lowMarginOnly, expiringSoonOnly, activeFilter, lowMarginThreshold]);
 
   const hasActiveProductFilters = searchInput.trim() !== ''
     || selectedApprovalStatus !== 'All'
@@ -2171,7 +2174,7 @@ export default function Products() {
                             ) : (
                               <span
                                 style={{
-                                  color: actualProfitOnSales >= 15 ? '#16a34a' : actualProfitOnSales >= 10 ? '#d97706' : '#dc2626',
+                                  color: getThresholdMarginColor(actualProfitOnSales, lowMarginThreshold),
                                   fontWeight: 500,
                                 }}
                               >
@@ -2267,6 +2270,7 @@ export default function Products() {
           padding: '8px 0',
         }}>
           <ProductsAnalysisTab
+            lowMarginThreshold={lowMarginThreshold}
             products={products.map((product) => ({
               ...product,
               approvalStatus: product.approvalStatus === 'rejected' ? 'pending' : product.approvalStatus,

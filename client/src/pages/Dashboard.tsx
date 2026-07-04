@@ -24,7 +24,9 @@ import {
   type PriceLevelItemResponse,
 } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarginThreshold } from '../hooks/useLowMarginThreshold';
 import { formatCurrency } from '../utils/currency';
+import { calculateActualGrossMarginPercent, getThresholdMarginColor } from '../utils/margin';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
 type BannerTone = 'success' | 'error';
@@ -111,10 +113,8 @@ function parseDate(value: string | number | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function marginHealthColor(margin: number): string {
-  if (margin >= 15) return '#059669';
-  if (margin >= 10) return '#D97706';
-  return '#DC2626';
+function marginHealthColor(margin: number, threshold: number): string {
+  return getThresholdMarginColor(margin, threshold);
 }
 
 function dashboardIconBoxStyle(backgroundColor: string): CSSProperties {
@@ -156,6 +156,7 @@ function relativeTime(date: Date): string {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
+  const lowMarginThreshold = useLowMarginThreshold();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -424,35 +425,38 @@ export default function Dashboard() {
 
   const lowMarginProducts = useMemo(() => {
     return products
-      .filter((product) => product.isActive === true && getProductStatus(product) === 'approved')
+      .filter((product) => {
+        if (product.isActive !== true || getProductStatus(product) !== 'approved') return false;
+        return toNumber(product.approvedPrice) > 0;
+      })
       .map((product) => {
-        const currentSellingPrice = toNumber(product.currentSellingPrice);
+        const approvedPrice = toNumber(product.approvedPrice);
         const productionCost = toNumber(productionCostByProductId[product.id]);
-        const realisedMargin = currentSellingPrice > 0 && productionCost > 0
-          ? ((currentSellingPrice - productionCost) / currentSellingPrice) * 100
-          : null;
+        const realisedMargin = calculateActualGrossMarginPercent(approvedPrice, productionCost);
 
         return {
           product,
-          referencePrice: currentSellingPrice,
+          referencePrice: approvedPrice,
           referencePriceLabel: 'Approved base price',
-          approvedPrice: toNumber(product.approvedPrice),
+          approvedPrice,
           productionCost,
           realisedMargin,
         };
       })
-      .filter((entry) => entry.realisedMargin !== null && (entry.realisedMargin as number) < 15)
+      .filter((entry) => entry.realisedMargin !== null && (entry.realisedMargin as number) < lowMarginThreshold)
       .sort((a, b) => (a.realisedMargin as number) - (b.realisedMargin as number));
-  }, [products, productionCostByProductId]);
+  }, [products, productionCostByProductId, lowMarginThreshold]);
 
   const averageApprovedMargin = useMemo(() => {
     const realisedMargins = products
-      .filter((product) => product.isActive === true && getProductStatus(product) === 'approved')
+      .filter((product) => {
+        if (product.isActive !== true || getProductStatus(product) !== 'approved') return false;
+        return toNumber(product.approvedPrice) > 0;
+      })
       .map((product) => {
-        const currentSellingPrice = toNumber(product.currentSellingPrice);
+        const approvedPrice = toNumber(product.approvedPrice);
         const productionCost = toNumber(productionCostByProductId[product.id]);
-        if (currentSellingPrice <= 0 || productionCost <= 0) return null;
-        return ((currentSellingPrice - productionCost) / currentSellingPrice) * 100;
+        return calculateActualGrossMarginPercent(approvedPrice, productionCost);
       })
       .filter((margin): margin is number => margin !== null);
 
@@ -638,8 +642,8 @@ export default function Dashboard() {
       .slice(0, 10);
   }, [products, exchangeRates, currencyLookup, baseCurrency]);
 
-  const marginIconBg = marginHealthColor(averageApprovedMargin);
-  const marginValueColor = marginHealthColor(averageApprovedMargin);
+  const marginIconBg = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
+  const marginValueColor = marginHealthColor(averageApprovedMargin, lowMarginThreshold);
   const exportReadyIconBg = priceLevelSummary.exportReadyLevels > 0 ? '#059669' : '#64748b';
 
   const skeletonCards = (
@@ -883,7 +887,7 @@ export default function Dashboard() {
             >
               {averageApprovedMargin.toFixed(1)}%
             </div>
-            <div className="dashboard-stat-hint">Target healthy margin ≥ 15%</div>
+            <div className="dashboard-stat-hint">Target healthy margin ≥ {lowMarginThreshold}%</div>
             <div className="dashboard-stat-sub">Across approved products</div>
           </div>
 
@@ -921,7 +925,7 @@ export default function Dashboard() {
             ) : (
               <div style={{ display: 'grid', gap: '7px' }}>
                 {lowMarginTopTen.map(({ product, realisedMargin, referencePrice, referencePriceLabel, productionCost }) => {
-                  const widthPercent = Math.max(8, Math.min(100, (realisedMargin / 15) * 100));
+                  const widthPercent = Math.max(8, Math.min(100, (realisedMargin / lowMarginThreshold) * 100));
                   return (
                     <button
                       key={`low-margin-chart-${product.id}`}

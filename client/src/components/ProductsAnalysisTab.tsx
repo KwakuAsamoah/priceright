@@ -6,6 +6,7 @@ import AppBadge from './AppBadge';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip } from './ProfitTooltips';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { formatCurrency } from '../utils/currency';
+import { getThresholdMarginColor } from '../utils/margin';
 
 interface ProductRow {
   id: number;
@@ -28,11 +29,9 @@ type FilterKey =
   | 'critical'
   | 'not-priced'
   | 'band-below-0'
-  | 'band-0-5'
-  | 'band-5-10'
-  | 'band-10-15'
-  | 'band-15-20'
-  | 'band-20-plus';
+  | 'band-critical'
+  | 'band-low'
+  | 'band-healthy';
 
 type SortDirection = 'asc' | 'desc';
 
@@ -44,14 +43,15 @@ interface CoverageState {
   levelsByProductId: Map<number, string[]>;
 }
 
-const MARGIN_BANDS = [
-  { key: 'band-below-0' as const, band: 'Below 0%', color: '#dc2626', test: (value: number) => value < 0 },
-  { key: 'band-0-5' as const, band: '0 - 5%', color: '#ef4444', test: (value: number) => value >= 0 && value < 5 },
-  { key: 'band-5-10' as const, band: '5 - 10%', color: '#f97316', test: (value: number) => value >= 5 && value < 10 },
-  { key: 'band-10-15' as const, band: '10 - 15%', color: '#eab308', test: (value: number) => value >= 10 && value < 15 },
-  { key: 'band-15-20' as const, band: '15 - 20%', color: '#84cc16', test: (value: number) => value >= 15 && value < 20 },
-  { key: 'band-20-plus' as const, band: '20%+', color: '#16a34a', test: (value: number) => value >= 20 },
-];
+function buildMarginBands(threshold: number) {
+  const halfThreshold = threshold / 2;
+  return [
+    { key: 'band-below-0' as const, band: 'Below 0%', color: '#dc2626', test: (value: number) => value < 0 },
+    { key: 'band-critical' as const, band: `0 - ${halfThreshold.toFixed(1)}%`, color: '#ef4444', test: (value: number) => value >= 0 && value < halfThreshold },
+    { key: 'band-low' as const, band: `${halfThreshold.toFixed(1)} - ${threshold.toFixed(1)}%`, color: '#f97316', test: (value: number) => value >= halfThreshold && value < threshold },
+    { key: 'band-healthy' as const, band: `${threshold.toFixed(1)}%+`, color: '#16a34a', test: (value: number) => value >= threshold },
+  ];
+}
 
 function toNumber(value: unknown): number {
   const parsed = Number(value);
@@ -69,6 +69,15 @@ function getMarginPercent(product: ProductRow): number | null {
   if (approved == null || approved <= 0 || cost <= 0) {
     return null;
   }
+  return ((approved - cost) / approved) * 100;
+}
+
+function getMarkupPercent(product: ProductRow): number | null {
+  const approved = getApprovedPrice(product);
+  const cost = toNumber(product.totalCost);
+  if (approved == null || approved <= 0 || cost <= 0) {
+    return null;
+  }
   return ((approved - cost) / cost) * 100;
 }
 
@@ -81,31 +90,29 @@ function getOnSalesPercent(product: ProductRow): number | null {
   return ((approved - cost) / approved) * 100;
 }
 
-function getMarginColor(margin: number | null): string {
-  if (margin == null) return '#9ca3af';
-  if (margin < 12) return '#dc2626';
-  if (margin < 20) return '#d97706';
-  return '#16a34a';
-}
-
-function getOnSalesColor(value: number | null): string {
+function getOnSalesColor(value: number | null, threshold: number): string {
   if (value == null) return '#9ca3af';
-  if (value < 10) return '#dc2626';
-  if (value < 15) return '#d97706';
-  return '#16a34a';
+  return getThresholdMarginColor(value, threshold);
 }
 
-function getFilterLabel(filterKey: FilterKey): string {
-  if (filterKey === 'healthy') return 'Showing: Healthy markup (>= 20%)';
-  if (filterKey === 'low') return 'Showing: Low markup (12 - 19.9%)';
-  if (filterKey === 'critical') return 'Showing: Critical markup (Below 12%)';
+function getFilterLabel(filterKey: FilterKey, threshold: number): string {
+  const halfThreshold = threshold / 2;
+  if (filterKey === 'healthy') return `Showing: Healthy gross margin (>= ${threshold}%)`;
+  if (filterKey === 'low') return `Showing: Low gross margin (${halfThreshold} - ${threshold}%)`;
+  if (filterKey === 'critical') return `Showing: Critical gross margin (Below ${halfThreshold}%)`;
   if (filterKey === 'not-priced') return 'Showing: Not priced';
-  const band = MARGIN_BANDS.find((item) => item.key === filterKey);
-  if (band) return `Showing: ${band.band} markup`;
+  const band = buildMarginBands(threshold).find((item) => item.key === filterKey);
+  if (band) return `Showing: ${band.band} gross margin`;
   return '';
 }
 
-export default function ProductsAnalysisTab({ products }: { products: ProductRow[] }) {
+export default function ProductsAnalysisTab({
+  products,
+  lowMarginThreshold,
+}: {
+  products: ProductRow[];
+  lowMarginThreshold: number;
+}) {
   const { baseCurrency } = useBaseCurrency();
   const formatMoney = (value: number) => formatCurrency(value, baseCurrency);
   const navigate = useNavigate();
@@ -128,6 +135,9 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
     [activeProducts],
   );
 
+  const marginBands = useMemo(() => buildMarginBands(lowMarginThreshold), [lowMarginThreshold]);
+  const halfThreshold = lowMarginThreshold / 2;
+
   const summaryCounts = useMemo(() => {
     let healthy = 0;
     let low = 0;
@@ -140,35 +150,36 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
         notPriced += 1;
         return;
       }
-      if (margin >= 20) healthy += 1;
-      else if (margin >= 12) low += 1;
-      else if (margin >= 0) critical += 1;
+      if (margin >= lowMarginThreshold) healthy += 1;
+      else if (margin >= halfThreshold) low += 1;
       else critical += 1;
     });
 
     return { healthy, low, critical, notPriced };
-  }, [activeProducts]);
+  }, [activeProducts, lowMarginThreshold, halfThreshold]);
 
   const bandData = useMemo(() => {
     const marginValues = activeApprovedProducts
       .map((product) => getMarginPercent(product))
       .filter((margin): margin is number => margin !== null);
 
-    return MARGIN_BANDS.map((band) => ({
+    return marginBands.map((band) => ({
       key: band.key,
       band: band.band,
       color: band.color,
       count: marginValues.filter((margin) => band.test(margin)).length,
     }));
-  }, [activeApprovedProducts]);
+  }, [activeApprovedProducts, marginBands]);
 
   const rankedRows = useMemo(() => {
     const rows = activeProducts.map((product) => {
       const margin = getMarginPercent(product);
+      const markup = getMarkupPercent(product);
       const onSales = getOnSalesPercent(product);
       return {
         product,
         margin,
+        markup,
         onSales,
         approvedPrice: getApprovedPrice(product),
       };
@@ -176,12 +187,12 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
     const filteredRows = rows.filter((row) => {
       if (selectedBand === null) return true;
-      if (selectedBand === 'healthy') return row.margin !== null && row.margin >= 20;
-      if (selectedBand === 'low') return row.margin !== null && row.margin >= 12 && row.margin < 20;
-      if (selectedBand === 'critical') return row.margin !== null && row.margin < 12;
+      if (selectedBand === 'healthy') return row.margin !== null && row.margin >= lowMarginThreshold;
+      if (selectedBand === 'low') return row.margin !== null && row.margin >= halfThreshold && row.margin < lowMarginThreshold;
+      if (selectedBand === 'critical') return row.margin !== null && row.margin < halfThreshold;
       if (selectedBand === 'not-priced') return row.margin === null;
 
-      const band = MARGIN_BANDS.find((item) => item.key === selectedBand);
+      const band = marginBands.find((item) => item.key === selectedBand);
       if (!band || row.margin === null) return false;
       return band.test(row.margin);
     });
@@ -193,7 +204,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
     });
 
     return filteredRows;
-  }, [activeProducts, selectedBand, sortDirection]);
+  }, [activeProducts, selectedBand, sortDirection, lowMarginThreshold, halfThreshold, marginBands]);
 
   const hasAnyApprovedPrices = useMemo(
     () => activeProducts.some((product) => getApprovedPrice(product) != null),
@@ -291,8 +302,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'healthy' as const,
               count: summaryCounts.healthy,
-              label: 'Healthy markup',
-              sub: 'Actual Markup % >= 20%',
+              label: 'Healthy gross margin',
+              sub: `Actual Gross Margin % >= ${lowMarginThreshold}%`,
               color: '#16a34a',
               background: '#f0fdf4',
               border: '#bbf7d0',
@@ -300,8 +311,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'low' as const,
               count: summaryCounts.low,
-              label: 'Low markup',
-              sub: 'Actual Markup % 12-19.9%',
+              label: 'Low gross margin',
+              sub: `Actual Gross Margin % ${halfThreshold.toFixed(1)}-${lowMarginThreshold}%`,
               color: '#d97706',
               background: '#fffbeb',
               border: '#fde68a',
@@ -309,8 +320,8 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
             {
               key: 'critical' as const,
               count: summaryCounts.critical,
-              label: 'Critical markup',
-              sub: 'Actual Markup % < 12%',
+              label: 'Critical gross margin',
+              sub: `Actual Gross Margin % < ${halfThreshold.toFixed(1)}%`,
               color: '#dc2626',
               background: '#fef2f2',
               border: '#fecaca',
@@ -412,7 +423,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
 
         {selectedBand !== null && (
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#92400e', backgroundColor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '999px', padding: '4px 10px', width: 'fit-content' }}>
-            <span>{getFilterLabel(selectedBand)}</span>
+            <span>{getFilterLabel(selectedBand, lowMarginThreshold)}</span>
             <button
               type="button"
               onClick={() => setSelectedBand(null)}
@@ -459,12 +470,12 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
               </thead>
               <tbody>
                 {rankedRows.map((row, index) => {
-                  const margin = row.margin;
+                  const markup = row.markup;
                   const onSales = row.onSales;
-                  const marginColor = getMarginColor(margin);
-                  const onSalesColor = getOnSalesColor(onSales);
-                  const normalizedMargin = Math.max(0, Math.min(40, margin ?? 0));
-                  const barWidth = `${(normalizedMargin / 40) * 100}%`;
+                  const markupColor = markup == null ? '#9ca3af' : (markup < 0 ? '#dc2626' : '#16a34a');
+                  const onSalesColor = getOnSalesColor(onSales, lowMarginThreshold);
+                  const normalizedMarkup = Math.max(0, Math.min(40, markup ?? 0));
+                  const barWidth = `${(normalizedMarkup / 40) * 100}%`;
                   return (
                     <tr
                       key={row.product.id}
@@ -489,7 +500,7 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                       <td style={{ textAlign: 'right' }}>{formatMoney(toNumber(row.product.totalCost))}</td>
                       <td style={{ textAlign: 'right' }}>{row.approvedPrice == null ? '—' : formatMoney(row.approvedPrice)}</td>
                       <td style={{ textAlign: 'right' }}>
-                        {margin == null ? (
+                        {markup == null ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                             <span style={{ color: '#9ca3af' }}>—</span>
                             <AppBadge variant="muted" size="sm">Not priced</AppBadge>
@@ -497,9 +508,9 @@ export default function ProductsAnalysisTab({ products }: { products: ProductRow
                         ) : (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
                             <div style={{ width: '110px', height: '8px', borderRadius: '999px', backgroundColor: '#e5e7eb', overflow: 'hidden' }}>
-                              <div style={{ width: barWidth, height: '100%', backgroundColor: marginColor, borderRadius: '999px' }} />
+                              <div style={{ width: barWidth, height: '100%', backgroundColor: markupColor, borderRadius: '999px' }} />
                             </div>
-                            <span style={{ color: marginColor, fontWeight: 700 }}>{margin.toFixed(1)}%</span>
+                            <span style={{ color: markupColor, fontWeight: 700 }}>{markup.toFixed(1)}%</span>
                           </div>
                         )}
                       </td>
