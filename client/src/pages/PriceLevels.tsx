@@ -74,7 +74,7 @@ function toNumber(value: unknown, fallback = 0): number {
 }
 
 function roundToTwo(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return Math.round(value * 100) / 100;
 }
 
 function pricingRuleLabel(item: PriceLevelItemResponse, currencyCode: string): string {
@@ -123,7 +123,7 @@ function computeMarginPercent(finalPrice: number, productionCost: number): numbe
   if (finalPrice <= 0) {
     return 0;
   }
-  return ((finalPrice - productionCost) / finalPrice) * 100;
+  return roundToTwo(((finalPrice - productionCost) / finalPrice) * 100);
 }
 
 function marginTone(margin: number): 'success' | 'warning' | 'danger' {

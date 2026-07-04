@@ -189,7 +189,7 @@ function roundToFour(value) {
     return Math.round((value + Number.EPSILON) * 10000) / 10000;
 }
 function roundToTwo(value) {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
+    return Math.round(value * 100) / 100;
 }
 async function resolveBaseCurrency() {
     const configuredCode = String((await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency')))[0]?.settingValue || 'GHS')
@@ -319,18 +319,18 @@ function computePriceLevelItemFinalPrice(input) {
     const normalizedApprovedPrice = Number.isFinite(approvedPrice) ? approvedPrice : 0;
     const normalizedCustomPrice = Number.isFinite(Number(customPrice ?? 0)) ? Number(customPrice ?? 0) : 0;
     if (overrideType === 'custom_price') {
-        return roundToFour(normalizedCustomPrice);
+        return roundToTwo(normalizedCustomPrice);
     }
     if (overrideType === 'rule_discount') {
-        return roundToFour(normalizedApprovedPrice * (1 - (Number(adjustmentPercentage || 0) / 100)));
+        return roundToTwo(normalizedApprovedPrice * (1 - (Number(adjustmentPercentage || 0) / 100)));
     }
     if (overrideType === 'rule_markup') {
-        return roundToFour(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
+        return roundToTwo(normalizedApprovedPrice * (1 + (Number(adjustmentPercentage || 0) / 100)));
     }
     if (overrideType === 'fixed_amount_add') {
-        return roundToFour(normalizedApprovedPrice + normalizedCustomPrice);
+        return roundToTwo(normalizedApprovedPrice + normalizedCustomPrice);
     }
-    return roundToFour(normalizedApprovedPrice - normalizedCustomPrice);
+    return roundToTwo(normalizedApprovedPrice - normalizedCustomPrice);
 }
 function normalizeLegacyCustomPriceOverride(input) {
     if (input.overrideType !== 'custom_price') {
@@ -348,8 +348,8 @@ function normalizeLegacyCustomPriceOverride(input) {
 }
 function buildPackSizesResponse(packSizeRows, finalPrice, finalPriceConverted) {
     return packSizeRows.map((row) => {
-        const packPrice = roundToFour(finalPrice * row.packQuantity);
-        const packPriceConverted = roundToFour(finalPriceConverted * row.packQuantity);
+        const packPrice = Math.round(finalPrice * row.packQuantity * 100) / 100;
+        const packPriceConverted = Math.round(finalPriceConverted * row.packQuantity * 100) / 100;
         return {
             id: row.id,
             packQuantity: row.packQuantity,
@@ -361,7 +361,7 @@ function buildPackSizesResponse(packSizeRows, finalPrice, finalPriceConverted) {
 async function toPriceLevelItemResponse(item, productRow, levelCurrency, packSizeRows) {
     const productionCost = await calculateProductionCostForProduct(productRow, productRow.id);
     const approvedPrice = Number(productRow.approvedPrice || 0);
-    const optimalPrice = roundToFour(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
+    const optimalPrice = roundToTwo(productionCost * (1 + (Number(productRow.profitMargin || 0) / 100)));
     const rawOverrideType = parsePriceLevelItemOverrideType(item.overrideType) || 'rule_discount';
     let overrideType = rawOverrideType;
     const adjustmentPercentage = toOptionalNumber(item.adjustmentPercentage);
@@ -398,7 +398,7 @@ async function toPriceLevelItemResponse(item, productRow, levelCurrency, packSiz
         ? currencyContext.rateToBase
         : 1;
     const finalPriceConverted = hasConvertedCurrency
-        ? roundToFour(finalPrice / rateToBase)
+        ? Math.round((finalPrice / rateToBase) * 100) / 100
         : finalPrice;
     const currencyCode = hasConvertedCurrency
         ? currencyContext.currencyCode
@@ -417,9 +417,9 @@ async function toPriceLevelItemResponse(item, productRow, levelCurrency, packSiz
         productId: item.productId,
         productName: productRow.name,
         productCategory: productRow.category || '',
-        productApprovedPrice: roundToFour(approvedPrice),
+        productApprovedPrice: roundToTwo(approvedPrice),
         productOptimalPrice: optimalPrice,
-        productProductionCost: roundToFour(productionCost),
+        productProductionCost: roundToTwo(productionCost),
         overrideType,
         adjustmentPercentage,
         customPrice,
@@ -3259,12 +3259,15 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, productId);
             const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
-            let proposedFinalPrice = customPrice;
+            let proposedFinalPrice;
             if (overrideType === 'fixed_amount_add') {
-                proposedFinalPrice = approvedPriceNumber + customPrice;
+                proposedFinalPrice = roundToTwo(approvedPriceNumber + customPrice);
             }
             else if (overrideType === 'fixed_amount_deduct') {
-                proposedFinalPrice = approvedPriceNumber - customPrice;
+                proposedFinalPrice = roundToTwo(approvedPriceNumber - customPrice);
+            }
+            else {
+                proposedFinalPrice = roundToTwo(customPrice);
             }
             if (proposedFinalPrice <= productionCost) {
                 return res.status(400).json({
@@ -3272,12 +3275,12 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
                     code: 'PRICE_BELOW_COST',
                     details: {
                         productionCost: roundToTwo(productionCost),
-                        proposedPrice: roundToTwo(proposedFinalPrice),
+                        proposedPrice: proposedFinalPrice,
                     },
                 });
             }
             const resultingMarginPercentage = proposedFinalPrice > 0
-                ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+                ? roundToTwo(((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100)
                 : 0;
             if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
                 return res.status(400).json({
@@ -3301,7 +3304,7 @@ app.post('/api/price-levels/:id/items', async (req, res) => {
                 resolvedCustomPrice = normalized.customPrice;
             }
             else {
-                resolvedCustomPrice = roundToFour(customPrice);
+                resolvedCustomPrice = roundToTwo(customPrice);
             }
         }
         const existingRows = await getActiveDb()
@@ -3405,12 +3408,15 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
             }
             const productionCost = await calculateProductionCostForProduct(selectedProduct, existing.productId);
             const approvedPriceNumber = Number(selectedProduct.approvedPrice ?? 0);
-            let proposedFinalPrice = customPrice;
+            let proposedFinalPrice;
             if (overrideType === 'fixed_amount_add') {
-                proposedFinalPrice = approvedPriceNumber + customPrice;
+                proposedFinalPrice = roundToTwo(approvedPriceNumber + customPrice);
             }
             else if (overrideType === 'fixed_amount_deduct') {
-                proposedFinalPrice = approvedPriceNumber - customPrice;
+                proposedFinalPrice = roundToTwo(approvedPriceNumber - customPrice);
+            }
+            else {
+                proposedFinalPrice = roundToTwo(customPrice);
             }
             if (proposedFinalPrice <= productionCost) {
                 return res.status(400).json({
@@ -3418,12 +3424,12 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
                     code: 'PRICE_BELOW_COST',
                     details: {
                         productionCost: roundToTwo(productionCost),
-                        proposedPrice: roundToTwo(proposedFinalPrice),
+                        proposedPrice: proposedFinalPrice,
                     },
                 });
             }
             const resultingMarginPercentage = proposedFinalPrice > 0
-                ? ((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100
+                ? roundToTwo(((proposedFinalPrice - productionCost) / proposedFinalPrice) * 100)
                 : 0;
             if (resultingMarginPercentage < MIN_MARGIN_PERCENTAGE && !justification) {
                 return res.status(400).json({
@@ -3447,7 +3453,7 @@ app.put('/api/price-levels/:id/items/:itemId', async (req, res) => {
                 resolvedCustomPrice = normalized.customPrice;
             }
             else {
-                resolvedCustomPrice = roundToFour(customPrice);
+                resolvedCustomPrice = roundToTwo(customPrice);
             }
         }
         await getActiveDb().update(priceLevelItems)
@@ -3663,7 +3669,7 @@ function resolvePriceSourceForItem(input) {
     if (input.customerSpecial) {
         return {
             priceSource: 'special',
-            finalPrice: Number(input.customerSpecial.customPrice),
+            finalPrice: roundToTwo(Number(input.customerSpecial.customPrice)),
             discountPercentage: 0,
         };
     }
@@ -3673,7 +3679,7 @@ function resolvePriceSourceForItem(input) {
         if (overrideType === 'custom_price' && input.levelItem.customPrice != null) {
             return {
                 priceSource: 'level_custom',
-                finalPrice: Number(input.levelItem.customPrice),
+                finalPrice: roundToTwo(Number(input.levelItem.customPrice)),
                 discountPercentage: 0,
             };
         }
@@ -3707,8 +3713,8 @@ function resolvePriceSourceForItem(input) {
     const adjustmentPercentage = Number(input.levelRule.adjustmentPercentage ?? 0);
     const finalPrice = approvedPrice > 0
         ? (adjustmentType === 'markup'
-            ? roundToFour(approvedPrice * (1 + (adjustmentPercentage / 100)))
-            : roundToFour(approvedPrice * (1 - (adjustmentPercentage / 100))))
+            ? roundToTwo(approvedPrice * (1 + (adjustmentPercentage / 100)))
+            : roundToTwo(approvedPrice * (1 - (adjustmentPercentage / 100))))
         : 0;
     return {
         priceSource: 'level_rule',
