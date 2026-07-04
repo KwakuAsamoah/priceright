@@ -6,7 +6,7 @@ import AppBadge from './AppBadge';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip } from './ProfitTooltips';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { formatCurrency } from '../utils/currency';
-import { getThresholdMarginColor } from '../utils/margin';
+import { getThresholdMarkupColor } from '../utils/margin';
 
 interface ProductRow {
   id: number;
@@ -43,13 +43,13 @@ interface CoverageState {
   levelsByProductId: Map<number, string[]>;
 }
 
-function buildMarginBands(threshold: number) {
+function buildMarkupBands(threshold: number) {
   const halfThreshold = threshold / 2;
   return [
-    { key: 'band-below-0' as const, band: 'Below 0%', color: '#dc2626', test: (value: number) => value < 0 },
-    { key: 'band-critical' as const, band: `0 - ${halfThreshold.toFixed(1)}%`, color: '#ef4444', test: (value: number) => value >= 0 && value < halfThreshold },
-    { key: 'band-low' as const, band: `${halfThreshold.toFixed(1)} - ${threshold.toFixed(1)}%`, color: '#f97316', test: (value: number) => value >= halfThreshold && value < threshold },
-    { key: 'band-healthy' as const, band: `${threshold.toFixed(1)}%+`, color: '#16a34a', test: (value: number) => value >= threshold },
+    { key: 'band-below-0' as const, band: 'Below 0% markup', color: '#dc2626', test: (value: number) => value < 0 },
+    { key: 'band-critical' as const, band: `0 – ${halfThreshold.toFixed(1)}% markup`, color: '#ef4444', test: (value: number) => value >= 0 && value < halfThreshold },
+    { key: 'band-low' as const, band: `${halfThreshold.toFixed(1)} – ${threshold.toFixed(1)}% markup`, color: '#f97316', test: (value: number) => value >= halfThreshold && value < threshold },
+    { key: 'band-healthy' as const, band: `${threshold.toFixed(1)}%+ markup`, color: '#16a34a', test: (value: number) => value >= threshold },
   ];
 }
 
@@ -63,7 +63,7 @@ function getApprovedPrice(product: ProductRow): number | null {
   return approved > 0 ? approved : null;
 }
 
-function getMarginPercent(product: ProductRow): number | null {
+function getGrossMarginPercent(product: ProductRow): number | null {
   const approved = getApprovedPrice(product);
   const cost = toNumber(product.totalCost);
   if (approved == null || approved <= 0 || cost <= 0) {
@@ -81,28 +81,24 @@ function getMarkupPercent(product: ProductRow): number | null {
   return ((approved - cost) / cost) * 100;
 }
 
-function getOnSalesPercent(product: ProductRow): number | null {
-  const approved = getApprovedPrice(product);
-  const cost = toNumber(product.totalCost);
-  if (approved == null || approved <= 0 || cost <= 0) {
-    return null;
-  }
-  return ((approved - cost) / approved) * 100;
+function isNotPricedProduct(product: ProductRow): boolean {
+  if (product.approvalStatus !== 'approved') return true;
+  return getMarkupPercent(product) == null;
 }
 
-function getOnSalesColor(value: number | null, threshold: number): string {
+function getGrossMarginColor(value: number | null, threshold: number): string {
   if (value == null) return '#9ca3af';
-  return getThresholdMarginColor(value, threshold);
+  return getThresholdMarkupColor(value, threshold);
 }
 
 function getFilterLabel(filterKey: FilterKey, threshold: number): string {
   const halfThreshold = threshold / 2;
-  if (filterKey === 'healthy') return `Showing: Healthy gross margin (>= ${threshold}%)`;
-  if (filterKey === 'low') return `Showing: Low gross margin (${halfThreshold} - ${threshold}%)`;
-  if (filterKey === 'critical') return `Showing: Critical gross margin (Below ${halfThreshold}%)`;
+  if (filterKey === 'healthy') return `Showing: Healthy markup (≥ ${threshold}%)`;
+  if (filterKey === 'low') return `Showing: Low markup (${halfThreshold.toFixed(1)}% – ${threshold}%)`;
+  if (filterKey === 'critical') return `Showing: Critical markup (< ${halfThreshold.toFixed(1)}%)`;
   if (filterKey === 'not-priced') return 'Showing: Not priced';
-  const band = buildMarginBands(threshold).find((item) => item.key === filterKey);
-  if (band) return `Showing: ${band.band} gross margin`;
+  const band = buildMarkupBands(threshold).find((item) => item.key === filterKey);
+  if (band) return `Showing: ${band.band}`;
   return '';
 }
 
@@ -130,12 +126,7 @@ export default function ProductsAnalysisTab({
 
   const activeProducts = useMemo(() => products.filter((product) => product.isActive), [products]);
 
-  const activeApprovedProducts = useMemo(
-    () => activeProducts.filter((product) => getApprovedPrice(product) != null),
-    [activeProducts],
-  );
-
-  const marginBands = useMemo(() => buildMarginBands(lowMarginThreshold), [lowMarginThreshold]);
+  const markupBands = useMemo(() => buildMarkupBands(lowMarginThreshold), [lowMarginThreshold]);
   const halfThreshold = lowMarginThreshold / 2;
 
   const summaryCounts = useMemo(() => {
@@ -145,13 +136,13 @@ export default function ProductsAnalysisTab({
     let notPriced = 0;
 
     activeProducts.forEach((product) => {
-      const margin = getMarginPercent(product);
-      if (margin == null) {
+      if (isNotPricedProduct(product)) {
         notPriced += 1;
         return;
       }
-      if (margin >= lowMarginThreshold) healthy += 1;
-      else if (margin >= halfThreshold) low += 1;
+      const markup = getMarkupPercent(product) as number;
+      if (markup >= lowMarginThreshold) healthy += 1;
+      else if (markup >= halfThreshold) low += 1;
       else critical += 1;
     });
 
@@ -159,52 +150,49 @@ export default function ProductsAnalysisTab({
   }, [activeProducts, lowMarginThreshold, halfThreshold]);
 
   const bandData = useMemo(() => {
-    const marginValues = activeApprovedProducts
-      .map((product) => getMarginPercent(product))
-      .filter((margin): margin is number => margin !== null);
+    const markupValues = activeProducts
+      .filter((product) => product.approvalStatus === 'approved')
+      .map((product) => getMarkupPercent(product))
+      .filter((markup): markup is number => markup !== null);
 
-    return marginBands.map((band) => ({
+    return markupBands.map((band) => ({
       key: band.key,
       band: band.band,
       color: band.color,
-      count: marginValues.filter((margin) => band.test(margin)).length,
+      count: markupValues.filter((markup) => band.test(markup)).length,
     }));
-  }, [activeApprovedProducts, marginBands]);
+  }, [activeProducts, markupBands]);
 
   const rankedRows = useMemo(() => {
-    const rows = activeProducts.map((product) => {
-      const margin = getMarginPercent(product);
-      const markup = getMarkupPercent(product);
-      const onSales = getOnSalesPercent(product);
-      return {
-        product,
-        margin,
-        markup,
-        onSales,
-        approvedPrice: getApprovedPrice(product),
-      };
-    });
+    const rows = activeProducts.map((product) => ({
+      product,
+      grossMargin: getGrossMarginPercent(product),
+      markup: getMarkupPercent(product),
+      notPriced: isNotPricedProduct(product),
+      approvedPrice: getApprovedPrice(product),
+    }));
 
     const filteredRows = rows.filter((row) => {
       if (selectedBand === null) return true;
-      if (selectedBand === 'healthy') return row.margin !== null && row.margin >= lowMarginThreshold;
-      if (selectedBand === 'low') return row.margin !== null && row.margin >= halfThreshold && row.margin < lowMarginThreshold;
-      if (selectedBand === 'critical') return row.margin !== null && row.margin < halfThreshold;
-      if (selectedBand === 'not-priced') return row.margin === null;
+      if (selectedBand === 'not-priced') return row.notPriced;
+      if (row.notPriced || row.markup === null) return false;
+      if (selectedBand === 'healthy') return row.markup >= lowMarginThreshold;
+      if (selectedBand === 'low') return row.markup >= halfThreshold && row.markup < lowMarginThreshold;
+      if (selectedBand === 'critical') return row.markup < halfThreshold;
 
-      const band = marginBands.find((item) => item.key === selectedBand);
-      if (!band || row.margin === null) return false;
-      return band.test(row.margin);
+      const band = markupBands.find((item) => item.key === selectedBand);
+      if (!band) return false;
+      return band.test(row.markup);
     });
 
     filteredRows.sort((a, b) => {
-      const aMargin = a.margin ?? Number.POSITIVE_INFINITY;
-      const bMargin = b.margin ?? Number.POSITIVE_INFINITY;
-      return sortDirection === 'asc' ? aMargin - bMargin : bMargin - aMargin;
+      const aMarkup = a.notPriced || a.markup === null ? Number.POSITIVE_INFINITY : a.markup;
+      const bMarkup = b.notPriced || b.markup === null ? Number.POSITIVE_INFINITY : b.markup;
+      return sortDirection === 'asc' ? aMarkup - bMarkup : bMarkup - aMarkup;
     });
 
     return filteredRows;
-  }, [activeProducts, selectedBand, sortDirection, lowMarginThreshold, halfThreshold, marginBands]);
+  }, [activeProducts, selectedBand, sortDirection, lowMarginThreshold, halfThreshold, markupBands]);
 
   const hasAnyApprovedPrices = useMemo(
     () => activeProducts.some((product) => getApprovedPrice(product) != null),
@@ -302,27 +290,27 @@ export default function ProductsAnalysisTab({
             {
               key: 'healthy' as const,
               count: summaryCounts.healthy,
-              label: 'Healthy gross margin',
-              sub: `Actual Gross Margin % >= ${lowMarginThreshold}%`,
-              color: '#16a34a',
+              label: 'Healthy markup',
+              sub: `Markup ≥ ${lowMarginThreshold}%`,
+              color: getThresholdMarkupColor(lowMarginThreshold, lowMarginThreshold),
               background: '#f0fdf4',
               border: '#bbf7d0',
             },
             {
               key: 'low' as const,
               count: summaryCounts.low,
-              label: 'Low gross margin',
-              sub: `Actual Gross Margin % ${halfThreshold.toFixed(1)}-${lowMarginThreshold}%`,
-              color: '#d97706',
+              label: 'Low markup',
+              sub: `Markup ${halfThreshold.toFixed(1)}% – ${lowMarginThreshold}%`,
+              color: getThresholdMarkupColor(halfThreshold, lowMarginThreshold),
               background: '#fffbeb',
               border: '#fde68a',
             },
             {
               key: 'critical' as const,
               count: summaryCounts.critical,
-              label: 'Critical gross margin',
-              sub: `Actual Gross Margin % < ${halfThreshold.toFixed(1)}%`,
-              color: '#dc2626',
+              label: 'Critical markup',
+              sub: `Markup < ${halfThreshold.toFixed(1)}%`,
+              color: getThresholdMarkupColor(Math.max(0, halfThreshold - 0.1), lowMarginThreshold),
               background: '#fef2f2',
               border: '#fecaca',
             },
@@ -369,7 +357,7 @@ export default function ProductsAnalysisTab({
       </div>
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847', marginBottom: '2px' }}>Margin distribution</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847', marginBottom: '2px' }}>Markup distribution</div>
         <div style={{ display: 'grid', gap: '8px' }}>
           {bandData.map((item) => {
             const isSelected = selectedBand === item.key;
@@ -411,7 +399,7 @@ export default function ProductsAnalysisTab({
 
       <div className="app-card" style={{ display: 'grid', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Products by margin</div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Products by markup</div>
           <button
             type="button"
             className="btn btn-secondary btn-sm"
@@ -428,7 +416,7 @@ export default function ProductsAnalysisTab({
               type="button"
               onClick={() => setSelectedBand(null)}
               style={{ border: 'none', background: 'none', color: '#c2410c', cursor: 'pointer', fontWeight: 700, padding: 0 }}
-              aria-label="Clear margin filter"
+              aria-label="Clear markup filter"
             >
               x
             </button>
@@ -471,11 +459,13 @@ export default function ProductsAnalysisTab({
               <tbody>
                 {rankedRows.map((row, index) => {
                   const markup = row.markup;
-                  const onSales = row.onSales;
-                  const markupColor = markup == null ? '#9ca3af' : (markup < 0 ? '#dc2626' : '#16a34a');
-                  const onSalesColor = getOnSalesColor(onSales, lowMarginThreshold);
-                  const normalizedMarkup = Math.max(0, Math.min(40, markup ?? 0));
-                  const barWidth = `${(normalizedMarkup / 40) * 100}%`;
+                  const grossMargin = row.grossMargin;
+                  const markupColor = markup == null ? '#9ca3af' : getThresholdMarkupColor(markup, lowMarginThreshold);
+                  const grossMarginColor = getGrossMarginColor(grossMargin, lowMarginThreshold);
+                  const barScaleMax = Math.min(lowMarginThreshold * 2, 100);
+                  const barWidth = markup != null && barScaleMax > 0
+                    ? `${Math.min(100, Math.max(0, (Math.max(0, markup) / barScaleMax) * 100))}%`
+                    : '0%';
                   return (
                     <tr
                       key={row.product.id}
@@ -515,10 +505,10 @@ export default function ProductsAnalysisTab({
                         )}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        {onSales == null ? (
+                        {grossMargin == null ? (
                           <span style={{ color: '#9ca3af' }}>—</span>
                         ) : (
-                          <span style={{ color: onSalesColor, fontWeight: 700 }}>{onSales.toFixed(1)}%</span>
+                          <span style={{ color: grossMarginColor, fontWeight: 700 }}>{grossMargin.toFixed(1)}%</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>
