@@ -26,6 +26,8 @@ import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import { getThresholdMarkupColor } from '../utils/margin';
 import { formatCurrency } from '../utils/currency';
 
 type PriceLevelRule = {
@@ -66,8 +68,6 @@ type ExportRow = {
   marginPercent: number;
   adjustmentLabel: string;
 };
-
-const MIN_MARGIN_WARNING = 15;
 
 function toNumber(value: unknown, fallback = 0): number {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -121,16 +121,10 @@ function computeFinalPrice(overrideType: OverrideType, value: number, approvedBa
 }
 
 function computeMarginPercent(finalPrice: number, productionCost: number): number {
-  if (finalPrice <= 0) {
+  if (productionCost <= 0 || finalPrice <= 0) {
     return 0;
   }
-  return roundToTwo(((finalPrice - productionCost) / finalPrice) * 100);
-}
-
-function marginTone(margin: number): 'success' | 'warning' | 'danger' {
-  if (margin >= 15) return 'success';
-  if (margin >= 10) return 'warning';
-  return 'danger';
+  return roundToTwo(((finalPrice - productionCost) / productionCost) * 100);
 }
 
 function itemStatusVariant(status: PriceLevelItemResponse['status']): 'pending' | 'approved' {
@@ -237,6 +231,8 @@ export default function PriceLevels() {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { isDemoMode } = useDemoMode();
   const { baseCurrency } = useBaseCurrency();
+  const lowMarkupThreshold = useLowMarkupThreshold();
+  const criticalMarkupThreshold = lowMarkupThreshold / 2;
   const formatMoney = (value: number) => formatCurrency(toNumber(value), baseCurrency);
 
   const [levelCurrencyCode, setLevelCurrencyCode] = useState<string | null>(null);
@@ -767,9 +763,9 @@ export default function PriceLevels() {
       return;
     }
 
-    const margin = computeMarginPercent(finalPrice, productionCost);
-    if (margin < MIN_MARGIN_WARNING && !ruleEditJustification.trim()) {
-      showToastMessage('Justification is required when margin is below 15%.', 'error');
+    const markup = computeMarginPercent(finalPrice, productionCost);
+    if (markup < lowMarkupThreshold && !ruleEditJustification.trim()) {
+      showToastMessage(`Justification is required when markup is below ${lowMarkupThreshold}%.`, 'error');
       return;
     }
 
@@ -1275,13 +1271,13 @@ export default function PriceLevels() {
       const productionCost = findProductionCost(product);
       const overrideType = rule?.overrideType || 'rule_discount';
       const finalPrice = computeFinalPrice(overrideType, numericValue, approvedBase);
-      const margin = computeMarginPercent(finalPrice, productionCost);
-      if (margin < MIN_MARGIN_WARNING) {
+      const markup = computeMarginPercent(finalPrice, productionCost);
+      if (markup < lowMarkupThreshold) {
         count += 1;
       }
     }
     return count;
-  }, [wizardSelectedProducts, wizardRules]);
+  }, [wizardSelectedProducts, wizardRules, lowMarkupThreshold]);
 
   async function createPriceLevelFromWizard(shouldApproveAll = false) {
     const name = wizardName.trim();
@@ -1305,15 +1301,15 @@ export default function PriceLevels() {
       const approvedBase = toNumber(product.approvedPrice, 0);
       const productionCost = findProductionCost(product);
       const finalPrice = computeFinalPrice(rule.overrideType, numericValue, approvedBase);
-      const margin = computeMarginPercent(finalPrice, productionCost);
+      const markup = computeMarginPercent(finalPrice, productionCost);
 
       if (finalPrice <= productionCost) {
         showToastMessage(`Final price for ${product.name} is below cost.`, 'error');
         return;
       }
 
-      if (margin < MIN_MARGIN_WARNING && !rule.justification.trim()) {
-        showToastMessage(`Justification is required for ${product.name} because margin is below 15%.`, 'error');
+      if (markup < lowMarkupThreshold && !rule.justification.trim()) {
+        showToastMessage(`Justification is required for ${product.name} because markup is below ${lowMarkupThreshold}%.`, 'error');
         return;
       }
     }
@@ -2566,17 +2562,24 @@ export default function PriceLevels() {
               const draftFinal = isCustomPrice
                 ? roundToTwo(numericValue)
                 : computeFinalPrice(ruleEditOverrideType as OverrideType, numericValue, approvedBasePrice);
-              const draftMargin = computeMarginPercent(draftFinal, productionCost);
+              const draftMarkup = computeMarginPercent(draftFinal, productionCost);
               const belowCost = draftFinal <= productionCost;
 
               return (
                 <>
                   <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
-                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
+                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Markup: <strong>{draftMarkup.toFixed(1)}%</strong>
                   </div>
 
-                  {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
-                    <div style={{ fontSize: '14px', color: '#b45309', marginBottom: '12px' }}>Warning: margin is below 15%. Justification is required.</div>
+                  {!belowCost && draftMarkup < criticalMarkupThreshold && (
+                    <div style={{ fontSize: '14px', color: '#b91c1c', marginBottom: '12px' }}>
+                      Markup below {criticalMarkupThreshold.toFixed(1)}% — this price may not cover your costs
+                    </div>
+                  )}
+                  {!belowCost && draftMarkup >= criticalMarkupThreshold && draftMarkup < lowMarkupThreshold && (
+                    <div style={{ fontSize: '14px', color: '#b45309', marginBottom: '12px' }}>
+                      Markup is below your {lowMarkupThreshold}% target. Justification is required.
+                    </div>
                   )}
                   {belowCost && (
                     <div style={{ fontSize: '14px', color: '#b91c1c', marginBottom: '12px' }}>Final price is below production cost. Save is blocked.</div>
@@ -2586,7 +2589,7 @@ export default function PriceLevels() {
                     value={ruleEditJustification}
                     onChange={(e) => setRuleEditJustification(e.target.value)}
                     rows={3}
-                    placeholder="Add justification (required if margin is below 15%)"
+                    placeholder={`Add justification (required if markup is below ${lowMarkupThreshold}%)`}
                     style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px', boxSizing: 'border-box', marginBottom: '16px' }}
                   />
 
@@ -2968,7 +2971,7 @@ export default function PriceLevels() {
                         <th style={{ textAlign: 'right' }}>Approved base price</th>
                         <th style={{ textAlign: 'left' }}>Adjustment</th>
                         <th style={{ textAlign: 'right' }}>Final price</th>
-                        <th style={{ textAlign: 'right' }}>Margin %</th>
+                        <th style={{ textAlign: 'right' }}>Markup %</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2999,7 +3002,7 @@ export default function PriceLevels() {
                             <td style={{ textAlign: 'right' }}>{formatMoney(row.approvedBasePrice)}</td>
                             <td style={{ textAlign: 'left' }}>{row.adjustmentLabel}</td>
                             <td style={{ textAlign: 'right' }}>{formatMoney(row.finalPrice)}</td>
-                            <td style={{ textAlign: 'right' }}>{row.marginPercent.toFixed(1)}%</td>
+                            <td style={{ textAlign: 'right', color: getThresholdMarkupColor(row.marginPercent, lowMarkupThreshold), fontWeight: 600 }}>{row.marginPercent.toFixed(1)}%</td>
                           </tr>
                         );
                       })}
@@ -3238,7 +3241,7 @@ export default function PriceLevels() {
                     const productionCost = findProductionCost(product);
                     const optimalPrice = toNumber((product as ProductRecord & { optimalPrice?: number }).optimalPrice, 0);
                     const finalPrice = computeFinalPrice(rule.overrideType, numericValue, approvedBase);
-                    const margin = computeMarginPercent(finalPrice, productionCost);
+                    const markup = computeMarginPercent(finalPrice, productionCost);
                     const belowCost = finalPrice <= productionCost;
 
                     return (
@@ -3268,12 +3271,17 @@ export default function PriceLevels() {
                         </div>
 
                         <div style={{ marginTop: '8px', fontSize: '15px', color: '#475569' }}>
-                          Final price: <strong>{formatMoney(finalPrice)}</strong> | Margin: <strong>{margin.toFixed(1)}%</strong>
+                          Final price: <strong>{formatMoney(finalPrice)}</strong> | Markup: <strong style={{ color: getThresholdMarkupColor(markup, lowMarkupThreshold) }}>{markup.toFixed(1)}%</strong>
                         </div>
 
-                        {!belowCost && margin < MIN_MARGIN_WARNING && (
+                        {!belowCost && markup < criticalMarkupThreshold && (
+                          <div style={{ marginTop: '4px', fontSize: '14px', color: '#b91c1c' }}>
+                            Markup below {criticalMarkupThreshold.toFixed(1)}% — this price may not cover your costs
+                          </div>
+                        )}
+                        {!belowCost && markup >= criticalMarkupThreshold && markup < lowMarkupThreshold && (
                           <div style={{ marginTop: '4px', fontSize: '14px', color: '#b45309' }}>
-                            Margin is below 15%. Justification is required.
+                            Markup is below your {lowMarkupThreshold}% target. Justification is required.
                           </div>
                         )}
                         {belowCost && (
@@ -3286,7 +3294,7 @@ export default function PriceLevels() {
                           value={rule.justification}
                           onChange={(e) => updateWizardRule(product.id, { justification: e.target.value })}
                           rows={2}
-                          placeholder="Justification (required when margin < 15%)"
+                          placeholder={`Justification (required when markup is below ${lowMarkupThreshold}%)`}
                           style={{ marginTop: '8px', width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
                         />
                       </div>
@@ -3326,7 +3334,7 @@ export default function PriceLevels() {
                         <th style={{ textAlign: 'left' }}>Product</th>
                         <th style={{ textAlign: 'left' }}>Rule</th>
                         <th style={{ textAlign: 'right' }}>Final price</th>
-                        <th style={{ textAlign: 'right' }}>Margin %</th>
+                        <th style={{ textAlign: 'right' }}>Markup %</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3336,8 +3344,7 @@ export default function PriceLevels() {
                         const approvedBase = toNumber(product.approvedPrice, 0);
                         const productionCost = findProductionCost(product);
                         const finalPrice = computeFinalPrice(rule.overrideType, numericValue, approvedBase);
-                        const margin = computeMarginPercent(finalPrice, productionCost);
-                        const variant = marginTone(margin);
+                        const markup = computeMarginPercent(finalPrice, productionCost);
                         return (
                           <tr key={product.id}>
                             <td style={{ textAlign: 'left' }}>{product.name}</td>
@@ -3349,7 +3356,7 @@ export default function PriceLevels() {
                                   : `${rule.overrideType === 'rule_markup' ? 'Markup' : 'Discount'} ${numericValue.toFixed(2)}%`}
                             </td>
                             <td style={{ textAlign: 'right' }}>{formatMoney(finalPrice)}</td>
-                            <td style={{ textAlign: 'right' }}><AppBadge variant={variant}>{margin.toFixed(1)}%</AppBadge></td>
+                            <td style={{ textAlign: 'right', color: getThresholdMarkupColor(markup, lowMarkupThreshold), fontWeight: 600 }}>{markup.toFixed(1)}%</td>
                           </tr>
                         );
                       })}
@@ -3359,7 +3366,7 @@ export default function PriceLevels() {
 
                 {wizardLowMarginCount > 0 && (
                   <div style={{ marginTop: '10px', fontSize: '14px', color: '#b45309' }}>
-                    {wizardLowMarginCount} products have margins below 15% - justification required
+                    {wizardLowMarginCount} products have markup below {lowMarkupThreshold}% — justification required
                   </div>
                 )}
 
