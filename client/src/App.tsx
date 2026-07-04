@@ -11,6 +11,7 @@ import MaterialsPage from './pages/MaterialsPage';
 import Products from './pages/Products';
 import PriceLevels from './pages/PriceLevels';
 import ProductDetail from './pages/ProductDetail';
+import MaterialDetail from './pages/MaterialDetail';
 import IntermediateDetail from './pages/IntermediateDetail';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
@@ -681,6 +682,7 @@ function AuthenticatedApp() {
       children: [
         { index: true, element: <Dashboard /> },
         { path: 'materials', element: <MaterialsPage /> },
+        { path: 'materials/:id', element: <MaterialDetail /> },
         { path: 'materials/primary', element: <Navigate to="/materials?tab=primary" replace /> },
         { path: 'materials/intermediate', element: <Navigate to="/materials?tab=intermediate" replace /> },
         { path: 'products', element: <Products /> },

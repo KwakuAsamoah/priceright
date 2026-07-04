@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
@@ -196,7 +197,15 @@ interface MaterialsPageProps {
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
+interface MaterialsLocationState {
+  highlightMaterialId?: number;
+}
+
 export default function Materials({ materialType = 'primary', onPrimaryCostChange }: MaterialsPageProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const highlightMaterialId = (location.state as MaterialsLocationState | null)?.highlightMaterialId ?? null;
+  const highlightedRowRef = useRef<HTMLTableRowElement | null>(null);
   const { notifyMaterialCostsChanged } = useMaterialCostSync();
   const { baseCurrency } = useBaseCurrency();
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -240,10 +249,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [selectedMaterialForUsage, setSelectedMaterialForUsage] = useState<Material | null>(null);
   const [selectedMaterialUsage, setSelectedMaterialUsage] = useState<MaterialUsage | null>(null);
   const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
-  const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
-  const [detailBom, setDetailBom] = useState<Array<any>>([]);
   
   // New state for bulk actions
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -932,23 +939,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     setShowAddModal(true);
   }
 
-  function openEditFromDetail(material: Material) {
-    setDetailMaterial(null);
-    handleEdit(material);
-  }
-
-  async function openDetail(material: Material) {
-    setDetailMaterial(material);
-    setDetailBom([]);
-    if ((material as any).materialType === 'intermediate') {
-      try {
-        const bom = await materialsApi.getIntermediateBom(material.id);
-        setDetailBom(Array.isArray(bom) ? bom : []);
-      } catch (err) {
-        console.error('Failed to load BOM for detail panel', err);
-        setDetailBom([]);
-      }
-    }
+  function openMaterialDetail(material: Material) {
+    navigate(`/materials/${material.id}`, {
+      state: {
+        materialIds: filteredMaterials.map((entry) => entry.id),
+        from: '/materials?tab=primary',
+        fromPage: 'materials',
+      },
+    });
   }
 
   function resetForm() {
@@ -1010,6 +1008,11 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         return 0;
       });
   }, [materials, searchTerm, sortField, sortOrder]);
+
+  useEffect(() => {
+    if (highlightMaterialId == null) return;
+    highlightedRowRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlightMaterialId, filteredMaterials.length]);
 
   const hasActiveMaterialFilters = searchTerm.trim() !== '' || selectedStatus !== 'active';
 
@@ -1552,15 +1555,20 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 {filteredMaterials.map((material, idx) => (
                   <tr
                     key={material.id}
+                    ref={highlightMaterialId === material.id ? highlightedRowRef : undefined}
                     style={{
                       borderBottom: '1px solid #e2e8f0',
                       color: material.isActive ? undefined : '#aaaaaa',
                       cursor: 'pointer',
-                      backgroundColor: hoveredRowId === material.id ? '#f8fafc' : 'transparent',
+                      backgroundColor: highlightMaterialId === material.id
+                        ? '#ecfdf5'
+                        : hoveredRowId === material.id
+                          ? '#f8fafc'
+                          : 'transparent',
                     }}
                     onMouseEnter={() => setHoveredRowId(material.id)}
                     onMouseLeave={() => setHoveredRowId(null)}
-                    onClick={() => openDetail(material)}
+                    onClick={() => openMaterialDetail(material)}
                   >
                     <td style={{ padding: '8px 14px', width: '32px', textAlign: 'center' }}>
                       <input
@@ -1574,7 +1582,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                     <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                       <div
-                        onClick={(e) => { e.stopPropagation(); openDetail(material); }}
+                        onClick={(e) => { e.stopPropagation(); openMaterialDetail(material); }}
                         style={{
                           fontWeight: '600',
                           fontSize: '14px',
@@ -1670,144 +1678,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
           </div>
         </div>
       </div>
-
-      {/* Detail Panel */}
-      {detailMaterial && !showAddModal && (
-        <div
-          className="app-detail-panel"
-          style={{
-            position: 'fixed',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: '420px',
-            background: 'white',
-            boxShadow: '-6px 0 18px rgba(2,6,23,0.08)',
-            zIndex: 1200,
-            overflowY: 'auto',
-          }}
-          role="dialog"
-          aria-label="Material details"
-        >
-          <button
-            className="btn-close-x"
-            onClick={() => setDetailMaterial(null)}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          <div className="app-detail-panel__header">
-            <h2>{detailMaterial.name}</h2>
-            <p className="app-detail-panel__subtitle">Material detail view</p>
-            <div className="app-action-bar">
-              <button className="btn btn-primary btn-sm" type="button" onClick={() => openEditFromDetail(detailMaterial)}>
-                Edit
-              </button>
-              <button className="btn btn-danger-solid btn-sm" type="button" onClick={() => setDetailMaterial(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 className="app-form-section-title">Basic Info</h3>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Category</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.category || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Unit</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.unit || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>SKU</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.sku || '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Description</div>
-                <div style={{ fontWeight: 600, whiteSpace: 'pre-wrap' }}>{detailMaterial.description || '—'}</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-            <h3 className="app-form-section-title">Pricing</h3>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Purchase currency</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencyCode || detailMaterial.purchaseCurrencySymbol || baseCurrencyCode || baseCurrency}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Bulk price</div>
-                <div style={{ fontWeight: 600 }}>{detailMaterial.purchaseCurrencySymbol}{Number(detailMaterial.bulkPrice || 0).toFixed(2)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Bulk quantity</div>
-                <div style={{ fontWeight: 600 }}>{Number(detailMaterial.bulkQuantity || 0).toFixed(2)} {detailMaterial.unit || ''}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>Unit cost</div>
-                <div style={{ fontWeight: 800, fontSize: '18px', color: '#0F2847' }}>{detailMaterial.baseCurrencySymbol}{Number(detailMaterial.unitPrice || 0).toFixed(2)}</div>
-              </div>
-            </div>
-          </div>
-
-          {(detailMaterial as any).materialType === 'intermediate' && (
-            <>
-              <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-                <h3 className="app-form-section-title">Production Settings</h3>
-                <div style={{ display: 'grid', gap: '12px' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>Costing method</div>
-                    <div style={{ fontWeight: 600 }}>{(detailMaterial as any).intermediateCostMode === 'completed_output' ? 'Completed Output' : 'Yield-Based'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>{(detailMaterial as any).intermediateCostMode === 'completed_output' ? 'Completed output quantity' : 'Batch quantity'}</div>
-                    <div style={{ fontWeight: 600 }}>{Number(detailMaterial.bulkQuantity || 0).toFixed(2)} {detailMaterial.unit || ''}</div>
-                  </div>
-                  {(detailMaterial as any).intermediateCostMode === 'yield' ? (
-                    <div>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>Yield %</div>
-                      <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).yieldPercentage || 0).toFixed(1)}%</div>
-                    </div>
-                  ) : null}
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>Overhead %</div>
-                    <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).overheadPercentage || 0).toFixed(1)}%</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>Profit %</div>
-                    <div style={{ fontWeight: 600 }}>{Number((detailMaterial as any).marginPercentage || 0).toFixed(1)}%</div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
-                <h3 className="app-form-section-title">Components ({detailBom.length})</h3>
-                {detailBom.length === 0 ? (
-                  <div style={{ color: '#64748b' }}>No components</div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '10px' }}>
-                    {detailBom.map((item, i) => (
-                      <div key={item.id || i} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #eef2f7' }}>
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{item.componentMaterialName || item.name}</div>
-                          <div style={{ fontSize: '13px', color: '#64748b' }}>{item.unit || '—'}</div>
-                        </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontWeight: 600 }}>{Number(item.quantity || 0)} {item.unit || ''}</div>
-                          <div style={{ fontSize: '13px', color: '#64748b' }}>{item.unitPrice ? `${detailMaterial.baseCurrencySymbol}${Number(item.unitPrice).toFixed(2)}` : '—'}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* Add/Edit Material Modal */}
       {showAddModal && (
