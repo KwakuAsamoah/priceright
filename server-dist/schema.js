@@ -68,7 +68,7 @@ export const products = sqliteTable('products', {
     profitMargin: real('profit_margin').notNull(),
     otherDirectCosts: real('other_direct_costs').notNull().default(0),
     productionMode: text('production_mode').default('single'),
-    batchYield: integer('batch_yield').default(1),
+    batchYield: real('batch_yield').default(1),
     currentSellingPrice: real('current_selling_price').default(0),
     approvalStatus: text('approval_status').notNull().default('pending'),
     approvedPrice: real('approved_price'),
@@ -88,6 +88,7 @@ export const priceLevels = sqliteTable('price_levels', {
     adjustmentType: text('adjustment_type').notNull().default('discount'),
     adjustmentPercentage: real('adjustment_percentage').notNull().default(0),
     description: text('description'),
+    currencyId: integer('currency_id').references(() => currencies.id, { onDelete: 'set null' }),
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql `CURRENT_TIMESTAMP`),
     updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql `CURRENT_TIMESTAMP`),
@@ -111,6 +112,16 @@ export const priceLevelItems = sqliteTable('price_level_items', {
         .notNull()
         .default(sql `(unixepoch())`),
     updatedAt: integer('updated_at', { mode: 'timestamp' })
+        .notNull()
+        .default(sql `(unixepoch())`),
+});
+export const priceLevelPackSizes = sqliteTable('price_level_pack_sizes', {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    priceLevelItemId: integer('price_level_item_id')
+        .notNull()
+        .references(() => priceLevelItems.id, { onDelete: 'cascade' }),
+    packQuantity: integer('pack_quantity').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' })
         .notNull()
         .default(sql `(unixepoch())`),
 });
@@ -190,5 +201,7 @@ export const activityLog = sqliteTable('activity_log', {
     action: text('action').notNull(),
     details: text('details'),
     performedBy: text('performed_by'),
+    userId: integer('user_id').notNull().default(1),
+    userName: text('user_name').notNull().default('Admin'),
     createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql `(unixepoch())`),
 });
