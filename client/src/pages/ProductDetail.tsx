@@ -8,9 +8,16 @@ import ProductTabs from '../components/ProductTabs';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import AppToast from '../components/AppToast';
 import MarginLegendCard from '../components/MarginLegendCard';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
+import {
+  calculateActualGrossMarginPercent,
+  calculateActualMarkupPercent,
+  calculateOptimalMarkupPercent,
+  getThresholdMarkupColor,
+} from '../utils/margin';
 
 // ─── local types ────────────────────────────────────────────────────────────
 
@@ -109,6 +116,7 @@ const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
 export default function ProductDetail() {
   const { baseCurrency } = useBaseCurrency();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -530,17 +538,18 @@ export default function ProductDetail() {
   const showApprovalForm = needsPriceAction || showPriceForm;
   const showReadOnlyApprovedSummary = product.approvalStatus === 'approved' && !showPriceForm;
   const profitOnCostAmount = productionCost * (toNum(product.profitMargin) / 100);
+  const optimalMarkupPercent = calculateOptimalMarkupPercent(optimalPrice, productionCost);
   const grossMarginAtOptimal = optimalPrice > 0 && productionCost > 0
-    ? ((optimalPrice - productionCost) / optimalPrice) * 100
+    ? calculateActualGrossMarginPercent(optimalPrice, productionCost)
     : null;
   const approvedPrice = product.approvalStatus === 'approved' && product.approvedPrice != null
     ? toNum(product.approvedPrice)
     : null;
-  const actualMarkupPercent = approvedPrice != null && productionCost > 0
-    ? ((approvedPrice - productionCost) / productionCost) * 100
+  const actualMarkupPercent = approvedPrice != null
+    ? calculateActualMarkupPercent(approvedPrice, productionCost)
     : null;
-  const actualGrossMarginPercent = approvedPrice != null && approvedPrice > 0 && productionCost > 0
-    ? ((approvedPrice - productionCost) / approvedPrice) * 100
+  const actualGrossMarginPercent = approvedPrice != null
+    ? calculateActualGrossMarginPercent(approvedPrice, productionCost)
     : null;
   const approvedMatchesOptimal = approvedPrice != null && Math.abs(approvedPrice - optimalPrice) < 0.01;
   const displayBom = getDisplayBOM(bom, product);
@@ -892,31 +901,37 @@ export default function ProductDetail() {
               )}
             </div>
 
-            {/* Margin section — only when approved and not editing */}
+            {/* Markup section — only when approved and not editing */}
             {showReadOnlyApprovedSummary && (
               <>
                 <div style={{ borderTop: '1px solid rgba(0,0,0,0.07)', margin: '10px 0' }} />
                 <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                      Actual Markup %:
-                      <ActualMarkupInfoTooltip />
+                      Optimal Markup %:
+                      <OptimalMarkupInfoTooltip />
                     </span>
-                    <span style={{ fontWeight: 700 }}>
-                      {product.approvedPrice && productionCost
-                        ? (((Number(product.approvedPrice) - productionCost) / productionCost) * 100).toFixed(1)
-                        : '—'}%
+                    <span style={{
+                      fontWeight: 700,
+                      color: optimalMarkupPercent != null
+                        ? getThresholdMarkupColor(optimalMarkupPercent, lowMarkupThreshold)
+                        : '#64748b',
+                    }}>
+                      {optimalMarkupPercent != null ? `${optimalMarkupPercent.toFixed(1)}%` : '—'}
                     </span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center' }}>
-                      Actual Gross Margin %:
-                      <ActualGrossMarginInfoTooltip />
+                      Actual Markup %:
+                      <ActualMarkupInfoTooltip />
                     </span>
-                    <span style={{ fontWeight: 700 }}>
-                      {product.approvedPrice && productionCost
-                        ? (((Number(product.approvedPrice) - productionCost) / Number(product.approvedPrice)) * 100).toFixed(1)
-                        : '—'}%
+                    <span style={{
+                      fontWeight: 700,
+                      color: actualMarkupPercent != null
+                        ? getThresholdMarkupColor(actualMarkupPercent, lowMarkupThreshold)
+                        : '#64748b',
+                    }}>
+                      {actualMarkupPercent != null ? `${actualMarkupPercent.toFixed(1)}%` : '—'}
                     </span>
                   </div>
                 </div>
@@ -1132,9 +1147,12 @@ export default function ProductDetail() {
                       const keepLabel = hasApprovedPrice
                         ? `Keep approved price (${baseCurrency} ${keepPrice.toFixed(2)})`
                         : `Keep selling price (${baseCurrency} ${keepPrice.toFixed(2)})`;
-                      const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
+                      const keepMarkup = keepPrice > 0 && productionCost > 0
+                        ? calculateActualMarkupPercent(keepPrice, productionCost)
+                        : null;
                       const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
-                      const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
+                      const markupColor = keepMarkup === null ? '#64748b' : getThresholdMarkupColor(keepMarkup, lowMarkupThreshold);
+                      const showLowMarkupWarning = keepMarkup !== null && keepMarkup < lowMarkupThreshold;
                       return (
                         <div style={{ display: 'grid', gap: '4px' }}>
                           <button
@@ -1165,10 +1183,11 @@ export default function ProductDetail() {
                               <AlertTriangle size={11} />
                               Cannot keep: price is now below production cost
                             </div>
-                          ) : keepMargin !== null ? (
-                            <div style={{ fontSize: '13px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              {keepMargin < 15 && <AlertTriangle size={11} />}
-                              New margin at this price: {keepMargin.toFixed(1)}%
+                          ) : keepMarkup !== null ? (
+                            <div style={{ fontSize: '13px', color: markupColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {showLowMarkupWarning && <AlertTriangle size={11} />}
+                              New markup at this price: {keepMarkup.toFixed(1)}%
+                              {showLowMarkupWarning ? ` (below ${lowMarkupThreshold}% healthy markup threshold)` : ''}
                             </div>
                           ) : null}
                         </div>
