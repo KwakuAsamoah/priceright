@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 2 July 2026
-**Current version:** 1.0.31
+**Last updated:** 4 July 2026
+**Current version:** 1.0.32
 **Active branch:** main
 
 ---
@@ -74,6 +74,70 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.29 | Jun 2026 | Column selector on all tables, removed broken Table Settings menu |
 | v1.0.30 | Jun 2026 | New brand mark, landing page redesign |
 | v1.0.31 | Jul 2026 | Global currency support, multi-currency price levels, pack quantity pricing, prev/next drawer navigation, price level fixes, table/report alignment and font standardisation, input freeze fix |
+| v1.0.32 | Jul 2026 | Reports and Analysis overhaul, ten new reports, Material Detail page, creation overlays, price level UX, approval workflow redesign, UI standardisation, settings reorganisation, styled modals, help centre expansion |
+
+---
+
+## v1.0.32 — Detailed Changes
+
+**Released:** 4 July 2026
+
+### Navigation and discovery
+- Reports renamed to Reports and Analysis with three groups: Pricing, Products, Materials
+- Ten new reports and analysis views across Products and Materials groups
+- Reports auto-generate when selected — no Generate button needed
+- Filter chips visible above all report results
+- Paginated report tables — 15 rows per page
+
+### Creation experience
+- New product and intermediate material creation as floating two-panel overlay
+- Single-step intermediate material creation — add BOM items before saving
+- Full-page Material Detail view at `/materials/:id` matching Product Detail quality
+- Previous/Next navigation on Material Detail
+
+### Price levels
+- Pack size management moved to single toolbar button with Previous/Next navigation
+- Pack sizes now manageable from the Edit price modal
+- Export price lists show customer-facing columns only — no internal data
+- Currency shown on all price list exports and print
+- Pack size of 1 now accepted
+- Floating point precision fixed — pack prices always exact
+
+### Products and approvals
+- Approval form redesigned — one primary Approve button with expander for other options
+- Approved Base Price always shows the official approved price only
+- Activity and Price History combined into single History tab
+- Bulk approve defaults to Approve at Optimal Price
+- Pending products approval banner on Products page
+- Clean default column set — 6 columns shown by default
+
+### Reports and analysis
+- Margin calculations standardised across all views
+- Low margin threshold consistent across Dashboard, Products, and Reports
+- Product Pricing Overview combining approval status and margin health
+- Profitability Ranking, Price vs Cost Drift, Optimal vs Actual Gap reports
+- Materials Cost Analysis, Top Cost Drivers, Price Volatility, Material Price History, Inactive in Active BOMs reports
+
+### UI improvements
+- Zoom control added to Reports and Analysis page
+- Density toggle removed — zoom handles row spacing
+- Bulk action bars standardised across all list pages
+- Filter chips on Products, Materials, Intermediate Materials, and Reports
+- All native browser dialogs replaced with styled modals
+- Clear filters button in all empty states
+- Pending products banner with one-click bulk approve
+- Row hover highlight and clickable names on all list pages
+
+### Settings
+- Settings tabs grouped into Everyday and Advanced
+- Pricing Engine unified into one card
+- Company branding description updated
+
+### Other
+- Reject feature replaced with Reset to Pending
+- Price history and Activity combined into History tab on Product Detail
+- Floating point precision fixed throughout price level calculations
+- Help articles updated and expanded to 52 articles
 
 ---
 
@@ -139,6 +203,13 @@ TypeScript, Node.js/Express, SQLite.
 - [x] Multi-currency price levels — per-level currency with live exchange rate conversion (v1.0.31)
 - [x] Pack quantity pricing — multiple pack sizes per product per price level, one row per pack in table/print/Excel (v1.0.31)
 - [x] Prev/Next navigation in Products, Materials, Intermediate Materials edit drawers with position counter (v1.0.31)
+- [x] Reports and Analysis — three report groups, ten new views, auto-generate, filter chips, pagination (v1.0.32)
+- [x] Full-page Material Detail at `/materials/:id` with prev/next navigation (v1.0.32)
+- [x] Floating two-panel creation overlays for products and intermediate materials (v1.0.32)
+- [x] Price level pack size toolbar, edit-modal pack sizes, customer-facing exports (v1.0.32)
+- [x] Approval workflow redesign — primary Approve button, History tab, pending banner (v1.0.32)
+- [x] Styled modals replacing native browser dialogs app-wide (v1.0.32)
+- [x] Settings tabs grouped into Everyday and Advanced (v1.0.32)
 
 ### Settings
 - [x] General settings
@@ -190,6 +261,8 @@ TypeScript, Node.js/Express, SQLite.
 - [ ] Code obfuscation — protect business logic
 - [x] Fix hardcoded localhost:3000 in Settings and LockScreen
 - [x] Compress logo PNG assets (~2MB in client/public)
+- [ ] Phase M markup simplification
+- [ ] Help articles update
 
 ## Pending — Medium Priority
 
