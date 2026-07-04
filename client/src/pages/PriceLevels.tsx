@@ -555,11 +555,11 @@ export default function PriceLevels() {
     }
   }
 
-  function packMenuItems(item: PriceLevelItemResponse) {
-    return [
-      { label: 'Manage packs', icon: Package, onClick: () => openManagePacks(item) },
-      { type: 'divider' as const, key: `packs-divider-${item.productId}` },
-    ];
+  function openManagePacksFromToolbar() {
+    if (selectedLevelItems.length === 0) {
+      return;
+    }
+    openManagePacks(selectedLevelItems[0]);
   }
 
   function buildDuplicateLevelName(baseName: string, existingNames: Set<string>) {
@@ -2098,6 +2098,17 @@ export default function PriceLevels() {
                               <Printer size={14} />
                               Print
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={openManagePacksFromToolbar}
+                              disabled={!selectedLevel || selectedLevelItems.length === 0}
+                              title={selectedLevelItems.length === 0 ? 'Add products to this level first.' : 'Manage pack sizes for all products'}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                            >
+                              <Package size={14} />
+                              Manage pack sizes
+                            </button>
                           </>
                         );
                       })()}
@@ -2319,7 +2330,6 @@ export default function PriceLevels() {
                                         <OverflowMenu
                                           ariaLabel={`More actions for ${item.productName}`}
                                           items={[
-                                            ...packMenuItems(item),
                                             ...(item.status === 'pending'
                                               ? [
                                                 { label: 'Edit price', icon: Pencil, onClick: () => openRuleEditModal(item) },
@@ -2609,24 +2619,23 @@ export default function PriceLevels() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', paddingRight: '28px' }}>
               <button
                 type="button"
+                className="btn btn-outline btn-sm"
                 onClick={() => void navigatePackModal('prev')}
                 disabled={packModalProductIndex <= 0 || packModalNavLoading}
                 aria-label="Previous product"
                 style={{
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  borderRadius: '8px',
                   width: '32px',
                   height: '32px',
+                  minWidth: '32px',
+                  padding: 0,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: packModalProductIndex <= 0 || packModalNavLoading ? 'not-allowed' : 'pointer',
-                  opacity: packModalProductIndex <= 0 || packModalNavLoading ? 0.45 : 1,
+                  color: '#64748b',
                   flexShrink: 0,
                 }}
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={16} color="#64748b" strokeWidth={2} />
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>
@@ -2638,24 +2647,23 @@ export default function PriceLevels() {
               </div>
               <button
                 type="button"
+                className="btn btn-outline btn-sm"
                 onClick={() => void navigatePackModal('next')}
                 disabled={packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading}
                 aria-label="Next product"
                 style={{
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  borderRadius: '8px',
                   width: '32px',
                   height: '32px',
+                  minWidth: '32px',
+                  padding: 0,
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading ? 'not-allowed' : 'pointer',
-                  opacity: packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading ? 0.45 : 1,
+                  color: '#64748b',
                   flexShrink: 0,
                 }}
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={16} color="#64748b" strokeWidth={2} />
               </button>
             </div>
 
