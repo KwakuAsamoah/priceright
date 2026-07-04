@@ -3152,8 +3152,8 @@ app.post('/api/price-level-items/:itemId/pack-sizes', async (req, res) => {
             return res.status(400).json({ error: 'Invalid price level item id' });
         }
         const packQuantity = Number(req.body?.packQuantity);
-        if (!Number.isInteger(packQuantity) || packQuantity <= 1) {
-            return res.status(400).json({ error: 'packQuantity must be an integer greater than 1' });
+        if (!Number.isInteger(packQuantity) || packQuantity < 1) {
+            return res.status(400).json({ error: 'packQuantity must be an integer of at least 1' });
         }
         const itemRows = await getActiveDb()
             .select({ id: priceLevelItems.id })
