@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -34,6 +35,7 @@ type ReportKey =
   | 'price-volatility'
   | 'material-price-history'
   | 'inactive-in-boms'
+  | 'product-pricing-overview'
   | 'margin-health'
   | 'profitability-ranking'
   | 'price-vs-cost-drift'
@@ -179,6 +181,18 @@ type InactiveInBomRow = {
   productsAffectedCount: number;
 };
 
+type ProductPricingOverviewRow = {
+  productId: number;
+  productName: string;
+  category: string;
+  productionCost: number;
+  approvedPrice: number | null;
+  optimalPrice: number;
+  grossMarginPercent: number | null;
+  approvalStatus: 'pending' | 'approved' | 'needs_review';
+  pricingHealth: 'Healthy' | 'Low' | 'Critical' | 'Not Priced';
+};
+
 type CurrencyRow = {
   id: number;
   code: string;
@@ -321,6 +335,17 @@ type ReportResultMap = {
     inactiveAffectingProducts: number;
     productsAffected: number;
   };
+  'product-pricing-overview': {
+    rows: ProductPricingOverviewRow[];
+    totalActiveProducts: number;
+    approvedCount: number;
+    pendingCount: number;
+    needsReviewCount: number;
+    healthyMarginCount: number;
+    lowMarginCount: number;
+    criticalMarginCount: number;
+    notPricedCount: number;
+  };
   'margin-health': {
     products: MarginHealthProduct[];
   };
@@ -418,6 +443,13 @@ const REPORT_METADATA: Array<{
     icon: ShieldCheck,
   },
   {
+    key: 'product-pricing-overview',
+    name: 'Product Pricing Overview',
+    pillLabel: 'Pricing Overview',
+    description: 'Combined pricing status, approval state, and margin health for all active products',
+    icon: LineChart,
+  },
+  {
     key: 'margin-health',
     name: 'Margin Health',
     pillLabel: 'Margin Health',
@@ -455,7 +487,7 @@ type ReportGroupId = 'pricing' | 'products' | 'materials';
 
 const GROUP_REPORT_KEYS: Record<ReportGroupId, ReportKey[]> = {
   pricing: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
-  products: ['margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
+  products: ['product-pricing-overview', 'margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
   materials: [
     'currency-exposure',
     'materials-cost-analysis',
@@ -711,7 +743,48 @@ function getVolatilityPeriodDays(period: '30' | '90' | '180' | '365'): number {
   return Number(period);
 }
 
+function getOverviewApprovedPrice(product: ProductRow): number | null {
+  const approved = toNumber(product.approvedPrice);
+  return approved > 0 ? approved : null;
+}
+
+function getOverviewGrossMargin(product: ProductRow): number | null {
+  const approved = getOverviewApprovedPrice(product);
+  const cost = toNumber(product.productionCost);
+  if (approved == null || cost <= 0) return null;
+  return calculateActualGrossMarginPercent(approved, cost);
+}
+
+function getOverviewPricingHealth(margin: number | null, threshold: number): ProductPricingOverviewRow['pricingHealth'] {
+  if (margin == null) return 'Not Priced';
+  const halfThreshold = threshold / 2;
+  if (margin >= threshold) return 'Healthy';
+  if (margin >= halfThreshold) return 'Low';
+  return 'Critical';
+}
+
+function getOverviewApprovalSortOrder(status: ProductPricingOverviewRow['approvalStatus']): number {
+  if (status === 'needs_review') return 0;
+  if (status === 'pending') return 1;
+  if (status === 'approved') return 2;
+  return 3;
+}
+
+function normalizeOverviewApprovalStatus(status: ProductRow['approvalStatus']): ProductPricingOverviewRow['approvalStatus'] {
+  if (status === 'approved') return 'approved';
+  if (status === 'needs_review') return 'needs_review';
+  return 'pending';
+}
+
+function pricingHealthBadgeVariant(health: ProductPricingOverviewRow['pricingHealth']): 'success' | 'warning' | 'danger' | 'inactive' {
+  if (health === 'Healthy') return 'success';
+  if (health === 'Low') return 'warning';
+  if (health === 'Critical') return 'danger';
+  return 'inactive';
+}
+
 export default function Reports() {
+  const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
   const formatCurrency = (value: number) => {
     const absValue = Math.abs(value);
@@ -752,6 +825,10 @@ export default function Reports() {
   const [priceVolatilityPeriod, setPriceVolatilityPeriod] = useState<'30' | '90' | '180' | '365'>('90');
   const [materialPriceHistoryMaterialId, setMaterialPriceHistoryMaterialId] = useState<number | null>(null);
   const [availableMaterialCategories, setAvailableMaterialCategories] = useState<string[]>([]);
+
+  const [overviewCategoryFilter, setOverviewCategoryFilter] = useState('All');
+  const [overviewApprovalFilter, setOverviewApprovalFilter] = useState<'All' | 'pending' | 'approved' | 'needs_review'>('All');
+  const [overviewPricingHealthFilter, setOverviewPricingHealthFilter] = useState<'All' | 'Healthy' | 'Low Margin' | 'Critical'>('All');
 
   const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
   const { handlePrint } = usePrint();
@@ -802,6 +879,12 @@ export default function Reports() {
     profitabilitySort,
     driftFilter,
     optimalGapFilter,
+    materialsCostCategoryFilter,
+    priceVolatilityPeriod,
+    materialPriceHistoryMaterialId,
+    overviewCategoryFilter,
+    overviewApprovalFilter,
+    overviewPricingHealthFilter,
   ]);
 
   useEffect(() => {
@@ -880,6 +963,9 @@ export default function Reports() {
     materialsCostCategoryFilter,
     priceVolatilityPeriod,
     materialPriceHistoryMaterialId,
+    overviewCategoryFilter,
+    overviewApprovalFilter,
+    overviewPricingHealthFilter,
     baseCurrency,
   ]);
 
@@ -1466,6 +1552,76 @@ export default function Reports() {
         setReportData({ products: mappedProducts });
       }
 
+      if (selectedReport === 'product-pricing-overview') {
+        const products = (await productsApi.getAll('active')) as ProductRow[];
+        const activeProducts = products.filter((product) => product.isActive !== false);
+
+        let approvedCount = 0;
+        let pendingCount = 0;
+        let needsReviewCount = 0;
+        let healthyMarginCount = 0;
+        let lowMarginCount = 0;
+        let criticalMarginCount = 0;
+        let notPricedCount = 0;
+
+        const allRows = activeProducts.map((product) => {
+          const approvedPrice = getOverviewApprovedPrice(product);
+          const grossMarginPercent = getOverviewGrossMargin(product);
+          const pricingHealth = getOverviewPricingHealth(grossMarginPercent, lowMarginThreshold);
+          const approvalStatus = normalizeOverviewApprovalStatus(product.approvalStatus);
+
+          if (approvalStatus === 'approved') approvedCount += 1;
+          else if (approvalStatus === 'needs_review') needsReviewCount += 1;
+          else pendingCount += 1;
+
+          if (pricingHealth === 'Healthy') healthyMarginCount += 1;
+          else if (pricingHealth === 'Low') lowMarginCount += 1;
+          else if (pricingHealth === 'Critical') criticalMarginCount += 1;
+          else notPricedCount += 1;
+
+          return {
+            productId: product.id,
+            productName: product.name,
+            category: product.category || 'Uncategorised',
+            productionCost: toNumber(product.productionCost),
+            approvedPrice,
+            optimalPrice: toNumber(product.optimalPrice),
+            grossMarginPercent,
+            approvalStatus,
+            pricingHealth,
+          };
+        });
+
+        const filteredRows = allRows
+          .filter((row) => (overviewCategoryFilter === 'All' ? true : row.category === overviewCategoryFilter))
+          .filter((row) => (overviewApprovalFilter === 'All' ? true : row.approvalStatus === overviewApprovalFilter))
+          .filter((row) => {
+            if (overviewPricingHealthFilter === 'All') return true;
+            if (overviewPricingHealthFilter === 'Healthy') return row.pricingHealth === 'Healthy';
+            if (overviewPricingHealthFilter === 'Low Margin') return row.pricingHealth === 'Low';
+            return row.pricingHealth === 'Critical';
+          })
+          .sort((a, b) => {
+            const statusDiff = getOverviewApprovalSortOrder(a.approvalStatus) - getOverviewApprovalSortOrder(b.approvalStatus);
+            if (statusDiff !== 0) return statusDiff;
+            const aMargin = a.grossMarginPercent ?? Number.POSITIVE_INFINITY;
+            const bMargin = b.grossMarginPercent ?? Number.POSITIVE_INFINITY;
+            return aMargin - bMargin;
+          });
+
+        setReportData({
+          rows: filteredRows,
+          totalActiveProducts: activeProducts.length,
+          approvedCount,
+          pendingCount,
+          needsReviewCount,
+          healthyMarginCount,
+          lowMarginCount,
+          criticalMarginCount,
+          notPricedCount,
+        });
+      }
+
       if (selectedReport === 'profitability-ranking') {
         const products = (await productsApi.getAll('active')) as ProductRow[];
         const rows = products
@@ -1706,6 +1862,33 @@ export default function Reports() {
           { key: 'active', label: 'Active' },
         ],
         filename: 'approval-history-report.csv',
+      };
+    }
+
+    if (selectedReport === 'product-pricing-overview') {
+      const rows = (reportData as ReportResultMap['product-pricing-overview']).rows.map((row) => ({
+        productName: row.productName,
+        category: row.category,
+        productionCost: Number(row.productionCost.toFixed(2)),
+        approvedPrice: row.approvedPrice == null ? '' : Number(row.approvedPrice.toFixed(2)),
+        optimalPrice: Number(row.optimalPrice.toFixed(2)),
+        grossMarginPercent: row.grossMarginPercent == null ? '' : Number(row.grossMarginPercent.toFixed(1)),
+        approvalStatus: row.approvalStatus,
+        pricingHealth: row.pricingHealth,
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'productName', label: 'Product Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
+          { key: 'approvedPrice', label: `Approved Base Price (${baseCurrency})` },
+          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
+          { key: 'grossMarginPercent', label: 'Actual Gross Margin %' },
+          { key: 'approvalStatus', label: 'Approval Status' },
+          { key: 'pricingHealth', label: 'Pricing Health' },
+        ],
+        filename: 'product-pricing-overview-report.csv',
       };
     }
 
@@ -2071,6 +2254,13 @@ export default function Reports() {
 
     if (report === 'material-price-history') {
       setMaterialPriceHistoryMaterialId(null);
+      return;
+    }
+
+    if (report === 'product-pricing-overview') {
+      setOverviewCategoryFilter('All');
+      setOverviewApprovalFilter('All');
+      setOverviewPricingHealthFilter('All');
     }
   }
 
@@ -2214,6 +2404,32 @@ export default function Reports() {
         }];
       }
       return [];
+    }
+
+    if (selectedReport === 'product-pricing-overview') {
+      const chips: ActiveFilterChip[] = [];
+      if (overviewCategoryFilter !== 'All') {
+        chips.push({
+          key: 'overview-category',
+          label: `Category: ${overviewCategoryFilter}`,
+          onClear: () => setOverviewCategoryFilter('All'),
+        });
+      }
+      if (overviewApprovalFilter !== 'All') {
+        chips.push({
+          key: 'overview-approval',
+          label: `Approval: ${overviewApprovalFilter}`,
+          onClear: () => setOverviewApprovalFilter('All'),
+        });
+      }
+      if (overviewPricingHealthFilter !== 'All') {
+        chips.push({
+          key: 'overview-pricing-health',
+          label: `Pricing position: ${overviewPricingHealthFilter}`,
+          onClear: () => setOverviewPricingHealthFilter('All'),
+        });
+      }
+      return chips;
     }
 
     return [];
@@ -2460,6 +2676,40 @@ export default function Reports() {
             ))}
           </select>
         </div>
+      );
+    }
+
+    if (selectedReport === 'product-pricing-overview') {
+      return (
+        <>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Category</label>
+            <select className="app-control" value={overviewCategoryFilter} onChange={(e) => setOverviewCategoryFilter(e.target.value)}>
+              <option value="All">All</option>
+              {productReportCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Approval status</label>
+            <select className="app-control" value={overviewApprovalFilter} onChange={(e) => setOverviewApprovalFilter(e.target.value as typeof overviewApprovalFilter)}>
+              <option value="All">All</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="needs_review">Needs Review</option>
+            </select>
+          </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Pricing position</label>
+            <select className="app-control" value={overviewPricingHealthFilter} onChange={(e) => setOverviewPricingHealthFilter(e.target.value as typeof overviewPricingHealthFilter)}>
+              <option value="All">All</option>
+              <option value="Healthy">Healthy</option>
+              <option value="Low Margin">Low Margin</option>
+              <option value="Critical">Critical</option>
+            </select>
+          </div>
+        </>
       );
     }
 
@@ -2753,6 +3003,135 @@ export default function Reports() {
             products={data.products}
             lowMarginThreshold={lowMarginThreshold}
           />
+        </div>
+      );
+    }
+
+    if (selectedReport === 'product-pricing-overview') {
+      const data = reportData as ReportResultMap['product-pricing-overview'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+      const halfThreshold = lowMarginThreshold / 2;
+      const marginHealthCards = [
+        {
+          count: data.healthyMarginCount,
+          label: 'Healthy gross margin',
+          sub: `Actual Gross Margin % >= ${lowMarginThreshold}%`,
+          color: '#16a34a',
+          background: '#f0fdf4',
+          border: '#bbf7d0',
+        },
+        {
+          count: data.lowMarginCount,
+          label: 'Low gross margin',
+          sub: `Actual Gross Margin % ${halfThreshold.toFixed(1)}-${lowMarginThreshold}%`,
+          color: '#d97706',
+          background: '#fffbeb',
+          border: '#fde68a',
+        },
+        {
+          count: data.criticalMarginCount,
+          label: 'Critical gross margin',
+          sub: `Actual Gross Margin % < ${halfThreshold.toFixed(1)}%`,
+          color: '#dc2626',
+          background: '#fef2f2',
+          border: '#fecaca',
+        },
+        {
+          count: data.notPricedCount,
+          label: 'Not priced',
+          sub: 'No approved price',
+          color: '#6b7280',
+          background: '#f9fafb',
+          border: '#e5e7eb',
+        },
+      ];
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(100px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Total Active Products" value={String(data.totalActiveProducts)} />
+            <StatCard label="Approved" value={String(data.approvedCount)} tone="success" />
+            <StatCard label="Pending Approval" value={String(data.pendingCount)} tone="warning" />
+            <StatCard label="Needs Review" value={String(data.needsReviewCount)} tone="warning" />
+            <StatCard label="Healthy Margin" value={String(data.healthyMarginCount)} tone="success" />
+            <StatCard label="Low Margin" value={String(data.lowMarginCount)} tone="warning" />
+            <StatCard label="Critical Margin" value={String(data.criticalMarginCount)} tone="danger" />
+          </div>
+
+          <div className="app-card" style={{ display: 'grid', gap: '10px', marginBottom: '14px', padding: '16px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#0F2847' }}>Pricing health</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '10px' }}>
+              {marginHealthCards.map((card) => (
+                <div
+                  key={card.label}
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    padding: '16px',
+                    borderRadius: '10px',
+                    border: `1px solid ${card.border}`,
+                    backgroundColor: card.background,
+                    display: 'grid',
+                    gap: '4px',
+                  }}
+                >
+                  <div style={{ fontSize: '30px', fontWeight: 700, color: card.color, fontFamily: 'Plus Jakarta Sans, sans-serif', lineHeight: 1 }}>
+                    {card.count}
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#1f2937' }}>{card.label}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 400, color: '#6b7280' }}>{card.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'right' }}>Production Cost</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>Base Price</th>
+                  <th style={{ textAlign: 'right' }}>Optimal Price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Actual Gross<br/>Margin %</th>
+                  <th style={{ textAlign: 'left' }}>Approval Status</th>
+                  <th style={{ textAlign: 'left' }}>Pricing Health</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRows.map((row) => (
+                  <tr key={row.productId}>
+                    <td style={{ textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/products/${row.productId}`)}
+                        style={{ border: 'none', background: 'transparent', color: '#0F2847', cursor: 'pointer', fontWeight: 600, padding: 0, textAlign: 'left' }}
+                      >
+                        {row.productName}
+                      </button>
+                    </td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.approvedPrice == null ? '—' : formatCurrency(row.approvedPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.grossMarginPercent == null ? '—' : formatPct(row.grossMarginPercent)}</td>
+                    <td style={{ textAlign: 'left' }}>
+                      <AppBadge variant={statusBadgeVariant(row.approvalStatus)} size="sm">
+                        {row.approvalStatus === 'needs_review' ? 'Needs Review' : row.approvalStatus === 'approved' ? 'Approved' : 'Pending'}
+                      </AppBadge>
+                    </td>
+                    <td style={{ textAlign: 'left' }}>
+                      <AppBadge variant={pricingHealthBadgeVariant(row.pricingHealth)} size="sm">
+                        {row.pricingHealth}
+                      </AppBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {renderPaginationControls(data.rows.length)}
         </div>
       );
     }

@@ -24,7 +24,6 @@ import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductCreatePanel from '../components/ProductCreatePanel';
-import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
   PRODUCT_COLUMN_KEY_TO_ID,
@@ -397,7 +396,6 @@ export default function Products() {
   const [isApprovingAll, setIsApprovingAll] = useState(false);
   const [showApproveAllEligibleModal, setShowApproveAllEligibleModal] = useState(false);
   const [approveAllEligibleIds, setApproveAllEligibleIds] = useState<number[]>([]);
-  const [activeTab, setActiveTab] = useState<'products' | 'analysis'>('products');
 
   const productCategories = useMemo(() => {
     const observed = products
@@ -1572,30 +1570,9 @@ export default function Products() {
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       <div className="app-page-header">
         <h1 className="app-page-title">Products</h1>
-        <div className="app-section-tabs" role="tablist" aria-label="Product workflows">
-          <button
-            type="button"
-            onClick={() => setActiveTab('products')}
-            className={`app-section-tab ${activeTab === 'products' ? 'is-active' : ''}`}
-            role="tab"
-            aria-selected={activeTab === 'products'}
-          >
-            Products
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('analysis')}
-            className={`app-section-tab ${activeTab === 'analysis' ? 'is-active' : ''}`}
-            role="tab"
-            aria-selected={activeTab === 'analysis'}
-          >
-            Analysis
-          </button>
-        </div>
       </div>
 
       <div className="app-page-content">
-      {activeTab === 'products' && (
       <div className="materials-tab-body">
         {attentionCount > 0 ? (
           <div
@@ -2260,24 +2237,6 @@ export default function Products() {
           )}
         </div>
       </div>
-      )}
-
-      {activeTab === 'analysis' && (
-        <div style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          padding: '8px 0',
-        }}>
-          <ProductsAnalysisTab
-            lowMarginThreshold={lowMarginThreshold}
-            products={products.map((product) => ({
-              ...product,
-              approvalStatus: product.approvalStatus === 'rejected' ? 'pending' : product.approvalStatus,
-            }))}
-          />
-        </div>
-      )}
       </div>
 
       {showDrawer && editingProduct ? (
