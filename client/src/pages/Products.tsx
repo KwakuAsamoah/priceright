@@ -781,7 +781,9 @@ export default function Products() {
       'Actual Markup %': actualProfitOnCost != null ? actualProfitOnCost.toFixed(1) : '—',
       'Actual Gross Margin %': actualProfitOnSales != null ? actualProfitOnSales.toFixed(1) : '—',
       'Optimal Price': product.optimalPrice.toFixed(2),
-      'Approved base price': product.currentSellingPrice ? product.currentSellingPrice.toFixed(2) : 'Not Set',
+      'Approved base price': product.approvalStatus === 'approved' && product.approvedPrice != null
+        ? Number(product.approvedPrice).toFixed(2)
+        : '—',
       'Status': calculatePricingAnalysis(product).label,
       });
     });
@@ -1234,7 +1236,9 @@ export default function Products() {
           Number(product.materialCost || 0),
           Number(product.optimalPrice || 0),
           normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-          currentPrice > 0 ? currentPrice : null,
+          product.approvalStatus === 'approved' && product.approvedPrice != null
+            ? Number(product.approvedPrice)
+            : null,
           optimalProfitOnCost != null ? Number(optimalProfitOnCost.toFixed(1)) : null,
           optimalProfitOnSales != null ? Number(optimalProfitOnSales.toFixed(1)) : null,
           actualProfitOnCost != null ? Number(actualProfitOnCost.toFixed(1)) : null,
@@ -1504,7 +1508,9 @@ export default function Products() {
         product.optimalPrice.toFixed(2),
         formatApprovalDate(product.approvedAt),
         normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-        currentPrice > 0 ? currentPrice.toFixed(2) : 'Not Set',
+        product.approvalStatus === 'approved' && product.approvedPrice != null
+          ? Number(product.approvedPrice).toFixed(2)
+          : '—',
         optimalProfitOnCost != null ? `${optimalProfitOnCost.toFixed(1)}%` : '-',
         optimalProfitOnSales != null ? `${optimalProfitOnSales.toFixed(1)}%` : '-',
         actualProfitOnCost != null ? `${actualProfitOnCost.toFixed(1)}%` : '-',
@@ -2015,7 +2021,9 @@ export default function Products() {
                   {filteredProducts.map((product) => {
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
 
-                    const hasSellingPrice = product.currentSellingPrice != null && product.currentSellingPrice > 0;
+                    const hasApprovedBasePrice = product.approvalStatus === 'approved'
+                      && product.approvedPrice != null
+                      && Number(product.approvedPrice) > 0;
                     const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
                     const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
                     const actualProfitOnCost = calculateActualProfitOnCost(product);
@@ -2103,16 +2111,16 @@ export default function Products() {
                             )}
                           </td>}
                           {isProductColumnVisible('sellingPrice') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {hasSellingPrice ? (
+                            {hasApprovedBasePrice ? (
                               <span
                                 className="money-value"
                                 style={{ fontWeight: 700, color: sellingMismatch ? '#c62828' : undefined }}
                                 title={sellingMismatch ? 'Approved base price differs from approved value' : undefined}
                               >
-                                {Number(product.currentSellingPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
+                                {Number(product.approvedPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
                               </span>
                             ) : (
-                              <span style={{ fontSize: '14px', color: '#94a3b8' }}>Not set</span>
+                              <span style={{ fontSize: '14px', color: '#94a3b8' }}>—</span>
                             )}
                           </td>}
                           {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>

@@ -342,13 +342,15 @@ export default function Reports() {
         const rows = activeProducts.map((product) => {
           const productionCost = toNumber(product.productionCost);
           const optimalPrice = toNumber(product.optimalPrice);
-          const sellingPrice = toNumber(product.currentSellingPrice);
-          const hasSellingPrice = sellingPrice > 0;
-          const variance = sellingPrice - optimalPrice;
-          const variancePct = optimalPrice > 0 ? (variance / optimalPrice) * 100 : 0;
-          const profit = sellingPrice - productionCost;
-          const profitPct = sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
+          const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : null;
+          const hasApprovedPrice = approvedPrice != null && approvedPrice > 0;
+          const sellingPrice = hasApprovedPrice ? approvedPrice : 0;
+          const variance = hasApprovedPrice ? sellingPrice - optimalPrice : 0;
+          const variancePct = hasApprovedPrice && optimalPrice > 0 ? (variance / optimalPrice) * 100 : 0;
+          const profit = hasApprovedPrice ? sellingPrice - productionCost : 0;
+          const profitPct = hasApprovedPrice && sellingPrice > 0 ? (profit / sellingPrice) * 100 : 0;
           const pricingStatus: 'Above Optimal' | 'Below Optimal' | 'At Optimal' =
+            !hasApprovedPrice ? 'At Optimal' :
             sellingPrice > optimalPrice + 0.01 ? 'Above Optimal' :
             sellingPrice < optimalPrice - 0.01 ? 'Below Optimal' :
             'At Optimal';
@@ -360,7 +362,7 @@ export default function Reports() {
             productionCost,
             optimalPrice,
             sellingPrice,
-            hasSellingPrice,
+            hasSellingPrice: hasApprovedPrice,
             variance,
             variancePct,
             profit,
@@ -386,19 +388,22 @@ export default function Reports() {
 
       if (selectedReport === 'low-margin') {
         const products = (await productsApi.getAll('all')) as ProductRow[];
-        const approvedActive = products.filter((p) => p.approvalStatus === 'approved' && p.isActive && toNumber(p.currentSellingPrice) > 0 && toNumber(p.productionCost) > 0);
+        const approvedActive = products.filter((p) => {
+          const approvedPrice = p.approvedPrice != null ? toNumber(p.approvedPrice) : 0;
+          return p.approvalStatus === 'approved' && p.isActive && approvedPrice > 0 && toNumber(p.productionCost) > 0;
+        });
 
         const allRows = approvedActive.map((product) => {
-          const currentSellingPrice = toNumber(product.currentSellingPrice);
+          const approvedPrice = toNumber(product.approvedPrice);
           const productionCost = toNumber(product.productionCost);
-          const realisedMargin = currentSellingPrice > 0 ? ((currentSellingPrice - productionCost) / currentSellingPrice) * 100 : 0;
+          const realisedMargin = approvedPrice > 0 ? ((approvedPrice - productionCost) / approvedPrice) * 100 : 0;
           const targetMargin = toNumber(product.profitMargin);
           const gap = realisedMargin - targetMargin;
 
           return {
             productName: product.name,
             category: product.category || 'Uncategorised',
-            currentSellingPrice,
+            currentSellingPrice: approvedPrice,
             productionCost,
             realisedMargin,
             targetMargin,
@@ -1010,7 +1015,7 @@ export default function Reports() {
           </div>
 
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
-            Actual gross margin = (Approved base price − Production Cost) / Approved base price
+            Actual gross margin = (Approved base price − Production Cost) / Approved base price. Only approved products with an official approved price are included.
           </div>
         </div>
       );

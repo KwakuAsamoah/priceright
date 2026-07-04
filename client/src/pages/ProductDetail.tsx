@@ -868,13 +868,20 @@ export default function ProductDetail() {
                 <span style={{ color: '#64748b' }}>Optimal Price:</span>
                 <span className="money-value" style={{ fontWeight: 700 }}>{baseCurrency} {optimalPrice.toFixed(2)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <span style={{ color: '#64748b' }}>Approved base price:</span>
-                <span className="money-value" style={{ fontWeight: 700, color: product.priceMismatch ? '#c62828' : undefined }}>
-                  {product.currentSellingPrice
-                    ? `${baseCurrency} ${Number(product.currentSellingPrice).toFixed(2)}${product.priceMismatch ? ' ⚠' : ''}`
-                    : '—'}
-                </span>
+                <div style={{ textAlign: 'right' }}>
+                  {product.approvalStatus === 'approved' && product.approvedPrice != null ? (
+                    <span className="money-value" style={{ fontWeight: 700, color: product.priceMismatch ? '#c62828' : undefined }}>
+                      {baseCurrency} {Number(product.approvedPrice).toFixed(2)}{product.priceMismatch ? ' ⚠' : ''}
+                    </span>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: 700 }}>—</span>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>No approved price yet</div>
+                    </>
+                  )}
+                </div>
               </div>
               {showReadOnlyApprovedSummary && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
