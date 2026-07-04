@@ -855,6 +855,7 @@ export default function Products() {
 
   async function handleBulkApprove() {
     setBulkApproveExpiryDate('');
+    setBulkApprovePriceMethod('optimal');
     setShowBulkApproveModal(true);
   }
 
@@ -1453,7 +1454,6 @@ export default function Products() {
       })
       .map((p) => p.id);
     setSelectedProducts(new Set(ids));
-    setBulkApprovePriceMethod('optimal');
     handleBulkApprove();
   }
 
