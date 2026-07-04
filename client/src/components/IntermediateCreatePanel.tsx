@@ -189,6 +189,16 @@ const bomActionCellStyle = {
   minWidth: '72px',
 };
 
+const panelHeaderStyle = {
+  display: 'flex',
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'space-between' as const,
+  padding: '16px 20px',
+  borderBottom: '1px solid #E2E8F0',
+  flexShrink: 0,
+};
+
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
     return [];
@@ -292,6 +302,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   const [componentQuantity, setComponentQuantity] = useState('1');
   const [componentSearch, setComponentSearch] = useState('');
   const [tempBomItems, setTempBomItems] = useState<TempBomItem[]>([]);
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
 
   useEffect(() => {
     setHasOpenForm(true);
@@ -502,16 +513,38 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       <div style={pageOverlayStyle} onClick={onClose} aria-hidden="true" />
       <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
-        <div style={{ padding: '16px 48px 16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0, position: 'relative' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
-            New Intermediate Material
-          </h1>
+        <div style={panelHeaderStyle}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onClose}
+              style={{ marginBottom: '8px', paddingLeft: 0 }}
+            >
+              ← Back to Intermediate Materials
+            </button>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
+              New Intermediate Material
+            </h1>
+          </div>
           <button
             type="button"
-            className="btn-close-x"
             onClick={onClose}
             aria-label="Close"
-            style={{ position: 'absolute', top: '12px', right: '12px', padding: '8px', color: '#64748b' }}
+            onMouseEnter={() => setCloseButtonHovered(true)}
+            onMouseLeave={() => setCloseButtonHovered(false)}
+            style={{
+              background: closeButtonHovered ? '#F1F5F9' : 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: closeButtonHovered ? '#0F2847' : '#64748b',
+              borderRadius: '6px',
+              flexShrink: 0,
+            }}
           >
             <X size={20} />
           </button>
