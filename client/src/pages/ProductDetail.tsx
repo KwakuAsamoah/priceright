@@ -127,7 +127,7 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [activeTab, setActiveTab] = useState<'bom' | 'history' | 'activity'>('bom');
+  const [activeTab, setActiveTab] = useState<'bom' | 'history'>('bom');
   const [productActivity, setProductActivity] = useState<ActivityEntry[]>([]);
   const [productActivityLoading, setProductActivityLoading] = useState(false);
 

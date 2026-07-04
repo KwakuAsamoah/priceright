@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
@@ -30,15 +30,9 @@ interface ProductTabsProps {
   productId: number;
   displayBom: BOMMaterial[];
   bomLoading: boolean;
-  activeTab: 'bom' | 'history' | 'activity';
-  onTabChange: (tab: 'bom' | 'history' | 'activity') => void;
-  activityEntries: Array<{
-    id: number;
-    action: string;
-    createdAt: number;
-    performedBy?: string | null;
-    details?: Record<string, unknown> | null;
-  }>;
+  activeTab: 'bom' | 'history';
+  onTabChange: (tab: 'bom' | 'history') => void;
+  activityEntries: ActivityEntry[];
   activityLoading: boolean;
   activityViewAllHref: string;
   onEditProduct?: () => void;
@@ -52,8 +46,7 @@ function toNumber(value: string | number | undefined) {
 
 const TAB_BUTTONS = [
   { id: 'bom', label: 'Bill of materials' },
-  { id: 'history', label: 'Price history' },
-  { id: 'activity', label: 'Activity' },
+  { id: 'history', label: 'History' },
 ];
 
 function formatAbsoluteDate(unixSeconds: number): string {
@@ -141,10 +134,26 @@ export default function ProductTabs({
   onEditProduct,
 }: ProductTabsProps) {
   const { baseCurrency } = useBaseCurrency();
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'approvals'>('all');
   const [priceHistory, setPriceHistory] = useState<ActivityEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyFetched, setHistoryFetched] = useState(false);
+
+  useEffect(() => {
+    setHistoryFilter('all');
+    setHistoryFetched(false);
+    setPriceHistory([]);
+    setHistoryError(null);
+  }, [productId]);
+
+  const combinedHistoryEntries = useMemo(() => {
+    const byId = new Map<number, ActivityEntry>();
+    [...activityEntries, ...priceHistory].forEach((entry) => {
+      byId.set(entry.id, entry);
+    });
+    return Array.from(byId.values()).sort((a, b) => b.createdAt - a.createdAt);
+  }, [activityEntries, priceHistory]);
 
   const fetchHistory = useCallback(async () => {
     if (historyFetched) return;
@@ -242,43 +251,76 @@ export default function ProductTabs({
           </div>
         )}
 
-        {activeTab === 'activity' && (
-          <div style={{ padding: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700 }}>Recent activity</div>
-              <Link to={activityViewAllHref} style={{ fontSize: '13px', color: '#0F2847', textDecoration: 'none', fontWeight: 600 }}>
-                View all activity
-              </Link>
-            </div>
-
-            {activityLoading ? (
-              <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>Loading activity...</div>
-            ) : activityEntries.length === 0 ? (
-              <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>No recent activity yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {activityEntries.map((entry) => {
-                  const visual = getActivityVisual(entry.action);
-                  return (
-                    <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
-                      <visual.Icon size={14} style={{ color: visual.color }} />
-                      <div style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details, baseCurrency)}>
-                        {describeProductActivity(entry.action, entry.details, baseCurrency)}
-                      </div>
-                      <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>
-                        {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'history' && (
           <div style={{ padding: '16px' }}>
-            {historyLoading ? (
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter('all')}
+                style={{
+                  background: historyFilter === 'all' ? '#0F2847' : '#F1F5F9',
+                  color: historyFilter === 'all' ? '#ffffff' : '#64748b',
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter('approvals')}
+                style={{
+                  background: historyFilter === 'approvals' ? '#0F2847' : '#F1F5F9',
+                  color: historyFilter === 'approvals' ? '#ffffff' : '#64748b',
+                  fontSize: '12px',
+                  padding: '4px 10px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Approvals only
+              </button>
+            </div>
+
+            {historyFilter === 'all' ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700 }}>Recent activity</div>
+                  <Link to={activityViewAllHref} style={{ fontSize: '13px', color: '#0F2847', textDecoration: 'none', fontWeight: 600 }}>
+                    View all activity
+                  </Link>
+                </div>
+
+                {activityLoading || historyLoading ? (
+                  <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>Loading activity...</div>
+                ) : combinedHistoryEntries.length === 0 ? (
+                  <div style={{ padding: '8px', color: '#64748b', fontSize: '13px' }}>No recent activity yet.</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {combinedHistoryEntries.map((entry) => {
+                      const visual = getActivityVisual(entry.action);
+                      return (
+                        <div key={entry.id} style={{ display: 'grid', gridTemplateColumns: '18px minmax(0, 1fr) auto', gap: '8px', alignItems: 'center' }}>
+                          <visual.Icon size={14} style={{ color: visual.color }} />
+                          <div style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={describeProductActivity(entry.action, entry.details, baseCurrency)}>
+                            {describeProductActivity(entry.action, entry.details, baseCurrency)}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>
+                            {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            ) : historyLoading ? (
               <div style={{ padding: '12px', color: '#64748b', fontSize: '13px' }}>Loading price history...</div>
             ) : historyError ? (
               <div style={{ padding: '12px', color: '#dc2626', fontSize: '13px' }}>{historyError}</div>
