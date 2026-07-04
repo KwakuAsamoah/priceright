@@ -47,12 +47,6 @@ type ActiveCurrency = {
 
 type OverrideType = 'rule_discount' | 'rule_markup' | 'fixed_amount_add' | 'fixed_amount_deduct';
 
-type RowDraft = {
-  overrideType: OverrideType;
-  value: string;
-  justification: string;
-};
-
 type WizardRuleDraft = {
   overrideType: OverrideType;
   value: string;
@@ -151,21 +145,6 @@ function levelStatus(items: PriceLevelItemResponse[]): { label: string; variant:
     return { label: 'Pending approval', variant: 'warning' };
   }
   return { label: 'Active', variant: 'success' };
-}
-
-function draftFromItem(item: PriceLevelItemResponse): RowDraft {
-  if (item.overrideType === 'fixed_amount_add' || item.overrideType === 'fixed_amount_deduct') {
-    return {
-      overrideType: item.overrideType,
-      value: String(toNumber(item.customPrice, 0)),
-      justification: item.justification || '',
-    };
-  }
-  return {
-    overrideType: item.overrideType,
-    value: String(toNumber(item.adjustmentPercentage, 0)),
-    justification: item.justification || '',
-  };
 }
 
 function findProductionCost(product: ProductRecord): number {
@@ -285,12 +264,12 @@ export default function PriceLevels() {
   const [editingLevelName, setEditingLevelName] = useState(false);
   const [levelNameDraft, setLevelNameDraft] = useState('');
 
-  const [editingItemProductId, setEditingItemProductId] = useState<number | null>(null);
-  const [rowDraft, setRowDraft] = useState<RowDraft>({
-    overrideType: 'rule_discount',
-    value: '0',
-    justification: '',
-  });
+  const [showRuleEditModal, setShowRuleEditModal] = useState(false);
+  const [ruleEditItem, setRuleEditItem] = useState<PriceLevelItemResponse | null>(null);
+  const [ruleEditOverrideType, setRuleEditOverrideType] = useState<string>('rule_discount');
+  const [ruleEditAdjustment, setRuleEditAdjustment] = useState<string>('');
+  const [ruleEditCustomPrice, setRuleEditCustomPrice] = useState<string>('');
+  const [ruleEditJustification, setRuleEditJustification] = useState('');
 
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
   const [selectedLevelIds, setSelectedLevelIds] = useState<Set<number>>(new Set());
@@ -587,7 +566,8 @@ export default function PriceLevels() {
       setLevelCurrencyCode(selectedLevel.currencyCode ?? null);
       setEditLevelCurrencyId(selectedLevel.currencyId ?? null);
       setEditingLevelName(false);
-      setEditingItemProductId(null);
+      setShowRuleEditModal(false);
+      setRuleEditItem(null);
       setSelectedRows(new Set());
       setRecentActivityOpen(false);
     } else {
@@ -661,28 +641,47 @@ export default function PriceLevels() {
     };
   }, [selectedLevel]);
 
-  function openInlineEdit(item: PriceLevelItemResponse) {
-    setEditingItemProductId(item.productId);
-    setRowDraft(draftFromItem(item));
+  function openRuleEditModal(item: PriceLevelItemResponse) {
+    setRuleEditItem(item);
+    setRuleEditOverrideType(item.overrideType);
+    if (item.overrideType === 'fixed_amount_add' || item.overrideType === 'fixed_amount_deduct') {
+      setRuleEditAdjustment(String(toNumber(item.customPrice, 0)));
+      setRuleEditCustomPrice('');
+    } else {
+      setRuleEditAdjustment(String(toNumber(item.adjustmentPercentage, 0)));
+      setRuleEditCustomPrice('');
+    }
+    setRuleEditJustification(item.justification || '');
+    setShowRuleEditModal(true);
   }
 
-  function closeInlineEdit() {
-    setEditingItemProductId(null);
-    setRowDraft({ overrideType: 'rule_discount', value: '0', justification: '' });
+  function closeRuleEditModal() {
+    setShowRuleEditModal(false);
+    setRuleEditItem(null);
+    setRuleEditOverrideType('rule_discount');
+    setRuleEditAdjustment('');
+    setRuleEditCustomPrice('');
+    setRuleEditJustification('');
   }
 
-  async function saveInlineEdit(item: PriceLevelItemResponse) {
-    if (!selectedLevel) return;
+  async function saveRuleEdit() {
+    if (!selectedLevel || !ruleEditItem) return;
 
-    const numericValue = parseDraftValue(rowDraft.value);
+    const isCustomPrice = ruleEditOverrideType === 'custom_price';
+    const overrideType = (isCustomPrice ? 'custom_price' : ruleEditOverrideType) as OverrideType;
+    const numericValue = isCustomPrice
+      ? parseDraftValue(ruleEditCustomPrice)
+      : parseDraftValue(ruleEditAdjustment);
     if (numericValue == null || numericValue < 0) {
       showToastMessage('Enter a valid non-negative value.', 'error');
       return;
     }
 
-    const approvedBasePrice = toNumber(item.productApprovedPrice);
-    const productionCost = toNumber(item.productProductionCost);
-    const finalPrice = computeFinalPrice(rowDraft.overrideType, numericValue, approvedBasePrice);
+    const approvedBasePrice = toNumber(ruleEditItem.productApprovedPrice);
+    const productionCost = toNumber(ruleEditItem.productProductionCost);
+    const finalPrice = isCustomPrice
+      ? roundToTwo(numericValue)
+      : computeFinalPrice(overrideType, numericValue, approvedBasePrice);
 
     if (finalPrice <= productionCost) {
       showToastMessage('Final price is below production cost. Save blocked.', 'error');
@@ -690,7 +689,7 @@ export default function PriceLevels() {
     }
 
     const margin = computeMarginPercent(finalPrice, productionCost);
-    if (margin < MIN_MARGIN_WARNING && !rowDraft.justification.trim()) {
+    if (margin < MIN_MARGIN_WARNING && !ruleEditJustification.trim()) {
       showToastMessage('Justification is required when margin is below 15%.', 'error');
       return;
     }
@@ -698,18 +697,20 @@ export default function PriceLevels() {
     setSaving(true);
     try {
       await priceLevelItemsApi.upsert(selectedLevel.id, {
-        productId: item.productId,
-        overrideType: rowDraft.overrideType,
-        adjustmentPercentage: rowDraft.overrideType === 'rule_discount' || rowDraft.overrideType === 'rule_markup'
+        productId: ruleEditItem.productId,
+        overrideType: isCustomPrice
+          ? ('custom_price' as 'rule_discount')
+          : overrideType,
+        adjustmentPercentage: !isCustomPrice && (overrideType === 'rule_discount' || overrideType === 'rule_markup')
           ? numericValue
           : undefined,
-        customPrice: rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct'
+        customPrice: isCustomPrice || overrideType === 'fixed_amount_add' || overrideType === 'fixed_amount_deduct'
           ? numericValue
           : undefined,
-        justification: rowDraft.justification.trim() || undefined,
+        justification: ruleEditJustification.trim() || undefined,
       });
       await refreshLevelItems(selectedLevel.id);
-      closeInlineEdit();
+      closeRuleEditModal();
       showToastMessage('Price rule saved. Status reset to pending.', 'success');
     } catch (error) {
       console.error('Failed to save item:', error);
@@ -2016,14 +2017,7 @@ export default function PriceLevels() {
                       </thead>
                       <tbody>
                         {selectedLevelItems.flatMap((item) => {
-                          const isEditing = editingItemProductId === item.productId;
                           const isSelected = selectedRows.has(item.productId);
-
-                          const draftValue = parseDraftValue(rowDraft.value) ?? 0;
-                          const draftFinal = computeFinalPrice(rowDraft.overrideType, draftValue, toNumber(item.productApprovedPrice, 0));
-                          const draftMargin = computeMarginPercent(draftFinal, toNumber(item.productProductionCost, 0));
-                          const belowCost = draftFinal <= toNumber(item.productProductionCost, 0);
-
                           const packs = item.packSizes || [];
                           const displayRows: Array<PriceLevelPackSize | null> = packs.length > 0 ? packs : [null];
                           const rowSpan = displayRows.length;
@@ -2115,7 +2109,7 @@ export default function PriceLevels() {
                                           <AppButton
                                             variant="ghost"
                                             size="sm"
-                                            onClick={() => openInlineEdit(item)}
+                                            onClick={() => openRuleEditModal(item)}
                                             ariaLabel="Edit price"
                                             title="Edit price"
                                           >
@@ -2129,7 +2123,7 @@ export default function PriceLevels() {
                                             ...packMenuItems(item),
                                             ...(item.status === 'pending'
                                               ? [
-                                                { label: 'Edit price', icon: Pencil, onClick: () => openInlineEdit(item) },
+                                                { label: 'Edit price', icon: Pencil, onClick: () => openRuleEditModal(item) },
                                                 { type: 'divider' as const, key: `pending-divider-${item.productId}` },
                                                 {
                                                   label: 'Delete',
@@ -2158,64 +2152,7 @@ export default function PriceLevels() {
                             );
                           });
 
-                          if (!isEditing) {
-                            return packRows;
-                          }
-
-                          return [
-                            ...packRows,
-                            <tr key={`${item.productId}-edit`}>
-                              <td colSpan={9} style={{ backgroundColor: '#fcfcfd' }}>
-                                <div style={{ display: 'grid', gap: '10px', padding: '8px 0' }}>
-                                  {item.isStalePrice && (
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c' }}>
-                                      <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
-                                      <span>The approved base price changed since this price was set. Current base price: <strong>{formatMoney(item.productApprovedPrice)}</strong>. Your override amount: <strong>{formatMoney(item.customPrice ?? 0)}</strong>.</span>
-                                    </div>
-                                  )}
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                    <AppButton variant={rowDraft.overrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_discount' }))}>Discount %</AppButton>
-                                    <AppButton variant={rowDraft.overrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'rule_markup' }))}>Markup %</AppButton>
-                                    <AppButton variant={rowDraft.overrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_add' }))}>Add amount</AppButton>
-                                    <AppButton variant={rowDraft.overrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => setRowDraft((prev) => ({ ...prev, overrideType: 'fixed_amount_deduct' }))}>Deduct amount</AppButton>
-                                    <input
-                                      value={rowDraft.value}
-                                      onChange={(e) => setRowDraft((prev) => ({ ...prev, value: e.target.value }))}
-                                      type="number"
-                                      min={0}
-                                      step="0.01"
-                                      placeholder={rowDraft.overrideType === 'fixed_amount_add' || rowDraft.overrideType === 'fixed_amount_deduct' ? 'Enter amount' : 'Enter percentage'}
-                                      style={{ maxWidth: '180px', padding: '7px 9px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                    />
-                                  </div>
-
-                                  <div style={{ fontSize: '15px', color: '#475569' }}>
-                                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
-                                  </div>
-
-                                  {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
-                                    <div style={{ fontSize: '14px', color: '#b45309' }}>Warning: margin is below 15%. Justification is required.</div>
-                                  )}
-                                  {belowCost && (
-                                    <div style={{ fontSize: '14px', color: '#b91c1c' }}>Final price is below production cost. Save is blocked.</div>
-                                  )}
-
-                                  <textarea
-                                    value={rowDraft.justification}
-                                    onChange={(e) => setRowDraft((prev) => ({ ...prev, justification: e.target.value }))}
-                                    rows={3}
-                                    placeholder="Add justification (required if margin is below 15%)"
-                                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px' }}
-                                  />
-
-                                  <div style={{ display: 'flex', gap: '8px' }}>
-                                    <AppButton variant="primary" size="sm" onClick={() => saveInlineEdit(item)} disabled={saving || belowCost}>Save</AppButton>
-                                    <AppButton variant="secondary" size="sm" onClick={closeInlineEdit}>Cancel</AppButton>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>,
-                          ];
+                          return packRows;
                         })}
                       </tbody>
                     </table>
@@ -2283,6 +2220,106 @@ export default function PriceLevels() {
           </div>
         </div>
       </div>
+
+      {showRuleEditModal && ruleEditItem && (
+        <div className="app-modal-overlay" onClick={closeRuleEditModal}>
+          <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={closeRuleEditModal} aria-label="Close">
+              &times;
+            </button>
+            <h2 className="app-modal-title">Edit Pricing Rule — {ruleEditItem.productName}</h2>
+
+            {ruleEditItem.isStalePrice && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '8px 10px', backgroundColor: '#fff3e0', border: '1px solid #ffcc80', borderRadius: '6px', fontSize: '14px', color: '#bf360c', marginBottom: '12px' }}>
+                <AlertTriangle size={13} style={{ color: '#e65100', flexShrink: 0, marginTop: '1px' }} />
+                <span>The approved base price changed since this price was set. Current base price: <strong>{formatMoney(ruleEditItem.productApprovedPrice)}</strong>.</span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              <AppButton variant={ruleEditOverrideType === 'rule_discount' ? 'primary' : 'secondary'} size="sm" onClick={() => setRuleEditOverrideType('rule_discount')}>Discount %</AppButton>
+              <AppButton variant={ruleEditOverrideType === 'rule_markup' ? 'primary' : 'secondary'} size="sm" onClick={() => setRuleEditOverrideType('rule_markup')}>Markup %</AppButton>
+              <AppButton variant={ruleEditOverrideType === 'fixed_amount_add' ? 'primary' : 'secondary'} size="sm" onClick={() => setRuleEditOverrideType('fixed_amount_add')}>Add amount</AppButton>
+              <AppButton variant={ruleEditOverrideType === 'fixed_amount_deduct' ? 'primary' : 'secondary'} size="sm" onClick={() => setRuleEditOverrideType('fixed_amount_deduct')}>Deduct amount</AppButton>
+              <AppButton variant={ruleEditOverrideType === 'custom_price' ? 'primary' : 'secondary'} size="sm" onClick={() => setRuleEditOverrideType('custom_price')}>Custom price</AppButton>
+            </div>
+
+            {ruleEditOverrideType === 'custom_price' ? (
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Custom price ({baseCurrency})</label>
+                <input
+                  value={ruleEditCustomPrice}
+                  onChange={(e) => setRuleEditCustomPrice(e.target.value)}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="Enter custom price"
+                  className="app-control"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            ) : (
+              <div style={{ marginBottom: '12px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                  {ruleEditOverrideType === 'fixed_amount_add' || ruleEditOverrideType === 'fixed_amount_deduct' ? `Amount (${baseCurrency})` : 'Percentage'}
+                </label>
+                <input
+                  value={ruleEditAdjustment}
+                  onChange={(e) => setRuleEditAdjustment(e.target.value)}
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder={ruleEditOverrideType === 'fixed_amount_add' || ruleEditOverrideType === 'fixed_amount_deduct' ? 'Enter amount' : 'Enter percentage'}
+                  className="app-control"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
+
+            {(() => {
+              const isCustomPrice = ruleEditOverrideType === 'custom_price';
+              const numericValue = isCustomPrice
+                ? parseDraftValue(ruleEditCustomPrice) ?? 0
+                : parseDraftValue(ruleEditAdjustment) ?? 0;
+              const approvedBasePrice = toNumber(ruleEditItem.productApprovedPrice);
+              const productionCost = toNumber(ruleEditItem.productProductionCost);
+              const draftFinal = isCustomPrice
+                ? roundToTwo(numericValue)
+                : computeFinalPrice(ruleEditOverrideType as OverrideType, numericValue, approvedBasePrice);
+              const draftMargin = computeMarginPercent(draftFinal, productionCost);
+              const belowCost = draftFinal <= productionCost;
+
+              return (
+                <>
+                  <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
+                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Margin: <strong>{draftMargin.toFixed(1)}%</strong>
+                  </div>
+
+                  {!belowCost && draftMargin < MIN_MARGIN_WARNING && (
+                    <div style={{ fontSize: '14px', color: '#b45309', marginBottom: '12px' }}>Warning: margin is below 15%. Justification is required.</div>
+                  )}
+                  {belowCost && (
+                    <div style={{ fontSize: '14px', color: '#b91c1c', marginBottom: '12px' }}>Final price is below production cost. Save is blocked.</div>
+                  )}
+
+                  <textarea
+                    value={ruleEditJustification}
+                    onChange={(e) => setRuleEditJustification(e.target.value)}
+                    rows={3}
+                    placeholder="Add justification (required if margin is below 15%)"
+                    style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '15px', boxSizing: 'border-box', marginBottom: '16px' }}
+                  />
+
+                  <div className="app-modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={closeRuleEditModal} disabled={saving}>Cancel</button>
+                    <button type="button" className="btn btn-success" onClick={() => void saveRuleEdit()} disabled={saving || belowCost}>Save Rule</button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {managePacksItem && selectedLevel && (
         <div className="app-modal-overlay" onClick={() => setManagePacksItem(null)}>
