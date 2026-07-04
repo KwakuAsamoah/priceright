@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
+import PageHelpButton from '../components/PageHelpButton';
 import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
@@ -1574,8 +1575,9 @@ export default function Products() {
   return (
     <div className="app-page products-shell">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div className="app-page-header">
+      <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <h1 className="app-page-title">Products</h1>
+        <PageHelpButton context="products" />
       </div>
 
       <div className="app-page-content">

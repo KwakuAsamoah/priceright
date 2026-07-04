@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
+import PageHelpButton from '../components/PageHelpButton';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
@@ -3792,7 +3793,8 @@ export default function Reports() {
 
   return (
     <div className="app-page">
-      <div className="app-page-header">
+      <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
         <h1 className="app-page-title">Reports & Analysis</h1>
         <div className="app-section-tabs" role="tablist" aria-label="Report groups">
           <button
@@ -3823,6 +3825,8 @@ export default function Reports() {
             Materials
           </button>
         </div>
+        </div>
+        <PageHelpButton context="reports" />
       </div>
 
       <div ref={pageContentRef} className="app-page-content app-page-content--data">

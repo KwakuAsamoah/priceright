@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PageHelpButton from '../components/PageHelpButton';
 import {
   AlertTriangle,
   Check,
@@ -695,7 +696,10 @@ export default function Dashboard() {
               <h1 className="app-page-title">Dashboard</h1>
             </div>
           </div>
-          <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
+            <PageHelpButton context="dashboard" />
+          </div>
         </div>
       </div>
 

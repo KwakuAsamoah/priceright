@@ -28,7 +28,8 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
     return helpArticles.filter((article) => {
       const inTitle = article.title.toLowerCase().includes(normalizedQuery);
       const inKeywords = article.keywords.some((keyword) => keyword.toLowerCase().includes(normalizedQuery));
-      return inTitle || inKeywords;
+      const inContent = article.content.replace(/<[^>]+>/g, ' ').toLowerCase().includes(normalizedQuery);
+      return inTitle || inKeywords || inContent;
     });
   }, [query]);
 
@@ -95,7 +96,7 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
                           key={article.id}
                           className="app-help-article-row"
                           onClick={() => {
-                            navigate(`/help/${article.id}`, { state: { from: location.pathname } });
+                            navigate(`/help?article=${encodeURIComponent(article.id)}`, { state: { from: location.pathname } });
                             onClose();
                           }}
                         >

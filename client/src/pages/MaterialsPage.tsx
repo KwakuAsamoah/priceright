@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import PageHelpButton from '../components/PageHelpButton';
 import { Info } from 'lucide-react';
 import Materials from './Materials';
 import IntermediateMaterials from './IntermediateMaterials';
@@ -48,7 +49,8 @@ export default function MaterialsPage() {
 
   return (
     <div className="app-page materials-shell">
-      <div className="app-page-header">
+      <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
         <h1 className="app-page-title">Materials</h1>
         <div className="app-section-tabs" role="tablist" aria-label="Material workflows">
         {([
@@ -79,6 +81,8 @@ export default function MaterialsPage() {
           );
         })}
         </div>
+        </div>
+        <PageHelpButton context="materials" />
       </div>
 
       <div className="app-page-content">

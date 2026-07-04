@@ -1,187 +1,456 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpen, Search } from 'lucide-react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { helpArticles } from '../data/helpArticles';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Search } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  GETTING_STARTED_FEATURED,
+  HELP_CATEGORIES,
+  HELP_CATEGORY_ICONS,
+  HELP_CONTEXT_CATEGORY,
+  HELP_FEEDBACK_STORAGE_KEY,
+  type HelpCategory,
+} from '../data/helpConstants';
+import { helpArticles, type HelpArticle } from '../data/helpArticles';
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function articlePreview(content: string, maxLength = 100): string {
+  const text = stripHtml(content);
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength).trim()}…`;
+}
+
+function searchArticles(query: string): HelpArticle[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+
+  return helpArticles.filter((article) => {
+    const inTitle = article.title.toLowerCase().includes(normalized);
+    const inKeywords = article.keywords.some((keyword) => keyword.toLowerCase().includes(normalized));
+    const inContent = stripHtml(article.content).toLowerCase().includes(normalized);
+    return inTitle || inKeywords || inContent;
+  });
+}
+
+function readFeedbackStore(): Record<string, 'yes' | 'no'> {
+  try {
+    const raw = window.localStorage.getItem(HELP_FEEDBACK_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, 'yes' | 'no'>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeFeedback(articleId: string, value: 'yes' | 'no') {
+  const store = readFeedbackStore();
+  store[articleId] = value;
+  window.localStorage.setItem(HELP_FEEDBACK_STORAGE_KEY, JSON.stringify(store));
+}
 
 export default function HelpPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { articleId } = useParams<{ articleId?: string }>();
-  const from = location.state?.from || '/';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const from = (location.state as { from?: string } | null)?.from || '/';
 
-  const [query, setQuery] = useState('');
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() =>
-    helpArticles.reduce<Record<string, boolean>>((acc, article) => {
-      acc[article.section] = true;
-      return acc;
-    }, {})
-  );
+  const articleId = searchParams.get('article');
+  const categoryParam = searchParams.get('category');
+  const contextParam = searchParams.get('context');
+  const searchQueryParam = searchParams.get('q') || '';
 
-  const filteredArticles = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized) return helpArticles;
-    return helpArticles.filter((article) => article.title.toLowerCase().includes(normalized));
-  }, [query]);
+  const [searchInput, setSearchInput] = useState(searchQueryParam);
+  const [debouncedQuery, setDebouncedQuery] = useState(searchQueryParam);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [feedbackStore, setFeedbackStore] = useState<Record<string, 'yes' | 'no'>>(() => readFeedbackStore());
 
-  const groupedArticles = useMemo(() => {
-    return filteredArticles.reduce<Record<string, typeof helpArticles>>((acc, article) => {
-      acc[article.section] = [...(acc[article.section] || []), article];
-      return acc;
-    }, {});
-  }, [filteredArticles]);
-
-  const sections = Object.keys(groupedArticles);
-  const selectedArticle = articleId ? helpArticles.find((article) => article.id === articleId) || null : null;
-  const selectedIndex = selectedArticle ? helpArticles.findIndex((article) => article.id === selectedArticle.id) : -1;
-  const previousArticle = selectedIndex > 0 ? helpArticles[selectedIndex - 1] : null;
-  const nextArticle = selectedIndex >= 0 && selectedIndex < helpArticles.length - 1 ? helpArticles[selectedIndex + 1] : null;
+  const searchWrapRef = useRef<HTMLDivElement | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    contentScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [articleId]);
+    if (!contextParam || articleId || categoryParam || searchQueryParam) return;
+    const category = HELP_CONTEXT_CATEGORY[contextParam];
+    if (!category) return;
+    setSearchParams({ context: contextParam, category }, { replace: true });
+  }, [articleId, categoryParam, contextParam, searchQueryParam, setSearchParams]);
 
-  const firstArticlePerSection = useMemo(() => {
-    const seen = new Set<string>();
-    const list: typeof helpArticles = [];
-    for (const article of helpArticles) {
-      if (seen.has(article.section)) continue;
-      seen.add(article.section);
-      list.push(article);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(searchInput), 200);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setSearchInput(searchQueryParam);
+  }, [searchQueryParam]);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [articleId, categoryParam]);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!searchWrapRef.current?.contains(event.target as Node)) {
+        setSuggestionsOpen(false);
+      }
     }
-    return list;
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
   }, []);
 
-  const currentTitle = selectedArticle?.title || 'Help & Guide';
-  const currentSection = selectedArticle?.section || 'Article Index';
+  const selectedArticle = useMemo(
+    () => (articleId ? helpArticles.find((article) => article.id === articleId) || null : null),
+    [articleId],
+  );
+
+  const selectedCategory = useMemo(() => {
+    if (categoryParam && HELP_CATEGORIES.includes(categoryParam as HelpCategory)) {
+      return categoryParam as HelpCategory;
+    }
+    if (selectedArticle && HELP_CATEGORIES.includes(selectedArticle.section as HelpCategory)) {
+      return selectedArticle.section as HelpCategory;
+    }
+    return null;
+  }, [categoryParam, selectedArticle]);
+
+  const articlesByCategory = useMemo(() => {
+    return HELP_CATEGORIES.reduce<Record<HelpCategory, HelpArticle[]>>((acc, category) => {
+      acc[category] = helpArticles.filter((article) => article.section === category);
+      return acc;
+    }, {} as Record<HelpCategory, HelpArticle[]>);
+  }, []);
+
+  const contextCategory = contextParam ? HELP_CONTEXT_CATEGORY[contextParam] : null;
+
+  const orderedCategories = useMemo(() => {
+    if (!contextCategory) return [...HELP_CATEGORIES];
+    return [contextCategory, ...HELP_CATEGORIES.filter((category) => category !== contextCategory)];
+  }, [contextCategory]);
+
+  const suggestions = useMemo(() => searchArticles(debouncedQuery).slice(0, 6), [debouncedQuery]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQueryParam.trim()) return [];
+    return searchArticles(searchQueryParam);
+  }, [searchQueryParam]);
+
+  const featuredArticles = useMemo(() => {
+    return GETTING_STARTED_FEATURED.map((item) => {
+      const article = helpArticles.find((entry) => entry.id === item.id);
+      return article ? { ...item, article } : null;
+    }).filter((item): item is { id: string; label: string; article: HelpArticle } => item !== null);
+  }, []);
+
+  const openHome = useCallback(() => {
+    const next = new URLSearchParams();
+    if (contextParam) next.set('context', contextParam);
+    setSearchParams(next);
+  }, [contextParam, setSearchParams]);
+
+  const openCategory = useCallback(
+    (category: HelpCategory) => {
+      const next = new URLSearchParams();
+      next.set('category', category);
+      if (contextParam) next.set('context', contextParam);
+      setSearchParams(next);
+    },
+    [contextParam, setSearchParams],
+  );
+
+  const openArticle = useCallback(
+    (id: string, options?: { category?: string; q?: string }) => {
+      const next = new URLSearchParams();
+      next.set('article', id);
+      if (options?.category) next.set('category', options.category);
+      if (options?.q) next.set('q', options.q);
+      if (contextParam) next.set('context', contextParam);
+      setSearchParams(next);
+    },
+    [contextParam, setSearchParams],
+  );
+
+  const openSearchResults = useCallback(
+    (query: string) => {
+      const next = new URLSearchParams();
+      next.set('q', query.trim());
+      if (contextParam) next.set('context', contextParam);
+      setSearchParams(next);
+      setSuggestionsOpen(false);
+    },
+    [contextParam, setSearchParams],
+  );
+
+  const handleFeedback = (value: 'yes' | 'no') => {
+    if (!selectedArticle) return;
+    writeFeedback(selectedArticle.id, value);
+    setFeedbackStore((current) => ({ ...current, [selectedArticle.id]: value }));
+  };
+
+  const relatedArticles = useMemo(() => {
+    if (!selectedArticle) return [];
+    return selectedArticle.relatedArticleIds
+      .map((id) => helpArticles.find((article) => article.id === id))
+      .filter((article): article is HelpArticle => Boolean(article));
+  }, [selectedArticle]);
+
+  const showSearchResults = Boolean(searchQueryParam.trim()) && !articleId && !categoryParam;
+  const showCategoryView = Boolean(categoryParam) && !articleId;
+  const showArticleView = Boolean(selectedArticle);
+  const showHome = !showArticleView && !showCategoryView && !showSearchResults;
+
+  const backLabel = searchQueryParam
+    ? '← Back to search results'
+    : selectedCategory
+      ? `← Back to ${selectedCategory}`
+      : '← All categories';
+
+  const handleBack = () => {
+    if (searchQueryParam) {
+      const next = new URLSearchParams();
+      next.set('q', searchQueryParam);
+      if (contextParam) next.set('context', contextParam);
+      setSearchParams(next);
+      return;
+    }
+    if (selectedCategory) {
+      openCategory(selectedCategory);
+      return;
+    }
+    openHome();
+  };
 
   return (
-    <div className="help-page">
-      <header className="help-page__header">
-        <div className="help-page__header-top">
-          <button
-            type="button"
-            className="help-page__exit"
-            onClick={() => navigate(from)}
-          >
-            <ArrowLeft size={16} strokeWidth={2} />
-            Exit Help
-          </button>
-          <h1 className="help-page__title">{currentTitle}</h1>
-          <div className="help-page__breadcrumb">{currentSection}</div>
-        </div>
+    <div className="help-centre">
+      <div className="help-centre__topbar">
+        <button type="button" className="help-centre__exit" onClick={() => navigate(from)}>
+          <ArrowLeft size={16} strokeWidth={2} />
+          Exit Help
+        </button>
+      </div>
 
-        <div className="help-page__header-nav">
-          <button
-            type="button"
-            className="help-page__nav-btn"
-            onClick={() => previousArticle && navigate(`/help/${previousArticle.id}`, { state: { from } })}
-            disabled={!previousArticle}
-            title={previousArticle?.title || ''}
-          >
-            <ArrowLeft size={14} strokeWidth={2} />
-            Previous article
-          </button>
+      <div ref={contentScrollRef} className="help-centre__scroll">
+        <div className="help-centre__inner">
+          {!showArticleView && (
+            <header className="help-centre__hero">
+              <h1 className="help-centre__title">Help Centre</h1>
+              <p className="help-centre__subtitle">Find answers to your questions about PriceRight</p>
 
-          <div className="help-page__nav-count">
-            {selectedIndex >= 0 ? `${selectedIndex + 1} of ${helpArticles.length} articles` : `0 of ${helpArticles.length} articles`}
-          </div>
+              <div ref={searchWrapRef} className="help-centre__search-wrap">
+                <label className="help-centre__search">
+                  <Search size={18} strokeWidth={2} />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(event) => {
+                      setSearchInput(event.target.value);
+                      setSuggestionsOpen(true);
+                    }}
+                    onFocus={() => setSuggestionsOpen(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && debouncedQuery.trim()) {
+                        openSearchResults(debouncedQuery);
+                      }
+                    }}
+                    placeholder="Search help articles..."
+                    aria-label="Search help articles"
+                    aria-expanded={suggestionsOpen && debouncedQuery.trim().length > 0}
+                  />
+                </label>
 
-          <button
-            type="button"
-            className="help-page__nav-btn"
-            onClick={() => nextArticle && navigate(`/help/${nextArticle.id}`, { state: { from } })}
-            disabled={!nextArticle}
-            title={nextArticle?.title || ''}
-          >
-            Next article
-            <ArrowRight size={14} strokeWidth={2} />
-          </button>
-        </div>
-      </header>
-
-      <div className="help-page__body">
-        <aside className="help-page__sidebar">
-          <div className="help-page__sidebar-search">
-            <div className="help-page__sidebar-title">Help Articles</div>
-            <label className="help-page__search">
-              <Search size={13} strokeWidth={2} />
-              <input
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search help articles..."
-              />
-            </label>
-          </div>
-
-          <nav className="help-page__nav-list" aria-label="Help articles">
-            {sections.length === 0 ? (
-              <div className="help-page__nav-empty">
-                <BookOpen size={14} strokeWidth={2} /> No matching articles.
+                {suggestionsOpen && debouncedQuery.trim().length > 0 && (
+                  <div className="help-centre__suggestions" role="listbox">
+                    {suggestions.length === 0 ? (
+                      <div className="help-centre__suggestion-empty">
+                        No articles found for &apos;{debouncedQuery}&apos; — try different words
+                      </div>
+                    ) : (
+                      suggestions.map((article) => (
+                        <button
+                          key={article.id}
+                          type="button"
+                          className="help-centre__suggestion"
+                          onClick={() => openArticle(article.id, { q: debouncedQuery.trim() })}
+                        >
+                          <span className="help-centre__suggestion-title">{article.title}</span>
+                          <span className="help-centre__badge">{article.section}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-            ) : (
-              sections.map((section) => (
-                <section key={section} className="help-page__nav-section">
-                  <button
-                    type="button"
-                    className="help-page__section-toggle"
-                    onClick={() => setExpandedSections((current) => ({ ...current, [section]: !current[section] }))}
-                  >
-                    <span>{section}</span>
-                    <span aria-hidden="true">{expandedSections[section] === false ? '+' : '−'}</span>
-                  </button>
-                  {expandedSections[section] !== false && (
-                    <div className="help-page__section-articles">
-                      {groupedArticles[section].map((article) => {
-                        const active = selectedArticle?.id === article.id;
-                        return (
-                          <button
-                            key={article.id}
-                            type="button"
-                            onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
-                            className={`app-panel-tab ${active ? 'is-active' : ''}`}
-                          >
-                            {article.title}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              ))
-            )}
-          </nav>
-        </aside>
+            </header>
+          )}
 
-        <div ref={contentScrollRef} className="help-page__content">
-          {selectedArticle ? (
-            <article className="help-page__article">
-              <div className="help-page__article-meta">Help → {selectedArticle.section}</div>
-              <h2 className="help-page__article-title">{selectedArticle.title}</h2>
-              <div className="help-article-body" dangerouslySetInnerHTML={{ __html: selectedArticle.content }} />
-            </article>
-          ) : (
-            <div className="help-page__index">
-              <BookOpen size={48} strokeWidth={1.8} color="#94a3b8" />
-              <h2 className="help-page__index-title">PriceRight Help &amp; Guide</h2>
-              <p className="help-page__index-subtitle">
-                Select an article from the left to get started, or search for a topic above.
-              </p>
-              <div className="help-page__index-grid">
-                {firstArticlePerSection.map((article) => (
+          {showHome && (
+            <>
+              {contextCategory && (
+                <section className="help-centre__context-banner">
+                  Showing help for <strong>{contextCategory}</strong>
+                </section>
+              )}
+
+              <section className="help-centre__featured">
+                <h2 className="help-centre__featured-heading">Getting Started</h2>
+                <div className="help-centre__featured-grid">
+                  {featuredArticles.map(({ id, label, article }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="help-centre__featured-card"
+                      onClick={() => openArticle(id, { category: 'Getting Started' })}
+                    >
+                      <div className="help-centre__featured-title">{label}</div>
+                      <div className="help-centre__featured-meta">
+                        <span className="help-centre__badge">{article.section}</span>
+                        <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="help-centre__categories">
+                <h2 className="help-centre__section-title">Browse by category</h2>
+                <div className="help-centre__category-grid">
+                  {orderedCategories.map((category) => {
+                    const Icon = HELP_CATEGORY_ICONS[category];
+                    const count = articlesByCategory[category].length;
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        className="help-centre__category-card"
+                        onClick={() => openCategory(category)}
+                      >
+                        <span className="help-centre__category-icon">
+                          <Icon size={22} strokeWidth={2} />
+                        </span>
+                        <span className="help-centre__category-name">{category}</span>
+                        <span className="help-centre__category-count">{count} articles</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
+
+          {showSearchResults && (
+            <section className="help-centre__list-section">
+              <div className="help-centre__breadcrumb">Help &gt; Search results</div>
+              <button type="button" className="help-centre__back-link" onClick={openHome}>
+                ← All categories
+              </button>
+              <h2 className="help-centre__list-title">
+                {searchResults.length} result{searchResults.length === 1 ? '' : 's'} for &quot;{searchQueryParam}&quot;
+              </h2>
+              <div className="help-centre__article-cards">
+                {searchResults.map((article) => (
                   <button
                     key={article.id}
                     type="button"
-                    className="help-page__index-card"
-                    onClick={() => navigate(`/help/${article.id}`, { state: { from } })}
+                    className="help-centre__article-card"
+                    onClick={() => openArticle(article.id, { q: searchQueryParam })}
                   >
-                    <div className="help-page__index-card-section">{article.section}</div>
-                    <div className="help-page__index-card-title">{article.title}</div>
+                    <div className="help-centre__article-card-title">{article.title}</div>
+                    <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
+                    <div className="help-centre__article-card-meta">
+                      <span className="help-centre__badge">{article.section}</span>
+                      <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
+                    </div>
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
+          )}
+
+          {showCategoryView && selectedCategory && (
+            <section className="help-centre__list-section">
+              <div className="help-centre__breadcrumb">Help &gt; {selectedCategory}</div>
+              <button type="button" className="help-centre__back-link" onClick={openHome}>
+                ← All categories
+              </button>
+              <h2 className="help-centre__list-title">{selectedCategory}</h2>
+              <div className="help-centre__article-cards">
+                {articlesByCategory[selectedCategory].map((article) => (
+                  <button
+                    key={article.id}
+                    type="button"
+                    className="help-centre__article-card"
+                    onClick={() => openArticle(article.id, { category: selectedCategory })}
+                  >
+                    <div className="help-centre__article-card-title">{article.title}</div>
+                    <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
+                    <div className="help-centre__article-card-meta">
+                      <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {showArticleView && selectedArticle && (
+            <article className="help-centre__article-view">
+              <div className="help-centre__breadcrumb">
+                Help &gt; {selectedArticle.section} &gt; {selectedArticle.title}
+              </div>
+              <button type="button" className="help-centre__back-link" onClick={handleBack}>
+                {backLabel}
+              </button>
+              <h2 className="help-centre__article-heading">{selectedArticle.title}</h2>
+              <div className="help-centre__reading-time help-centre__reading-time--article">
+                {selectedArticle.readingTimeMinutes} min read
+              </div>
+              <div
+                className="help-article-body help-centre__article-body"
+                dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+              />
+
+              {relatedArticles.length > 0 && (
+                <section className="help-centre__related">
+                  <h3 className="help-centre__related-title">Related articles</h3>
+                  <div className="help-centre__related-grid">
+                    {relatedArticles.map((article) => (
+                      <button
+                        key={article.id}
+                        type="button"
+                        className="help-centre__related-card"
+                        onClick={() =>
+                          openArticle(article.id, {
+                            category: selectedCategory || article.section,
+                            q: searchQueryParam || undefined,
+                          })
+                        }
+                      >
+                        <div className="help-centre__related-card-title">{article.title}</div>
+                        <div className="help-centre__reading-time">{article.readingTimeMinutes} min read</div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              <section className="help-centre__feedback">
+                {feedbackStore[selectedArticle.id] ? (
+                  <p className="help-centre__feedback-thanks">Thank you for your feedback!</p>
+                ) : (
+                  <>
+                    <p className="help-centre__feedback-question">Was this article helpful?</p>
+                    <div className="help-centre__feedback-actions">
+                      <button type="button" className="help-centre__feedback-btn" onClick={() => handleFeedback('yes')}>
+                        👍 Yes
+                      </button>
+                      <button type="button" className="help-centre__feedback-btn" onClick={() => handleFeedback('no')}>
+                        👎 No
+                      </button>
+                    </div>
+                  </>
+                )}
+              </section>
+            </article>
           )}
         </div>
       </div>

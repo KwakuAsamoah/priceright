@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
+import PageHelpButton from '../components/PageHelpButton';
 import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
@@ -1861,12 +1862,15 @@ export default function PriceLevels() {
 
   return (
     <div className="app-page">
-      <div className="app-page-header">
+      <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <div>
           <h1 className="app-page-title">Price levels</h1>
           <div className="app-page-subtitle">Manage level-specific product pricing and approval workflow.</div>
         </div>
-        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '12px' }}>
+        <PageHelpButton context="price-levels" />
+      </div>
+      <div className="app-page-header" style={{ paddingTop: 0 }}>
+        <AppButton variant="primary" onClick={openWizard} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginTop: '0' }}>
           <Plus size={14} strokeWidth={2} />
           New price level
         </AppButton>

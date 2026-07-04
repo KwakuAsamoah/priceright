@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import PageHelpButton from '../components/PageHelpButton';
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
@@ -780,7 +781,8 @@ async function loadData() {
     <div className="app-page settings-page">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       {/* Header */}
-      <div className="app-page-header">
+      <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
         <h1 className="app-page-title">Settings</h1>
         <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
           {SETTINGS_TABS.map((tab, index) => {
@@ -809,6 +811,8 @@ async function loadData() {
             );
           })}
         </div>
+        </div>
+        <PageHelpButton context="settings" />
       </div>
 
       <div className="app-page-content">

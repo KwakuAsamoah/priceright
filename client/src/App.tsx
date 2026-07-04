@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './App.css';
-import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, RouterProvider } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, useParams, RouterProvider } from 'react-router-dom';
 import { createHashRouter } from 'react-router';
 import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
@@ -668,6 +668,11 @@ function OnboardingProviderWrapper({ children }: { children: ReactNode }) {
   return <OnboardingProvider navigate={navigate}>{children}</OnboardingProvider>;
 }
 
+function HelpArticleRedirect() {
+  const { articleId } = useParams<{ articleId: string }>();
+  return <Navigate to={`/help?article=${encodeURIComponent(articleId || '')}`} replace />;
+}
+
 function AuthenticatedApp() {
   const router = createHashRouter([
     {
@@ -694,7 +699,7 @@ function AuthenticatedApp() {
         { path: 'activity', element: <Activity /> },
         { path: 'settings', element: <Settings /> },
         { path: 'help', element: <HelpPage /> },
-        { path: 'help/:articleId', element: <HelpPage /> },
+        { path: 'help/:articleId', element: <HelpArticleRedirect /> },
         { path: '*', element: <Navigate to="products" replace /> },
       ],
     },
