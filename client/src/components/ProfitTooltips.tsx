@@ -12,18 +12,6 @@ export function MarkupInfoTooltip({ position = 'top' }: { position?: 'top' | 'bo
   );
 }
 
-export function GrossMarginInfoTooltip({ position = 'top' }: { position?: 'top' | 'bottom' | 'left' | 'right' }) {
-  return (
-    <InfoTooltip
-      title="Gross Margin %"
-      explanation="How much of every sale is profit. A 23% margin means for every 13.00 you sell a product for, 3.00 is profit."
-      formula="(Selling price − Cost) ÷ Selling price"
-      example="Cost: 10.00 · Price: 13.00 → Gross Margin: 23%"
-      position={position}
-    />
-  );
-}
-
 export function OptimalMarkupInfoTooltip({ position = 'top' }: { position?: 'top' | 'bottom' | 'left' | 'right' }) {
   return (
     <InfoTooltip
