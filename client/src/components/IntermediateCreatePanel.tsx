@@ -382,12 +382,13 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
     const overheadPercentage = Number(form.overheadPercentage || 0) / 100;
     const batchOverheadCost = batchMaterialCost * overheadPercentage;
     const batchTotalCost = batchMaterialCost + batchOverheadCost;
-    const batchQuantity = Math.max(0.0001, Number(form.bulkQuantity || 1));
+    const parsedBulkQuantity = Number(form.bulkQuantity);
+    const batchQuantity = Number.isFinite(parsedBulkQuantity) && parsedBulkQuantity >= 0 ? parsedBulkQuantity : 0;
     const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
     const effectiveOutputQuantity = form.intermediateCostMode === 'completed_output'
       ? batchQuantity
       : batchQuantity * (yieldPercent / 100);
-    const costPerUnit = batchTotalCost / effectiveOutputQuantity;
+    const costPerUnit = effectiveOutputQuantity > 0 ? batchTotalCost / effectiveOutputQuantity : 0;
     const marginPercentage = Number(form.marginPercentage || 0) / 100;
     const profitAmount = costPerUnit * marginPercentage;
     const optimalPrice = costPerUnit + profitAmount;
@@ -472,7 +473,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
     setSaving(true);
     try {
       const resolvedCategory = resolveCategoryForSave();
-      const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
+      const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 0);
       if (String(resolvedBulkQuantity) !== form.bulkQuantity) {
         setForm((prev) => ({ ...prev, bulkQuantity: String(resolvedBulkQuantity) }));
       }
