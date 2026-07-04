@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
 import { activityLogApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import { getThresholdMarkupColor } from '../utils/margin';
 interface Product {
   id: number;
   name: string;
@@ -52,12 +54,6 @@ const TAB_BUTTONS = [
 function formatAbsoluteDate(unixSeconds: number): string {
   const date = new Date(unixSeconds * 1000);
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function getMarginColor(margin: number): string {
-  if (margin >= 15) return '#16a34a';
-  if (margin >= 10) return '#d97706';
-  return '#dc2626';
 }
 
 function formatRelativeTime(unixSeconds: number): string {
@@ -134,6 +130,7 @@ export default function ProductTabs({
   onEditProduct,
 }: ProductTabsProps) {
   const { baseCurrency } = useBaseCurrency();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   const [historyFilter, setHistoryFilter] = useState<'all' | 'approvals'>('all');
   const [priceHistory, setPriceHistory] = useState<ActivityEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -338,7 +335,10 @@ export default function ProductTabs({
                       <th style={{ padding: '8px', textAlign: 'left' }}>Date</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Approved price</th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Production cost</th>
-                      <th style={{ padding: '8px', textAlign: 'right' }}>Margin</th>
+                      <th style={{ padding: '8px', textAlign: 'right' }}>
+                        <div>Markup %</div>
+                        <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 400 }} title="Older entries store gross margin at approval time">(historical values)</div>
+                      </th>
                       <th style={{ padding: '8px', textAlign: 'right' }}>Change</th>
                       <th style={{ padding: '8px', textAlign: 'left' }}>Approved by</th>
                     </tr>
@@ -349,7 +349,9 @@ export default function ProductTabs({
                       const newPrice = typeof d?.newPrice === 'number' ? d.newPrice : null;
                       const oldPrice = typeof d?.oldPrice === 'number' ? d.oldPrice : null;
                       const productionCostVal = typeof d?.productionCost === 'number' ? d.productionCost : null;
+                      const markupPercentVal = typeof d?.markupPercent === 'number' ? d.markupPercent : null;
                       const marginVal = typeof d?.margin === 'number' ? d.margin : null;
+                      const displayPercent = markupPercentVal ?? marginVal;
 
                       const priceChange = newPrice !== null && oldPrice !== null
                         ? newPrice - oldPrice
@@ -377,8 +379,14 @@ export default function ProductTabs({
                             <td style={{ padding: '8px', textAlign: 'right', color: '#475569' }}>
                               {productionCostVal !== null ? `${baseCurrency} ${productionCostVal.toFixed(2)}` : '—'}
                             </td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: marginVal !== null ? getMarginColor(marginVal) : '#475569' }}>
-                              {marginVal !== null ? `${marginVal.toFixed(1)}%` : '—'}
+                            <td style={{
+                              padding: '8px',
+                              textAlign: 'right',
+                              fontWeight: 600,
+                              // Historical values are gross margin — threshold comparison is approximate
+                              color: displayPercent !== null ? getThresholdMarkupColor(displayPercent, lowMarkupThreshold) : '#475569',
+                            }}>
+                              {displayPercent !== null ? `${displayPercent.toFixed(1)}%` : '—'}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'right' }}>
                               {isFirst && oldPrice === null ? (

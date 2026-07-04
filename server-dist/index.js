@@ -738,10 +738,26 @@ app.post('/api/pin/reset', async (_req, res) => {
         message: 'To reset your PIN contact support@priceright.app with your licence key',
     });
 });
+/** Default values for settings not yet stored in the database. */
+const SETTING_DEFAULTS = {
+    healthyMarkupThreshold: '20',
+};
 app.get('/api/settings', async (req, res) => {
     try {
         const allSettings = await getActiveDb().select().from(settings);
-        res.json(allSettings);
+        const existingKeys = new Set(allSettings.map((entry) => entry.settingKey));
+        const mergedSettings = [...allSettings];
+        for (const [settingKey, settingValue] of Object.entries(SETTING_DEFAULTS)) {
+            if (!existingKeys.has(settingKey)) {
+                mergedSettings.push({
+                    id: 0,
+                    settingKey,
+                    settingValue,
+                    updatedAt: new Date(),
+                });
+            }
+        }
+        res.json(mergedSettings);
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to fetch settings' });
@@ -2460,6 +2476,9 @@ app.post('/api/products/:id/approve', async (req, res) => {
             const margin = approvedPriceNumber > 0
                 ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
                 : 0;
+            const markupPercent = productionCost > 0
+                ? ((approvedPriceNumber - productionCost) / productionCost) * 100
+                : 0;
             await logActivity({
                 entityType: 'product',
                 entityId: productId,
@@ -2470,6 +2489,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
                     newPrice: approvedPriceNumber,
                     productionCost: roundToTwo(productionCost),
                     margin: roundToTwo(margin),
+                    markupPercent: roundToTwo(markupPercent),
                 },
                 performedBy,
             });
@@ -2646,6 +2666,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
             const productionCost = await calculateProductionCostForProduct(current, productId);
             const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
+            const markupPercent = productionCost > 0 ? ((priceToApprove - productionCost) / productionCost) * 100 : 0;
             await logActivity({
                 entityType: 'product',
                 entityId: productId,
@@ -2656,6 +2677,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                     newPrice: priceToApprove,
                     productionCost: roundToTwo(productionCost),
                     margin: roundToTwo(margin),
+                    markupPercent: roundToTwo(markupPercent),
                 },
                 performedBy,
             });

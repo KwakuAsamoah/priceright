@@ -2910,6 +2910,9 @@ app.post('/api/products/:id/approve', async (req, res) => {
       const margin = approvedPriceNumber > 0
         ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
         : 0;
+      const markupPercent = productionCost > 0
+        ? ((approvedPriceNumber - productionCost) / productionCost) * 100
+        : 0;
       await logActivity({
         entityType: 'product',
         entityId: productId,
@@ -2920,6 +2923,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
           newPrice: approvedPriceNumber,
           productionCost: roundToTwo(productionCost),
           margin: roundToTwo(margin),
+          markupPercent: roundToTwo(markupPercent),
         },
         performedBy,
       });
@@ -3132,6 +3136,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
 
       const productionCost = await calculateProductionCostForProduct(current, productId);
       const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
+      const markupPercent = productionCost > 0 ? ((priceToApprove - productionCost) / productionCost) * 100 : 0;
       await logActivity({
         entityType: 'product',
         entityId: productId,
@@ -3142,6 +3147,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
           newPrice: priceToApprove,
           productionCost: roundToTwo(productionCost),
           margin: roundToTwo(margin),
+          markupPercent: roundToTwo(markupPercent),
         },
         performedBy,
       });

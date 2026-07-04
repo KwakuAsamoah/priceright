@@ -17,6 +17,8 @@ import {
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import { getThresholdMarkupColor } from '../utils/margin';
 
 const PAGE_SIZE = 50;
 
@@ -139,7 +141,10 @@ function formatOverrideType(overrideType: unknown, value: unknown, currencyCode:
   return String(overrideType || 'Custom price');
 }
 
-function getActivityDescription(entry: ActivityEntry, currencyCode: string): { title: string; subline?: string } {
+function getActivityDescription(
+  entry: ActivityEntry,
+  currencyCode: string,
+): { title: string; subline?: string; markupPercentAtApproval?: number } {
   const details = (entry.details || {}) as Record<string, unknown>;
   const entityName = entry.entityName || details.productName || details.materialName || details.levelName || details.currencyCode || 'Item';
 
@@ -150,9 +155,13 @@ function getActivityDescription(entry: ActivityEntry, currencyCode: string): { t
       const title = oldPrice !== null && oldPrice !== undefined
         ? `${entityName} base price approved, changed from ${currencyCode} ${toMoney(oldPrice)} to ${currencyCode} ${toMoney(newPrice)}`
         : `${entityName} base price approved at ${currencyCode} ${toMoney(newPrice)}`;
+      const markupPercentAtApproval = Number(
+        details.markupPercent ?? details.margin,
+      );
       return {
         title,
-        subline: `Gross Margin %: ${toNumberString(details.margin)}% | Production cost: ${currencyCode} ${toMoney(details.productionCost)}`,
+        subline: `Production cost: ${currencyCode} ${toMoney(details.productionCost)}`,
+        markupPercentAtApproval: Number.isFinite(markupPercentAtApproval) ? markupPercentAtApproval : undefined,
       };
     }
     case 'product.reset_to_pending': {
@@ -232,6 +241,7 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
 
 export default function Activity() {
   const { baseCurrency } = useBaseCurrency();
+  const lowMarkupThreshold = useLowMarkupThreshold();
   // Tier 2: add role-based access control here
   // For Tier 1 Solo this page is accessible to all users
   const searchParams = new URLSearchParams(window.location.search);
@@ -468,8 +478,23 @@ export default function Activity() {
 
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: '15px', color: '#0f172a' }}>{description.title}</div>
-                          {description.subline && (
-                            <div style={{ marginTop: '3px', fontSize: '14px', color: '#64748b' }}>{description.subline}</div>
+                          {(description.subline || description.markupPercentAtApproval !== undefined) && (
+                            <div style={{ marginTop: '3px', fontSize: '14px', color: '#64748b' }}>
+                              {description.markupPercentAtApproval !== undefined && (
+                                <>
+                                  Markup % (at approval):{' '}
+                                  <span style={{
+                                    // Historical values are gross margin — threshold comparison is approximate
+                                    color: getThresholdMarkupColor(description.markupPercentAtApproval, lowMarkupThreshold),
+                                    fontWeight: 600,
+                                  }}>
+                                    {description.markupPercentAtApproval.toFixed(1)}%
+                                  </span>
+                                  {description.subline ? ' | ' : null}
+                                </>
+                              )}
+                              {description.subline}
+                            </div>
                           )}
                         </div>
 
