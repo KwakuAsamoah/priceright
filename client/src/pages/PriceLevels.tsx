@@ -2619,7 +2619,7 @@ export default function PriceLevels() {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '12px', paddingRight: '28px' }}>
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
+                className="btn-outline"
                 onClick={() => void navigatePackModal('prev')}
                 disabled={packModalProductIndex <= 0 || packModalNavLoading}
                 aria-label="Previous product"
@@ -2648,7 +2648,7 @@ export default function PriceLevels() {
               </div>
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
+                className="btn-outline"
                 onClick={() => void navigatePackModal('next')}
                 disabled={packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading}
                 aria-label="Next product"
