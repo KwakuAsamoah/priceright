@@ -65,11 +65,13 @@ const fieldInputStyle = {
 
 const pageContainerStyle = {
   position: 'fixed' as const,
-  top: 0,
-  right: 0,
-  bottom: 0,
+  top: '16px',
+  right: '16px',
+  bottom: '16px',
   width: '780px',
+  height: 'calc(100vh - 32px)',
   background: '#ffffff',
+  borderRadius: '12px',
   boxShadow: '-4px 0 24px rgba(0,0,0,0.10)',
   zIndex: 100,
   display: 'flex',
