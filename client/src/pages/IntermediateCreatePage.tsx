@@ -64,6 +64,17 @@ const fieldInputStyle = {
   boxSizing: 'border-box' as const,
 } as const;
 
+const pageOverlayStyle = {
+  position: 'fixed' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.35)',
+  zIndex: 99,
+  pointerEvents: 'none' as const,
+};
+
 const pageContainerStyle = {
   position: 'fixed' as const,
   top: '16px',
@@ -487,6 +498,7 @@ export default function IntermediateCreatePage() {
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+      <div style={pageOverlayStyle} aria-hidden="true" />
       <div style={pageContainerStyle}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
           <button
