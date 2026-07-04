@@ -3,17 +3,18 @@ import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
   ArrowUpDown,
-  BarChart2,
   ChevronDown,
+  Download,
   FileText,
   LineChart,
+  Loader2,
+  Printer,
   RefreshCw,
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
-import ReportWrapper from '../components/ReportWrapper';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, settingsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
@@ -302,34 +303,52 @@ const REPORT_METADATA_BY_KEY = Object.fromEntries(
   REPORT_METADATA.map((report) => [report.key, report]),
 ) as Record<ReportKey, (typeof REPORT_METADATA)[number]>;
 
-const REPORT_GROUPS: Array<{
-  id: 'pricing' | 'materials' | 'products';
-  label: string;
-  reportKeys: ReportKey[];
-}> = [
-  {
-    id: 'pricing',
-    label: 'PRICING',
-    reportKeys: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
-  },
-  {
-    id: 'materials',
-    label: 'MATERIALS',
-    reportKeys: ['currency-exposure'],
-  },
-  {
-    id: 'products',
-    label: 'PRODUCTS',
-    reportKeys: ['margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
-  },
+type ReportGroupId = 'pricing' | 'products' | 'materials';
+
+const GROUP_REPORT_KEYS: Record<ReportGroupId, ReportKey[]> = {
+  pricing: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
+  products: ['margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
+  materials: ['currency-exposure'],
+};
+
+const MATERIALS_DROPDOWN_OPTIONS: Array<{ value: string; label: string; disabled?: boolean }> = [
+  { value: 'currency-exposure', label: 'Currency Exposure' },
+  { value: 'materials-cost-trends', label: 'Material Cost Trends — coming soon', disabled: true },
+  { value: 'materials-supplier-summary', label: 'Supplier Summary — coming soon', disabled: true },
+  { value: 'materials-price-changes', label: 'Material Price Changes — coming soon', disabled: true },
+  { value: 'materials-stock-valuation', label: 'Stock Valuation — coming soon', disabled: true },
+  { value: 'materials-category-breakdown', label: 'Category Breakdown — coming soon', disabled: true },
 ];
 
-const REPORT_GROUP_HEADING_STYLE: CSSProperties = {
-  fontSize: '11px',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: '#94A3B8',
-  marginBottom: '6px',
+const ROWS_PER_PAGE = 15;
+
+const REPORT_PILL_STYLE: CSSProperties = {
+  border: 'none',
+  borderRadius: '999px',
+  padding: '8px 14px',
+  fontSize: '14px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+};
+
+const INLINE_FILTER_ROW_STYLE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  justifyContent: 'space-between',
+  gap: '12px',
+  flexWrap: 'wrap',
+  backgroundColor: '#F8FAFC',
+  padding: '10px 16px',
+  borderRadius: '8px',
+  marginBottom: '12px',
+};
+
+const INLINE_FILTER_FIELD: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  minWidth: '130px',
 };
 
 const DEFAULT_LOW_MARGIN_THRESHOLD = 20;
@@ -417,6 +436,15 @@ function mapProductForAnalysisTab(product: ProductRow): MarginHealthProduct {
   };
 }
 
+function paginateRows<T>(rows: T[], page: number): T[] {
+  const start = (page - 1) * ROWS_PER_PAGE;
+  return rows.slice(start, start + ROWS_PER_PAGE);
+}
+
+function getTotalPages(rowCount: number): number {
+  return Math.max(1, Math.ceil(rowCount / ROWS_PER_PAGE));
+}
+
 function parseDate(value: string | number | null | undefined): Date | null {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value === 'number') {
@@ -462,7 +490,9 @@ export default function Reports() {
     const text = formatCurrencyAmount(absValue, baseCurrency);
     return value < 0 ? `(${text})` : text;
   };
-  const [selectedReport, setSelectedReport] = useState<ReportKey | null>(null);
+  const [selectedReport, setSelectedReport] = useState<ReportKey>('pricing-status');
+  const [activeGroup, setActiveGroup] = useState<ReportGroupId>('pricing');
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
@@ -490,8 +520,49 @@ export default function Reports() {
 
   const [optimalGapFilter, setOptimalGapFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal'>('All');
 
-  const selectedMeta = REPORT_METADATA.find((item) => item.key === selectedReport) || null;
+  const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
   const { handlePrint } = usePrint();
+
+  function selectReport(reportKey: ReportKey) {
+    resetFiltersForReport(reportKey);
+    setSelectedReport(reportKey);
+    setReportData(null);
+    setGeneratedAt(null);
+    setError(null);
+    setCurrentPage(1);
+    setExpandedCurrencyCodes(new Set());
+  }
+
+  function handleGroupTabChange(group: ReportGroupId) {
+    setActiveGroup(group);
+    const firstReport = GROUP_REPORT_KEYS[group][0];
+    resetFiltersForReport(firstReport);
+    setSelectedReport(firstReport);
+    setReportData(null);
+    setGeneratedAt(null);
+    setError(null);
+    setCurrentPage(1);
+    setExpandedCurrencyCodes(new Set());
+  }
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    selectedReport,
+    pricingCategoryFilter,
+    pricingStatusFilter,
+    pricingSort,
+    lowMarginThreshold,
+    lowMarginCategoryFilter,
+    approvalFromDate,
+    approvalToDate,
+    approvalStatusFilter,
+    approvalCategoryFilter,
+    profitabilityCategoryFilter,
+    profitabilitySort,
+    driftFilter,
+    optimalGapFilter,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -550,7 +621,6 @@ export default function Reports() {
   }, []);
 
   useEffect(() => {
-    if (!selectedReport) return;
     void generateReport();
   }, [
     selectedReport,
@@ -1489,161 +1559,214 @@ export default function Reports() {
 
     if (selectedReport === 'pricing-status') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(160px, 1fr))', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">Category</label>
-              <select className="app-control" value={pricingCategoryFilter} onChange={(e) => setPricingCategoryFilter(e.target.value)}>
-                <option value="All">All</option>
-                {pricingCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="app-settings-label">Pricing Status</label>
-              <select className="app-control" value={pricingStatusFilter} onChange={(e) => setPricingStatusFilter(e.target.value as any)}>
-                <option value="All">All</option>
-                <option value="Above Optimal">Above Optimal</option>
-                <option value="Below Optimal">Below Optimal</option>
-                <option value="At Optimal">At Optimal</option>
-              </select>
-            </div>
-            <div>
-              <label className="app-settings-label">Sort by</label>
-              <select className="app-control" value={pricingSort} onChange={(e) => setPricingSort(e.target.value as any)}>
-                <option>Product Name</option>
-                <option>Profit % desc</option>
-                <option>Profit % asc</option>
-                <option>Variance desc</option>
-                <option>Variance asc</option>
-              </select>
-            </div>
+        <>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Category</label>
+            <select className="app-control" value={pricingCategoryFilter} onChange={(e) => setPricingCategoryFilter(e.target.value)}>
+              <option value="All">All</option>
+              {pricingCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
           </div>
-        </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Pricing Status</label>
+            <select className="app-control" value={pricingStatusFilter} onChange={(e) => setPricingStatusFilter(e.target.value as typeof pricingStatusFilter)}>
+              <option value="All">All</option>
+              <option value="Above Optimal">Above Optimal</option>
+              <option value="Below Optimal">Below Optimal</option>
+              <option value="At Optimal">At Optimal</option>
+            </select>
+          </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Sort by</label>
+            <select className="app-control" value={pricingSort} onChange={(e) => setPricingSort(e.target.value as typeof pricingSort)}>
+              <option>Product Name</option>
+              <option>Profit % desc</option>
+              <option>Profit % asc</option>
+              <option>Variance desc</option>
+              <option>Variance asc</option>
+            </select>
+          </div>
+        </>
       );
     }
 
     if (selectedReport === 'low-margin') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '200px 200px', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">Flag products with margin below:</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <input className="app-control" type="number" value={lowMarginThreshold} onChange={(e) => setLowMarginThreshold(Number(e.target.value || 0))} />
-                <span style={{ fontWeight: 600 }}>%</span>
-              </div>
-            </div>
-            <div>
-              <label className="app-settings-label">Category</label>
-              <select className="app-control" value={lowMarginCategoryFilter} onChange={(e) => setLowMarginCategoryFilter(e.target.value)}>
-                <option value="All">All</option>
-                {lowMarginCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+        <>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Flag products with margin below:</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input className="app-control" type="number" value={lowMarginThreshold} onChange={(e) => setLowMarginThreshold(Number(e.target.value || 0))} />
+              <span style={{ fontWeight: 600 }}>%</span>
             </div>
           </div>
-        </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Category</label>
+            <select className="app-control" value={lowMarginCategoryFilter} onChange={(e) => setLowMarginCategoryFilter(e.target.value)}>
+              <option value="All">All</option>
+              {lowMarginCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        </>
       );
     }
 
     if (selectedReport === 'approval-history') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(170px, 1fr))', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">From</label>
-              <input className="app-control" type="date" value={approvalFromDate} onChange={(e) => setApprovalFromDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="app-settings-label">To</label>
-              <input className="app-control" type="date" value={approvalToDate} onChange={(e) => setApprovalToDate(e.target.value)} />
-            </div>
-            <div>
-              <label className="app-settings-label">Approval status</label>
-              <select className="app-control" value={approvalStatusFilter} onChange={(e) => setApprovalStatusFilter(e.target.value as any)}>
-                <option value="All">All</option>
-                <option value="approved">Approved</option>
-                <option value="needs_review">Needs Review</option>
-                <option value="pending">Pending</option>
-              </select>
-            </div>
-            <div>
-              <label className="app-settings-label">Category</label>
-              <select className="app-control" value={approvalCategoryFilter} onChange={(e) => setApprovalCategoryFilter(e.target.value)}>
-                <option value="All">All</option>
-                {approvalCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
+        <>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">From</label>
+            <input className="app-control" type="date" value={approvalFromDate} onChange={(e) => setApprovalFromDate(e.target.value)} />
           </div>
-        </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">To</label>
+            <input className="app-control" type="date" value={approvalToDate} onChange={(e) => setApprovalToDate(e.target.value)} />
+          </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Approval status</label>
+            <select className="app-control" value={approvalStatusFilter} onChange={(e) => setApprovalStatusFilter(e.target.value as typeof approvalStatusFilter)}>
+              <option value="All">All</option>
+              <option value="approved">Approved</option>
+              <option value="needs_review">Needs Review</option>
+              <option value="pending">Pending</option>
+            </select>
+          </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Category</label>
+            <select className="app-control" value={approvalCategoryFilter} onChange={(e) => setApprovalCategoryFilter(e.target.value)}>
+              <option value="All">All</option>
+              {approvalCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+        </>
       );
     }
 
     if (selectedReport === 'profitability-ranking') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">Category</label>
-              <select className="app-control" value={profitabilityCategoryFilter} onChange={(e) => setProfitabilityCategoryFilter(e.target.value)}>
-                <option value="All">All</option>
-                {productReportCategories.map((category) => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="app-settings-label">Sort by</label>
-              <select className="app-control" value={profitabilitySort} onChange={(e) => setProfitabilitySort(e.target.value as typeof profitabilitySort)}>
-                <option>Margin desc</option>
-                <option>Margin asc</option>
-                <option>Product Name</option>
-              </select>
-            </div>
+        <>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Category</label>
+            <select className="app-control" value={profitabilityCategoryFilter} onChange={(e) => setProfitabilityCategoryFilter(e.target.value)}>
+              <option value="All">All</option>
+              {productReportCategories.map((category) => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
           </div>
-        </div>
+          <div style={INLINE_FILTER_FIELD}>
+            <label className="app-settings-label">Sort by</label>
+            <select className="app-control" value={profitabilitySort} onChange={(e) => setProfitabilitySort(e.target.value as typeof profitabilitySort)}>
+              <option>Margin desc</option>
+              <option>Margin asc</option>
+              <option>Product Name</option>
+            </select>
+          </div>
+        </>
       );
     }
 
     if (selectedReport === 'price-vs-cost-drift') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '200px', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">Show</label>
-              <select className="app-control" value={driftFilter} onChange={(e) => setDriftFilter(e.target.value as typeof driftFilter)}>
-                <option value="Negative only">Negative drift only</option>
-                <option value="All">All products</option>
-              </select>
-            </div>
-          </div>
+        <div style={INLINE_FILTER_FIELD}>
+          <label className="app-settings-label">Show</label>
+          <select className="app-control" value={driftFilter} onChange={(e) => setDriftFilter(e.target.value as typeof driftFilter)}>
+            <option value="Negative only">Negative drift only</option>
+            <option value="All">All products</option>
+          </select>
         </div>
       );
     }
 
     if (selectedReport === 'optimal-vs-actual-gap') {
       return (
-        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '200px', gap: '10px' }}>
-            <div>
-              <label className="app-settings-label">Gap filter</label>
-              <select className="app-control" value={optimalGapFilter} onChange={(e) => setOptimalGapFilter(e.target.value as typeof optimalGapFilter)}>
-                <option value="All">All</option>
-                <option value="Above Optimal">Above optimal</option>
-                <option value="Below Optimal">Below optimal</option>
-              </select>
-            </div>
-          </div>
+        <div style={INLINE_FILTER_FIELD}>
+          <label className="app-settings-label">Gap filter</label>
+          <select className="app-control" value={optimalGapFilter} onChange={(e) => setOptimalGapFilter(e.target.value as typeof optimalGapFilter)}>
+            <option value="All">All</option>
+            <option value="Above Optimal">Above optimal</option>
+            <option value="Below Optimal">Below optimal</option>
+          </select>
         </div>
       );
     }
 
     return null;
+  }
+
+  function renderExportButtons() {
+    const exportDisabled = !generatedAt || isLoading || !!error || generatedRowsCount === 0;
+
+    return (
+      <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap' }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Printer size={14} strokeWidth={2} />
+            Print
+          </span>
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportDisabled}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Download size={14} strokeWidth={2} />
+            Export PDF
+          </span>
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportDisabled}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Download size={14} strokeWidth={2} />
+            Export Excel
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  function renderFilterExportRow() {
+    return (
+      <div style={INLINE_FILTER_ROW_STYLE}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap', flex: 1 }}>
+          {renderFilters()}
+        </div>
+        {renderExportButtons()}
+      </div>
+    );
+  }
+
+  function renderPaginationControls(rowCount: number) {
+    if (rowCount === 0) return null;
+    const totalPages = getTotalPages(rowCount);
+
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '12px', fontSize: '13px', color: '#64748b' }}>
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          disabled={currentPage <= 1}
+          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          style={{ color: currentPage <= 1 ? undefined : '#0F2847' }}
+          aria-label="Previous page"
+        >
+          ←
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          disabled={currentPage >= totalPages}
+          onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+          style={{ color: currentPage >= totalPages ? undefined : '#0F2847' }}
+          aria-label="Next page"
+        >
+          →
+        </button>
+      </div>
+    );
   }
 
   function renderReportBody() {
@@ -1652,13 +1775,8 @@ export default function Reports() {
     if (selectedReport === 'pricing-status') {
       const data = reportData as ReportResultMap['pricing-status'];
       const withSellingPrice = data.rows.filter((row) => row.hasSellingPrice);
-      const noSellingPrice = data.rows.filter((row) => !row.hasSellingPrice);
       const aboveCount = withSellingPrice.filter((row) => row.sellingPrice > row.optimalPrice + 0.01).length;
       const belowCount = withSellingPrice.filter((row) => row.sellingPrice < row.optimalPrice - 0.01).length;
-      const atOptimalCount = withSellingPrice.filter((row) => Math.abs(row.sellingPrice - row.optimalPrice) <= 0.01).length;
-      const below = withSellingPrice.filter((row) => row.pricingStatus === 'Below Optimal');
-      const above = withSellingPrice.filter((row) => row.pricingStatus === 'Above Optimal');
-      const atOptimal = withSellingPrice.filter((row) => row.pricingStatus === 'At Optimal');
       const approvedCount = data.rows.filter((row) => row.approvalStatus === 'approved').length;
       const pendingCount = data.rows.filter((row) => row.approvalStatus === 'pending').length;
       const needsReviewCount = data.rows.filter((row) => row.approvalStatus === 'needs_review').length;
@@ -1666,6 +1784,7 @@ export default function Reports() {
       const avgProfitPct = profitEligibleRows.length > 0
         ? profitEligibleRows.reduce((sum, row) => sum + (((row.sellingPrice - row.productionCost) / row.sellingPrice) * 100), 0) / profitEligibleRows.length
         : null;
+      const paginatedPricingRows = paginateRows(data.rows, currentPage);
 
       return (
         <div id="reporting-centre-print-area">
@@ -1680,45 +1799,16 @@ export default function Reports() {
             />
           </div>
 
-          {below.length > 0 && (
-            <section style={{ marginBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <strong>⚠ Below Optimal — Requires Attention</strong>
-                <AppBadge variant="danger" size="sm">{below.length}</AppBadge>
-              </div>
-              {renderPricingStatusTable(below, { formatCurrency })}
-            </section>
-          )}
-
-          <section>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <strong>✓ Above Optimal</strong>
-              <AppBadge variant="success" size="sm">{above.length}</AppBadge>
-            </div>
-            {renderPricingStatusTable(above, { formatCurrency })}
-          </section>
-
-          <section style={{ marginTop: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <strong>○ No Approved base price set</strong>
-              <AppBadge variant="inactive" size="sm">{noSellingPrice.length}</AppBadge>
-            </div>
-            {renderPricingStatusTable(noSellingPrice, { noSellingPriceMode: true, formatCurrency })}
-          </section>
-
-          <section style={{ marginTop: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <strong>= At Optimal</strong>
-              <AppBadge variant="inactive" size="sm">{atOptimalCount}</AppBadge>
-            </div>
-            {renderPricingStatusTable(atOptimal, { formatCurrency })}
-          </section>
+          {renderPricingStatusTable(paginatedPricingRows, { formatCurrency })}
+          {renderPaginationControls(data.rows.length)}
         </div>
       );
     }
 
     if (selectedReport === 'low-margin') {
       const data = reportData as ReportResultMap['low-margin'];
+      const paginatedLowMarginRows = paginateRows(data.rows, currentPage);
+
       return (
         <div id="reporting-centre-print-area">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
@@ -1742,7 +1832,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row) => (
+                {paginatedLowMarginRows.map((row) => (
                   <tr key={row.productName}>
                     <td style={{ textAlign: 'left' }}>{row.productName}</td>
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
@@ -1758,6 +1848,7 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
 
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
             Actual gross margin = (Approved base price − Production Cost) / Approved base price. Only approved products with an official approved price are included.
@@ -1768,6 +1859,7 @@ export default function Reports() {
 
     if (selectedReport === 'price-list-summary') {
       const data = reportData as ReportResultMap['price-list-summary'];
+      const paginatedPriceListRows = paginateRows(data.rows, currentPage);
 
       return (
         <div id="reporting-centre-print-area">
@@ -1794,7 +1886,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row, index) => {
+                {paginatedPriceListRows.map((row, index) => {
                   const expiry = row.daysUntilExpiry;
                   const expiresThisWeek = expiry !== null && expiry <= 7 && expiry >= 0;
                   const expiringSoon = expiry !== null && expiry > 7 && expiry <= 30;
@@ -1823,6 +1915,7 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
         </div>
       );
     }
@@ -1832,6 +1925,7 @@ export default function Reports() {
       const approved = data.rows.filter((row) => row.currentStatus === 'approved').length;
       const pending = data.rows.filter((row) => row.currentStatus === 'pending').length;
       const needsReview = data.rows.filter((row) => row.currentStatus === 'needs_review').length;
+      const paginatedApprovalRows = paginateRows(data.rows, currentPage);
 
       return (
         <div id="reporting-centre-print-area">
@@ -1859,7 +1953,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row, index) => (
+                {paginatedApprovalRows.map((row, index) => (
                   <tr key={`${row.productName}-${index}`}>
                     <td style={{ textAlign: 'left' }}>{row.productName}</td>
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
@@ -1876,6 +1970,7 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
 
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
             † Optimal price shown is current calculated value. Historical optimal price at time of approval is not stored.
@@ -1898,6 +1993,9 @@ export default function Reports() {
 
     if (selectedReport === 'profitability-ranking') {
       const data = reportData as ReportResultMap['profitability-ranking'];
+      const paginatedProfitabilityRows = paginateRows(data.rows, currentPage);
+      const rankOffset = (currentPage - 1) * ROWS_PER_PAGE;
+
       return (
         <div id="reporting-centre-print-area">
           <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
@@ -1916,9 +2014,9 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row, index) => (
+                {paginatedProfitabilityRows.map((row, index) => (
                   <tr key={`${row.productName}-${index}`}>
-                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{index + 1}</td>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{rankOffset + index + 1}</td>
                     <td style={{ textAlign: 'left' }}>{row.productName}</td>
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
                     <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
@@ -1931,12 +2029,15 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
         </div>
       );
     }
 
     if (selectedReport === 'price-vs-cost-drift') {
       const data = reportData as ReportResultMap['price-vs-cost-drift'];
+      const paginatedDriftRows = paginateRows(data.rows, currentPage);
+
       return (
         <div id="reporting-centre-print-area">
           <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
@@ -1956,7 +2057,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row, index) => (
+                {paginatedDriftRows.map((row, index) => (
                   <tr key={`${row.productName}-${index}`}>
                     <td style={{ textAlign: 'left' }}>{row.productName}</td>
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
@@ -1972,6 +2073,7 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
             Margin drift compares current Actual Gross Margin % to the target gross margin implied by the product&apos;s markup target at approval. Negative drift means costs have risen since approval.
           </div>
@@ -1981,6 +2083,8 @@ export default function Reports() {
 
     if (selectedReport === 'optimal-vs-actual-gap') {
       const data = reportData as ReportResultMap['optimal-vs-actual-gap'];
+      const paginatedGapRows = paginateRows(data.rows, currentPage);
+
       return (
         <div id="reporting-centre-print-area">
           <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
@@ -1999,7 +2103,7 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.map((row, index) => {
+                {paginatedGapRows.map((row, index) => {
                   const gapColor = row.gapPercent >= 0
                     ? '#166534'
                     : row.gapPercent >= -10
@@ -2019,11 +2123,13 @@ export default function Reports() {
               </tbody>
             </table>
           </div>
+          {renderPaginationControls(data.rows.length)}
         </div>
       );
     }
 
     const data = reportData as ReportResultMap['currency-exposure'];
+    const paginatedCurrencyRows = paginateRows(data.rows, currentPage);
 
     return (
       <div id="reporting-centre-print-area">
@@ -2043,7 +2149,7 @@ export default function Reports() {
               </tr>
             </thead>
             <tbody>
-              {data.rows.map((row) => (
+              {paginatedCurrencyRows.map((row) => (
                 <tr key={row.currencyCode} style={{ backgroundColor: row.isBaseCurrency ? '#f8fafc' : undefined }}>
                   <td style={{ textAlign: 'left' }}>{row.currencyName}</td>
                   <td style={{ textAlign: 'left' }}>{row.currencyCode}</td>
@@ -2054,6 +2160,7 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
+        {renderPaginationControls(data.rows.length)}
 
         <div style={{ marginTop: '14px' }}>
           <strong>Materials by Currency</strong>
@@ -2127,125 +2234,121 @@ export default function Reports() {
   return (
     <div className="app-page">
       <div className="app-page-header">
-        <h1 className="app-page-title">Reporting Centre</h1>
+        <h1 className="app-page-title">Reports & Analysis</h1>
       </div>
 
       <div className="app-page-content app-page-content--data">
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', minHeight: 0 }}>
-          <aside
-            className="app-card report-selector-panel"
-            style={{
-              width: '320px',
-              flexShrink: 0,
-              overflow: 'visible',
-              padding: '10px',
-              position: 'sticky',
-              top: '10px',
-            }}
+        <div className="app-section-tabs" role="tablist" aria-label="Report groups">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeGroup === 'pricing'}
+            className={`app-section-tab ${activeGroup === 'pricing' ? 'is-active' : ''}`}
+            onClick={() => handleGroupTabChange('pricing')}
           >
-            <div style={{ display: 'grid', gap: '8px' }}>
-              {REPORT_GROUPS.map((group, groupIndex) => (
-                <div key={group.id}>
-                  <div
-                    style={{
-                      ...REPORT_GROUP_HEADING_STYLE,
-                      marginTop: groupIndex === 0 ? 0 : '16px',
-                    }}
-                  >
-                    {group.label}
-                  </div>
-                  <div style={{ display: 'grid', gap: '8px' }}>
-                    {group.reportKeys.map((reportKey) => {
-                      const report = REPORT_METADATA_BY_KEY[reportKey];
-                      const Icon = report.icon;
-                      const isActive = selectedReport === report.key;
+            Pricing
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeGroup === 'products'}
+            className={`app-section-tab ${activeGroup === 'products' ? 'is-active' : ''}`}
+            onClick={() => handleGroupTabChange('products')}
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeGroup === 'materials'}
+            className={`app-section-tab ${activeGroup === 'materials' ? 'is-active' : ''}`}
+            onClick={() => handleGroupTabChange('materials')}
+          >
+            Materials
+          </button>
+        </div>
 
-                      return (
-                        <button
-                          type="button"
-                          key={report.key}
-                          onClick={() => {
-                            resetFiltersForReport(report.key);
-                            setSelectedReport(report.key);
-                            setReportData(null);
-                            setGeneratedAt(null);
-                            setError(null);
-                            setExpandedCurrencyCodes(new Set());
-                          }}
-                          className={`app-panel-tab ${isActive ? 'is-active' : ''}`}
-                          style={{ paddingLeft: '8px' }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
-                            <strong style={{ fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap' }}>{report.name}</strong>
-                          </div>
-                          <div className="app-panel-tab-description">
-                            {report.description}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+        {(activeGroup === 'pricing' || activeGroup === 'products') && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '12px 0 16px' }}>
+            {GROUP_REPORT_KEYS[activeGroup].map((reportKey) => {
+              const report = REPORT_METADATA_BY_KEY[reportKey];
+              const isActive = selectedReport === reportKey;
+              return (
+                <button
+                  key={reportKey}
+                  type="button"
+                  onClick={() => selectReport(reportKey)}
+                  style={{
+                    ...REPORT_PILL_STYLE,
+                    backgroundColor: isActive ? '#0F2847' : '#F1F5F9',
+                    color: isActive ? '#ffffff' : '#0F2847',
+                  }}
+                >
+                  {report.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {activeGroup === 'materials' && (
+          <div style={{ margin: '12px 0 16px' }}>
+            <select
+              className="app-control"
+              value={selectedReport}
+              onChange={(event) => {
+                const nextValue = event.target.value as ReportKey;
+                if (GROUP_REPORT_KEYS.materials.includes(nextValue)) {
+                  selectReport(nextValue);
+                }
+              }}
+              style={{ maxWidth: '280px', width: '100%' }}
+              aria-label="Select materials report"
+            >
+              <option value="" disabled>Select report</option>
+              {MATERIALS_DROPDOWN_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value} disabled={option.disabled}>
+                  {option.label}
+                </option>
               ))}
-            </div>
+            </select>
+          </div>
+        )}
 
-            <div style={{ marginTop: '10px', color: '#888', fontSize: '13px', fontWeight: 400 }}>
-              Reports are generated from live PriceRight data.
-            </div>
-          </aside>
-
-          <section className="report-viewer-panel" style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-            {!selectedReport && (
-              <div className="app-card" style={{ minHeight: '420px', display: 'grid', placeItems: 'center' }}>
-                <div className="app-empty-state">
-                  <div style={{
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '12px',
-                    background: '#F1F5F9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 16px',
-                  }}>
-                    <BarChart2 size={24} color="#94a3b8" />
-                  </div>
-                  <div className="app-empty-state-title">
-                    Select a report
-                  </div>
-                  <div className="app-empty-state-text">
-                    Choose a report from the list on the left to view your pricing and cost analysis.
-                  </div>
-                </div>
+        <div className="app-card" style={{ padding: '16px' }}>
+          <div style={{ marginBottom: '4px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{selectedMeta.name}</h2>
+            <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{selectedMeta.description}</p>
+            {generatedAt && (
+              <div style={{ marginTop: '4px', color: '#94a3b8', fontSize: '13px' }}>
+                Generated: {generatedAt.toLocaleString()}
               </div>
             )}
+          </div>
 
-            {selectedReport && selectedMeta && (
-              <>
-                <div className="app-card" style={{ padding: '16px', marginBottom: '10px' }}>
-                  <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>{selectedMeta.name}</h2>
-                  <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '15px' }}>{selectedMeta.description}</p>
-                  <div style={{ marginTop: '10px' }}>{renderFilters()}</div>
-                </div>
+          {renderFilterExportRow()}
 
-                <ReportWrapper
-                  title={selectedMeta.name}
-                  subtitle={selectedMeta.description}
-                  onExportPDF={handleExportPDF}
-                  onExportExcel={handleExportExcel}
-                  onPrint={handlePrintReport}
-                  isLoading={isLoading}
-                  error={error}
-                  isEmpty={!isLoading && !error && generatedRowsCount === 0}
-                  generatedAt={generatedAt}
-                  emptyStateExtra={renderEmptyStateGuidance()}
-                >
-                  {renderReportBody()}
-                </ReportWrapper>
-              </>
-            )}
-          </section>
+          {isLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '36px 0', color: '#334155' }}>
+              <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+              Loading report data...
+            </div>
+          )}
+
+          {!isLoading && error && (
+            <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px' }}>
+              {error}
+            </div>
+          )}
+
+          {!isLoading && !error && generatedRowsCount === 0 && (
+            <div style={{ backgroundColor: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
+              No data matches the selected filters.
+              {renderEmptyStateGuidance()}
+            </div>
+          )}
+
+          {!isLoading && !error && generatedRowsCount > 0 && renderReportBody()}
         </div>
       </div>
     </div>
