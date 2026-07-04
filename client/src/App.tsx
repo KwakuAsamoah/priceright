@@ -22,7 +22,6 @@ import { UndoActionProvider } from './hooks/useUndoAction';
 import { WelcomeModal } from './components/WelcomeModal';
 import { OnboardingBar } from './components/OnboardingBar';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
-import HelpPanel from './components/HelpPanel';
 import DemoModeBanner from './components/DemoModeBanner';
 import PriceRightLogoIcon from './components/PriceRightLogoIcon';
 import { DemoModeProvider, useDemoMode } from './context/DemoModeContext';
@@ -64,6 +63,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/reports', label: 'Reports & Analysis', icon: BarChart2, isActive: (pathname: string) => isRouteActive(pathname, '/reports') },
       { to: '/activity', label: 'Activity', icon: ClipboardList, isActive: (pathname: string) => isRouteActive(pathname, '/activity') },
+      { to: '/help', label: 'Help', icon: HelpCircle, isActive: (pathname: string) => isRouteActive(pathname, '/help') },
     ],
   },
 ];
@@ -305,11 +305,9 @@ function enableSpreadsheetStyleNumberInputs() {
 function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const isHelpPage = location.pathname.startsWith('/help');
   const skipPIN = import.meta.env.VITE_SKIP_PIN === 'true';
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
 
   const { isDemoMode } = useDemoMode();
   const { hasOpenForm } = useFormState();
@@ -525,11 +523,6 @@ function AppLayout({ children }: { children: ReactNode }) {
   return (
     <BaseCurrencyContext.Provider value={{ setBaseCurrencyMissing }}>
     <>
-      {isHelpPage ? (
-        <div className="app-help-route-shell">
-          {children}
-        </div>
-      ) : (
         <div className="app-shell">
           <aside className="app-sidebar">
             <div className="app-brand-wrap">
@@ -569,16 +562,6 @@ function AppLayout({ children }: { children: ReactNode }) {
                         </Link>
                       );
                     })}
-                    {sectionIndex === 2 && (
-                      <button
-                        type="button"
-                        className={`app-nav-link app-help-trigger ${helpOpen ? 'is-active' : ''}`}
-                        onClick={() => setHelpOpen((current) => !current)}
-                      >
-                        <span className="app-nav-icon" aria-hidden="true"><HelpCircle size={18} strokeWidth={2} /></span>
-                        Help
-                      </button>
-                    )}
                   </section>
                 </Fragment>
               ))}
@@ -634,8 +617,6 @@ function AppLayout({ children }: { children: ReactNode }) {
         </main>
           <UndoBanner />
         </div>
-      )}
-      {!isHelpPage && <HelpPanel isOpen={helpOpen} onClose={() => setHelpOpen(false)} />}
       {showNavWarning && (
         <div className="app-modal-overlay">
           <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
@@ -655,7 +636,7 @@ function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      {showWelcome && welcomeChecked && !isHelpPage && (
+      {showWelcome && welcomeChecked && !location.pathname.startsWith('/help') && (
         <WelcomeModal onDismiss={() => setShowWelcome(false)} />
       )}
     </>

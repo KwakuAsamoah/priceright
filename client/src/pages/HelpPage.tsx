@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import {
-  GETTING_STARTED_FEATURED,
   HELP_CATEGORIES,
   HELP_CATEGORY_ICONS,
   HELP_CONTEXT_CATEGORY,
   HELP_FEEDBACK_STORAGE_KEY,
+  WHERE_TO_START_STEPS,
   type HelpCategory,
 } from '../data/helpConstants';
 import { helpArticles, type HelpArticle } from '../data/helpArticles';
@@ -51,10 +51,7 @@ function writeFeedback(articleId: string, value: 'yes' | 'no') {
 }
 
 export default function HelpPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const from = (location.state as { from?: string } | null)?.from || '/';
 
   const articleId = searchParams.get('article');
   const categoryParam = searchParams.get('category');
@@ -135,11 +132,11 @@ export default function HelpPage() {
     return searchArticles(searchQueryParam);
   }, [searchQueryParam]);
 
-  const featuredArticles = useMemo(() => {
-    return GETTING_STARTED_FEATURED.map((item) => {
-      const article = helpArticles.find((entry) => entry.id === item.id);
-      return article ? { ...item, article } : null;
-    }).filter((item): item is { id: string; label: string; article: HelpArticle } => item !== null);
+  const setupSteps = useMemo(() => {
+    return WHERE_TO_START_STEPS.map((step) => {
+      const article = helpArticles.find((entry) => entry.id === step.id);
+      return article ? { ...step, article } : null;
+    }).filter((item): item is typeof WHERE_TO_START_STEPS[number] & { article: HelpArticle } => item !== null);
   }, []);
 
   const openHome = useCallback(() => {
@@ -222,13 +219,6 @@ export default function HelpPage() {
 
   return (
     <div className="help-centre">
-      <div className="help-centre__topbar">
-        <button type="button" className="help-centre__exit" onClick={() => navigate(from)}>
-          <ArrowLeft size={16} strokeWidth={2} />
-          Exit Help
-        </button>
-      </div>
-
       <div ref={contentScrollRef} className="help-centre__scroll">
         <div className="help-centre__inner">
           {!showArticleView && (
@@ -252,7 +242,7 @@ export default function HelpPage() {
                         openSearchResults(debouncedQuery);
                       }
                     }}
-                    placeholder="Search help articles..."
+                    placeholder="Search for help — e.g. approve prices, add materials, export price list"
                     aria-label="Search help articles"
                     aria-expanded={suggestionsOpen && debouncedQuery.trim().length > 0}
                   />
@@ -291,28 +281,30 @@ export default function HelpPage() {
                 </section>
               )}
 
-              <section className="help-centre__featured">
-                <h2 className="help-centre__featured-heading">Getting Started</h2>
-                <div className="help-centre__featured-grid">
-                  {featuredArticles.map(({ id, label, article }) => (
+              <section className="help-centre__setup">
+                <h2 className="help-centre__setup-heading">Where to start</h2>
+                <div className="help-centre__setup-grid">
+                  {setupSteps.map(({ step, id, title, description, icon: StepIcon, article }) => (
                     <button
                       key={id}
                       type="button"
-                      className="help-centre__featured-card"
+                      className="help-centre__setup-card"
                       onClick={() => openArticle(id, { category: 'Getting Started' })}
                     >
-                      <div className="help-centre__featured-title">{label}</div>
-                      <div className="help-centre__featured-meta">
-                        <span className="help-centre__badge">{article.section}</span>
-                        <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
-                      </div>
+                      <span className="help-centre__setup-badge">{step}</span>
+                      <StepIcon size={20} strokeWidth={2} className="help-centre__setup-icon" />
+                      <div className="help-centre__setup-title">{title}</div>
+                      <div className="help-centre__setup-description">{description}</div>
+                      <div className="help-centre__setup-link">Read article →</div>
+                      <span className="help-centre__setup-meta">{article.readingTimeMinutes} min read</span>
                     </button>
                   ))}
                 </div>
               </section>
 
               <section className="help-centre__categories">
-                <h2 className="help-centre__section-title">Browse by category</h2>
+                <h2 className="help-centre__section-title">Browse by topic</h2>
+                <p className="help-centre__section-subtitle">Explore all help articles organised by topic</p>
                 <div className="help-centre__category-grid">
                   {orderedCategories.map((category) => {
                     const Icon = HELP_CATEGORY_ICONS[category];
