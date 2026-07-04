@@ -51,6 +51,9 @@ interface ProductFormDrawerProps {
   onNext?: () => void;
   currentIndex?: number;
   totalCount?: number;
+  layout?: 'drawer' | 'page';
+  formId?: string;
+  saveButtonLabel?: string;
 }
 
 export default function ProductFormDrawer({
@@ -66,6 +69,9 @@ export default function ProductFormDrawer({
   onNext,
   currentIndex,
   totalCount,
+  layout = 'drawer',
+  formId = 'product-form-drawer',
+  saveButtonLabel = 'Save Product',
 }: ProductFormDrawerProps) {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { baseCurrency } = useBaseCurrency();
@@ -320,68 +326,33 @@ export default function ProductFormDrawer({
   if (!isOpen) return null;
 
   const liveCost = calculateLiveCost();
+  const isPageLayout = layout === 'page';
 
-  return (
-    <>
-      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div className="app-drawer-overlay">
-      <div
-        className="app-drawer-panel app-drawer-panel--narrow"
-        onClick={(e) => e.stopPropagation()}
+  const actionBar = (
+    <div
+      className={isPageLayout ? undefined : 'app-drawer-footer'}
+      style={isPageLayout ? { display: 'flex', gap: '12px', marginTop: '24px' } : undefined}
+    >
+      <button
+        className="btn btn-primary"
+        type="submit"
+        form={formId}
+        disabled={saving}
       >
-        <button className="btn-close-x" onClick={onClose} aria-label="Close">
-          &times;
-        </button>
-        <div className="app-drawer-panel__scroll">
-        <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
-            <div>
-              <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
-              <div className="app-drawer-header__subtitle">Update product details and BOM inline</div>
-            </div>
-            {onPrev !== undefined && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                marginLeft: '12px',
-              }}>
-                <button
-                  type="button"
-                  onClick={onPrev}
-                  disabled={currentIndex === 0}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '4px 8px' }}
-                  title="Previous product"
-                >
-                  ← Prev
-                </button>
-                <span style={{
-                  fontSize: '12px',
-                  color: '#94a3b8',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {(currentIndex ?? 0) + 1} of {totalCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={onNext}
-                  disabled={currentIndex === (totalCount ?? 1) - 1}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '4px 8px' }}
-                  title="Next product"
-                >
-                  Next →
-                </button>
-              </div>
-            )}
-          </div>
-          <button className="btn btn-danger-solid btn-sm" type="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
+        {saving ? 'Saving...' : saveButtonLabel}
+      </button>
+      <button
+        className="btn btn-danger-solid"
+        type="button"
+        onClick={onClose}
+      >
+        {isPageLayout ? 'Cancel' : 'Close'}
+      </button>
+    </div>
+  );
 
-        <form id="product-form-drawer" onSubmit={handleSubmit}>
+  const formSections = (
+        <form id={formId} onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
             <h3 className="app-form-section-title">Basic Info</h3>
             <div style={{ display: 'grid', gap: '12px' }}>
@@ -749,26 +720,80 @@ export default function ProductFormDrawer({
           </div>
 
         </form>
-        </div>
-        <div className="app-drawer-footer">
-          <button
-            className="btn btn-primary"
-            type="submit"
-            form="product-form-drawer"
-            disabled={saving}
-          >
-            {saving ? 'Saving...' : 'Save Product'}
-          </button>
-          <button
-            className="btn btn-danger-solid"
-            type="button"
-            onClick={onClose}
-          >
+  );
+
+  return (
+    <>
+      <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
+      {isPageLayout ? (
+        <>
+          {formSections}
+          {actionBar}
+        </>
+      ) : (
+      <div className="app-drawer-overlay">
+      <div
+        className="app-drawer-panel app-drawer-panel--narrow"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button className="btn-close-x" onClick={onClose} aria-label="Close">
+          &times;
+        </button>
+        <div className="app-drawer-panel__scroll">
+        <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
+            <div>
+              <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
+              <div className="app-drawer-header__subtitle">Update product details and BOM inline</div>
+            </div>
+            {onPrev !== undefined && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginLeft: '12px',
+              }}>
+                <button
+                  type="button"
+                  onClick={onPrev}
+                  disabled={currentIndex === 0}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  title="Previous product"
+                >
+                  ← Prev
+                </button>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#94a3b8',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {(currentIndex ?? 0) + 1} of {totalCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={onNext}
+                  disabled={currentIndex === (totalCount ?? 1) - 1}
+                  className="btn btn-ghost btn-sm"
+                  style={{ padding: '4px 8px' }}
+                  title="Next product"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="btn btn-danger-solid btn-sm" type="button" onClick={onClose}>
             Close
           </button>
         </div>
+
+        {formSections}
+        </div>
+        {actionBar}
       </div>
     </div>
+      )}
     </>
   );
 }

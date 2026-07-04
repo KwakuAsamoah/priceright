@@ -530,8 +530,7 @@ export default function Products() {
   }
 
   function handleAddProduct() {
-    setEditingProduct(null);
-    setShowDrawer(true);
+    navigate('/products/new');
   }
 
   async function handleDuplicateProduct(product: ProductPricing) {
@@ -2267,6 +2266,7 @@ export default function Products() {
       )}
       </div>
 
+      {showDrawer && editingProduct ? (
       <ProductFormDrawer
         isOpen={showDrawer}
         onClose={() => setShowDrawer(false)}
@@ -2279,13 +2279,12 @@ export default function Products() {
           setShowDrawer(false);
           await loadData();
         }}
-        {...(editingProduct ? {
-          onPrev: handleEditPrev,
-          onNext: handleEditNext,
-          currentIndex: editingProductIndex,
-          totalCount: filteredProducts.length,
-        } : {})}
+        onPrev={handleEditPrev}
+        onNext={handleEditNext}
+        currentIndex={editingProductIndex}
+        totalCount={filteredProducts.length}
       />
+      ) : null}
 
       {inactiveTarget && (
         <div className="app-modal-overlay" onClick={() => setInactiveTarget(null)}>

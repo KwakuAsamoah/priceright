@@ -244,14 +244,6 @@ function toSafePositiveNumber(rawValue: string, fallback: number) {
   return numericValue;
 }
 
-interface TempBomItem {
-  componentMaterialId: number;
-  componentName: string;
-  componentUnit: string;
-  quantity: number;
-  unitCost: number;
-}
-
 interface IntermediateMaterialsProps {
   refreshKey?: number;
   isActive?: boolean;
@@ -267,7 +259,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [tempBomItems, setTempBomItems] = useState<TempBomItem[]>([]);
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [materialSearch, setMaterialSearch] = useState('');
@@ -572,23 +563,12 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     return 'Intermediate';
   }
 
-  function openNewMaterialForm() {
-    setSelectedId(null);
-    setForm(emptyForm);
-    setMaterialCustomCategoryValue('');
-    setBomItems([]);
-    setTempBomItems([]);
-    setComponentMaterialId(0);
-    setComponentQuantity('1');
-    setComponentSearch('');
-    setStatusText('');
-    setShowAdvanced(false);
-    setIsFormOpen(true);
+  function handleAddIntermediate() {
+    navigate('/intermediate-materials/new');
   }
 
   function openEditMaterialForm(material: MaterialRecord) {
     selectMaterial(material);
-    setTempBomItems([]);
     setComponentMaterialId(0);
     setComponentQuantity('1');
     setComponentSearch('');
@@ -618,7 +598,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
   function closeMaterialForm() {
     setIsFormOpen(false);
-    setTempBomItems([]);
     setComponentSearch('');
     setComponentMaterialId(0);
     setComponentQuantity('1');
@@ -647,12 +626,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   async function saveMaterial() {
+    if (!selectedMaterial) return;
+
     setSaving(true);
     try {
       const resolvedCategory = resolveCategoryForSave();
-
-      let createdId: number | null = null;
-      let bomFailureCount = 0;
       const costSnapshot = calculateIntermediateLiveCost();
       const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
       if (String(resolvedBulkQuantity) !== form.bulkQuantity) {
@@ -665,8 +643,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         materialType: 'intermediate' as const,
         intermediateCostMode: form.intermediateCostMode,
         bulkQuantity: resolvedBulkQuantity,
-        bulkPrice: Number(selectedMaterial?.bulkPrice || 0),
-        purchaseCurrencyId: Number(selectedMaterial?.purchaseCurrencyId || 1),
+        bulkPrice: Number(selectedMaterial.bulkPrice || 0),
+        purchaseCurrencyId: Number(selectedMaterial.purchaseCurrencyId || 1),
         overheadPercentage: Number(form.overheadPercentage || 0),
         marginPercentage: Number(form.marginPercentage || 0),
         yieldPercentage: form.intermediateCostMode === 'completed_output' ? 100 : Number(form.yieldPercentage || 100),
@@ -674,64 +652,14 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         supplier: '',
       };
 
-      if (selectedMaterial) {
-        await materialsApi.update(selectedMaterial.id, payload);
-        await materialsApi.recalculateIntermediateCost(selectedMaterial.id);
-      } else {
-        const bomItemsToPost = [...tempBomItems];
-        const created = await materialsApi.create(payload);
-        if (created?.id) {
-          createdId = created.id;
-          setSelectedId(created.id);
-
-          let failedBomPosts = 0;
-          for (const item of bomItemsToPost) {
-            try {
-              await materialsApi.addIntermediateBomItem(created.id, {
-                componentMaterialId: item.componentMaterialId,
-                quantity: item.quantity,
-              });
-            } catch {
-              failedBomPosts += 1;
-            }
-          }
-          bomFailureCount = failedBomPosts;
-
-          if (bomItemsToPost.length > 0) {
-            try {
-              await materialsApi.recalculateIntermediateCost(created.id);
-            } catch {
-              // Material exists; recalc can be retried from edit view.
-            }
-          }
-
-          setTempBomItems([]);
-
-          if (bomFailureCount > 0) {
-            setStatusText('Intermediate material created, but some BOM items failed to save.');
-            showToastMessage(
-              `Intermediate material created, but ${bomFailureCount} BOM item${bomFailureCount === 1 ? '' : 's'} failed to save. Edit the material to retry.`,
-              'error',
-            );
-          }
-        }
-      }
+      await materialsApi.update(selectedMaterial.id, payload);
+      await materialsApi.recalculateIntermediateCost(selectedMaterial.id);
 
       await loadData();
-      const nextSelectedId = selectedMaterial?.id ?? createdId ?? null;
-      if (nextSelectedId) {
-        setSelectedId(nextSelectedId);
-      }
-      if (nextSelectedId) {
-        await loadBom(nextSelectedId);
-      }
-      if (selectedMaterial) {
-        setStatusText('Saved intermediate material.');
-        showToastMessage('Intermediate material updated', 'success');
-      } else if (createdId && bomFailureCount === 0) {
-        setStatusText('Saved intermediate material.');
-        showToastMessage('Intermediate material created', 'success');
-      }
+      setSelectedId(selectedMaterial.id);
+      await loadBom(selectedMaterial.id);
+      setStatusText('Saved intermediate material.');
+      showToastMessage('Intermediate material updated', 'success');
     } catch (error: any) {
       const message = error?.message || 'Failed to save intermediate material';
       setStatusText(message);
@@ -742,6 +670,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   async function addBomItem() {
+    if (!selectedMaterial || !selectedId) return;
     if (componentMaterialId <= 0) return;
 
     const resolvedQuantityText = commitMathExpression(componentQuantity, setComponentQuantity);
@@ -751,32 +680,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       return;
     }
 
-    if (!selectedMaterial) {
-      const component = components.find((material) => material.id === componentMaterialId);
-      if (!component) {
-        showToastMessage('Selected component material not found', 'error');
-        return;
-      }
-
-      setTempBomItems((prev) => [
-        ...prev,
-        {
-          componentMaterialId: component.id,
-          componentName: String(component.name || ''),
-          componentUnit: String(component.unit || ''),
-          quantity,
-          unitCost: Number(component.unitPrice || 0),
-        },
-      ]);
-      setComponentMaterialId(0);
-      setComponentQuantity('1');
-      setComponentSearch('');
-      setStatusText('Added BOM component.');
-      return;
-    }
-
-    if (!selectedId) return;
-
     await materialsApi.addIntermediateBomItem(selectedId, {
       componentMaterialId,
       quantity,
@@ -784,11 +687,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     await materialsApi.recalculateIntermediateCost(selectedId);
     await loadData();
     await loadBom(selectedId);
+    setComponentMaterialId(0);
+    setComponentQuantity('1');
+    setComponentSearch('');
     setStatusText('Added BOM component and recalculated cost.');
-  }
-
-  function removeTempBomItem(index: number) {
-    setTempBomItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function updateBomQuantity(item: IntermediateBomItemRecord, quantity: number) {
@@ -1233,9 +1135,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }, [availableComponents, componentSearch]);
 
   function calculateIntermediateLiveCost() {
-    const totalMaterialCost = selectedMaterial
-      ? bomItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0)
-      : tempBomItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+    const totalMaterialCost = bomItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
 
     const overheadPercentage = Number(form.overheadPercentage || 0) / 100;
     const overheadCost = totalMaterialCost * overheadPercentage;
@@ -1265,14 +1165,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   const liveCost = calculateIntermediateLiveCost();
-  const tempBomCostEstimate = useMemo(() => {
-    if (selectedMaterial || tempBomItems.length === 0) {
-      return null;
-    }
-    const batchMaterialCost = tempBomItems.reduce((sum, item) => sum + item.unitCost * item.quantity, 0);
-    const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
-    return batchMaterialCost / (yieldPercent / 100);
-  }, [selectedMaterial, tempBomItems, form.yieldPercentage]);
   const currencySymbol = selectedMaterial?.baseCurrencySymbol || components[0]?.baseCurrencySymbol || '';
   const formatMoney = (amount: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
 
@@ -1307,7 +1199,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 key: 'add-single',
                 label: 'Add single intermediate',
                 icon: <Plus size={14} strokeWidth={2} />,
-                onSelect: openNewMaterialForm,
+                onSelect: handleAddIntermediate,
               },
               { key: 'divider-add', type: 'divider' as const },
               {
@@ -1563,7 +1455,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     className="btn btn-primary btn-sm"
                     style={{ marginTop: '16px' }}
                     type="button"
-                    onClick={openNewMaterialForm}
+                    onClick={handleAddIntermediate}
                   >
                     + Add intermediate material
                   </button>
@@ -1583,7 +1475,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
           </div>
         </div>
 
-        {isFormOpen ? (
+        {isFormOpen && selectedMaterial ? (
           <div className="app-drawer-overlay">
             <div
               className="app-drawer-panel"
@@ -1596,7 +1488,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
                   <div>
-                    <h3>{selectedMaterial ? 'Edit Intermediate Material' : 'Add Intermediate Material'}</h3>
+                    <h3>Edit Intermediate Material</h3>
                     <div className="app-drawer-header__subtitle">Update material details and cost settings inline</div>
                   </div>
                   {selectedMaterial && (
@@ -1958,7 +1850,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedMaterial ? bomItems.map((item) => {
+                      {bomItems.map((item) => {
                         const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
                         const isEditing = editingBomId === item.id;
 
@@ -2005,23 +1897,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                             </td>
                           </tr>
                         );
-                      }) : tempBomItems.map((item, index) => {
-                        const rowTotal = item.quantity * item.unitCost;
-                        return (
-                          <tr key={`${item.componentMaterialId}-${index}`}>
-                            <td style={{ textAlign: 'left' }}>{item.componentName}</td>
-                            <td style={{ textAlign: 'right' }}>
-                              <span>{item.quantity.toFixed(3)} {item.componentUnit}</span>
-                            </td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(item.unitCost)}</td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>Remove</button>
-                            </td>
-                          </tr>
-                        );
                       })}
-                      {(selectedMaterial ? bomItems.length === 0 : tempBomItems.length === 0) ? (
+                      {bomItems.length === 0 ? (
                         <tr>
                           <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
                         </tr>
@@ -2029,11 +1906,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     </tbody>
                   </table>
                 </div>
-                {!selectedMaterial && tempBomItems.length > 0 && tempBomCostEstimate != null ? (
-                  <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
-                    Estimated cost per unit (before save): {formatMoney(tempBomCostEstimate)}
-                  </div>
-                ) : null}
               </div>
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
                 <h3 className="app-form-section-title">Cost Summary (per unit)</h3>
@@ -2085,13 +1957,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   form="intermediate-material-form"
                   disabled={saving || !form.name.trim() || !form.unit.trim()}
                 >
-                  {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
-                {selectedMaterial ? (
-                  <button className="btn btn-info btn-sm" type="button" onClick={() => void recalculateSelected()}>
-                    Recalculate Cost
-                  </button>
-                ) : null}
+                <button className="btn btn-info btn-sm" type="button" onClick={() => void recalculateSelected()}>
+                  Recalculate Cost
+                </button>
                 <button className="btn btn-danger-solid btn-sm" type="button" onClick={closeMaterialForm}>
                   Close
                 </button>
