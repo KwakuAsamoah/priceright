@@ -2279,8 +2279,15 @@ export default function Reports() {
       if (pricingStatusFilter !== 'All') {
         chips.push({
           key: 'pricing-status',
-          label: `Pricing Status: ${pricingStatusFilter}`,
+          label: `Status: ${pricingStatusFilter}`,
           onClear: () => setPricingStatusFilter('All'),
+        });
+      }
+      if (pricingSort !== 'Product Name') {
+        chips.push({
+          key: 'pricing-sort',
+          label: `Sort: ${pricingSort}`,
+          onClear: () => setPricingSort('Product Name'),
         });
       }
       return chips;
@@ -2324,7 +2331,7 @@ export default function Reports() {
       if (approvalStatusFilter !== 'All') {
         chips.push({
           key: 'approval-status',
-          label: `Approval status: ${approvalStatusFilter}`,
+          label: `Status: ${approvalStatusFilter}`,
           onClear: () => setApprovalStatusFilter('All'),
         });
       }
@@ -2372,7 +2379,7 @@ export default function Reports() {
       if (optimalGapFilter !== 'All') {
         return [{
           key: 'optimal-gap-filter',
-          label: `Gap: ${optimalGapFilter}`,
+          label: `Showing: ${optimalGapFilter}`,
           onClear: () => setOptimalGapFilter('All'),
         }];
       }
@@ -2432,6 +2439,24 @@ export default function Reports() {
       return chips;
     }
 
+    if (selectedReport === 'material-price-history') {
+      if (materialPriceHistoryMaterialId != null) {
+        let materialName = 'Selected material';
+        if (reportData && selectedReport === 'material-price-history') {
+          const historyData = reportData as ReportResultMap['material-price-history'];
+          materialName = historyData.materialName
+            || historyData.materialOptions.find((material) => material.id === materialPriceHistoryMaterialId)?.name
+            || materialName;
+        }
+        return [{
+          key: 'material-price-history-material',
+          label: `Material: ${materialName}`,
+          onClear: () => setMaterialPriceHistoryMaterialId(null),
+        }];
+      }
+      return [];
+    }
+
     return [];
   }
 
@@ -2440,41 +2465,45 @@ export default function Reports() {
     resetFiltersForReport(selectedReport);
   }
 
+  function renderFilterChips() {
+    const chips = getActiveFilterChips();
+    if (chips.length === 0) return null;
+
+    return (
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginTop: '12px', marginBottom: '4px' }}>
+        {chips.map((chip) => (
+          <span key={chip.key} style={FILTER_CHIP_STYLE}>
+            {chip.label}
+            <button
+              type="button"
+              onClick={chip.onClear}
+              aria-label={`Clear ${chip.label}`}
+              style={FILTER_CHIP_CLEAR_STYLE}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <button
+          type="button"
+          onClick={clearAllFiltersForReport}
+          style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}
+        >
+          Clear all filters
+        </button>
+      </div>
+    );
+  }
+
   function renderEmptyStateGuidance() {
-    const activeFilters = getActiveFilterChips();
-    const hasNonDefaultFilters = activeFilters.length > 0;
+    const hasNonDefaultFilters = getActiveFilterChips().length > 0;
 
     return (
       <div style={{ marginTop: '12px', display: 'grid', gap: '10px' }}>
         <div style={{ color: '#64748b', fontSize: '14px' }}>
           No results match your current filters
         </div>
-        {hasNonDefaultFilters ? (
-          <>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {activeFilters.map((chip) => (
-                <span key={chip.key} style={FILTER_CHIP_STYLE}>
-                  {chip.label}
-                  <button
-                    type="button"
-                    onClick={chip.onClear}
-                    aria-label={`Clear ${chip.label}`}
-                    style={FILTER_CHIP_CLEAR_STYLE}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={clearAllFiltersForReport}
-              style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600, justifySelf: 'start' }}
-            >
-              Clear all filters
-            </button>
-          </>
-        ) : (
+        {!hasNonDefaultFilters && (
           <div style={{ color: '#64748b', fontSize: '14px' }}>
             No data available yet. Data will appear here once you have products, approvals, or price levels set up.
           </div>
@@ -3750,6 +3779,8 @@ export default function Reports() {
           </div>
 
           {renderFilterExportRow()}
+
+          {renderFilterChips()}
 
           {isLoading && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '36px 0', color: '#334155' }}>
