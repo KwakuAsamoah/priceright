@@ -2,20 +2,24 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
+  ArrowUpDown,
   BarChart2,
   ChevronDown,
   FileText,
+  LineChart,
   RefreshCw,
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
+import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import ReportWrapper from '../components/ReportWrapper';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, settingsApi } from '../api';
 import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
+import { getThresholdMarginColor } from '../utils/margin';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
@@ -23,7 +27,11 @@ type ReportKey =
   | 'low-margin'
   | 'price-list-summary'
   | 'approval-history'
-  | 'currency-exposure';
+  | 'currency-exposure'
+  | 'margin-health'
+  | 'profitability-ranking'
+  | 'price-vs-cost-drift'
+  | 'optimal-vs-actual-gap';
 
 type ProductRow = {
   id: number;
@@ -38,6 +46,48 @@ type ProductRow = {
   approvedBy?: string | null;
   isActive?: boolean;
   profitMargin?: number;
+  productionMode?: 'single' | 'batch' | null;
+  batchYield?: number | null;
+};
+
+type MarginHealthProduct = {
+  id: number;
+  name: string;
+  category?: string;
+  productionMode?: 'single' | 'batch';
+  batchYield?: number;
+  approvalStatus?: 'pending' | 'approved' | 'needs_review';
+  approvedPrice?: number | null;
+  totalCost: number;
+  optimalPrice: number;
+  isActive: boolean;
+};
+
+type ProfitabilityRankingRow = {
+  productName: string;
+  category: string;
+  productionCost: number;
+  approvedPrice: number;
+  grossMarginPercent: number;
+};
+
+type PriceVsCostDriftRow = {
+  productName: string;
+  category: string;
+  approvedPrice: number;
+  currentCost: number;
+  currentGrossMarginPercent: number;
+  targetMarkupPercent: number;
+  marginDrift: number;
+};
+
+type OptimalVsActualGapRow = {
+  productName: string;
+  category: string;
+  optimalPrice: number;
+  approvedPrice: number;
+  gap: number;
+  gapPercent: number;
 };
 
 type PriceListRow = {
@@ -167,6 +217,23 @@ type ReportResultMap = {
     rows: CurrencyExposureComputedRow[];
     totalMaterials: number;
   };
+  'margin-health': {
+    products: MarginHealthProduct[];
+  };
+  'profitability-ranking': {
+    rows: ProfitabilityRankingRow[];
+    rankedCount: number;
+  };
+  'price-vs-cost-drift': {
+    rows: PriceVsCostDriftRow[];
+    affectedCount: number;
+  };
+  'optimal-vs-actual-gap': {
+    rows: OptimalVsActualGapRow[];
+    aboveCount: number;
+    belowCount: number;
+    atOptimalCount: number;
+  };
 };
 
 const REPORT_METADATA: Array<{
@@ -205,6 +272,30 @@ const REPORT_METADATA: Array<{
     description: 'Material cost exposure by currency',
     icon: RefreshCw,
   },
+  {
+    key: 'margin-health',
+    name: 'Margin Health',
+    description: 'Product margin health bands and distribution',
+    icon: LineChart,
+  },
+  {
+    key: 'profitability-ranking',
+    name: 'Profitability Ranking',
+    description: 'Products ranked by Actual Gross Margin %',
+    icon: TrendingUp,
+  },
+  {
+    key: 'price-vs-cost-drift',
+    name: 'Price vs Cost Drift',
+    description: 'Margin drift since price approval as costs change',
+    icon: AlertTriangle,
+  },
+  {
+    key: 'optimal-vs-actual-gap',
+    name: 'Optimal vs Actual Gap',
+    description: 'Approved base price compared to current optimal price',
+    icon: ArrowUpDown,
+  },
 ];
 
 const REPORT_METADATA_BY_KEY = Object.fromEntries(
@@ -229,7 +320,7 @@ const REPORT_GROUPS: Array<{
   {
     id: 'products',
     label: 'PRODUCTS',
-    reportKeys: [],
+    reportKeys: ['margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
   },
 ];
 
@@ -294,6 +385,36 @@ function formatSignedNumber(value: number): string {
 
 function formatPct(value: number): string {
   return `${value.toFixed(1)}%`;
+}
+
+function calculateActualGrossMarginPercent(approvedPrice: number, productionCost: number): number | null {
+  if (approvedPrice <= 0 || productionCost <= 0) {
+    return null;
+  }
+  return ((approvedPrice - productionCost) / approvedPrice) * 100;
+}
+
+function calculateTargetGrossMarginFromMarkup(approvedPrice: number, profitMargin: number): number | null {
+  if (approvedPrice <= 0 || profitMargin <= 0) {
+    return null;
+  }
+  const impliedCostAtApproval = approvedPrice / (1 + profitMargin / 100);
+  return ((approvedPrice - impliedCostAtApproval) / approvedPrice) * 100;
+}
+
+function mapProductForAnalysisTab(product: ProductRow): MarginHealthProduct {
+  return {
+    id: product.id,
+    name: product.name,
+    category: product.category || undefined,
+    productionMode: product.productionMode ?? undefined,
+    batchYield: product.batchYield ?? undefined,
+    approvalStatus: product.approvalStatus === 'rejected' ? 'pending' : product.approvalStatus,
+    approvedPrice: product.approvedPrice,
+    totalCost: toNumber(product.productionCost),
+    optimalPrice: toNumber(product.optimalPrice),
+    isActive: product.isActive !== false,
+  };
 }
 
 function parseDate(value: string | number | null | undefined): Date | null {
@@ -361,6 +482,13 @@ export default function Reports() {
   const [approvalToDate, setApprovalToDate] = useState(getDefaultApprovalToDate);
   const [approvalStatusFilter, setApprovalStatusFilter] = useState<'All' | 'approved' | 'needs_review' | 'pending'>('All');
   const [approvalCategoryFilter, setApprovalCategoryFilter] = useState('All');
+
+  const [profitabilityCategoryFilter, setProfitabilityCategoryFilter] = useState('All');
+  const [profitabilitySort, setProfitabilitySort] = useState<'Margin desc' | 'Margin asc' | 'Product Name'>('Margin desc');
+
+  const [driftFilter, setDriftFilter] = useState<'Negative only' | 'All'>('Negative only');
+
+  const [optimalGapFilter, setOptimalGapFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal'>('All');
 
   const selectedMeta = REPORT_METADATA.find((item) => item.key === selectedReport) || null;
   const { handlePrint } = usePrint();
@@ -435,13 +563,29 @@ export default function Reports() {
     approvalToDate,
     approvalStatusFilter,
     approvalCategoryFilter,
+    profitabilityCategoryFilter,
+    profitabilitySort,
+    driftFilter,
+    optimalGapFilter,
     baseCurrency,
   ]);
 
   const generatedRowsCount = useMemo(() => {
-    if (!reportData) return 0;
+    if (!reportData || !selectedReport) return 0;
+    if (selectedReport === 'margin-health') {
+      return (reportData as ReportResultMap['margin-health']).products.length;
+    }
+    if (selectedReport === 'profitability-ranking') {
+      return (reportData as ReportResultMap['profitability-ranking']).rows.length;
+    }
+    if (selectedReport === 'price-vs-cost-drift') {
+      return (reportData as ReportResultMap['price-vs-cost-drift']).rows.length;
+    }
+    if (selectedReport === 'optimal-vs-actual-gap') {
+      return (reportData as ReportResultMap['optimal-vs-actual-gap']).rows.length;
+    }
     return Array.isArray((reportData as any).rows) ? (reportData as any).rows.length : 0;
-  }, [reportData]);
+  }, [reportData, selectedReport]);
 
   async function generateReport() {
     if (!selectedReport) return;
@@ -691,6 +835,123 @@ export default function Reports() {
         setReportData({ rows, totalMaterials: materials.length });
       }
 
+      if (selectedReport === 'margin-health') {
+        const products = (await productsApi.getAll('active')) as ProductRow[];
+        const mappedProducts = products
+          .filter((product) => product.isActive !== false)
+          .map(mapProductForAnalysisTab);
+
+        setReportData({ products: mappedProducts });
+      }
+
+      if (selectedReport === 'profitability-ranking') {
+        const products = (await productsApi.getAll('active')) as ProductRow[];
+        const rows = products
+          .filter((product) => {
+            const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : 0;
+            return product.approvalStatus === 'approved' && approvedPrice > 0 && toNumber(product.productionCost) > 0;
+          })
+          .map((product) => {
+            const approvedPrice = toNumber(product.approvedPrice);
+            const productionCost = toNumber(product.productionCost);
+            const grossMarginPercent = calculateActualGrossMarginPercent(approvedPrice, productionCost) ?? 0;
+            return {
+              productName: product.name,
+              category: product.category || 'Uncategorised',
+              productionCost,
+              approvedPrice,
+              grossMarginPercent,
+            };
+          })
+          .filter((row) => (profitabilityCategoryFilter === 'All' ? true : row.category === profitabilityCategoryFilter));
+
+        rows.sort((a, b) => {
+          if (profitabilitySort === 'Product Name') return a.productName.localeCompare(b.productName);
+          if (profitabilitySort === 'Margin asc') return a.grossMarginPercent - b.grossMarginPercent;
+          return b.grossMarginPercent - a.grossMarginPercent;
+        });
+
+        setReportData({ rows, rankedCount: rows.length });
+      }
+
+      if (selectedReport === 'price-vs-cost-drift') {
+        const products = (await productsApi.getAll('active')) as ProductRow[];
+        const allRows = products
+          .filter((product) => product.approvalStatus === 'approved')
+          .map((product) => {
+            const approvedPrice = toNumber(product.approvedPrice);
+            const currentCost = toNumber(product.productionCost);
+            const targetMarkupPercent = toNumber(product.profitMargin);
+            const currentGrossMarginPercent = calculateActualGrossMarginPercent(approvedPrice, currentCost) ?? 0;
+            const targetGrossMarginPercent = calculateTargetGrossMarginFromMarkup(approvedPrice, targetMarkupPercent) ?? 0;
+            const marginDrift = currentGrossMarginPercent - targetGrossMarginPercent;
+
+            return {
+              productName: product.name,
+              category: product.category || 'Uncategorised',
+              approvedPrice,
+              currentCost,
+              currentGrossMarginPercent,
+              targetMarkupPercent,
+              marginDrift,
+            };
+          })
+          .filter((row) => row.approvedPrice > 0 && row.currentCost > 0);
+
+        const filteredRows = allRows
+          .filter((row) => (driftFilter === 'Negative only' ? row.marginDrift < 0 : true))
+          .sort((a, b) => a.marginDrift - b.marginDrift);
+
+        setReportData({
+          rows: filteredRows,
+          affectedCount: allRows.filter((row) => row.marginDrift < 0).length,
+        });
+      }
+
+      if (selectedReport === 'optimal-vs-actual-gap') {
+        const products = (await productsApi.getAll('active')) as ProductRow[];
+        const allRows = products
+          .filter((product) => {
+            const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : 0;
+            const optimalPrice = toNumber(product.optimalPrice);
+            return product.approvalStatus === 'approved' && approvedPrice > 0 && optimalPrice > 0;
+          })
+          .map((product) => {
+            const optimalPrice = toNumber(product.optimalPrice);
+            const approvedPrice = toNumber(product.approvedPrice);
+            const gap = approvedPrice - optimalPrice;
+            const gapPercent = (gap / optimalPrice) * 100;
+
+            return {
+              productName: product.name,
+              category: product.category || 'Uncategorised',
+              optimalPrice,
+              approvedPrice,
+              gap,
+              gapPercent,
+            };
+          });
+
+        const aboveCount = allRows.filter((row) => row.gap > 0.01).length;
+        const belowCount = allRows.filter((row) => row.gap < -0.01).length;
+        const atOptimalCount = allRows.filter((row) => Math.abs(row.gap) <= 0.01).length;
+
+        const filteredRows = allRows
+          .filter((row) => {
+            if (optimalGapFilter === 'Above Optimal') return row.gap > 0.01;
+            if (optimalGapFilter === 'Below Optimal') return row.gap < -0.01;
+            return true;
+          })
+          .sort((a, b) => a.gapPercent - b.gapPercent);
+
+        setReportData({
+          rows: filteredRows,
+          aboveCount,
+          belowCount,
+          atOptimalCount,
+        });
+      }
+
       setGeneratedAt(new Date());
     } catch (err: any) {
       setError(err?.message || 'Failed to generate report');
@@ -826,6 +1087,111 @@ export default function Reports() {
       };
     }
 
+    if (selectedReport === 'margin-health') {
+      const products = (reportData as ReportResultMap['margin-health']).products;
+      const rows = products.map((product) => {
+        const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : 0;
+        const grossMargin = calculateActualGrossMarginPercent(approvedPrice, product.totalCost);
+        const markup = approvedPrice > 0 && product.totalCost > 0
+          ? ((approvedPrice - product.totalCost) / product.totalCost) * 100
+          : null;
+        return {
+          productName: product.name,
+          category: product.category || 'Uncategorised',
+          productionCost: Number(product.totalCost.toFixed(2)),
+          approvedPrice: approvedPrice > 0 ? Number(approvedPrice.toFixed(2)) : '',
+          actualGrossMarginPercent: grossMargin == null ? '' : Number(grossMargin.toFixed(1)),
+          actualMarkupPercent: markup == null ? '' : Number(markup.toFixed(1)),
+          approvalStatus: product.approvalStatus || 'pending',
+        };
+      });
+      return {
+        rows,
+        columns: [
+          { key: 'productName', label: 'Product Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
+          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'actualGrossMarginPercent', label: 'Actual Gross Margin %' },
+          { key: 'actualMarkupPercent', label: 'Actual Markup %' },
+          { key: 'approvalStatus', label: 'Approval Status' },
+        ],
+        filename: 'margin-health-report.csv',
+      };
+    }
+
+    if (selectedReport === 'profitability-ranking') {
+      const data = reportData as ReportResultMap['profitability-ranking'];
+      const rows = data.rows.map((row, index) => ({
+        rank: index + 1,
+        productName: row.productName,
+        category: row.category,
+        productionCost: Number(row.productionCost.toFixed(2)),
+        approvedPrice: Number(row.approvedPrice.toFixed(2)),
+        grossMarginPercent: Number(row.grossMarginPercent.toFixed(1)),
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'rank', label: 'Rank' },
+          { key: 'productName', label: 'Product Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
+          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'grossMarginPercent', label: 'Actual Gross Margin %' },
+        ],
+        filename: 'profitability-ranking-report.csv',
+      };
+    }
+
+    if (selectedReport === 'price-vs-cost-drift') {
+      const rows = (reportData as ReportResultMap['price-vs-cost-drift']).rows.map((row) => ({
+        productName: row.productName,
+        category: row.category,
+        approvedPrice: Number(row.approvedPrice.toFixed(2)),
+        currentCost: Number(row.currentCost.toFixed(2)),
+        currentGrossMarginPercent: Number(row.currentGrossMarginPercent.toFixed(1)),
+        targetMarkupPercent: Number(row.targetMarkupPercent.toFixed(1)),
+        marginDrift: Number(row.marginDrift.toFixed(1)),
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'productName', label: 'Product Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
+          { key: 'currentGrossMarginPercent', label: 'Current Gross Margin %' },
+          { key: 'targetMarkupPercent', label: 'Target Markup %' },
+          { key: 'marginDrift', label: 'Margin Drift' },
+        ],
+        filename: 'price-vs-cost-drift-report.csv',
+      };
+    }
+
+    if (selectedReport === 'optimal-vs-actual-gap') {
+      const rows = (reportData as ReportResultMap['optimal-vs-actual-gap']).rows.map((row) => ({
+        productName: row.productName,
+        category: row.category,
+        optimalPrice: Number(row.optimalPrice.toFixed(2)),
+        approvedPrice: Number(row.approvedPrice.toFixed(2)),
+        gap: Number(row.gap.toFixed(2)),
+        gapPercent: Number(row.gapPercent.toFixed(1)),
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'productName', label: 'Product Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
+          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'gap', label: `Gap (${baseCurrency})` },
+          { key: 'gapPercent', label: 'Gap %' },
+        ],
+        filename: 'optimal-vs-actual-gap-report.csv',
+      };
+    }
+
     const mainRows = (reportData as ReportResultMap['currency-exposure']).rows.map((row) => ({
       currency: row.currencyName,
       currencyCode: row.currencyCode,
@@ -912,6 +1278,7 @@ export default function Reports() {
   const pricingCategories = useMemo(() => availableCategories, [availableCategories]);
   const lowMarginCategories = useMemo(() => availableCategories, [availableCategories]);
   const approvalCategories = useMemo(() => availableCategories, [availableCategories]);
+  const productReportCategories = useMemo(() => availableCategories, [availableCategories]);
 
   function resetFiltersForReport(report: ReportKey) {
     if (report === 'pricing-status') {
@@ -932,6 +1299,22 @@ export default function Reports() {
       setApprovalToDate(getDefaultApprovalToDate());
       setApprovalStatusFilter('All');
       setApprovalCategoryFilter('All');
+      return;
+    }
+
+    if (report === 'profitability-ranking') {
+      setProfitabilityCategoryFilter('All');
+      setProfitabilitySort('Margin desc');
+      return;
+    }
+
+    if (report === 'price-vs-cost-drift') {
+      setDriftFilter('Negative only');
+      return;
+    }
+
+    if (report === 'optimal-vs-actual-gap') {
+      setOptimalGapFilter('All');
     }
   }
 
@@ -1007,6 +1390,47 @@ export default function Reports() {
         });
       }
       return chips;
+    }
+
+    if (selectedReport === 'profitability-ranking') {
+      const chips: ActiveFilterChip[] = [];
+      if (profitabilityCategoryFilter !== 'All') {
+        chips.push({
+          key: 'profitability-category',
+          label: `Category: ${profitabilityCategoryFilter}`,
+          onClear: () => setProfitabilityCategoryFilter('All'),
+        });
+      }
+      if (profitabilitySort !== 'Margin desc') {
+        chips.push({
+          key: 'profitability-sort',
+          label: `Sort: ${profitabilitySort}`,
+          onClear: () => setProfitabilitySort('Margin desc'),
+        });
+      }
+      return chips;
+    }
+
+    if (selectedReport === 'price-vs-cost-drift') {
+      if (driftFilter !== 'Negative only') {
+        return [{
+          key: 'drift-filter',
+          label: 'Showing: All products',
+          onClear: () => setDriftFilter('Negative only'),
+        }];
+      }
+      return [];
+    }
+
+    if (selectedReport === 'optimal-vs-actual-gap') {
+      if (optimalGapFilter !== 'All') {
+        return [{
+          key: 'optimal-gap-filter',
+          label: `Gap: ${optimalGapFilter}`,
+          onClear: () => setOptimalGapFilter('All'),
+        }];
+      }
+      return [];
     }
 
     return [];
@@ -1153,6 +1577,65 @@ export default function Reports() {
                 {approvalCategories.map((category) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'profitability-ranking') {
+      return (
+        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(160px, 1fr))', gap: '10px' }}>
+            <div>
+              <label className="app-settings-label">Category</label>
+              <select className="app-control" value={profitabilityCategoryFilter} onChange={(e) => setProfitabilityCategoryFilter(e.target.value)}>
+                <option value="All">All</option>
+                {productReportCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="app-settings-label">Sort by</label>
+              <select className="app-control" value={profitabilitySort} onChange={(e) => setProfitabilitySort(e.target.value as typeof profitabilitySort)}>
+                <option>Margin desc</option>
+                <option>Margin asc</option>
+                <option>Product Name</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'price-vs-cost-drift') {
+      return (
+        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '200px', gap: '10px' }}>
+            <div>
+              <label className="app-settings-label">Show</label>
+              <select className="app-control" value={driftFilter} onChange={(e) => setDriftFilter(e.target.value as typeof driftFilter)}>
+                <option value="Negative only">Negative drift only</option>
+                <option value="All">All products</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'optimal-vs-actual-gap') {
+      return (
+        <div className="report-filter-panel" style={{ display: 'grid', gap: '10px', marginBottom: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '200px', gap: '10px' }}>
+            <div>
+              <label className="app-settings-label">Gap filter</label>
+              <select className="app-control" value={optimalGapFilter} onChange={(e) => setOptimalGapFilter(e.target.value as typeof optimalGapFilter)}>
+                <option value="All">All</option>
+                <option value="Above Optimal">Above optimal</option>
+                <option value="Below Optimal">Below optimal</option>
               </select>
             </div>
           </div>
@@ -1401,6 +1884,145 @@ export default function Reports() {
       );
     }
 
+    if (selectedReport === 'margin-health') {
+      const data = reportData as ReportResultMap['margin-health'];
+      return (
+        <div id="reporting-centre-print-area">
+          <ProductsAnalysisTab
+            products={data.products}
+            lowMarginThreshold={lowMarginThreshold}
+          />
+        </div>
+      );
+    }
+
+    if (selectedReport === 'profitability-ranking') {
+      const data = reportData as ReportResultMap['profitability-ranking'];
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
+            {data.rankedCount} product{data.rankedCount === 1 ? '' : 's'} ranked by profitability
+          </div>
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'center', width: '56px' }}>Rank</th>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'right' }}>Production Cost</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '120px' }}>Actual Gross<br/>Margin %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row, index) => (
+                  <tr key={`${row.productName}-${index}`}>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{index + 1}</td>
+                    <td style={{ textAlign: 'left' }}>{row.productName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.productionCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <ThresholdMarginBar value={row.grossMarginPercent} threshold={lowMarginThreshold} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'price-vs-cost-drift') {
+      const data = reportData as ReportResultMap['price-vs-cost-drift'];
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
+            {data.affectedCount} product{data.affectedCount === 1 ? '' : 's'} with cost changes affecting margin
+          </div>
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
+                  <th style={{ textAlign: 'right' }}>Current Cost</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Current Gross<br/>Margin %</th>
+                  <th style={{ textAlign: 'right' }}>Target Markup %</th>
+                  <th style={{ textAlign: 'right' }}>Margin Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row, index) => (
+                  <tr key={`${row.productName}-${index}`}>
+                    <td style={{ textAlign: 'left' }}>{row.productName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPct(row.currentGrossMarginPercent)}</td>
+                    <td style={{ textAlign: 'right' }}>{formatPct(row.targetMarkupPercent)}</td>
+                    <td style={{ textAlign: 'right', color: row.marginDrift >= 0 ? '#166534' : '#b91c1c', fontWeight: 600 }}>
+                      {formatPct(row.marginDrift)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px' }}>
+            Margin drift compares current Actual Gross Margin % to the target gross margin implied by the product&apos;s markup target at approval. Negative drift means costs have risen since approval.
+          </div>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'optimal-vs-actual-gap') {
+      const data = reportData as ReportResultMap['optimal-vs-actual-gap'];
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ marginBottom: '14px', fontSize: '15px', color: '#334155', fontWeight: 600 }}>
+            {data.aboveCount} product{data.aboveCount === 1 ? '' : 's'} approved above optimal · {data.belowCount} below optimal · {data.atOptimalCount} at optimal
+          </div>
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Product Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'right' }}>Optimal Price</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>Approved<br/>base price</th>
+                  <th style={{ textAlign: 'right' }}>Gap</th>
+                  <th style={{ textAlign: 'right' }}>Gap %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((row, index) => {
+                  const gapColor = row.gapPercent >= 0
+                    ? '#166534'
+                    : row.gapPercent >= -10
+                      ? '#d97706'
+                      : '#b91c1c';
+                  return (
+                    <tr key={`${row.productName}-${index}`}>
+                      <td style={{ textAlign: 'left' }}>{row.productName}</td>
+                      <td style={{ textAlign: 'left' }}>{row.category}</td>
+                      <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
+                      <td style={{ textAlign: 'right' }}>{formatCurrency(row.approvedPrice)}</td>
+                      <td style={{ textAlign: 'right', color: gapColor, fontWeight: 600 }}>{formatSignedNumber(row.gap)}</td>
+                      <td style={{ textAlign: 'right', color: gapColor, fontWeight: 600 }}>{formatPct(row.gapPercent)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
     const data = reportData as ReportResultMap['currency-exposure'];
 
     return (
@@ -1563,20 +2185,6 @@ export default function Reports() {
                         </button>
                       );
                     })}
-                    {group.id === 'products' && (
-                      <div
-                        style={{
-                          paddingLeft: '8px',
-                          color: '#94A3B8',
-                          cursor: 'default',
-                          fontSize: '15px',
-                          fontWeight: 600,
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        Product Pricing Overview — coming soon
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -1640,6 +2248,20 @@ export default function Reports() {
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ThresholdMarginBar({ value, threshold }: { value: number; threshold: number }) {
+  const color = getThresholdMarginColor(value, threshold);
+  const widthPercent = Math.min(100, Math.max(0, value));
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+      <div style={{ width: '120px', height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+        <div style={{ width: `${widthPercent}%`, height: '100%', backgroundColor: color, borderRadius: '999px' }} />
+      </div>
+      <span style={{ color, fontWeight: 600 }}>{formatPct(value)}</span>
     </div>
   );
 }
