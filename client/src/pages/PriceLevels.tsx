@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   currenciesApi,
@@ -2635,7 +2635,7 @@ export default function PriceLevels() {
                   opacity: packModalProductIndex <= 0 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronLeft size={16} strokeWidth={2} style={{ display: 'block', color: '#0F2847', stroke: '#0F2847' }} />
+                <span style={{ fontSize: '16px', lineHeight: 1, color: '#0F2847', fontWeight: 700 }}>&#8249;</span>
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>
@@ -2663,7 +2663,7 @@ export default function PriceLevels() {
                   opacity: packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronRight size={16} strokeWidth={2} style={{ display: 'block', color: '#0F2847', stroke: '#0F2847' }} />
+                <span style={{ fontSize: '16px', lineHeight: 1, color: '#0F2847', fontWeight: 700 }}>&#8250;</span>
               </button>
             </div>
 
