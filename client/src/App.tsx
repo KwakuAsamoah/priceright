@@ -61,7 +61,7 @@ const NAV_SECTIONS = [
   {
     title: 'Pricing',
     items: [
-      { to: '/reports', label: 'Reports', icon: BarChart2, isActive: (pathname: string) => isRouteActive(pathname, '/reports') },
+      { to: '/reports', label: 'Reports & Analysis', icon: BarChart2, isActive: (pathname: string) => isRouteActive(pathname, '/reports') },
       { to: '/activity', label: 'Activity', icon: ClipboardList, isActive: (pathname: string) => isRouteActive(pathname, '/activity') },
     ],
   },

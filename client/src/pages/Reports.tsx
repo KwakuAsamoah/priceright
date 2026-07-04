@@ -207,6 +207,40 @@ const REPORT_METADATA: Array<{
   },
 ];
 
+const REPORT_METADATA_BY_KEY = Object.fromEntries(
+  REPORT_METADATA.map((report) => [report.key, report]),
+) as Record<ReportKey, (typeof REPORT_METADATA)[number]>;
+
+const REPORT_GROUPS: Array<{
+  id: 'pricing' | 'materials' | 'products';
+  label: string;
+  reportKeys: ReportKey[];
+}> = [
+  {
+    id: 'pricing',
+    label: 'PRICING',
+    reportKeys: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
+  },
+  {
+    id: 'materials',
+    label: 'MATERIALS',
+    reportKeys: ['currency-exposure'],
+  },
+  {
+    id: 'products',
+    label: 'PRODUCTS',
+    reportKeys: [],
+  },
+];
+
+const REPORT_GROUP_HEADING_STYLE: CSSProperties = {
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: '#94A3B8',
+  marginBottom: '6px',
+};
+
 const DEFAULT_LOW_MARGIN_THRESHOLD = 20;
 
 function getDefaultApprovalFromDate(): string {
@@ -1488,34 +1522,64 @@ export default function Reports() {
             }}
           >
             <div style={{ display: 'grid', gap: '8px' }}>
-              {REPORT_METADATA.map((report) => {
-                const Icon = report.icon;
-                const isActive = selectedReport === report.key;
-
-                return (
-                  <button
-                    type="button"
-                    key={report.key}
-                    onClick={() => {
-                      resetFiltersForReport(report.key);
-                      setSelectedReport(report.key);
-                      setReportData(null);
-                      setGeneratedAt(null);
-                      setError(null);
-                      setExpandedCurrencyCodes(new Set());
+              {REPORT_GROUPS.map((group, groupIndex) => (
+                <div key={group.id}>
+                  <div
+                    style={{
+                      ...REPORT_GROUP_HEADING_STYLE,
+                      marginTop: groupIndex === 0 ? 0 : '16px',
                     }}
-                    className={`app-panel-tab ${isActive ? 'is-active' : ''}`}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
-                      <strong style={{ fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap' }}>{report.name}</strong>
-                    </div>
-                    <div className="app-panel-tab-description">
-                      {report.description}
-                    </div>
-                  </button>
-                );
-              })}
+                    {group.label}
+                  </div>
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {group.reportKeys.map((reportKey) => {
+                      const report = REPORT_METADATA_BY_KEY[reportKey];
+                      const Icon = report.icon;
+                      const isActive = selectedReport === report.key;
+
+                      return (
+                        <button
+                          type="button"
+                          key={report.key}
+                          onClick={() => {
+                            resetFiltersForReport(report.key);
+                            setSelectedReport(report.key);
+                            setReportData(null);
+                            setGeneratedAt(null);
+                            setError(null);
+                            setExpandedCurrencyCodes(new Set());
+                          }}
+                          className={`app-panel-tab ${isActive ? 'is-active' : ''}`}
+                          style={{ paddingLeft: '8px' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Icon size={15} strokeWidth={2} style={{ flexShrink: 0 }} />
+                            <strong style={{ fontSize: '15px', fontWeight: 700, whiteSpace: 'nowrap' }}>{report.name}</strong>
+                          </div>
+                          <div className="app-panel-tab-description">
+                            {report.description}
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {group.id === 'products' && (
+                      <div
+                        style={{
+                          paddingLeft: '8px',
+                          color: '#94A3B8',
+                          cursor: 'default',
+                          fontSize: '15px',
+                          fontWeight: 600,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        Product Pricing Overview — coming soon
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div style={{ marginTop: '10px', color: '#888', fontSize: '13px', fontWeight: 400 }}>
