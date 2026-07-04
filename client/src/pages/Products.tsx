@@ -10,6 +10,7 @@ import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } fr
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import MarginLegendCard from '../components/MarginLegendCard';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
@@ -2859,6 +2860,7 @@ export default function Products() {
           }
         }
       `}</style>
+      <MarginLegendCard />
     </div>
   );
 }

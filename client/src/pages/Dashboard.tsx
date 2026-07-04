@@ -25,6 +25,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarginThreshold } from '../hooks/useLowMarginThreshold';
 import { formatCurrency } from '../utils/currency';
 import { calculateActualGrossMarginPercent, getThresholdMarginColor } from '../utils/margin';
+import MarginLegendCard from '../components/MarginLegendCard';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
 type BannerTone = 'success' | 'error';
@@ -1413,6 +1414,7 @@ export default function Dashboard() {
           }
         }
       `}</style>
+      <MarginLegendCard />
     </div>
   );
 }

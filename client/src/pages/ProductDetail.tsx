@@ -9,6 +9,7 @@ import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import AppToast from '../components/AppToast';
+import MarginLegendCard from '../components/MarginLegendCard';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 
 // ─── local types ────────────────────────────────────────────────────────────
@@ -1325,6 +1326,7 @@ export default function ProductDetail() {
           </div>
         </div>
       )}
+      <MarginLegendCard />
     </div>
   );
 }

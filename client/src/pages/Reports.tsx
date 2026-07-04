@@ -24,6 +24,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import { getThresholdMarginColor } from '../utils/margin';
+import MarginLegendCard from '../components/MarginLegendCard';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
@@ -3813,6 +3814,7 @@ export default function Reports() {
           )}
         </div>
       </div>
+      <MarginLegendCard />
     </div>
   );
 }
