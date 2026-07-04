@@ -2631,12 +2631,11 @@ export default function PriceLevels() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#64748b',
                   flexShrink: 0,
                   opacity: packModalProductIndex <= 0 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronLeft size={16} color="#64748b" strokeWidth={2} style={{ display: 'block' }} />
+                <ChevronLeft size={16} strokeWidth={2} style={{ display: 'block', color: '#0F2847', stroke: '#0F2847' }} />
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>
@@ -2660,12 +2659,11 @@ export default function PriceLevels() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#64748b',
                   flexShrink: 0,
                   opacity: packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronRight size={16} color="#64748b" strokeWidth={2} style={{ display: 'block' }} />
+                <ChevronRight size={16} strokeWidth={2} style={{ display: 'block', color: '#0F2847', stroke: '#0F2847' }} />
               </button>
             </div>
 
