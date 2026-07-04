@@ -1196,7 +1196,6 @@ textarea {
   min-width: 0;
   min-height: 100%;
   box-sizing: border-box;
-  overflow: hidden;
   text-align: left;
   border: 1px solid #E2E8F0;
   border-radius: 10px;
@@ -1236,6 +1235,9 @@ textarea {
   font-weight: 600;
   color: #0F2847;
   min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .help-centre__setup-description {
@@ -1244,6 +1246,9 @@ textarea {
   line-height: 1.45;
   color: #64748b;
   min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .help-centre__setup-link {
@@ -1319,7 +1324,6 @@ textarea {
   min-width: 0;
   min-height: 100%;
   box-sizing: border-box;
-  overflow: hidden;
   text-align: left;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -1346,6 +1350,9 @@ textarea {
   font-weight: 700;
   color: #0F2847;
   min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .help-centre__category-count {
@@ -1353,6 +1360,9 @@ textarea {
   color: #64748b;
   margin-top: auto;
   min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .help-centre__list-section,
