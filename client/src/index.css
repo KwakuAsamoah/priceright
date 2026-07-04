@@ -1190,6 +1190,13 @@ textarea {
 
 .help-centre__setup-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   text-align: left;
   border: 1px solid #E2E8F0;
   border-radius: 10px;
@@ -1228,6 +1235,9 @@ textarea {
   font-size: 14px;
   font-weight: 600;
   color: #0F2847;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .help-centre__setup-description {
@@ -1235,10 +1245,16 @@ textarea {
   font-size: 13px;
   line-height: 1.45;
   color: #64748b;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .help-centre__setup-link {
-  margin-top: 8px;
+  margin-top: auto;
   font-size: 12px;
   font-weight: 600;
   color: #16A34A;
@@ -1306,6 +1322,11 @@ textarea {
 }
 
 .help-centre__category-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   text-align: left;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
@@ -1331,11 +1352,18 @@ textarea {
   font-size: 15px;
   font-weight: 700;
   color: #0F2847;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .help-centre__category-count {
   font-size: 13px;
   color: #64748b;
+  margin-top: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .help-centre__list-section,
