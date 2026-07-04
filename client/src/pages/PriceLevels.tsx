@@ -1161,7 +1161,7 @@ export default function PriceLevels() {
     return count;
   }, [wizardSelectedProducts, wizardRules]);
 
-  async function createPriceLevelFromWizard() {
+  async function createPriceLevelFromWizard(shouldApproveAll = false) {
     const name = wizardName.trim();
     if (!name) {
       showToastMessage('Price level name is required.', 'error');
@@ -1228,11 +1228,19 @@ export default function PriceLevels() {
         })
       );
 
+      if (shouldApproveAll) {
+        await priceLevelItemsApi.bulkApprove(newLevelId, 'user');
+      }
+
       setShowWizard(false);
       resetWizardState();
       await loadInitialData();
       setSelectedLevelId(newLevelId);
-      showToastMessage(`Price level created. ${wizardSelectedProducts.length} prices pending approval.`, 'success');
+      if (shouldApproveAll) {
+        showToastMessage('Price list created and all prices approved — ready to export', 'success');
+      } else {
+        showToastMessage(`Price level created. ${wizardSelectedProducts.length} prices pending approval.`, 'success');
+      }
     } catch (error) {
       console.error('Failed to create price level:', error);
       showToastMessage((error as Error).message || 'Failed to create price level.', 'error');
@@ -2952,11 +2960,40 @@ export default function PriceLevels() {
                   </div>
                 )}
 
+                <div style={{ borderTop: '1px solid #E2E8F0', margin: '16px 0' }} />
+
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F2847', marginBottom: '6px' }}>
+                    Make this price list ready to export?
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 12px' }}>
+                    Approving now means this price list can be exported immediately. You can also approve later from the price list page.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-success"
+                      onClick={() => void createPriceLevelFromWizard(true)}
+                      disabled={saving || !wizardName.trim()}
+                    >
+                      Approve all prices now
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => void createPriceLevelFromWizard(false)}
+                      disabled={saving || !wizardName.trim()}
+                    >
+                      I&apos;ll approve later
+                    </button>
+                  </div>
+                </div>
+
                 <div className="app-modal-actions">
                   <AppButton variant="ghost" onClick={cancelWizard}>Cancel</AppButton>
                   <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                     <AppButton variant="ghost" onClick={() => setWizardStep(3)}>Back</AppButton>
-                    <AppButton variant="primary" onClick={createPriceLevelFromWizard} disabled={saving || !wizardName.trim()}>
+                    <AppButton variant="primary" onClick={() => void createPriceLevelFromWizard(false)} disabled={saving || !wizardName.trim()}>
                       Create price level
                     </AppButton>
                   </div>
