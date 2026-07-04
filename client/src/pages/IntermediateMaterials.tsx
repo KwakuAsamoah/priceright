@@ -244,6 +244,14 @@ function toSafePositiveNumber(rawValue: string, fallback: number) {
   return numericValue;
 }
 
+interface TempBomItem {
+  componentMaterialId: number;
+  componentName: string;
+  componentUnit: string;
+  quantity: number;
+  unitCost: number;
+}
+
 interface IntermediateMaterialsProps {
   refreshKey?: number;
   isActive?: boolean;
@@ -259,6 +267,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [tempBomItems, setTempBomItems] = useState<TempBomItem[]>([]);
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [materialSearch, setMaterialSearch] = useState('');
@@ -555,11 +564,20 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setStatusText('');
   }
 
+  function resolveCategoryForSave() {
+    const resolved = normalizeChoiceValue(form.category, materialCustomCategoryValue);
+    if (resolved) return resolved;
+    if (materialCategories.includes('General')) return 'General';
+    if (materialCategories.length > 0) return materialCategories[0];
+    return 'Intermediate';
+  }
+
   function openNewMaterialForm() {
     setSelectedId(null);
     setForm(emptyForm);
     setMaterialCustomCategoryValue('');
     setBomItems([]);
+    setTempBomItems([]);
     setComponentMaterialId(0);
     setComponentQuantity('1');
     setComponentSearch('');
@@ -570,6 +588,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
   function openEditMaterialForm(material: MaterialRecord) {
     selectMaterial(material);
+    setTempBomItems([]);
     setComponentMaterialId(0);
     setComponentQuantity('1');
     setComponentSearch('');
@@ -599,6 +618,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
   function closeMaterialForm() {
     setIsFormOpen(false);
+    setTempBomItems([]);
     setComponentSearch('');
     setComponentMaterialId(0);
     setComponentQuantity('1');
@@ -629,13 +649,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   async function saveMaterial() {
     setSaving(true);
     try {
-      const resolvedCategory = normalizeChoiceValue(form.category, materialCustomCategoryValue);
-      if (!resolvedCategory) {
-        showToastMessage('Please provide a category', 'error');
-        return;
-      }
+      const resolvedCategory = resolveCategoryForSave();
 
       let createdId: number | null = null;
+      let bomFailureCount = 0;
       const costSnapshot = calculateIntermediateLiveCost();
       const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
       if (String(resolvedBulkQuantity) !== form.bulkQuantity) {
@@ -661,10 +678,42 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         await materialsApi.update(selectedMaterial.id, payload);
         await materialsApi.recalculateIntermediateCost(selectedMaterial.id);
       } else {
+        const bomItemsToPost = [...tempBomItems];
         const created = await materialsApi.create(payload);
         if (created?.id) {
           createdId = created.id;
           setSelectedId(created.id);
+
+          let failedBomPosts = 0;
+          for (const item of bomItemsToPost) {
+            try {
+              await materialsApi.addIntermediateBomItem(created.id, {
+                componentMaterialId: item.componentMaterialId,
+                quantity: item.quantity,
+              });
+            } catch {
+              failedBomPosts += 1;
+            }
+          }
+          bomFailureCount = failedBomPosts;
+
+          if (bomItemsToPost.length > 0) {
+            try {
+              await materialsApi.recalculateIntermediateCost(created.id);
+            } catch {
+              // Material exists; recalc can be retried from edit view.
+            }
+          }
+
+          setTempBomItems([]);
+
+          if (bomFailureCount > 0) {
+            setStatusText('Intermediate material created, but some BOM items failed to save.');
+            showToastMessage(
+              `Intermediate material created, but ${bomFailureCount} BOM item${bomFailureCount === 1 ? '' : 's'} failed to save. Edit the material to retry.`,
+              'error',
+            );
+          }
         }
       }
 
@@ -676,8 +725,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       if (nextSelectedId) {
         await loadBom(nextSelectedId);
       }
-      setStatusText('Saved intermediate material.');
-      showToastMessage(selectedMaterial ? 'Intermediate material updated' : 'Intermediate material created', 'success');
+      if (selectedMaterial) {
+        setStatusText('Saved intermediate material.');
+        showToastMessage('Intermediate material updated', 'success');
+      } else if (createdId && bomFailureCount === 0) {
+        setStatusText('Saved intermediate material.');
+        showToastMessage('Intermediate material created', 'success');
+      }
     } catch (error: any) {
       const message = error?.message || 'Failed to save intermediate material';
       setStatusText(message);
@@ -688,7 +742,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   async function addBomItem() {
-    if (!selectedId || componentMaterialId <= 0) return;
+    if (componentMaterialId <= 0) return;
 
     const resolvedQuantityText = commitMathExpression(componentQuantity, setComponentQuantity);
     const quantity = Number(resolvedQuantityText || 0);
@@ -696,6 +750,32 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       showToastMessage('Please enter a valid quantity', 'error');
       return;
     }
+
+    if (!selectedMaterial) {
+      const component = components.find((material) => material.id === componentMaterialId);
+      if (!component) {
+        showToastMessage('Selected component material not found', 'error');
+        return;
+      }
+
+      setTempBomItems((prev) => [
+        ...prev,
+        {
+          componentMaterialId: component.id,
+          componentName: String(component.name || ''),
+          componentUnit: String(component.unit || ''),
+          quantity,
+          unitCost: Number(component.unitPrice || 0),
+        },
+      ]);
+      setComponentMaterialId(0);
+      setComponentQuantity('1');
+      setComponentSearch('');
+      setStatusText('Added BOM component.');
+      return;
+    }
+
+    if (!selectedId) return;
 
     await materialsApi.addIntermediateBomItem(selectedId, {
       componentMaterialId,
@@ -705,6 +785,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     await loadData();
     await loadBom(selectedId);
     setStatusText('Added BOM component and recalculated cost.');
+  }
+
+  function removeTempBomItem(index: number) {
+    setTempBomItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function updateBomQuantity(item: IntermediateBomItemRecord, quantity: number) {
@@ -1149,9 +1233,9 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }, [availableComponents, componentSearch]);
 
   function calculateIntermediateLiveCost() {
-    const totalMaterialCost = bomItems.reduce((sum, item) => {
-      return sum + Number(item.quantity || 0) * Number(item.unitPrice || 0);
-    }, 0);
+    const totalMaterialCost = selectedMaterial
+      ? bomItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0)
+      : tempBomItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
 
     const overheadPercentage = Number(form.overheadPercentage || 0) / 100;
     const overheadCost = totalMaterialCost * overheadPercentage;
@@ -1181,8 +1265,15 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   const liveCost = calculateIntermediateLiveCost();
-  const resolvedCategoryForSubmit = normalizeChoiceValue(form.category, materialCustomCategoryValue);
-  const currencySymbol = selectedMaterial?.baseCurrencySymbol || '';
+  const tempBomCostEstimate = useMemo(() => {
+    if (selectedMaterial || tempBomItems.length === 0) {
+      return null;
+    }
+    const batchMaterialCost = tempBomItems.reduce((sum, item) => sum + item.unitCost * item.quantity, 0);
+    const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
+    return batchMaterialCost / (yieldPercent / 100);
+  }, [selectedMaterial, tempBomItems, form.yieldPercentage]);
+  const currencySymbol = selectedMaterial?.baseCurrencySymbol || components[0]?.baseCurrencySymbol || '';
   const formatMoney = (amount: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
 
   return (
@@ -1812,121 +1903,136 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
               <div className="app-card" style={{ display: 'grid', gap: 10 }}>
                 <h3 style={{ margin: 0 }}>Bill of Materials</h3>
-                {!selectedMaterial ? <div style={{ color: '#64748b' }}>Select or create an intermediate material to edit its BOM.</div> : null}
-                {selectedMaterial ? (
-                  <>
-                    <div style={{ display: 'grid', gap: 8 }}>
-                      <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Select Material</label>
-                      <input
-                        className="app-input"
-                        type="search"
-                        placeholder="Search and select material..."
-                        value={componentSearch}
-                        onChange={(e) => setComponentSearch(e.target.value)}
-                      />
-                      <div style={{ display: 'flex', gap: 8 }}>
-                      <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))}>
-                        <option value={0}>Select component material...</option>
-                        {filteredAvailableComponents.map((material) => (
-                          <option key={material.id} value={material.id}>{material.name}</option>
-                        ))}
-                      </select>
-                      <input
-                        className="app-input"
-                        type="text"
-                        inputMode="decimal"
-                        value={componentQuantity}
-                        onChange={(e) => setComponentQuantity(e.target.value)}
-                        onBlur={() => {
-                          commitMathExpression(componentQuantity, setComponentQuantity);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const resolved = commitMathExpression(componentQuantity, setComponentQuantity);
-                            if (resolved !== componentQuantity) {
-                              (e.currentTarget as HTMLInputElement).blur();
-                            }
-                          }
-                        }}
-                        placeholder="Qty or =2+2"
-                      />
-                      <button className="btn btn-secondary btn-sm" onClick={() => void addBomItem()}>Add</button>
-                      </div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>
-                        Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
-                      </div>
-                    </div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  <label style={{ ...fieldLabelStyle, marginBottom: 0 }}>Select Material</label>
+                  <input
+                    className="app-input"
+                    type="search"
+                    placeholder="Search and select material..."
+                    value={componentSearch}
+                    onChange={(e) => setComponentSearch(e.target.value)}
+                  />
+                  <div style={{ display: 'flex', gap: 8 }}>
+                  <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))}>
+                    <option value={0}>Select component material...</option>
+                    {filteredAvailableComponents.map((material) => (
+                      <option key={material.id} value={material.id}>{material.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    className="app-input"
+                    type="text"
+                    inputMode="decimal"
+                    value={componentQuantity}
+                    onChange={(e) => setComponentQuantity(e.target.value)}
+                    onBlur={() => {
+                      commitMathExpression(componentQuantity, setComponentQuantity);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const resolved = commitMathExpression(componentQuantity, setComponentQuantity);
+                        if (resolved !== componentQuantity) {
+                          (e.currentTarget as HTMLInputElement).blur();
+                        }
+                      }
+                    }}
+                    placeholder="Qty or =2+2"
+                  />
+                  <button className="btn btn-secondary btn-sm" type="button" onClick={() => void addBomItem()}>Add</button>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                  </div>
+                </div>
 
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                      <table className="app-table app-table-compact" style={{ width: '100%' }}>
-                        <thead>
-                          <tr>
-                            <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
-                            <th style={{ textAlign: 'right' }}>Quantity</th>
-                            <th style={{ textAlign: 'right' }}>Unit Price</th>
-                            <th style={{ textAlign: 'right' }}>Total</th>
-                            <th style={{ textAlign: 'center' }}>Action</th>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
+                        <th style={{ textAlign: 'right' }}>Quantity</th>
+                        <th style={{ textAlign: 'right' }}>Unit Price</th>
+                        <th style={{ textAlign: 'right' }}>Total</th>
+                        <th style={{ textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedMaterial ? bomItems.map((item) => {
+                        const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
+                        const isEditing = editingBomId === item.id;
+
+                        return (
+                          <tr key={item.id}>
+                            <td style={{ textAlign: 'left' }}>{item.componentMaterialName}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              {isEditing ? (
+                                <input
+                                  className="app-input"
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={editingQuantity}
+                                  onChange={(e) => setEditingQuantity(e.target.value)}
+                                  onBlur={() => {
+                                    commitMathExpression(editingQuantity, setEditingQuantity);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      void saveBomEdit(item);
+                                    }
+                                  }}
+                                  style={{ maxWidth: 120 }}
+                                />
+                              ) : (
+                                <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
+                              )}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(Number(item.unitPrice || 0))}</td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                {isEditing ? (
+                                  <>
+                                    <button className="btn btn-secondary btn-sm" type="button" onClick={() => void saveBomEdit(item)}>Save</button>
+                                    <button className="btn btn-outline btn-sm" type="button" onClick={cancelBomEdit}>Cancel</button>
+                                  </>
+                                ) : (
+                                  <button className="btn btn-secondary btn-sm" type="button" onClick={() => startBomEdit(item)}>Edit</button>
+                                )}
+                                <button className="btn btn-danger btn-sm" type="button" onClick={() => void deleteBomItem(item)}>Delete</button>
+                              </div>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {bomItems.map((item) => {
-                            const rowTotal = Number(item.quantity || 0) * Number(item.unitPrice || 0);
-                            const isEditing = editingBomId === item.id;
-
-                            return (
-                              <tr key={item.id}>
-                                <td style={{ textAlign: 'left' }}>{item.componentMaterialName}</td>
-                                <td style={{ textAlign: 'right' }}>
-                                  {isEditing ? (
-                                    <input
-                                      className="app-input"
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={editingQuantity}
-                                      onChange={(e) => setEditingQuantity(e.target.value)}
-                                      onBlur={() => {
-                                        commitMathExpression(editingQuantity, setEditingQuantity);
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          e.preventDefault();
-                                          void saveBomEdit(item);
-                                        }
-                                      }}
-                                      style={{ maxWidth: 120 }}
-                                    />
-                                  ) : (
-                                    <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
-                                  )}
-                                </td>
-                                <td style={{ textAlign: 'right' }}>{formatMoney(Number(item.unitPrice || 0))}</td>
-                                <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                                <td style={{ textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', gap: 6 }}>
-                                    {isEditing ? (
-                                      <>
-                                        <button className="btn btn-secondary btn-sm" onClick={() => void saveBomEdit(item)}>Save</button>
-                                        <button className="btn btn-outline btn-sm" onClick={cancelBomEdit}>Cancel</button>
-                                      </>
-                                    ) : (
-                                      <button className="btn btn-secondary btn-sm" onClick={() => startBomEdit(item)}>Edit</button>
-                                    )}
-                                    <button className="btn btn-danger btn-sm" onClick={() => void deleteBomItem(item)}>Delete</button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                          {bomItems.length === 0 ? (
-                            <tr>
-                              <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
-                            </tr>
-                          ) : null}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
+                        );
+                      }) : tempBomItems.map((item, index) => {
+                        const rowTotal = item.quantity * item.unitCost;
+                        return (
+                          <tr key={`${item.componentMaterialId}-${index}`}>
+                            <td style={{ textAlign: 'left' }}>{item.componentName}</td>
+                            <td style={{ textAlign: 'right' }}>
+                              <span>{item.quantity.toFixed(3)} {item.componentUnit}</span>
+                            </td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(item.unitCost)}</td>
+                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>Remove</button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {(selectedMaterial ? bomItems.length === 0 : tempBomItems.length === 0) ? (
+                        <tr>
+                          <td colSpan={5} style={{ color: '#64748b' }}>No BOM components yet.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
+                {!selectedMaterial && tempBomItems.length > 0 && tempBomCostEstimate != null ? (
+                  <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>
+                    Estimated cost per unit (before save): {formatMoney(tempBomCostEstimate)}
+                  </div>
                 ) : null}
               </div>
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
@@ -1977,7 +2083,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   className="btn btn-primary btn-sm"
                   type="submit"
                   form="intermediate-material-form"
-                  disabled={saving || !form.name.trim() || !resolvedCategoryForSubmit.trim() || !form.unit.trim()}
+                  disabled={saving || !form.name.trim() || !form.unit.trim()}
                 >
                   {saving ? 'Saving...' : selectedMaterial ? 'Save Changes' : 'Create Intermediate'}
                 </button>
