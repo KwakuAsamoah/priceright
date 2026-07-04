@@ -29,6 +29,11 @@ type ReportKey =
   | 'price-list-summary'
   | 'approval-history'
   | 'currency-exposure'
+  | 'materials-cost-analysis'
+  | 'top-cost-drivers'
+  | 'price-volatility'
+  | 'material-price-history'
+  | 'inactive-in-boms'
   | 'margin-health'
   | 'profitability-ranking'
   | 'price-vs-cost-drift'
@@ -108,12 +113,70 @@ type MaterialRow = {
   id: number;
   name: string;
   category: string;
+  unit?: string;
   purchaseCurrencyId: number;
   purchaseCurrencyCode?: string;
   unitPrice: number | string;
   bulkPrice: number | string;
   bulkQuantity: number | string;
   isActive: boolean;
+};
+
+type ProductWithBomRow = {
+  id: number;
+  name: string;
+  isActive?: boolean;
+  bom: Array<{ materialId?: number; quantity?: number | string }>;
+};
+
+type MaterialPriceHistoryApiEntry = {
+  id: number;
+  priceInBaseCurrency: number | string;
+  changedAt: string | number;
+};
+
+type MaterialsCostAnalysisRow = {
+  materialName: string;
+  category: string;
+  unit: string;
+  unitCost: number;
+  productsUsedCount: number;
+};
+
+type TopCostDriverRow = {
+  materialName: string;
+  category: string;
+  unitCost: number;
+  bomUsageCount: number;
+  totalContribution: number;
+  percentOfTotal: number;
+};
+
+type PriceVolatilityRow = {
+  materialName: string;
+  category: string;
+  unit: string;
+  costAtStart: number;
+  currentCost: number;
+  changeAmount: number;
+  changePercent: number;
+};
+
+type MaterialPriceHistoryTableRow = {
+  date: string;
+  oldCost: number | null;
+  newCost: number;
+  changeAmount: number | null;
+  changePercent: number | null;
+  changedBy: string;
+};
+
+type InactiveInBomRow = {
+  materialName: string;
+  category: string;
+  status: string;
+  productNames: string[];
+  productsAffectedCount: number;
 };
 
 type CurrencyRow = {
@@ -218,6 +281,46 @@ type ReportResultMap = {
     rows: CurrencyExposureComputedRow[];
     totalMaterials: number;
   };
+  'materials-cost-analysis': {
+    rows: MaterialsCostAnalysisRow[];
+    totalActiveMaterials: number;
+    averageUnitCost: number;
+    mostExpensiveName: string;
+    mostExpensiveCost: number;
+    categoryCount: number;
+  };
+  'top-cost-drivers': {
+    rows: TopCostDriverRow[];
+    totalMaterialsInBoms: number;
+    totalWeightedCost: number;
+    mostImpactfulMaterial: string;
+  };
+  'price-volatility': {
+    rows: PriceVolatilityRow[];
+    materialsWithChanges: number;
+    averageChangePercent: number;
+    biggestIncreaseName: string;
+    biggestIncreasePercent: number;
+    biggestDecreaseName: string;
+    biggestDecreasePercent: number;
+    endpointAvailable: boolean;
+  };
+  'material-price-history': {
+    materialId: number | null;
+    materialName: string;
+    materialOptions: Array<{ id: number; name: string }>;
+    rows: MaterialPriceHistoryTableRow[];
+    currentCost: number;
+    firstRecordedCost: number | null;
+    priceChangeCount: number;
+    costTrend: 'up' | 'down' | 'stable';
+  };
+  'inactive-in-boms': {
+    rows: InactiveInBomRow[];
+    totalInactiveMaterials: number;
+    inactiveAffectingProducts: number;
+    productsAffected: number;
+  };
   'margin-health': {
     products: MarginHealthProduct[];
   };
@@ -280,6 +383,41 @@ const REPORT_METADATA: Array<{
     icon: RefreshCw,
   },
   {
+    key: 'materials-cost-analysis',
+    name: 'Materials Cost Analysis',
+    pillLabel: 'Materials Cost Analysis',
+    description: 'Unit costs, categories, and product usage across active materials',
+    icon: LineChart,
+  },
+  {
+    key: 'top-cost-drivers',
+    name: 'Top Cost Drivers',
+    pillLabel: 'Top Cost Drivers',
+    description: 'Materials with the highest total BOM cost contribution',
+    icon: TrendingUp,
+  },
+  {
+    key: 'price-volatility',
+    name: 'Price Volatility',
+    pillLabel: 'Price Volatility',
+    description: 'Materials with unit cost changes over a selected period',
+    icon: AlertTriangle,
+  },
+  {
+    key: 'material-price-history',
+    name: 'Material Price History',
+    pillLabel: 'Material Price History',
+    description: 'Full price change history for a selected material',
+    icon: FileText,
+  },
+  {
+    key: 'inactive-in-boms',
+    name: 'Inactive in Active BOMs',
+    pillLabel: 'Inactive in Active BOMs',
+    description: 'Inactive materials still referenced in active product BOMs',
+    icon: ShieldCheck,
+  },
+  {
     key: 'margin-health',
     name: 'Margin Health',
     pillLabel: 'Margin Health',
@@ -318,17 +456,30 @@ type ReportGroupId = 'pricing' | 'products' | 'materials';
 const GROUP_REPORT_KEYS: Record<ReportGroupId, ReportKey[]> = {
   pricing: ['pricing-status', 'low-margin', 'approval-history', 'price-list-summary'],
   products: ['margin-health', 'profitability-ranking', 'price-vs-cost-drift', 'optimal-vs-actual-gap'],
-  materials: ['currency-exposure'],
+  materials: [
+    'currency-exposure',
+    'materials-cost-analysis',
+    'top-cost-drivers',
+    'price-volatility',
+    'material-price-history',
+    'inactive-in-boms',
+  ],
 };
 
-const MATERIALS_DROPDOWN_OPTIONS: Array<{ value: string; label: string; disabled?: boolean }> = [
+const MATERIALS_DROPDOWN_OPTIONS: Array<{ value: ReportKey; label: string }> = [
   { value: 'currency-exposure', label: 'Currency Exposure' },
-  { value: 'materials-cost-trends', label: 'Material Cost Trends — coming soon', disabled: true },
-  { value: 'materials-supplier-summary', label: 'Supplier Summary — coming soon', disabled: true },
-  { value: 'materials-price-changes', label: 'Material Price Changes — coming soon', disabled: true },
-  { value: 'materials-stock-valuation', label: 'Stock Valuation — coming soon', disabled: true },
-  { value: 'materials-category-breakdown', label: 'Category Breakdown — coming soon', disabled: true },
+  { value: 'materials-cost-analysis', label: 'Materials Cost Analysis' },
+  { value: 'top-cost-drivers', label: 'Top Cost Drivers' },
+  { value: 'price-volatility', label: 'Price Volatility' },
+  { value: 'material-price-history', label: 'Material Price History' },
+  { value: 'inactive-in-boms', label: 'Inactive in Active BOMs' },
 ];
+
+const REPORTS_WITH_CUSTOM_EMPTY_BODY = new Set<ReportKey>([
+  'material-price-history',
+  'inactive-in-boms',
+  'price-volatility',
+]);
 
 const ROWS_PER_PAGE = 15;
 
@@ -502,6 +653,64 @@ function approvalStatusLabel(status: PricingStatusComputedRow['approvalStatus'])
   return 'Pending';
 }
 
+async function loadActiveProductsWithBom(): Promise<ProductWithBomRow[]> {
+  const allProducts = (await productsApi.getAll('all')) as ProductWithBomRow[];
+  const activeProducts = allProducts.filter((product) => product.isActive !== false);
+
+  return Promise.all(
+    activeProducts.map(async (product) => {
+      try {
+        const bom = await productsApi.getBOM(product.id);
+        return {
+          ...product,
+          bom: Array.isArray(bom) ? bom : [],
+        };
+      } catch {
+        return { ...product, bom: [] };
+      }
+    }),
+  );
+}
+
+function buildMaterialProductUsageMap(products: ProductWithBomRow[]): Map<number, number> {
+  const usage = new Map<number, Set<number>>();
+
+  for (const product of products) {
+    const seenInProduct = new Set<number>();
+    for (const entry of product.bom) {
+      if (!entry.materialId || seenInProduct.has(entry.materialId)) continue;
+      seenInProduct.add(entry.materialId);
+      const existing = usage.get(entry.materialId) || new Set<number>();
+      existing.add(product.id);
+      usage.set(entry.materialId, existing);
+    }
+  }
+
+  return new Map(Array.from(usage.entries()).map(([materialId, productIds]) => [materialId, productIds.size]));
+}
+
+function getCostAtPeriodStart(historyAsc: MaterialPriceHistoryApiEntry[], periodStart: Date): number | null {
+  if (historyAsc.length === 0) return null;
+
+  let costAtStart: number | null = null;
+  for (const entry of historyAsc) {
+    const changedAt = parseDate(entry.changedAt);
+    if (changedAt && changedAt <= periodStart) {
+      costAtStart = toNumber(entry.priceInBaseCurrency);
+    }
+  }
+
+  if (costAtStart === null) {
+    costAtStart = toNumber(historyAsc[0].priceInBaseCurrency);
+  }
+
+  return costAtStart;
+}
+
+function getVolatilityPeriodDays(period: '30' | '90' | '180' | '365'): number {
+  return Number(period);
+}
+
 export default function Reports() {
   const { baseCurrency } = useBaseCurrency();
   const formatCurrency = (value: number) => {
@@ -538,6 +747,11 @@ export default function Reports() {
   const [driftFilter, setDriftFilter] = useState<'Negative only' | 'All'>('Negative only');
 
   const [optimalGapFilter, setOptimalGapFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal'>('All');
+
+  const [materialsCostCategoryFilter, setMaterialsCostCategoryFilter] = useState('All');
+  const [priceVolatilityPeriod, setPriceVolatilityPeriod] = useState<'30' | '90' | '180' | '365'>('90');
+  const [materialPriceHistoryMaterialId, setMaterialPriceHistoryMaterialId] = useState<number | null>(null);
+  const [availableMaterialCategories, setAvailableMaterialCategories] = useState<string[]>([]);
 
   const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
   const { handlePrint } = usePrint();
@@ -663,6 +877,9 @@ export default function Reports() {
     profitabilitySort,
     driftFilter,
     optimalGapFilter,
+    materialsCostCategoryFilter,
+    priceVolatilityPeriod,
+    materialPriceHistoryMaterialId,
     baseCurrency,
   ]);
 
@@ -670,6 +887,13 @@ export default function Reports() {
     if (!reportData || !selectedReport) return 0;
     if (selectedReport === 'margin-health') {
       return (reportData as ReportResultMap['margin-health']).products.length;
+    }
+    if (selectedReport === 'material-price-history') {
+      const data = reportData as ReportResultMap['material-price-history'];
+      return data.materialId ? data.rows.length : 0;
+    }
+    if (selectedReport === 'inactive-in-boms') {
+      return (reportData as ReportResultMap['inactive-in-boms']).rows.length;
     }
     if (selectedReport === 'profitability-ranking') {
       return (reportData as ReportResultMap['profitability-ranking']).rows.length;
@@ -682,6 +906,25 @@ export default function Reports() {
     }
     return Array.isArray((reportData as any).rows) ? (reportData as any).rows.length : 0;
   }, [reportData, selectedReport]);
+
+  const shouldShowReportBody = useMemo(() => {
+    if (!reportData) return false;
+    if (REPORTS_WITH_CUSTOM_EMPTY_BODY.has(selectedReport)) return true;
+    return generatedRowsCount > 0;
+  }, [generatedRowsCount, reportData, selectedReport]);
+
+  const canExportReport = useMemo(() => {
+    if (!reportData || !generatedAt) return false;
+    if (selectedReport === 'material-price-history') {
+      const data = reportData as ReportResultMap['material-price-history'];
+      return data.materialId != null && data.rows.length > 0;
+    }
+    if (selectedReport === 'inactive-in-boms') return true;
+    if (REPORTS_WITH_CUSTOM_EMPTY_BODY.has(selectedReport)) {
+      return generatedRowsCount > 0;
+    }
+    return generatedRowsCount > 0;
+  }, [generatedAt, generatedRowsCount, reportData, selectedReport]);
 
   async function generateReport() {
     if (!selectedReport) return;
@@ -929,6 +1172,289 @@ export default function Reports() {
           .sort((a, b) => b.materialsCount - a.materialsCount);
 
         setReportData({ rows, totalMaterials: materials.length });
+      }
+
+      if (selectedReport === 'materials-cost-analysis') {
+        const [materials, productsWithBom] = await Promise.all([
+          materialsApi.getAll('active') as Promise<MaterialRow[]>,
+          loadActiveProductsWithBom(),
+        ]);
+
+        const usageMap = buildMaterialProductUsageMap(productsWithBom);
+        const categories = Array.from(
+          new Set(materials.map((material) => (material.category || 'Uncategorised').trim() || 'Uncategorised')),
+        ).sort((a, b) => a.localeCompare(b));
+        setAvailableMaterialCategories(categories);
+
+        const rows = materials
+          .map((material) => ({
+            materialName: material.name,
+            category: material.category || 'Uncategorised',
+            unit: material.unit || '—',
+            unitCost: toNumber(material.unitPrice),
+            productsUsedCount: usageMap.get(material.id) || 0,
+          }))
+          .filter((row) => (materialsCostCategoryFilter === 'All' ? true : row.category === materialsCostCategoryFilter))
+          .sort((a, b) => b.unitCost - a.unitCost);
+
+        const totalUnitCost = materials.reduce((sum, material) => sum + toNumber(material.unitPrice), 0);
+        const mostExpensive = materials.reduce<MaterialRow | null>((best, material) => {
+          if (!best) return material;
+          return toNumber(material.unitPrice) > toNumber(best.unitPrice) ? material : best;
+        }, null);
+
+        setReportData({
+          rows,
+          totalActiveMaterials: materials.length,
+          averageUnitCost: materials.length > 0 ? totalUnitCost / materials.length : 0,
+          mostExpensiveName: mostExpensive?.name || '—',
+          mostExpensiveCost: mostExpensive ? toNumber(mostExpensive.unitPrice) : 0,
+          categoryCount: categories.length,
+        });
+      }
+
+      if (selectedReport === 'top-cost-drivers') {
+        const [materials, productsWithBom] = await Promise.all([
+          materialsApi.getAll('active') as Promise<MaterialRow[]>,
+          loadActiveProductsWithBom(),
+        ]);
+
+        const materialsById = new Map(materials.map((material) => [material.id, material]));
+        const contributionMap = new Map<number, {
+          materialName: string;
+          category: string;
+          unitCost: number;
+          bomUsageCount: number;
+          totalContribution: number;
+        }>();
+
+        for (const product of productsWithBom) {
+          for (const entry of product.bom) {
+            if (!entry.materialId) continue;
+            const material = materialsById.get(entry.materialId);
+            if (!material) continue;
+
+            const lineContribution = toNumber(entry.quantity) * toNumber(material.unitPrice);
+            const existing = contributionMap.get(entry.materialId) || {
+              materialName: material.name,
+              category: material.category || 'Uncategorised',
+              unitCost: toNumber(material.unitPrice),
+              bomUsageCount: 0,
+              totalContribution: 0,
+            };
+            existing.bomUsageCount += 1;
+            existing.totalContribution += lineContribution;
+            contributionMap.set(entry.materialId, existing);
+          }
+        }
+
+        const contributions = Array.from(contributionMap.values());
+        const totalWeightedCost = contributions.reduce((sum, row) => sum + row.totalContribution, 0);
+        const sortedRows = contributions
+          .map((row) => ({
+            ...row,
+            percentOfTotal: totalWeightedCost > 0 ? (row.totalContribution / totalWeightedCost) * 100 : 0,
+          }))
+          .sort((a, b) => b.totalContribution - a.totalContribution);
+
+        setReportData({
+          rows: sortedRows,
+          totalMaterialsInBoms: sortedRows.length,
+          totalWeightedCost,
+          mostImpactfulMaterial: sortedRows[0]?.materialName || '—',
+        });
+      }
+
+      if (selectedReport === 'price-volatility') {
+        const materials = (await materialsApi.getAll('active')) as MaterialRow[];
+        const periodDays = getVolatilityPeriodDays(priceVolatilityPeriod);
+        const periodStart = new Date();
+        periodStart.setDate(periodStart.getDate() - periodDays);
+
+        let endpointAvailable = true;
+        const volatilityRows: PriceVolatilityRow[] = [];
+
+        await Promise.all(
+          materials.map(async (material) => {
+            try {
+              const history = (await materialsApi.getPriceHistory(material.id)) as MaterialPriceHistoryApiEntry[];
+              if (!Array.isArray(history)) return;
+
+              const historyAsc = history
+                .slice()
+                .sort((a, b) => (parseDate(a.changedAt)?.getTime() ?? 0) - (parseDate(b.changedAt)?.getTime() ?? 0));
+
+              const changesInPeriod = historyAsc.filter((entry) => {
+                const changedAt = parseDate(entry.changedAt);
+                return changedAt != null && changedAt >= periodStart;
+              });
+
+              if (changesInPeriod.length === 0) return;
+
+              const costAtStart = getCostAtPeriodStart(historyAsc, periodStart);
+              if (costAtStart == null) return;
+
+              const currentCost = toNumber(material.unitPrice);
+              const changeAmount = currentCost - costAtStart;
+              const changePercent = costAtStart > 0 ? (changeAmount / costAtStart) * 100 : 0;
+
+              volatilityRows.push({
+                materialName: material.name,
+                category: material.category || 'Uncategorised',
+                unit: material.unit || '—',
+                costAtStart,
+                currentCost,
+                changeAmount,
+                changePercent,
+              });
+            } catch {
+              // Skip materials that fail to load individually.
+            }
+          }),
+        );
+
+        volatilityRows.sort((a, b) => b.changePercent - a.changePercent);
+
+        const averageChangePercent = volatilityRows.length > 0
+          ? volatilityRows.reduce((sum, row) => sum + row.changePercent, 0) / volatilityRows.length
+          : 0;
+
+        const biggestIncrease = volatilityRows.reduce<PriceVolatilityRow | null>((best, row) => {
+          if (!best || row.changePercent > best.changePercent) return row;
+          return best;
+        }, null);
+
+        const biggestDecrease = volatilityRows.reduce<PriceVolatilityRow | null>((best, row) => {
+          if (!best || row.changePercent < best.changePercent) return row;
+          return best;
+        }, null);
+
+        setReportData({
+          rows: volatilityRows,
+          materialsWithChanges: volatilityRows.length,
+          averageChangePercent,
+          biggestIncreaseName: biggestIncrease?.materialName || '—',
+          biggestIncreasePercent: biggestIncrease?.changePercent ?? 0,
+          biggestDecreaseName: biggestDecrease?.materialName || '—',
+          biggestDecreasePercent: biggestDecrease?.changePercent ?? 0,
+          endpointAvailable,
+        });
+      }
+
+      if (selectedReport === 'material-price-history') {
+        const materials = (await materialsApi.getAll('active')) as MaterialRow[];
+        const materialOptions = materials
+          .slice()
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .map((material) => ({ id: material.id, name: material.name }));
+
+        const selectedMaterial = materialPriceHistoryMaterialId
+          ? materials.find((material) => material.id === materialPriceHistoryMaterialId) || null
+          : null;
+
+        if (!selectedMaterial) {
+          setReportData({
+            materialId: null,
+            materialName: '',
+            materialOptions,
+            rows: [],
+            currentCost: 0,
+            firstRecordedCost: null,
+            priceChangeCount: 0,
+            costTrend: 'stable',
+          });
+        } else {
+          const history = (await materialsApi.getPriceHistory(selectedMaterial.id)) as MaterialPriceHistoryApiEntry[];
+          const historyDesc = Array.isArray(history)
+            ? history.slice().sort((a, b) => (parseDate(b.changedAt)?.getTime() ?? 0) - (parseDate(a.changedAt)?.getTime() ?? 0))
+            : [];
+
+          const rows: MaterialPriceHistoryTableRow[] = historyDesc.map((entry, index) => {
+            const newCost = toNumber(entry.priceInBaseCurrency);
+            const olderEntry = historyDesc[index + 1];
+            const oldCost = olderEntry ? toNumber(olderEntry.priceInBaseCurrency) : null;
+            const changeAmount = oldCost == null ? null : newCost - oldCost;
+            const changePercent = oldCost != null && oldCost > 0 ? ((newCost - oldCost) / oldCost) * 100 : null;
+
+            return {
+              date: parseDate(entry.changedAt)?.toLocaleString() || '—',
+              oldCost,
+              newCost,
+              changeAmount,
+              changePercent,
+              changedBy: '—',
+            };
+          });
+
+          const firstRecordedCost = historyDesc.length > 0
+            ? toNumber(historyDesc[historyDesc.length - 1].priceInBaseCurrency)
+            : null;
+          const currentCost = toNumber(selectedMaterial.unitPrice);
+          const priceChangeCount = Math.max(0, historyDesc.length - 1);
+
+          let costTrend: 'up' | 'down' | 'stable' = 'stable';
+          if (firstRecordedCost != null && currentCost > firstRecordedCost + 0.01) costTrend = 'up';
+          else if (firstRecordedCost != null && currentCost < firstRecordedCost - 0.01) costTrend = 'down';
+
+          setReportData({
+            materialId: selectedMaterial.id,
+            materialName: selectedMaterial.name,
+            materialOptions,
+            rows,
+            currentCost,
+            firstRecordedCost,
+            priceChangeCount,
+            costTrend,
+          });
+        }
+      }
+
+      if (selectedReport === 'inactive-in-boms') {
+        const [materials, productsWithBom] = await Promise.all([
+          materialsApi.getAll('all') as Promise<MaterialRow[]>,
+          loadActiveProductsWithBom(),
+        ]);
+
+        const inactiveMaterials = materials.filter((material) => material.isActive === false);
+        const inactiveById = new Map(inactiveMaterials.map((material) => [material.id, material]));
+        const grouped = new Map<number, { materialName: string; category: string; productNames: Set<string> }>();
+
+        for (const product of productsWithBom) {
+          for (const entry of product.bom) {
+            if (!entry.materialId || !inactiveById.has(entry.materialId)) continue;
+            const material = inactiveById.get(entry.materialId)!;
+            const existing = grouped.get(entry.materialId) || {
+              materialName: material.name,
+              category: material.category || 'Uncategorised',
+              productNames: new Set<string>(),
+            };
+            existing.productNames.add(product.name || 'Unknown product');
+            grouped.set(entry.materialId, existing);
+          }
+        }
+
+        const rows: InactiveInBomRow[] = Array.from(grouped.values())
+          .map((entry) => ({
+            materialName: entry.materialName,
+            category: entry.category,
+            status: 'Inactive',
+            productNames: Array.from(entry.productNames).sort((a, b) => a.localeCompare(b)),
+            productsAffectedCount: entry.productNames.size,
+          }))
+          .sort((a, b) => b.productsAffectedCount - a.productsAffectedCount);
+
+        const affectedProductIds = new Set<number>();
+        for (const product of productsWithBom) {
+          const usesInactive = product.bom.some((entry) => entry.materialId && inactiveById.has(entry.materialId));
+          if (usesInactive) affectedProductIds.add(product.id);
+        }
+
+        setReportData({
+          rows,
+          totalInactiveMaterials: inactiveMaterials.length,
+          inactiveAffectingProducts: rows.length,
+          productsAffected: affectedProductIds.size,
+        });
       }
 
       if (selectedReport === 'margin-health') {
@@ -1288,6 +1814,125 @@ export default function Reports() {
       };
     }
 
+    if (selectedReport === 'materials-cost-analysis') {
+      const rows = (reportData as ReportResultMap['materials-cost-analysis']).rows.map((row) => ({
+        materialName: row.materialName,
+        category: row.category,
+        unit: row.unit,
+        unitCost: Number(row.unitCost.toFixed(2)),
+        productsUsedCount: row.productsUsedCount,
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'materialName', label: 'Material Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'unit', label: 'Unit' },
+          { key: 'unitCost', label: `Unit Cost (${baseCurrency})` },
+          { key: 'productsUsedCount', label: 'Used in Products' },
+        ],
+        filename: 'materials-cost-analysis-report.csv',
+      };
+    }
+
+    if (selectedReport === 'top-cost-drivers') {
+      const data = reportData as ReportResultMap['top-cost-drivers'];
+      const rows = data.rows.map((row, index) => ({
+        rank: index + 1,
+        materialName: row.materialName,
+        category: row.category,
+        unitCost: Number(row.unitCost.toFixed(2)),
+        bomUsageCount: row.bomUsageCount,
+        totalContribution: Number(row.totalContribution.toFixed(2)),
+        percentOfTotal: Number(row.percentOfTotal.toFixed(1)),
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'rank', label: 'Rank' },
+          { key: 'materialName', label: 'Material Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'unitCost', label: `Unit Cost (${baseCurrency})` },
+          { key: 'bomUsageCount', label: 'Times Used in BOMs' },
+          { key: 'totalContribution', label: `Total BOM Contribution (${baseCurrency})` },
+          { key: 'percentOfTotal', label: '% of Total Cost' },
+        ],
+        filename: 'top-cost-drivers-report.csv',
+      };
+    }
+
+    if (selectedReport === 'price-volatility') {
+      const rows = (reportData as ReportResultMap['price-volatility']).rows.map((row) => ({
+        materialName: row.materialName,
+        category: row.category,
+        unit: row.unit,
+        costAtStart: Number(row.costAtStart.toFixed(2)),
+        currentCost: Number(row.currentCost.toFixed(2)),
+        changeAmount: Number(row.changeAmount.toFixed(2)),
+        changePercent: Number(row.changePercent.toFixed(1)),
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'materialName', label: 'Material Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'unit', label: 'Unit' },
+          { key: 'costAtStart', label: `Cost at Start (${baseCurrency})` },
+          { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
+          { key: 'changeAmount', label: `Change Amount (${baseCurrency})` },
+          { key: 'changePercent', label: 'Change %' },
+        ],
+        filename: 'price-volatility-report.csv',
+      };
+    }
+
+    if (selectedReport === 'material-price-history') {
+      const data = reportData as ReportResultMap['material-price-history'];
+      const rows = data.rows.map((row) => ({
+        date: row.date,
+        oldCost: row.oldCost == null ? '' : Number(row.oldCost.toFixed(2)),
+        newCost: Number(row.newCost.toFixed(2)),
+        changeAmount: row.changeAmount == null ? '' : Number(row.changeAmount.toFixed(2)),
+        changePercent: row.changePercent == null ? '' : Number(row.changePercent.toFixed(1)),
+        changedBy: row.changedBy,
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'date', label: 'Date' },
+          { key: 'oldCost', label: `Old Cost (${baseCurrency})` },
+          { key: 'newCost', label: `New Cost (${baseCurrency})` },
+          { key: 'changeAmount', label: `Change Amount (${baseCurrency})` },
+          { key: 'changePercent', label: 'Change %' },
+          { key: 'changedBy', label: 'Changed By' },
+        ],
+        filename: `material-price-history-${data.materialName || 'report'}.csv`,
+      };
+    }
+
+    if (selectedReport === 'inactive-in-boms') {
+      const rows = (reportData as ReportResultMap['inactive-in-boms']).rows.map((row) => ({
+        materialName: row.materialName,
+        category: row.category,
+        status: row.status,
+        productsUsingIt: row.productNames.join(', '),
+        productsAffectedCount: row.productsAffectedCount,
+      }));
+      return {
+        rows,
+        columns: [
+          { key: 'materialName', label: 'Material Name' },
+          { key: 'category', label: 'Category' },
+          { key: 'status', label: 'Status' },
+          { key: 'productsUsingIt', label: 'Products Using It' },
+          { key: 'productsAffectedCount', label: 'Products Affected' },
+        ],
+        filename: 'inactive-in-boms-report.csv',
+      };
+    }
+
+    if (selectedReport !== 'currency-exposure') return null;
+
     const mainRows = (reportData as ReportResultMap['currency-exposure']).rows.map((row) => ({
       currency: row.currencyName,
       currencyCode: row.currencyCode,
@@ -1411,6 +2056,21 @@ export default function Reports() {
 
     if (report === 'optimal-vs-actual-gap') {
       setOptimalGapFilter('All');
+      return;
+    }
+
+    if (report === 'materials-cost-analysis') {
+      setMaterialsCostCategoryFilter('All');
+      return;
+    }
+
+    if (report === 'price-volatility') {
+      setPriceVolatilityPeriod('90');
+      return;
+    }
+
+    if (report === 'material-price-history') {
+      setMaterialPriceHistoryMaterialId(null);
     }
   }
 
@@ -1524,6 +2184,33 @@ export default function Reports() {
           key: 'optimal-gap-filter',
           label: `Gap: ${optimalGapFilter}`,
           onClear: () => setOptimalGapFilter('All'),
+        }];
+      }
+      return [];
+    }
+
+    if (selectedReport === 'materials-cost-analysis') {
+      if (materialsCostCategoryFilter !== 'All') {
+        return [{
+          key: 'materials-cost-category',
+          label: `Category: ${materialsCostCategoryFilter}`,
+          onClear: () => setMaterialsCostCategoryFilter('All'),
+        }];
+      }
+      return [];
+    }
+
+    if (selectedReport === 'price-volatility') {
+      if (priceVolatilityPeriod !== '90') {
+        const label = priceVolatilityPeriod === '30'
+          ? 'Last 30 days'
+          : priceVolatilityPeriod === '180'
+            ? 'Last 6 months'
+            : 'Last 12 months';
+        return [{
+          key: 'price-volatility-period',
+          label: `Period: ${label}`,
+          onClear: () => setPriceVolatilityPeriod('90'),
         }];
       }
       return [];
@@ -1723,11 +2410,64 @@ export default function Reports() {
       );
     }
 
+    if (selectedReport === 'materials-cost-analysis') {
+      return (
+        <div style={INLINE_FILTER_FIELD}>
+          <label className="app-settings-label">Category</label>
+          <select className="app-control" value={materialsCostCategoryFilter} onChange={(e) => setMaterialsCostCategoryFilter(e.target.value)}>
+            <option value="All">All</option>
+            {availableMaterialCategories.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'price-volatility') {
+      return (
+        <div style={INLINE_FILTER_FIELD}>
+          <label className="app-settings-label">Time period</label>
+          <select className="app-control" value={priceVolatilityPeriod} onChange={(e) => setPriceVolatilityPeriod(e.target.value as typeof priceVolatilityPeriod)}>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="180">Last 6 months</option>
+            <option value="365">Last 12 months</option>
+          </select>
+        </div>
+      );
+    }
+
+    if (selectedReport === 'material-price-history') {
+      const options = reportData && selectedReport === 'material-price-history'
+        ? (reportData as ReportResultMap['material-price-history']).materialOptions
+        : [];
+
+      return (
+        <div style={{ ...INLINE_FILTER_FIELD, minWidth: '240px' }}>
+          <label className="app-settings-label">Material</label>
+          <select
+            className="app-control"
+            value={materialPriceHistoryMaterialId ?? ''}
+            onChange={(e) => {
+              const parsed = Number(e.target.value);
+              setMaterialPriceHistoryMaterialId(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+            }}
+          >
+            <option value="">Select material</option>
+            {options.map((material) => (
+              <option key={material.id} value={material.id}>{material.name}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
     return null;
   }
 
   function renderExportButtons() {
-    const exportDisabled = !generatedAt || isLoading || !!error || generatedRowsCount === 0;
+    const exportDisabled = !generatedAt || isLoading || !!error || !canExportReport;
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap' }}>
@@ -2154,6 +2894,282 @@ export default function Reports() {
       );
     }
 
+    if (selectedReport === 'materials-cost-analysis') {
+      const data = reportData as ReportResultMap['materials-cost-analysis'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Total Active Materials" value={String(data.totalActiveMaterials)} />
+            <StatCard label="Average Unit Cost" value={formatCurrency(data.averageUnitCost)} />
+            <StatCard label="Most Expensive Material" value={data.mostExpensiveName} secondary={formatCurrency(data.mostExpensiveCost)} />
+            <StatCard label="Categories" value={String(data.categoryCount)} />
+          </div>
+
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left' }}>Material Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'left' }}>Unit</th>
+                  <th style={{ textAlign: 'right' }}>Unit Cost</th>
+                  <th style={{ textAlign: 'right' }}>Used in Products</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRows.map((row, index) => (
+                  <tr key={`${row.materialName}-${index}`}>
+                    <td style={{ textAlign: 'left' }}>{row.materialName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'left' }}>{row.unit}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.unitCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.productsUsedCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {renderPaginationControls(data.rows.length)}
+        </div>
+      );
+    }
+
+    if (selectedReport === 'top-cost-drivers') {
+      const data = reportData as ReportResultMap['top-cost-drivers'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+      const rankOffset = (currentPage - 1) * ROWS_PER_PAGE;
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Materials in BOMs" value={String(data.totalMaterialsInBoms)} />
+            <StatCard label="Total Weighted Cost" value={formatCurrency(data.totalWeightedCost)} />
+            <StatCard label="Most Impactful Material" value={data.mostImpactfulMaterial} />
+          </div>
+
+          <div className="app-table-wrap">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'center', width: '56px' }}>Rank</th>
+                  <th style={{ textAlign: 'left' }}>Material Name</th>
+                  <th style={{ textAlign: 'left' }}>Category</th>
+                  <th style={{ textAlign: 'right' }}>Unit Cost</th>
+                  <th style={{ textAlign: 'right' }}>Times Used in BOMs</th>
+                  <th style={{ textAlign: 'right' }}>Total BOM Contribution</th>
+                  <th style={{ textAlign: 'right' }}>% of Total Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedRows.map((row, index) => (
+                  <tr key={`${row.materialName}-${index}`}>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>{rankOffset + index + 1}</td>
+                    <td style={{ textAlign: 'left' }}>{row.materialName}</td>
+                    <td style={{ textAlign: 'left' }}>{row.category}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.unitCost)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.bomUsageCount}</td>
+                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.totalContribution)}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '100px', height: '8px', borderRadius: '999px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, Math.max(0, row.percentOfTotal))}%`, height: '100%', backgroundColor: '#16a34a', borderRadius: '999px' }} />
+                        </div>
+                        <span style={{ fontWeight: 600 }}>{formatPct(row.percentOfTotal)}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {renderPaginationControls(data.rows.length)}
+        </div>
+      );
+    }
+
+    if (selectedReport === 'price-volatility') {
+      const data = reportData as ReportResultMap['price-volatility'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+
+      if (!data.endpointAvailable) {
+        return (
+          <div id="reporting-centre-print-area">
+            <div style={{ color: '#64748b', fontSize: '14px' }}>
+              Price history data not available — prices are recorded when materials are updated
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Materials with Price Changes" value={String(data.materialsWithChanges)} />
+            <StatCard label="Average Change %" value={formatPct(data.averageChangePercent)} />
+            <StatCard label="Biggest Increase" value={data.biggestIncreaseName} secondary={formatPct(data.biggestIncreasePercent)} tone="danger" />
+            <StatCard label="Biggest Decrease" value={data.biggestDecreaseName} secondary={formatPct(data.biggestDecreasePercent)} tone="success" />
+          </div>
+
+          {data.rows.length === 0 ? (
+            <div style={{ color: '#64748b', fontSize: '14px' }}>
+              No materials had price changes in the selected period.
+            </div>
+          ) : (
+            <>
+              <div className="app-table-wrap">
+                <table className="app-table">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Material Name</th>
+                      <th style={{ textAlign: 'left' }}>Category</th>
+                      <th style={{ textAlign: 'left' }}>Unit</th>
+                      <th style={{ textAlign: 'right' }}>Cost at Start of Period</th>
+                      <th style={{ textAlign: 'right' }}>Current Cost</th>
+                      <th style={{ textAlign: 'right' }}>Change Amount</th>
+                      <th style={{ textAlign: 'right' }}>Change %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRows.map((row, index) => {
+                      const changeColor = row.changePercent < 0 ? '#166534' : row.changePercent > 0 ? '#b91c1c' : '#64748b';
+                      return (
+                        <tr key={`${row.materialName}-${index}`}>
+                          <td style={{ textAlign: 'left' }}>{row.materialName}</td>
+                          <td style={{ textAlign: 'left' }}>{row.category}</td>
+                          <td style={{ textAlign: 'left' }}>{row.unit}</td>
+                          <td style={{ textAlign: 'right' }}>{formatCurrency(row.costAtStart)}</td>
+                          <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentCost)}</td>
+                          <td style={{ textAlign: 'right', color: changeColor, fontWeight: 600 }}>{formatSignedNumber(row.changeAmount)}</td>
+                          <td style={{ textAlign: 'right', color: changeColor, fontWeight: 600 }}>{formatPct(row.changePercent)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {renderPaginationControls(data.rows.length)}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (selectedReport === 'material-price-history') {
+      const data = reportData as ReportResultMap['material-price-history'];
+
+      if (!data.materialId) {
+        return (
+          <div id="reporting-centre-print-area">
+            <div style={{ color: '#64748b', fontSize: '14px' }}>
+              Select a material above to view its price history
+            </div>
+          </div>
+        );
+      }
+
+      const paginatedRows = paginateRows(data.rows, currentPage);
+      const trendLabel = data.costTrend === 'up' ? 'Up' : data.costTrend === 'down' ? 'Down' : 'Stable';
+      const trendTone = data.costTrend === 'up' ? 'danger' : data.costTrend === 'down' ? 'success' : 'default';
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Current Cost" value={formatCurrency(data.currentCost)} />
+            <StatCard label="First Recorded Cost" value={data.firstRecordedCost == null ? '—' : formatCurrency(data.firstRecordedCost)} />
+            <StatCard label="Price Changes" value={String(data.priceChangeCount)} />
+            <StatCard label="Cost Trend" value={trendLabel} tone={trendTone as 'default' | 'success' | 'danger'} />
+          </div>
+
+          {data.rows.length === 0 ? (
+            <div style={{ color: '#64748b', fontSize: '14px' }}>No price changes recorded for this material.</div>
+          ) : (
+            <>
+              <div className="app-table-wrap">
+                <table className="app-table">
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left' }}>Date</th>
+                      <th style={{ textAlign: 'right' }}>Old Cost</th>
+                      <th style={{ textAlign: 'right' }}>New Cost</th>
+                      <th style={{ textAlign: 'right' }}>Change Amount</th>
+                      <th style={{ textAlign: 'right' }}>Change %</th>
+                      <th style={{ textAlign: 'left' }}>Changed By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRows.map((row, index) => (
+                      <tr key={`${row.date}-${index}`}>
+                        <td style={{ textAlign: 'left' }}>{row.date}</td>
+                        <td style={{ textAlign: 'right' }}>{row.oldCost == null ? '—' : formatCurrency(row.oldCost)}</td>
+                        <td style={{ textAlign: 'right' }}>{formatCurrency(row.newCost)}</td>
+                        <td style={{ textAlign: 'right' }}>{row.changeAmount == null ? '—' : formatSignedNumber(row.changeAmount)}</td>
+                        <td style={{ textAlign: 'right' }}>{row.changePercent == null ? '—' : formatPct(row.changePercent)}</td>
+                        <td style={{ textAlign: 'left' }}>{row.changedBy}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {renderPaginationControls(data.rows.length)}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (selectedReport === 'inactive-in-boms') {
+      const data = reportData as ReportResultMap['inactive-in-boms'];
+      const paginatedRows = paginateRows(data.rows, currentPage);
+
+      return (
+        <div id="reporting-centre-print-area">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+            <StatCard label="Total Inactive Materials" value={String(data.totalInactiveMaterials)} />
+            <StatCard label="Inactive in Active BOMs" value={String(data.inactiveAffectingProducts)} tone={data.inactiveAffectingProducts > 0 ? 'warning' : 'success'} />
+            <StatCard label="Products Affected" value={String(data.productsAffected)} tone={data.productsAffected > 0 ? 'danger' : 'success'} />
+          </div>
+
+          {data.rows.length === 0 ? (
+            <div style={{ padding: '16px', borderRadius: '8px', background: '#ecfdf5', color: '#166534', fontSize: '14px' }}>
+              All materials in your active product BOMs are currently active. No action needed.
+            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: '12px', padding: '12px', borderRadius: '8px', background: '#fef3c7', color: '#92400e', fontSize: '14px' }}>
+                These materials are marked inactive but are still referenced in active product BOMs. Review and update your BOMs or reactivate these materials.
+              </div>
+              <div className="app-table-wrap">
+                <table className="app-table">
+                  <thead>
+                    <tr style={{ backgroundColor: '#fef2f2' }}>
+                      <th style={{ textAlign: 'left' }}>Material Name</th>
+                      <th style={{ textAlign: 'left' }}>Category</th>
+                      <th style={{ textAlign: 'left' }}>Status</th>
+                      <th style={{ textAlign: 'left' }}>Products Using It</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRows.map((row, index) => (
+                      <tr key={`${row.materialName}-${index}`}>
+                        <td style={{ textAlign: 'left' }}>{row.materialName}</td>
+                        <td style={{ textAlign: 'left' }}>{row.category}</td>
+                        <td style={{ textAlign: 'left' }}>{row.status}</td>
+                        <td style={{ textAlign: 'left' }}>{row.productNames.join(', ')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {renderPaginationControls(data.rows.length)}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    if (selectedReport === 'currency-exposure') {
     const data = reportData as ReportResultMap['currency-exposure'];
     const paginatedCurrencyRows = paginateRows(data.rows, currentPage);
 
@@ -2255,6 +3271,9 @@ export default function Reports() {
         </div>
       </div>
     );
+    }
+
+    return null;
   }
 
   return (
@@ -2332,7 +3351,7 @@ export default function Reports() {
             >
               <option value="" disabled>Select report</option>
               {MATERIALS_DROPDOWN_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value} disabled={option.disabled}>
+                <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
@@ -2366,14 +3385,14 @@ export default function Reports() {
             </div>
           )}
 
-          {!isLoading && !error && generatedRowsCount === 0 && (
+          {!isLoading && !error && !shouldShowReportBody && (
             <div style={{ backgroundColor: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '14px' }}>
               No data matches the selected filters.
               {renderEmptyStateGuidance()}
             </div>
           )}
 
-          {!isLoading && !error && generatedRowsCount > 0 && renderReportBody()}
+          {!isLoading && !error && shouldShowReportBody && renderReportBody()}
         </div>
       </div>
     </div>
