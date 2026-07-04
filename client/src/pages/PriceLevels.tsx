@@ -1644,7 +1644,7 @@ export default function PriceLevels() {
       year: 'numeric',
     });
 
-    const printableItems = selectedLevelItems.filter(
+    const printableItems = approvedSelectedLevelItems.filter(
       (item) => item.finalPrice != null && Number.isFinite(Number(item.finalPrice)),
     );
 
@@ -2107,7 +2107,7 @@ export default function PriceLevels() {
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
                               <Package size={14} />
-                              Manage pack sizes
+                              Pack sizes
                             </button>
                           </>
                         );
@@ -2633,9 +2633,10 @@ export default function PriceLevels() {
                   justifyContent: 'center',
                   color: '#64748b',
                   flexShrink: 0,
+                  opacity: packModalProductIndex <= 0 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronLeft size={16} color="#64748b" strokeWidth={2} />
+                <ChevronLeft size={16} color="#64748b" strokeWidth={2} style={{ display: 'block' }} />
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <h2 className="app-modal-title" style={{ marginBottom: '4px' }}>
@@ -2661,9 +2662,10 @@ export default function PriceLevels() {
                   justifyContent: 'center',
                   color: '#64748b',
                   flexShrink: 0,
+                  opacity: packModalProductIndex >= selectedLevelItems.length - 1 || packModalNavLoading ? 0.4 : 1,
                 }}
               >
-                <ChevronRight size={16} color="#64748b" strokeWidth={2} />
+                <ChevronRight size={16} color="#64748b" strokeWidth={2} style={{ display: 'block' }} />
               </button>
             </div>
 
