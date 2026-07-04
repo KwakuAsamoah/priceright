@@ -142,6 +142,7 @@ export default function ProductDetail() {
   const [showInactiveModal, setShowInactiveModal] = useState(false);
   const [showApproveCustomModal, setShowApproveCustomModal] = useState(false);
   const [showResetPendingModal, setShowResetPendingModal] = useState(false);
+  const [showOtherOptions, setShowOtherOptions] = useState(false);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
 
   // materials list for the form drawer
@@ -192,6 +193,7 @@ export default function ProductDetail() {
   }
 
   useEffect(() => {
+    setShowOtherOptions(false);
     loadData();
     loadMaterials();
   }, [productId]);
@@ -1031,7 +1033,6 @@ export default function ProductDetail() {
               )}
 
               <div style={{ display: 'grid', gap: '10px' }}>
-                {/* Approve optimal */}
                 <button
                   type="button"
                   onClick={handleApproveOptimal}
@@ -1040,9 +1041,9 @@ export default function ProductDetail() {
                   style={{
                     width: '100%',
                     justifyContent: 'center',
-                    padding: '10px 16px',
-                    fontSize: '14px',
-                    fontWeight: 600,
+                    padding: '12px 16px',
+                    fontSize: '15px',
+                    fontWeight: 700,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
@@ -1050,118 +1051,157 @@ export default function ProductDetail() {
                     cursor: approvalLoading ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  <CheckCircle size={14} strokeWidth={2.2} />
-                  Approve Optimal Price ({baseCurrency} {optimalPrice.toFixed(2)})
+                  Approve at Optimal Price — {baseCurrency} {optimalPrice.toFixed(2)}
+                </button>
+                <div style={{ fontSize: '13px', color: '#64748b', marginTop: '-4px' }}>
+                  Approves at the calculated optimal price based on your costs and markup
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowOtherOptions((previous) => !previous)}
+                  style={{
+                    color: '#64748b',
+                    fontSize: '13px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                    textAlign: 'left',
+                    fontWeight: 600,
+                  }}
+                >
+                  Use a different price {showOtherOptions ? '▴' : '▾'}
                 </button>
 
-                {/* Keep current price — needs_review with approved price, or any product with a selling price */}
-                {((product.approvalStatus === 'needs_review' && product.approvedPrice != null)
-                  || (product.currentSellingPrice != null && toNum(product.currentSellingPrice) > 0)) && (() => {
-                  const hasApprovedPrice = product.approvedPrice != null && toNum(product.approvedPrice) > 0;
-                  const keepPrice = hasApprovedPrice
-                    ? toNum(product.approvedPrice)
-                    : toNum(product.currentSellingPrice);
-                  const keepLabel = hasApprovedPrice
-                    ? `Keep approved price (${baseCurrency} ${keepPrice.toFixed(2)})`
-                    : `Keep selling price (${baseCurrency} ${keepPrice.toFixed(2)})`;
-                  const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
-                  const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
-                  const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
-                  return (
-                    <div style={{ display: 'grid', gap: '4px' }}>
-                      <button
-                        type="button"
-                        onClick={handleKeepCurrentPrice}
-                        disabled={approvalLoading || belowCost}
-                        title={belowCost ? 'Cannot keep: price is now below production cost' : undefined}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid #e2e8f0',
-                          backgroundColor: 'white',
-                          color: belowCost ? '#94a3b8' : '#334155',
-                          fontWeight: 600,
-                          cursor: (approvalLoading || belowCost) ? 'not-allowed' : 'pointer',
-                          fontSize: '14px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          opacity: (approvalLoading || belowCost) ? 0.6 : 1,
-                        }}
-                      >
-                        <Check size={13} strokeWidth={2.2} />
-                        {keepLabel}
-                      </button>
-                      {belowCost ? (
-                        <div style={{ fontSize: '13px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <AlertTriangle size={11} />
-                          Cannot keep: price is now below production cost
-                        </div>
-                      ) : keepMargin !== null ? (
-                        <div style={{ fontSize: '13px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {keepMargin < 15 && <AlertTriangle size={11} />}
-                          New margin at this price: {keepMargin.toFixed(1)}%
-                        </div>
-                      ) : null}
+                {showOtherOptions && (
+                  <div style={{ display: 'grid', gap: '10px', paddingTop: '2px' }}>
+                    <div style={{ display: 'grid', gap: '6px' }}>
+                      <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Custom Price ({baseCurrency})</label>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <input
+                          type="number"
+                          value={approvalCustomPrice}
+                          onChange={(e) => setApprovalCustomPrice(e.target.value)}
+                          placeholder={optimalPrice.toFixed(2)}
+                          style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApproveCustomClick}
+                          disabled={approvalLoading}
+                          className="btn btn-success btn-sm"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            opacity: approvalLoading ? 0.7 : 1,
+                            cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          <CheckCircle size={12} strokeWidth={2.2} />
+                          Approve Custom
+                        </button>
+                      </div>
                     </div>
-                  );
-                })()}
 
-                {/* Custom price */}
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Custom Price ({baseCurrency})</label>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <input
-                      type="number"
-                      value={approvalCustomPrice}
-                      onChange={(e) => setApprovalCustomPrice(e.target.value)}
-                      placeholder={optimalPrice.toFixed(2)}
-                      style={{ width: '120px', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px' }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleApproveCustomClick}
-                      disabled={approvalLoading}
-                      className="btn btn-success btn-sm"
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '5px',
-                        opacity: approvalLoading ? 0.7 : 1,
-                        cursor: approvalLoading ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      <CheckCircle size={12} strokeWidth={2.2} />
-                      Approve Custom
-                    </button>
+                    <div style={{ display: 'grid', gap: '4px' }}>
+                      <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
+                      <input
+                        type="text"
+                        value={approvalReason}
+                        onChange={(e) => setApprovalReason(e.target.value)}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
+                      />
+                    </div>
+
+                    {((product.currentSellingPrice != null && toNum(product.currentSellingPrice) > 0)
+                      || (product.approvedPrice != null && toNum(product.approvedPrice) > 0)) && (() => {
+                      const hasApprovedPrice = product.approvedPrice != null && toNum(product.approvedPrice) > 0;
+                      const keepPrice = hasApprovedPrice
+                        ? toNum(product.approvedPrice)
+                        : toNum(product.currentSellingPrice);
+                      const keepLabel = hasApprovedPrice
+                        ? `Keep approved price (${baseCurrency} ${keepPrice.toFixed(2)})`
+                        : `Keep selling price (${baseCurrency} ${keepPrice.toFixed(2)})`;
+                      const keepMargin = keepPrice > 0 && productionCost > 0 ? ((keepPrice - productionCost) / keepPrice) * 100 : null;
+                      const belowCost = keepPrice > 0 && productionCost > 0 && keepPrice < productionCost;
+                      const marginColor = keepMargin === null ? '#64748b' : keepMargin < 0 ? '#dc2626' : keepMargin < 15 ? '#e65100' : '#16a34a';
+                      return (
+                        <div style={{ display: 'grid', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={handleKeepCurrentPrice}
+                            disabled={approvalLoading || belowCost}
+                            title={belowCost ? 'Cannot keep: price is now below production cost' : undefined}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              backgroundColor: 'white',
+                              color: belowCost ? '#94a3b8' : '#334155',
+                              fontWeight: 600,
+                              cursor: (approvalLoading || belowCost) ? 'not-allowed' : 'pointer',
+                              fontSize: '14px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              opacity: (approvalLoading || belowCost) ? 0.6 : 1,
+                            }}
+                          >
+                            <Check size={13} strokeWidth={2.2} />
+                            {keepLabel}
+                          </button>
+                          {belowCost ? (
+                            <div style={{ fontSize: '13px', color: '#dc2626', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <AlertTriangle size={11} />
+                              Cannot keep: price is now below production cost
+                            </div>
+                          ) : keepMargin !== null ? (
+                            <div style={{ fontSize: '13px', color: marginColor, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {keepMargin < 15 && <AlertTriangle size={11} />}
+                              New margin at this price: {keepMargin.toFixed(1)}%
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+
+                    <div style={{ display: 'grid', gap: '4px' }}>
+                      <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
+                      <input
+                        type="date"
+                        min={getTomorrowDateInputValue()}
+                        value={approvalExpiryDate}
+                        onChange={(e) => setApprovalExpiryDate(e.target.value)}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
+                      />
+                      <div style={{ fontSize: '14px', color: '#64748b' }}>
+                        If set, this product will be flagged for review on this date.
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Reason */}
-                <div style={{ display: 'grid', gap: '4px' }}>
-                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Reason (optional)</label>
-                  <input
-                    type="text"
-                    value={approvalReason}
-                    onChange={(e) => setApprovalReason(e.target.value)}
-                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                </div>
-
-                {/* Price valid until */}
-                <div style={{ display: 'grid', gap: '4px' }}>
-                  <label style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>Price valid until (optional)</label>
-                  <input
-                    type="date"
-                    min={getTomorrowDateInputValue()}
-                    value={approvalExpiryDate}
-                    onChange={(e) => setApprovalExpiryDate(e.target.value)}
-                    style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', boxSizing: 'border-box' }}
-                  />
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>
-                    If set, this product will be flagged for review on this date.
-                  </div>
-                </div>
+                {(product.approvalStatus === 'approved' || product.approvalStatus === 'needs_review') && (
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPendingModal(true)}
+                    disabled={approvalLoading}
+                    style={{
+                      color: '#94A3B8',
+                      fontSize: '12px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: approvalLoading ? 'not-allowed' : 'pointer',
+                      padding: 0,
+                      textAlign: 'left',
+                      opacity: approvalLoading ? 0.7 : 1,
+                    }}
+                  >
+                    Reset to pending
+                  </button>
+                )}
 
                 {showPriceForm && !needsPriceAction && (
                   <button
