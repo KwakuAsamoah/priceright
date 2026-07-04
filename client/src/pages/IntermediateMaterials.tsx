@@ -1285,33 +1285,52 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               {selectedIds.size} selected
             </span>
             <button
-              onClick={handleOpenBulkDeleteModal}
-              className="btn btn-danger-solid btn-sm"
-              disabled={bulkDeleting}
+              type="button"
+              onClick={() => void handleBulkSetActiveState(true)}
+              className="btn btn-secondary btn-sm"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <Trash2 size={14} strokeWidth={2} />
-              {bulkDeleting ? 'Deleting...' : `Delete ${selectedIds.size}`}
-            </button>
-            <button onClick={() => void handleBulkSetActiveState(true)} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Eye size={14} strokeWidth={2} />
-              Set Active
-            </button>
-            <button onClick={() => void handleBulkSetActiveState(false)} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <EyeOff size={14} strokeWidth={2} />
-              Set Inactive
-            </button>
-            <button onClick={handleBulkExport} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <FileSpreadsheet size={14} strokeWidth={2} />
-              Export Excel
+              Set active
             </button>
             <button
+              type="button"
+              onClick={() => void handleBulkSetActiveState(false)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <EyeOff size={14} strokeWidth={2} />
+              Set inactive
+            </button>
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
+                {
+                  key: 'export-excel',
+                  label: 'Export Excel',
+                  onSelect: handleBulkExport,
+                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                },
+                { key: 'divider-1', type: 'divider' },
+                {
+                  key: 'delete-selected',
+                  label: bulkDeleting ? 'Delete selected (deleting...)' : 'Delete selected',
+                  onSelect: handleOpenBulkDeleteModal,
+                  icon: <Trash2 size={13} strokeWidth={2} />,
+                  disabled: bulkDeleting,
+                  destructive: true,
+                },
+              ]}
+            />
+            <button
+              type="button"
               onClick={() => setSelectedIds(new Set())}
               className="btn btn-ghost btn-sm"
               style={{ marginLeft: 'auto', color: '#e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <X size={14} strokeWidth={2} />
-              Clear
+              Clear selection
             </button>
           </div>
         ) : null}

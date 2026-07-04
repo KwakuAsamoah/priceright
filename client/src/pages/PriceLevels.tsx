@@ -19,6 +19,7 @@ import {
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import ActionDropdown from '../components/ActionDropdown';
 import OverflowMenu from '../components/OverflowMenu';
 import TableZoomControl from '../components/TableZoomControl';
 import { useDemoMode } from '../context/DemoModeContext';
@@ -849,6 +850,49 @@ export default function PriceLevels() {
     } catch (error) {
       console.error('Failed to approve selected:', error);
       showToastMessage((error as Error).message || 'Failed to approve selected rows.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetSelectedToPending() {
+    if (!selectedLevel || selectedRows.size === 0) return;
+
+    setSaving(true);
+    try {
+      const targets = selectedLevelItems.filter(
+        (item) => selectedRows.has(item.productId) && item.status === 'approved',
+      );
+      if (targets.length === 0) {
+        showToastMessage('No approved rows in selection to reset.', 'error');
+        return;
+      }
+
+      await Promise.all(
+        targets.map((item) => {
+          const isRuleType = item.overrideType === 'rule_discount' || item.overrideType === 'rule_markup';
+          const isFixedType = item.overrideType === 'fixed_amount_add' || item.overrideType === 'fixed_amount_deduct';
+          return priceLevelItemsApi.upsert(selectedLevel.id, {
+            productId: item.productId,
+            overrideType: item.overrideType,
+            adjustmentPercentage: isRuleType && item.adjustmentPercentage != null
+              ? item.adjustmentPercentage
+              : undefined,
+            customPrice: isFixedType && item.customPrice != null
+              ? item.customPrice
+              : undefined,
+            justification: item.justification ?? undefined,
+          });
+        }),
+      );
+      await refreshLevelItems(selectedLevel.id);
+      showToastMessage(
+        `Reset ${targets.length} selected item${targets.length !== 1 ? 's' : ''} to pending.`,
+        'success',
+      );
+    } catch (error) {
+      console.error('Failed to reset selected rows:', error);
+      showToastMessage((error as Error).message || 'Failed to reset selected rows to pending.', 'error');
     } finally {
       setSaving(false);
     }
@@ -1853,26 +1897,40 @@ export default function PriceLevels() {
                 />
               </div>
               {selectedLevelIds.size > 0 && (
-                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0F2847', borderRadius: '8px', padding: '8px 12px' }}>
-                  <span style={{ fontSize: '15px', color: '#cbd5e1', flex: 1 }}>
+                <div
+                  className="app-bulk-bar app-bulk-bar-sticky"
+                  style={{
+                    marginTop: '10px',
+                    backgroundColor: '#0F2847',
+                    color: 'white',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                  }}
+                >
+                  <span style={{ fontSize: '15px', color: '#cbd5e1' }}>
                     {selectedLevelIds.size} level{selectedLevelIds.size !== 1 ? 's' : ''} selected
                   </span>
                   <button
                     type="button"
                     onClick={handleOpenBulkDeleteLevelsModal}
                     disabled={saving}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}
+                    className="btn btn-outline btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#fca5a5', borderColor: '#fca5a5' }}
                   >
-                    <Trash2 size={12} />
-                    Delete
+                    <Trash2 size={14} strokeWidth={2} />
+                    Delete selected
                   </button>
                   <button
                     type="button"
                     onClick={() => setSelectedLevelIds(new Set())}
-                    style={{ display: 'inline-flex', alignItems: 'center', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}
-                    title="Clear selection"
+                    className="btn btn-ghost btn-sm"
+                    style={{ marginLeft: 'auto', color: '#e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    <X size={14} />
+                    <X size={14} strokeWidth={2} />
+                    Clear selection
                   </button>
                 </div>
               )}
@@ -2144,6 +2202,7 @@ export default function PriceLevels() {
 
                   {selectedRows.size > 0 && (
                     <div
+                      className="app-bulk-bar app-bulk-bar-sticky"
                       style={{
                         backgroundColor: '#0F2847',
                         color: 'white',
@@ -2158,22 +2217,34 @@ export default function PriceLevels() {
                       <span style={{ fontSize: '15px', color: '#cbd5e1' }}>{selectedRows.size} items selected</span>
                       <button
                         type="button"
-                        onClick={approveSelected}
+                        onClick={() => void approveSelected()}
                         disabled={saving}
                         className="btn btn-sm"
-                        style={{ backgroundColor: '#ffffff', color: '#0f172a', border: 'none' }}
+                        style={{ backgroundColor: '#ffffff', color: '#0f172a', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
-                        <CheckCheck size={14} />
+                        <CheckCheck size={14} strokeWidth={2} />
                         Approve selected
                       </button>
+                      <ActionDropdown
+                        label="More"
+                        buttonClassName="btn btn-ghost btn-sm"
+                        items={[
+                          {
+                            key: 'reset-pending',
+                            label: 'Reset to pending',
+                            onSelect: () => void resetSelectedToPending(),
+                            icon: <Clock3 size={13} strokeWidth={2} />,
+                          },
+                        ]}
+                      />
                       <button
                         type="button"
                         onClick={() => setSelectedRows(new Set())}
                         className="btn btn-ghost btn-sm"
-                        style={{ marginLeft: 'auto', color: '#e2e8f0' }}
+                        style={{ marginLeft: 'auto', color: '#e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
-                        <X size={14} />
-                        Clear
+                        <X size={14} strokeWidth={2} />
+                        Clear selection
                       </button>
                     </div>
                   )}

@@ -1420,6 +1420,25 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
               {visibleInSelected} selected
             </span>
 
+            <button
+              type="button"
+              onClick={() => void handleBulkSetActiveState(true)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Eye size={14} strokeWidth={2} />
+              Set active
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkSetActiveState(false)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <EyeOff size={14} strokeWidth={2} />
+              Set inactive
+            </button>
+
             <ActionDropdown
               label="More"
               buttonClassName="btn btn-ghost btn-sm"
@@ -1436,26 +1455,13 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   onSelect: handleExportFilteredMaterialsCsv,
                   icon: <FileText size={13} strokeWidth={2} />,
                 },
-                { key: 'divider-1', type: 'divider' },
-                {
-                  key: 'set-active',
-                  label: 'Set active',
-                  onSelect: () => handleBulkSetActiveState(true),
-                  icon: <Eye size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'set-inactive',
-                  label: 'Set inactive',
-                  onSelect: () => handleBulkSetActiveState(false),
-                  icon: <EyeOff size={13} strokeWidth={2} />,
-                },
                 {
                   key: 'change-category',
                   label: 'Change category',
                   onSelect: () => setShowCategoryModal(true),
                   icon: <Tags size={13} strokeWidth={2} />,
                 },
-                { key: 'divider-2', type: 'divider' },
+                { key: 'divider-1', type: 'divider' },
                 {
                   key: 'delete-selected',
                   label: loadingUsageCheck ? 'Delete selected (checking...)' : 'Delete selected',
