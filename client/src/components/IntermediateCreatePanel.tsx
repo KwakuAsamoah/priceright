@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Trash2 } from 'lucide-react';
+import { Trash2, X } from 'lucide-react';
 import AppToast from '../components/AppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import { materialsApi, currenciesApi, settingsApi, type MaterialRecord } from '../api';
@@ -72,8 +71,12 @@ const pageOverlayStyle = {
   bottom: 0,
   backgroundColor: 'rgba(0, 0, 0, 0.35)',
   zIndex: 99,
-  pointerEvents: 'none' as const,
 };
+
+interface IntermediateCreatePanelProps {
+  onClose: () => void;
+  onSaved: () => void;
+}
 
 const pageContainerStyle = {
   position: 'fixed' as const,
@@ -271,8 +274,7 @@ function toSafePositiveNumber(rawValue: string, fallback: number) {
   return numericValue;
 }
 
-export default function IntermediateCreatePage() {
-  const navigate = useNavigate();
+export default function IntermediateCreatePanel({ onClose, onSaved }: IntermediateCreatePanelProps) {
   const { setHasOpenForm } = useFormState();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
 
@@ -487,7 +489,7 @@ export default function IntermediateCreatePage() {
 
       await materialsApi.recalculateIntermediateCost(created.id);
       showToastMessage('Intermediate material created', 'success');
-      navigate('/materials?tab=intermediate');
+      onSaved();
     } catch (error: any) {
       showToastMessage(error?.message || 'Failed to save intermediate material', 'error');
     } finally {
@@ -498,21 +500,21 @@ export default function IntermediateCreatePage() {
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div style={pageOverlayStyle} aria-hidden="true" />
-      <div style={pageContainerStyle}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/materials?tab=intermediate')}
-            style={{ marginBottom: '8px', paddingLeft: 0 }}
-          >
-            ← Back to Intermediate Materials
-          </button>
-
+      <div style={pageOverlayStyle} onClick={onClose} aria-hidden="true" />
+      <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: '16px 48px 16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0, position: 'relative' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
             New Intermediate Material
           </h1>
+          <button
+            type="button"
+            className="btn-close-x"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ position: 'absolute', top: '12px', right: '12px', padding: '8px', color: '#64748b' }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {loading ? (

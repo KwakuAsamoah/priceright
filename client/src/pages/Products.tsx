@@ -22,6 +22,7 @@ import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
+import ProductCreatePanel from '../components/ProductCreatePanel';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
@@ -361,6 +362,7 @@ export default function Products() {
   const [importSuccessCount, setImportSuccessCount] = useState(0);
   const [importRuntimeError, setImportRuntimeError] = useState('');
 
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProductPricing | null>(null);
@@ -380,8 +382,8 @@ export default function Products() {
   const { registerUndo } = useUndoAction();
 
   useEffect(() => {
-    setHasOpenForm(showDrawer || showImportModal);
-  }, [showDrawer, showImportModal, setHasOpenForm]);
+    setHasOpenForm(showDrawer || showImportModal || showCreatePanel);
+  }, [showDrawer, showImportModal, showCreatePanel, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -530,7 +532,7 @@ export default function Products() {
   }
 
   function handleAddProduct() {
-    navigate('/products/new');
+    setShowCreatePanel(true);
   }
 
   async function handleDuplicateProduct(product: ProductPricing) {
@@ -2284,6 +2286,16 @@ export default function Products() {
         currentIndex={editingProductIndex}
         totalCount={filteredProducts.length}
       />
+      ) : null}
+
+      {showCreatePanel ? (
+        <ProductCreatePanel
+          onClose={() => setShowCreatePanel(false)}
+          onSaved={() => {
+            setShowCreatePanel(false);
+            void loadData();
+          }}
+        />
       ) : null}
 
       {inactiveTarget && (

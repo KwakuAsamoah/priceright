@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { materialsApi, productsApi, settingsApi } from '../api';
 import AppToast from '../components/AppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
@@ -81,8 +81,12 @@ const pageOverlayStyle = {
   bottom: 0,
   backgroundColor: 'rgba(0, 0, 0, 0.35)',
   zIndex: 99,
-  pointerEvents: 'none' as const,
 };
+
+interface ProductCreatePanelProps {
+  onClose: () => void;
+  onSaved: () => void;
+}
 
 const pageContainerStyle = {
   position: 'fixed' as const,
@@ -197,8 +201,7 @@ const bomActionButtonsStyle = {
   flexShrink: 0,
 };
 
-export default function ProductCreatePage() {
-  const navigate = useNavigate();
+export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePanelProps) {
   const { setHasOpenForm } = useFormState();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { baseCurrency } = useBaseCurrency();
@@ -442,7 +445,7 @@ export default function ProductCreatePage() {
       }
 
       showToastMessage('Product created successfully', 'success');
-      navigate('/products');
+      onSaved();
     } catch (error) {
       console.error('Error saving product:', error);
       showToastMessage('Failed to save product', 'error');
@@ -454,20 +457,21 @@ export default function ProductCreatePage() {
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div style={pageOverlayStyle} aria-hidden="true" />
-      <div style={pageContainerStyle}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={() => navigate('/products')}
-            style={{ marginBottom: '8px', paddingLeft: 0 }}
-          >
-            ← Back to Products
-          </button>
+      <div style={pageOverlayStyle} onClick={onClose} aria-hidden="true" />
+      <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={{ padding: '16px 48px 16px 20px', borderBottom: '1px solid #E2E8F0', flexShrink: 0, position: 'relative' }}>
           <h1 style={{ fontSize: '24px', fontWeight: 600, color: '#0F2847', margin: 0 }}>
             New Product
           </h1>
+          <button
+            type="button"
+            className="btn-close-x"
+            onClick={onClose}
+            aria-label="Close"
+            style={{ position: 'absolute', top: '12px', right: '12px', padding: '8px', color: '#64748b' }}
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {loading ? (

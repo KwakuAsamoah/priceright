@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
+import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import ActionDropdown from '../components/ActionDropdown';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import TableDensityToggle from '../components/TableDensityToggle';
@@ -257,6 +258,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+  const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [bomItems, setBomItems] = useState<IntermediateBomItemRecord[]>([]);
@@ -306,8 +308,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const location = useLocation();
 
   useEffect(() => {
-    setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal);
-  }, [isFormOpen, showImportModal, showIntermediateImportModal, setHasOpenForm]);
+    setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal || showCreatePanel);
+  }, [isFormOpen, showImportModal, showIntermediateImportModal, showCreatePanel, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -564,7 +566,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   function handleAddIntermediate() {
-    navigate('/intermediate-materials/new');
+    setShowCreatePanel(true);
   }
 
   function openEditMaterialForm(material: MaterialRecord) {
@@ -2276,6 +2278,16 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
           </div>
         </div>
       )}
+
+      {showCreatePanel ? (
+        <IntermediateCreatePanel
+          onClose={() => setShowCreatePanel(false)}
+          onSaved={() => {
+            setShowCreatePanel(false);
+            void loadData();
+          }}
+        />
+      ) : null}
 
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
     </>
