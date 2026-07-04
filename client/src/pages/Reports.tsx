@@ -25,7 +25,6 @@ import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import {
-  calculateActualGrossMarginPercent,
   calculateActualMarkupPercent,
   getMarkupHealthBand,
   getThresholdMarkupColor,
@@ -1923,16 +1922,14 @@ export default function Reports() {
       const products = (reportData as ReportResultMap['margin-health']).products;
       const rows = products.map((product) => {
         const approvedPrice = product.approvedPrice != null ? toNumber(product.approvedPrice) : 0;
-        const grossMargin = calculateActualGrossMarginPercent(approvedPrice, product.totalCost);
         const markup = approvedPrice > 0 && product.totalCost > 0
-          ? ((approvedPrice - product.totalCost) / product.totalCost) * 100
+          ? calculateActualMarkupPercent(approvedPrice, product.totalCost)
           : null;
         return {
           productName: product.name,
           category: product.category || 'Uncategorised',
           productionCost: Number(product.totalCost.toFixed(2)),
           approvedPrice: approvedPrice > 0 ? Number(approvedPrice.toFixed(2)) : '',
-          actualGrossMarginPercent: grossMargin == null ? '' : Number(grossMargin.toFixed(1)),
           actualMarkupPercent: markup == null ? '' : Number(markup.toFixed(1)),
           approvalStatus: product.approvalStatus || 'pending',
         };
@@ -1944,7 +1941,6 @@ export default function Reports() {
           { key: 'category', label: 'Category' },
           { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
           { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'actualGrossMarginPercent', label: 'Actual Gross Margin %' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'approvalStatus', label: 'Approval Status' },
         ],

@@ -11,9 +11,8 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import AppToast from '../components/AppToast';
 import MarginLegendCard from '../components/MarginLegendCard';
-import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
+import { ActualMarkupInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
-  calculateActualGrossMarginPercent,
   calculateActualMarkupPercent,
   calculateOptimalMarkupPercent,
   getThresholdMarkupColor,
@@ -539,17 +538,11 @@ export default function ProductDetail() {
   const showReadOnlyApprovedSummary = product.approvalStatus === 'approved' && !showPriceForm;
   const profitOnCostAmount = productionCost * (toNum(product.profitMargin) / 100);
   const optimalMarkupPercent = calculateOptimalMarkupPercent(optimalPrice, productionCost);
-  const grossMarginAtOptimal = optimalPrice > 0 && productionCost > 0
-    ? calculateActualGrossMarginPercent(optimalPrice, productionCost)
-    : null;
   const approvedPrice = product.approvalStatus === 'approved' && product.approvedPrice != null
     ? toNum(product.approvedPrice)
     : null;
   const actualMarkupPercent = approvedPrice != null
     ? calculateActualMarkupPercent(approvedPrice, productionCost)
-    : null;
-  const actualGrossMarginPercent = approvedPrice != null
-    ? calculateActualGrossMarginPercent(approvedPrice, productionCost)
     : null;
   const approvedMatchesOptimal = approvedPrice != null && Math.abs(approvedPrice - optimalPrice) < 0.01;
   const displayBom = getDisplayBOM(bom, product);
@@ -797,15 +790,6 @@ export default function ProductDetail() {
                 <span style={{ color: '#16A34A', fontWeight: 700 }}>Optimal Price</span>
                 <span className="money-value" style={{ fontWeight: 700, color: '#16A34A', fontSize: '18px' }}>{baseCurrency} {optimalPrice.toFixed(2)}</span>
               </div>
-              {grossMarginAtOptimal !== null && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    Optimal Gross Margin %
-                    <OptimalGrossMarginInfoTooltip />
-                  </span>
-                  <span style={{ fontWeight: 600 }}>{grossMarginAtOptimal.toFixed(1)}%</span>
-                </div>
-              )}
               {approvedPrice != null && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px' }}>
@@ -823,15 +807,6 @@ export default function ProductDetail() {
                             <ActualMarkupInfoTooltip />
                           </span>
                           <span style={{ fontWeight: 600, color: '#16A34A' }}>{actualMarkupPercent.toFixed(1)}%</span>
-                        </div>
-                      )}
-                      {actualGrossMarginPercent !== null && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                          <span style={{ color: '#16A34A', display: 'inline-flex', alignItems: 'center' }}>
-                            Actual Gross Margin %
-                            <ActualGrossMarginInfoTooltip />
-                          </span>
-                          <span style={{ fontWeight: 600, color: '#16A34A' }}>{actualGrossMarginPercent.toFixed(1)}%</span>
                         </div>
                       )}
                     </>
