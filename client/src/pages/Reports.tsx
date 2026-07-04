@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -240,60 +240,70 @@ type ReportResultMap = {
 const REPORT_METADATA: Array<{
   key: ReportKey;
   name: string;
+  pillLabel: string;
   description: string;
   icon: LucideIcon;
 }> = [
   {
     key: 'pricing-status',
     name: 'Pricing Status Report',
+    pillLabel: 'Pricing Status',
     description: 'Approved base price vs optimal across all products',
     icon: TrendingUp,
   },
   {
     key: 'low-margin',
     name: 'Low Margin Report',
+    pillLabel: 'Low Margin',
     description: 'Products with realised margin below threshold',
     icon: AlertTriangle,
   },
   {
     key: 'price-list-summary',
     name: 'Price List Summary',
+    pillLabel: 'Price List Summary',
     description: 'All price lists and their coverage',
     icon: FileText,
   },
   {
     key: 'approval-history',
     name: 'Approval History',
+    pillLabel: 'Approval History',
     description: 'Product price approvals with dates',
     icon: ShieldCheck,
   },
   {
     key: 'currency-exposure',
     name: 'Currency Exposure Report',
+    pillLabel: 'Currency Exposure',
     description: 'Material cost exposure by currency',
     icon: RefreshCw,
   },
   {
     key: 'margin-health',
     name: 'Margin Health',
+    pillLabel: 'Margin Health',
     description: 'Product margin health bands and distribution',
     icon: LineChart,
   },
   {
     key: 'profitability-ranking',
     name: 'Profitability Ranking',
+    pillLabel: 'Profitability Ranking',
     description: 'Products ranked by Actual Gross Margin %',
     icon: TrendingUp,
   },
   {
     key: 'price-vs-cost-drift',
     name: 'Price vs Cost Drift',
+    pillLabel: 'Price vs Cost Drift',
     description: 'Margin drift since price approval as costs change',
     icon: AlertTriangle,
   },
   {
     key: 'optimal-vs-actual-gap',
     name: 'Optimal vs Actual Gap',
+    pillLabel: 'Optimal vs Actual Gap',
     description: 'Approved base price compared to current optimal price',
     icon: ArrowUpDown,
   },
@@ -330,6 +340,15 @@ const REPORT_PILL_STYLE: CSSProperties = {
   fontWeight: 600,
   cursor: 'pointer',
   whiteSpace: 'nowrap',
+};
+
+const REPORT_SELECTOR_STICKY_STYLE: CSSProperties = {
+  position: 'sticky',
+  top: 0,
+  zIndex: 10,
+  backgroundColor: 'var(--color-bg)',
+  paddingTop: '8px',
+  paddingBottom: '8px',
 };
 
 const INLINE_FILTER_ROW_STYLE: CSSProperties = {
@@ -522,6 +541,11 @@ export default function Reports() {
 
   const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
   const { handlePrint } = usePrint();
+  const pageContentRef = useRef<HTMLDivElement>(null);
+
+  function scrollReportsToTop() {
+    pageContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   function selectReport(reportKey: ReportKey) {
     resetFiltersForReport(reportKey);
@@ -531,6 +555,7 @@ export default function Reports() {
     setError(null);
     setCurrentPage(1);
     setExpandedCurrencyCodes(new Set());
+    scrollReportsToTop();
   }
 
   function handleGroupTabChange(group: ReportGroupId) {
@@ -543,6 +568,7 @@ export default function Reports() {
     setError(null);
     setCurrentPage(1);
     setExpandedCurrencyCodes(new Set());
+    scrollReportsToTop();
   }
 
   useEffect(() => {
@@ -2235,9 +2261,6 @@ export default function Reports() {
     <div className="app-page">
       <div className="app-page-header">
         <h1 className="app-page-title">Reports & Analysis</h1>
-      </div>
-
-      <div className="app-page-content app-page-content--data">
         <div className="app-section-tabs" role="tablist" aria-label="Report groups">
           <button
             type="button"
@@ -2267,9 +2290,11 @@ export default function Reports() {
             Materials
           </button>
         </div>
+      </div>
 
+      <div ref={pageContentRef} className="app-page-content app-page-content--data">
         {(activeGroup === 'pricing' || activeGroup === 'products') && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', margin: '12px 0 16px' }}>
+          <div style={{ ...REPORT_SELECTOR_STICKY_STYLE, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
             {GROUP_REPORT_KEYS[activeGroup].map((reportKey) => {
               const report = REPORT_METADATA_BY_KEY[reportKey];
               const isActive = selectedReport === reportKey;
@@ -2284,7 +2309,7 @@ export default function Reports() {
                     color: isActive ? '#ffffff' : '#0F2847',
                   }}
                 >
-                  {report.name}
+                  {report.pillLabel}
                 </button>
               );
             })}
@@ -2292,7 +2317,7 @@ export default function Reports() {
         )}
 
         {activeGroup === 'materials' && (
-          <div style={{ margin: '12px 0 16px' }}>
+          <div style={REPORT_SELECTOR_STICKY_STYLE}>
             <select
               className="app-control"
               value={selectedReport}
