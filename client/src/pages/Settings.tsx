@@ -953,7 +953,7 @@ async function loadData() {
                   aria-current={isActive ? 'page' : undefined}
                   onClick={() => openSettingsSection(section.key)}
                 >
-                  <SectionIcon size={16} strokeWidth={2} />
+                  <SectionIcon size={16} strokeWidth={2} color={isActive ? '#ffffff' : 'currentColor'} />
                   {section.name}
                 </button>
               );
