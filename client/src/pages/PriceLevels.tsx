@@ -2102,8 +2102,8 @@ export default function PriceLevels() {
                             ? 'Approve at least one price before exporting.'
                             : undefined;
                         return (
-                          <>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                               <button
                                 type="button"
                                 className="btn btn-outline btn-sm"
@@ -2171,7 +2171,7 @@ export default function PriceLevels() {
                               <Package size={14} />
                               Pack sizes
                             </button>
-                          </>
+                          </div>
                         );
                       })()}
                       <OverflowMenu

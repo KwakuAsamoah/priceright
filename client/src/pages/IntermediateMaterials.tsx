@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Layers, Plus, Printer, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileUp, Layers, Plus, Printer, Table, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import ActionDropdown from '../components/ActionDropdown';
@@ -1242,6 +1242,35 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             <option value="inactive">Inactive</option>
           </select>
           <div style={{ flex: 1 }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportFilteredMaterialsCsv}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Download size={14} />
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportFilteredMaterialsExcel}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Table size={14} />
+              Export Excel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handlePrintIntermediateExport}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Printer size={14} />
+              Print
+            </button>
+          </div>
           <ActionDropdown
             label="+ Add"
             buttonClassName="btn btn-primary btn-sm"
@@ -1261,33 +1290,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 icon: <Upload size={14} strokeWidth={2} />,
                 onSelect: () => setShowIntermediateImportModal(true),
               },
-            ]}
-          />
-          <ActionDropdown
-            label="More"
-            buttonClassName="btn btn-ghost btn-sm"
-            items={[
-              {
-                key: 'export-excel',
-                label: 'Export to Excel',
-                onSelect: handleExportFilteredMaterialsExcel,
-                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'export-csv',
-                label: 'Export to CSV',
-                onSelect: handleExportFilteredMaterialsCsv,
-                icon: <FileText size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'print',
-                label: 'Print / Export PDF',
-                onSelect: () => {
-                  handlePrintIntermediateExport();
-                },
-                icon: <Printer size={15} strokeWidth={2} />,
-              },
-              { key: 'divider-1', type: 'divider' },
             ]}
           />
         </div>
@@ -1347,16 +1349,21 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               Set inactive
             </button>
             <ActionDropdown
-              label="More"
-              buttonClassName="btn btn-ghost btn-sm"
+              label="Export selected"
+              buttonClassName="btn btn-outline btn-sm"
               items={[
                 {
                   key: 'export-excel',
                   label: 'Export Excel',
                   onSelect: handleBulkExport,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                  icon: <Table size={14} />,
                 },
-                { key: 'divider-1', type: 'divider' },
+              ]}
+            />
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
                 {
                   key: 'delete-selected',
                   label: bulkDeleting ? 'Delete selected (deleting...)' : 'Delete selected',

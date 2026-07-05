@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Loader2, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Download, Eye, EyeOff, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -1358,6 +1358,35 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             </>
           )}
           <div style={{ flex: 1 }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportFilteredMaterialsCsv}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Download size={14} />
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportFilteredMaterialsExcel}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Table size={14} />
+              Export Excel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handlePrintMaterialsExport}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Printer size={14} />
+              Print
+            </button>
+          </div>
           <ActionDropdown
             label="+ Add"
             buttonClassName="btn btn-primary btn-sm"
@@ -1386,33 +1415,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   },
                 },
               ] : []),
-            ]}
-          />
-          <ActionDropdown
-            label="More"
-            buttonClassName="btn btn-ghost btn-sm"
-            items={[
-              {
-                key: 'export-excel',
-                label: 'Export to Excel',
-                onSelect: handleExportFilteredMaterialsExcel,
-                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'export-csv',
-                label: 'Export to CSV',
-                onSelect: handleExportFilteredMaterialsCsv,
-                icon: <FileText size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'print',
-                label: 'Print / Export PDF',
-                onSelect: () => {
-                  handlePrintMaterialsExport();
-                },
-                icon: <Printer size={15} strokeWidth={2} />,
-              },
-              { key: 'divider-1', type: 'divider' },
             ]}
           />
         </div>
@@ -1476,21 +1478,28 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             </button>
 
             <ActionDropdown
-              label="More"
-              buttonClassName="btn btn-ghost btn-sm"
+              label="Export selected"
+              buttonClassName="btn btn-outline btn-sm"
               items={[
                 {
                   key: 'export-excel',
-                  label: 'Export selected (Excel)',
+                  label: 'Export Excel',
                   onSelect: handleBulkExport,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
+                  icon: <Table size={14} />,
                 },
                 {
                   key: 'export-csv',
-                  label: 'Export selected (CSV)',
+                  label: 'Export CSV',
                   onSelect: handleExportFilteredMaterialsCsv,
-                  icon: <FileText size={13} strokeWidth={2} />,
+                  icon: <Download size={14} />,
                 },
+              ]}
+            />
+
+            <ActionDropdown
+              label="More"
+              buttonClassName="btn btn-ghost btn-sm"
+              items={[
                 {
                   key: 'change-category',
                   label: 'Change category',

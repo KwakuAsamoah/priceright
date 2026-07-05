@@ -6,13 +6,13 @@ import {
   AlertTriangle,
   ArrowUpDown,
   ChevronDown,
-  Download,
   FileText,
   LineChart,
   Loader2,
   Printer,
   RefreshCw,
   ShieldCheck,
+  Table,
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
@@ -2934,23 +2934,17 @@ export default function Reports() {
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
         <MarkupHealthPopover />
         <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-        <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Printer size={14} strokeWidth={2} />
-            Print
-          </span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <FileText size={14} />
+          Export PDF
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportDisabled}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Download size={14} strokeWidth={2} />
-            Export PDF
-          </span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Table size={14} />
+          Export Excel
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportDisabled}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Download size={14} strokeWidth={2} />
-            Export Excel
-          </span>
+        <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Printer size={14} />
+          Print
         </button>
       </div>
     );

@@ -3,7 +3,7 @@ import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, ExternalLink, Eye, EyeOff, FileSpreadsheet, FileText, FileUp, Pencil, Plus, Printer, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileUp, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -1586,6 +1586,35 @@ export default function Products() {
             <option value="all">All</option>
           </select>
           <div style={{ flex: 1 }} />
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportFilteredProductsCsv}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Download size={14} />
+              Export CSV
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handleExportToExcel}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Table size={14} />
+              Export Excel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={handlePrintProductsExport}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Printer size={14} />
+              Print
+            </button>
+          </div>
           <ActionDropdown
             label="+ Add"
             buttonClassName="btn btn-primary btn-sm"
@@ -1607,40 +1636,16 @@ export default function Products() {
               },
             ]}
           />
-          <ActionDropdown
-            label="More"
-            buttonClassName="btn btn-ghost btn-sm"
-            items={[
-              {
-                key: 'export-excel',
-                label: 'Export to Excel',
-                onSelect: handleExportToExcel,
-                icon: <FileSpreadsheet size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'export-csv',
-                label: 'Export to CSV',
-                onSelect: handleExportFilteredProductsCsv,
-                icon: <FileText size={13} strokeWidth={2} />,
-              },
-              {
-                key: 'print',
-                label: 'Print / Export PDF',
-                onSelect: () => {
-                  handlePrintProductsExport();
-                },
-                icon: <Printer size={15} strokeWidth={2} />,
-              },
-              { key: 'divider-1', type: 'divider' },
-              {
-                key: 'approve-all-eligible',
-                label: isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`,
-                onSelect: () => void handleApproveAllEligible(),
-                icon: <CheckCircle size={13} strokeWidth={2} />,
-                disabled: eligibleApproveCount === 0 || isApprovingAll,
-              },
-            ]}
-          />
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => void handleApproveAllEligible()}
+            disabled={eligibleApproveCount === 0 || isApprovingAll}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <CheckCircle size={14} />
+            {isApprovingAll ? 'Approving...' : `Approve all eligible (${eligibleApproveCount})`}
+          </button>
         </div>
 
         {hasActiveProductFilters ? (
@@ -1743,6 +1748,19 @@ export default function Products() {
             />
 
             <ActionDropdown
+              label="Export selected"
+              buttonClassName="btn btn-outline btn-sm"
+              items={[
+                {
+                  key: 'bulk-export',
+                  label: 'Export Excel',
+                  onSelect: handleBulkExport,
+                  icon: <Table size={14} />,
+                },
+              ]}
+            />
+
+            <ActionDropdown
               label="More"
               buttonClassName="btn btn-ghost btn-sm"
               items={[
@@ -1769,12 +1787,6 @@ export default function Products() {
                   label: 'Change category',
                   onSelect: () => setShowCategoryModal(true),
                   icon: <Tags size={13} strokeWidth={2} />,
-                },
-                {
-                  key: 'bulk-export',
-                  label: 'Export selected',
-                  onSelect: handleBulkExport,
-                  icon: <FileSpreadsheet size={13} strokeWidth={2} />,
                 },
                 { key: 'divider-1', type: 'divider' },
                 {
