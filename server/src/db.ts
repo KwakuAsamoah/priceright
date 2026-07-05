@@ -58,6 +58,27 @@ export function writeDemoModeState(demoMode: boolean): boolean {
 	return demoMode;
 }
 
+function applyProductColumnMigrations(database: Database.Database) {
+	const productColumns = database
+		.prepare("SELECT name FROM pragma_table_info('products')")
+		.all() as Array<{ name: string }>;
+	if (!productColumns.some((column) => column.name === 'is_active')) {
+		database.exec('ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+	}
+	if (!productColumns.some((column) => column.name === 'approved_price_expires_at')) {
+		database.exec('ALTER TABLE products ADD COLUMN approved_price_expires_at TEXT');
+	}
+	if (!productColumns.some((column) => column.name === 'price_expiry_notified_at')) {
+		database.exec('ALTER TABLE products ADD COLUMN price_expiry_notified_at TEXT');
+	}
+	if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
+		database.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
+	}
+	if (!productColumns.some((column) => column.name === 'rejection_reason')) {
+		database.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
+	}
+}
+
 function ensureSchemaTables() {
 	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS currencies (
@@ -463,24 +484,7 @@ function ensureSchemaTables() {
 		)
 	`);
 
-	const productColumns = sqlite
-		.prepare("SELECT name FROM pragma_table_info('products')")
-		.all() as Array<{ name: string }>;
-	if (!productColumns.some((column) => column.name === 'is_active')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
-	}
-	if (!productColumns.some((column) => column.name === 'approved_price_expires_at')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN approved_price_expires_at TEXT');
-	}
-	if (!productColumns.some((column) => column.name === 'price_expiry_notified_at')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN price_expiry_notified_at TEXT');
-	}
-	if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
-	}
-	if (!productColumns.some((column) => column.name === 'rejection_reason')) {
-		sqlite.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
-	}
+	applyProductColumnMigrations(sqlite);
 
 	// Performance indexes — created on first run and automatically applied to existing databases
 	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_approval_status ON products(approval_status)');
@@ -497,6 +501,7 @@ function ensureSchemaTables() {
 }
 
 ensureSchemaTables();
+applyProductColumnMigrations(demoSqlite);
 migrateActivityLog(sqlite);
 migratePriceLevelCurrency(sqlite);
 migratePriceLevelPackSizes(sqlite);
