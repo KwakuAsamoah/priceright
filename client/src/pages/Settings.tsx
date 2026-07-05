@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertTriangle, Building2, Calculator, CheckCircle2, Clock3, Database, Globe, HardDrive, Layers, Lock, Package, Plus, ShoppingBag, Tag, Trash2, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
@@ -56,64 +56,34 @@ interface RateSaveBanner {
   reminder?: string;
 }
 
-type SettingsSection = 'business' | 'pricing' | 'currencies' | 'categories' | 'data';
+type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups';
 
-const SETTINGS_SECTIONS: Array<{
-  key: SettingsSection;
-  name: string;
-  description: string;
-  icon: LucideIcon;
-}> = [
-  {
-    key: 'business',
-    name: 'Your Business',
-    description: 'Company name, logo, and branding',
-    icon: Building2,
-  },
-  {
-    key: 'pricing',
-    name: 'Pricing Defaults',
-    description: 'Default markup, overhead, and healthy markup threshold',
-    icon: TrendingUp,
-  },
-  {
-    key: 'currencies',
-    name: 'Currencies',
-    description: 'Base currency and exchange rates',
-    icon: Globe,
-  },
-  {
-    key: 'categories',
-    name: 'Categories',
-    description: 'Product categories, material categories, and units of measure',
-    icon: Tag,
-  },
-  {
-    key: 'data',
-    name: 'Data',
-    description: 'Backup, restore, and demo data management',
-    icon: Database,
-  },
+const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
+  { key: 'general', label: 'General', icon: Settings2 },
+  { key: 'pricing', label: 'Pricing Engine', icon: Calculator },
+  { key: 'currencies', label: 'Currencies & Rates', icon: WalletCards },
+  { key: 'master-data', label: 'Master Data', icon: ListTree },
+  { key: 'data-backups', label: 'Data & Backups', icon: Database },
 ];
 
-function resolveSettingsSection(sectionParam: string | null, tabParam: string | null): SettingsSection {
+function resolveSettingsTab(tabParam: string | null, sectionParam: string | null): SettingsTab {
   if (
-    sectionParam === 'business'
-    || sectionParam === 'pricing'
-    || sectionParam === 'currencies'
-    || sectionParam === 'categories'
-    || sectionParam === 'data'
+    tabParam === 'general'
+    || tabParam === 'pricing'
+    || tabParam === 'currencies'
+    || tabParam === 'master-data'
+    || tabParam === 'data-backups'
   ) {
-    return sectionParam;
+    return tabParam;
   }
 
-  if (tabParam === 'general') return 'business';
-  if (tabParam === 'pricing') return 'pricing';
-  if (tabParam === 'currencies') return 'currencies';
-  if (tabParam === 'master-data') return 'categories';
-  if (tabParam === 'data-backups') return 'data';
+  if (sectionParam === 'business') return 'general';
+  if (sectionParam === 'pricing') return 'pricing';
+  if (sectionParam === 'currencies') return 'currencies';
+  if (sectionParam === 'categories') return 'master-data';
+  if (sectionParam === 'data') return 'data-backups';
 
-  return 'business';
+  return 'general';
 }
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -295,7 +265,7 @@ function CategoryChipEditor({
 }
 
 export default function Settings() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const { downloading, handleDownload } = useTemplateDownload();
   const { setBaseCurrencyMissing } = useBaseCurrencyContext();
@@ -383,21 +353,13 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [isChangingPin, setIsChangingPin] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>(() =>
-    resolveSettingsSection(searchParams.get('section'), searchParams.get('tab')),
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() =>
+    resolveSettingsTab(searchParams.get('tab'), searchParams.get('section')),
   );
 
   useEffect(() => {
-    const nextSection = resolveSettingsSection(searchParams.get('section'), searchParams.get('tab'));
-    setActiveSection(nextSection);
+    setActiveTab(resolveSettingsTab(searchParams.get('tab'), searchParams.get('section')));
   }, [searchParams]);
-
-  function openSettingsSection(section: SettingsSection) {
-    setActiveSection(section);
-    setSearchParams({ section });
-  }
-
-  const activeSectionMeta = SETTINGS_SECTIONS.find((entry) => entry.key === activeSection)!;
 
   useEffect(() => {
     loadData();
@@ -927,80 +889,86 @@ async function loadData() {
     }
   }
 
+  function handleTabChange(tab: SettingsTab) {
+    setActiveTab(tab);
+  }
+
+// Price Level Rules Functions
   return (
     <div className="app-page settings-page">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       {/* Header */}
       <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="app-page-title">Settings</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
+        <h1 className="app-page-title">Settings</h1>
+        <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          {SETTINGS_TABS.map((tab, index) => {
+            const isActive = activeTab === tab.key;
+            const TabIcon = tab.icon;
+            return (
+              <span key={tab.key} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {index === 3 && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 8px 0 4px', alignSelf: 'center' }}>
+                    <span style={{ width: '1px', height: '22px', backgroundColor: '#e2e8f0', display: 'inline-block' }} aria-hidden="true" />
+                    <span style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Advanced</span>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className={`app-section-tab ${isActive ? 'is-active' : ''}`}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => handleTabChange(tab.key)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
+                  {tab.label}
+                </button>
+              </span>
+            );
+          })}
+        </div>
         </div>
         <PageHelpButton context="settings" />
       </div>
 
-      <div className="app-page-content settings-page__layout">
-        <aside className="settings-sidebar">
-          <div className="settings-sidebar__label">Settings</div>
-          <nav className="settings-sidebar__nav" aria-label="Settings sections">
-            {SETTINGS_SECTIONS.map((section) => {
-              const SectionIcon = section.icon;
-              const isActive = activeSection === section.key;
-              return (
-                <button
-                  key={section.key}
-                  type="button"
-                  className={`settings-sidebar__item${isActive ? ' is-active' : ''}`}
-                  aria-current={isActive ? 'page' : undefined}
-                  onClick={() => openSettingsSection(section.key)}
-                >
-                  <SectionIcon size={16} strokeWidth={2} color={isActive ? '#ffffff' : 'currentColor'} />
-                  {section.name}
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        <div className="settings-content">
-          {rateSaveBanner && (
-            <div
-              style={{
-                position: 'relative',
-                marginBottom: '16px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: '#ffffff',
-                borderRadius: '8px',
-                padding: '12px 44px 12px 14px',
-                color: '#0f172a',
-              }}
-              role="status"
-              aria-live="polite"
+      <div className="app-page-content">
+        {rateSaveBanner && (
+          <div
+            style={{
+              position: 'relative',
+              marginBottom: '16px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f8fafc',
+              borderRadius: '8px',
+              padding: '12px 44px 12px 14px',
+              color: '#0f172a',
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <button
+              className="btn-close-x"
+              type="button"
+              onClick={() => setRateSaveBanner(null)}
+              aria-label="Dismiss message"
             >
-              <button
-                className="btn-close-x"
-                type="button"
-                onClick={() => setRateSaveBanner(null)}
-                aria-label="Dismiss message"
-              >
-                &times;
-              </button>
-              <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
-              {rateSaveBanner.reminder && (
-                <div style={{ marginTop: '6px', fontSize: '14px', color: '#475569' }}>{rateSaveBanner.reminder}</div>
-              )}
-            </div>
-          )}
-
-          <div className="settings-content__header">
-            <h2 className="settings-content__title">{activeSectionMeta.name}</h2>
-            <p className="settings-content__subtitle">{activeSectionMeta.description}</p>
+              &times;
+            </button>
+            <div style={{ fontSize: '15px', fontWeight: 600 }}>{rateSaveBanner.message}</div>
+            {rateSaveBanner.reminder && (
+              <div style={{ marginTop: '6px', fontSize: '14px', color: '#475569' }}>{rateSaveBanner.reminder}</div>
+            )}
           </div>
+        )}
 
-          <div className="settings-content__cards">
-        {activeSection === 'business' && (
+        {(activeTab === 'general' || activeTab === 'pricing' || activeTab === 'master-data') && (
+        <div className="app-settings-grid">
+          <div>
+            {activeTab === 'general' && (
             <>
             <div className="app-card app-settings-card">
-              <h2>Branding</h2>
+              <h2>Company Branding</h2>
 
               <div style={{ display: 'grid', gap: '12px' }}>
                 <div>
@@ -1187,10 +1155,9 @@ async function loadData() {
             </>
             )}
 
-            {activeSection === 'pricing' && (
-            <>
+            {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
-              <h2>Markup Settings</h2>
+              <h2>Default settings for new products</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
                 These values are used as starting points when you create a new product. You can override them on each product individually.
               </p>
@@ -1232,43 +1199,7 @@ async function loadData() {
                   Save
                 </button>
               </div>
-              <div className="app-settings-row-end">
-                <div style={{ flex: 1 }}>
-                  <label className="app-settings-label">
-                    Default Overhead %
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      className="app-control"
-                      type="number"
-                      step="0.1"
-                      value={defaultOverhead}
-                      onChange={(e) => setDefaultOverhead(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '10px',
-                        paddingRight: '35px',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0',
-                        fontSize: '16px',
-                      }}
-                    />
-                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
-                  </div>
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSaveDefaultOverhead}
-                  style={{ whiteSpace: 'nowrap' }}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-
-            <div className="app-card app-settings-card">
-              <h2>Health Threshold</h2>
-              <div className="app-settings-row-end">
+              <div className="app-settings-row-end" style={{ marginBottom: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label className="app-settings-label">
                     Healthy markup threshold (%)
@@ -1319,8 +1250,94 @@ async function loadData() {
                   Save
                 </button>
               </div>
+              <div className="app-settings-row-end">
+                <div style={{ flex: 1 }}>
+                  <label className="app-settings-label">
+                    Default Overhead %
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      step="0.1"
+                      value={defaultOverhead}
+                      onChange={(e) => setDefaultOverhead(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        paddingRight: '35px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '16px',
+                      }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveDefaultOverhead}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
             </div>
+            )}
 
+            {activeTab === 'master-data' && (
+            <div className="app-card app-settings-card">
+              <h2>Master Data</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Define standard categories and units that appear as suggestions when creating products and materials.
+              </p>
+
+              <div style={{ display: 'grid', gap: '18px' }}>
+                <CategoryChipEditor
+                  label="Product Categories"
+                  hint="Suggested options when creating/editing products"
+                  values={productCategories}
+                  onChange={setProductCategories}
+                  usageCounts={productCategoryCounts}
+                  usageNoun="product"
+                />
+
+                <CategoryChipEditor
+                  label="Raw Material Categories"
+                  hint="Suggested options when creating/editing materials"
+                  values={materialCategories}
+                  onChange={setMaterialCategories}
+                  usageCounts={materialCategoryCounts}
+                  usageNoun="material"
+                />
+
+                <CategoryChipEditor
+                  label="Units of Measure"
+                  hint="Suggested options when specifying material quantities"
+                  values={materialUnits}
+                  onChange={setMaterialUnits}
+                  usageCounts={materialUnitCounts}
+                  usageNoun="material"
+                />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSaveMasterData}
+                    disabled={isSavingMasterData}
+                    type="button"
+                  >
+                    {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
+                  </button>
+                  {masterDataMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{masterDataMessage}</span>}
+                </div>
+              </div>
+            </div>
+            )}
+          </div>
+
+          <div>
+            {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2 style={{ marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Calculator size={18} strokeWidth={2} />
@@ -1401,64 +1418,84 @@ async function loadData() {
                 Use as Default
               </button>
             </div>
-            </>
             )}
+          </div>
+        </div>
+        )}
 
-            {activeSection === 'categories' && (
-            <>
-            <div className="app-card app-settings-card">
-              <h2>Product Categories</h2>
-              <CategoryChipEditor
-                label="Product Categories"
-                hint="Suggested options when creating/editing products"
-                values={productCategories}
-                onChange={setProductCategories}
-                usageCounts={productCategoryCounts}
-                usageNoun="product"
-              />
-            </div>
-
-            <div className="app-card app-settings-card">
-              <h2>Material Categories</h2>
-              <CategoryChipEditor
-                label="Raw Material Categories"
-                hint="Suggested options when creating/editing materials"
-                values={materialCategories}
-                onChange={setMaterialCategories}
-                usageCounts={materialCategoryCounts}
-                usageNoun="material"
-              />
-            </div>
-
-            <div className="app-card app-settings-card">
-              <h2>Units of Measure</h2>
-              <CategoryChipEditor
-                label="Units of Measure"
-                hint="Suggested options when specifying material quantities"
-                values={materialUnits}
-                onChange={setMaterialUnits}
-                usageCounts={materialUnitCounts}
-                usageNoun="material"
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '16px' }}>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSaveMasterData}
-                  disabled={isSavingMasterData}
-                  type="button"
-                >
-                  {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
-                </button>
-                {masterDataMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{masterDataMessage}</span>}
+        {activeTab === 'data-backups' && (
+        <>
+        <div className="app-card app-settings-card" style={{ marginBottom: '16px' }}>
+          <h2>Data mode</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+            Switch between your real data and the built-in Savanna Bakes sample data.
+          </p>
+          <div className="app-choice-tabs" role="tablist" aria-label="Data mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isDemoMode}
+              className={`app-choice-tab ${!isDemoMode ? 'is-active' : ''}`}
+              disabled={!isDemoMode}
+              onClick={() => !isDemoMode ? null : handleDemoModeToggle()}
+            >
+              Use my real data
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isDemoMode}
+              className={`app-choice-tab ${isDemoMode ? 'is-active' : ''}`}
+              disabled={isDemoMode}
+              onClick={() => isDemoMode ? null : handleDemoModeToggle()}
+            >
+              Try sample data
+            </button>
+          </div>
+          {isSwitchingMode && <span style={{ fontSize: '14px', color: '#64748b', display: 'block', marginTop: '8px' }}>Switching data mode...</span>}
+          {isDemoMode && (
+            <div style={{ marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  handleOpenResetDemoModal();
+                }}
+              >
+                Reset demo data
+              </button>
+              <div style={{ marginTop: '8px', fontSize: '14px', color: '#64748b' }}>
+                Restores the original Savanna Foods sample data
               </div>
             </div>
-            </>
-            )}
+          )}
+        </div>
 
-        {activeSection === 'data' && (
-        <>
         <div className="app-card app-settings-card">
-          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Backup and Restore</h2>
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={18} strokeWidth={2} /> Danger Zone</h2>
+          <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
+            These actions are permanent and cannot be undone.
+          </p>
+          <div style={{ marginBottom: '12px', color: '#64748b' }}>
+            Resetting will permanently delete ALL live data and clear your PIN. Create a backup first if you want to preserve your data.
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                setResetStep(1);
+                setResetConfirmText('');
+                setResetError(null);
+                setShowResetModal(true);
+              }}
+            >
+              Reset all data
+            </button>
+          </div>
+        </div>
+
+        <div className="app-card app-settings-card">
+          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><HardDrive size={18} strokeWidth={2} /> Database Backups</h2>
           <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
             PriceRight automatically creates local backups every hour. Use the button below to download a backup file you can store safely offsite.
           </p>
@@ -1527,155 +1564,89 @@ async function loadData() {
         </div>
 
         <div className="app-card app-settings-card">
-          <h2>Demo Data</h2>
-          <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-            Switch between your real data and the built-in Savanna Bakes sample data.
-          </p>
-          <div className="app-choice-tabs" role="tablist" aria-label="Data mode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={!isDemoMode}
-              className={`app-choice-tab ${!isDemoMode ? 'is-active' : ''}`}
-              disabled={!isDemoMode}
-              onClick={() => !isDemoMode ? null : handleDemoModeToggle()}
-            >
-              Use my real data
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isDemoMode}
-              className={`app-choice-tab ${isDemoMode ? 'is-active' : ''}`}
-              disabled={isDemoMode}
-              onClick={() => isDemoMode ? null : handleDemoModeToggle()}
-            >
-              Try sample data
-            </button>
-          </div>
-          {isSwitchingMode && <span style={{ fontSize: '14px', color: '#64748b', display: 'block', marginTop: '8px' }}>Switching data mode...</span>}
-          {isDemoMode && (
-            <div style={{ marginTop: '12px' }}>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => {
-                  handleOpenResetDemoModal();
-                }}
-              >
-                Reset demo data
-              </button>
-              <div style={{ marginTop: '8px', fontSize: '14px', color: '#64748b' }}>
-                Restores the original Savanna Foods sample data
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #E2E8F0' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 600, color: '#0F2847' }}>Sample import files</h3>
-            <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
-              Download sample files to explore PriceRight with realistic data before entering your own.
-            </p>
-            <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
-              <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
-              <ol style={{ fontSize: '15px', color: '#0F2847', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
-                <li>Download and import <strong>Sample Materials</strong> first</li>
-                <li>Download and import <strong>Sample Intermediates</strong> second</li>
-                <li>Download and import <strong>Sample Products</strong> last</li>
-              </ol>
-              <p style={{ fontSize: '14px', color: '#0c4a6e', marginTop: '6px', marginBottom: 0 }}>Each file depends on the previous one being imported first.</p>
-            </div>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Package size={18} style={{ color: '#94a3b8' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample raw materials</div>
-                  <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
-                </div>
-                <a
-                  href={templateUrl('PriceRight_Sample_Materials.csv')}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void handleDownload('PriceRight_Sample_Materials.csv');
-                  }}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
-                >
-                  {downloading === 'PriceRight_Sample_Materials.csv' ? 'Downloading...' : 'Download'}
-                </a>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Layers size={18} style={{ color: '#94a3b8' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample intermediate materials</div>
-                  <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
-                </div>
-                <a
-                  href={templateUrl('PriceRight_Sample_Intermediates.csv')}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void handleDownload('PriceRight_Sample_Intermediates.csv');
-                  }}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
-                >
-                  {downloading === 'PriceRight_Sample_Intermediates.csv' ? 'Downloading...' : 'Download'}
-                </a>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
-                <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample products with ingredients</div>
-                  <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
-                </div>
-                <a
-                  href={templateUrl('PriceRight_Sample_Products.csv')}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void handleDownload('PriceRight_Sample_Products.csv');
-                  }}
-                  className="btn btn-ghost btn-sm"
-                  style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
-                >
-                  {downloading === 'PriceRight_Sample_Products.csv' ? 'Downloading...' : 'Download'}
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="app-card app-settings-card settings-danger-card">
-          <h2 style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}><AlertTriangle size={18} strokeWidth={2} /> Danger Zone</h2>
+          <h2>Sample data</h2>
           <p className="app-page-subtitle" style={{ marginBottom: '12px' }}>
-            These actions are permanent and cannot be undone.
+            Download sample files to explore PriceRight with realistic data before entering your own.
           </p>
-          <div style={{ marginBottom: '12px', color: '#64748b' }}>
-            Resetting will permanently delete ALL live data and clear your PIN. Create a backup first if you want to preserve your data.
+          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px' }}>
+            <p style={{ fontSize: '15px', fontWeight: '600', color: '#0c4a6e', marginBottom: '6px' }}>Import sample data in this order:</p>
+            <ol style={{ fontSize: '15px', color: '#0F2847', paddingLeft: '20px', lineHeight: '1.9', margin: 0 }}>
+              <li>Download and import <strong>Sample Materials</strong> first</li>
+              <li>Download and import <strong>Sample Intermediates</strong> second</li>
+              <li>Download and import <strong>Sample Products</strong> last</li>
+            </ol>
+            <p style={{ fontSize: '14px', color: '#0c4a6e', marginTop: '6px', marginBottom: 0 }}>Each file depends on the previous one being imported first.</p>
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
-              className="btn btn-outline"
-              onClick={() => {
-                setResetStep(1);
-                setResetConfirmText('');
-                setResetError(null);
-                setShowResetModal(true);
-              }}
-            >
-              Reset all data
-            </button>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {/* Row 1 — Raw materials */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Package size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample raw materials</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>25 raw materials — ingredients, oils, grains, and packaging for a food manufacturer</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Materials.csv')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Materials.csv');
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
+              >
+                {downloading === 'PriceRight_Sample_Materials.csv' ? 'Downloading...' : 'Download'}
+              </a>
+            </div>
+            {/* Row 2 — Intermediate materials */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Layers size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample intermediate materials</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>5 in-house processed ingredients — peanut paste, cocoa powder, blended spice mix</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Intermediates.csv')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Intermediates.csv');
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
+              >
+                {downloading === 'PriceRight_Sample_Intermediates.csv' ? 'Downloading...' : 'Download'}
+              </a>
+            </div>
+            {/* Row 3 — Products with BOM */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 0' }}>
+              <div style={{ width: '40px', height: '40px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <ShoppingBag size={18} style={{ color: '#94a3b8' }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '16px', fontWeight: '600', color: '#0F2847' }}>Sample products with ingredients</div>
+                <div style={{ fontSize: '14px', fontWeight: '400', color: '#64748b', marginTop: '2px' }}>11 finished products with full bills of materials — import materials first, then import this file</div>
+              </div>
+              <a
+                href={templateUrl('PriceRight_Sample_Products.csv')}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDownload('PriceRight_Sample_Products.csv');
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '6px 12px', cursor: downloading ? 'wait' : 'pointer', opacity: downloading ? 0.6 : 1, pointerEvents: downloading ? 'none' : 'auto' }}
+              >
+                {downloading === 'PriceRight_Sample_Products.csv' ? 'Downloading...' : 'Download'}
+              </a>
+            </div>
           </div>
         </div>
         </>
         )}
 
-        {activeSection === 'currencies' && (
+        {activeTab === 'currencies' && (
         <>
         <div className="app-card app-settings-card">
           <h2>Base Currency</h2>
@@ -1710,7 +1681,7 @@ async function loadData() {
 
         <div className="app-card app-settings-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2>Exchange Rates</h2>
+            <h2>Currencies</h2>
             <button
               className="btn btn-primary"
               onClick={() => setShowAddModal(true)}
@@ -1873,8 +1844,6 @@ async function loadData() {
         </div>
         </>
         )}
-          </div>
-        </div>
       </div>
 
       {/* Clear All Data Modal */}
