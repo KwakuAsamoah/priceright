@@ -20,6 +20,7 @@ import {
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
+import PageHelpButton from '../components/PageHelpButton';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -561,7 +562,7 @@ export default function MaterialDetail() {
           >
             <ArrowLeft size={14} strokeWidth={2} /> Materials
           </button>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
             <AppButton variant="secondary" size="sm" onClick={openEditModal} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <Pencil size={13} strokeWidth={2} />
               Edit
@@ -570,6 +571,7 @@ export default function MaterialDetail() {
               {material.isActive ? <EyeOff size={13} strokeWidth={2} /> : <Eye size={13} strokeWidth={2} />}
               {material.isActive ? 'Set Inactive' : 'Set Active'}
             </AppButton>
+            <PageHelpButton context="materials" />
           </div>
         </div>
 
