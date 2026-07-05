@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 4 July 2026
-**Current version:** 1.0.32
+**Last updated:** 5 July 2026
+**Current version:** 1.0.33
 **Active branch:** main
 
 ---
@@ -75,6 +75,95 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.30 | Jun 2026 | New brand mark, landing page redesign |
 | v1.0.31 | Jul 2026 | Global currency support, multi-currency price levels, pack quantity pricing, prev/next drawer navigation, price level fixes, table/report alignment and font standardisation, input freeze fix |
 | v1.0.32 | Jul 2026 | Reports and Analysis overhaul, ten new reports, Material Detail page, creation overlays, price level UX, approval workflow redesign, UI standardisation, settings reorganisation, styled modals, help centre expansion |
+| v1.0.33 | Jul 2026 | Comprehensive audit pass (Groups 1–18): export fixes, markup terminology, demo data, Electron improvements, UI consistency, Material Detail usage tab, Markup Health popover, price level cost-change warnings |
+
+---
+
+## v1.0.33 — Detailed Changes
+
+**Released:** 5 July 2026
+
+Comprehensive quality and consistency update covering Groups 1 through 18.
+
+### Activity page (Group 1)
+- Removed Reject from filter dropdown — replaced with Reset to Pending
+- Approval entries show Markup % instead of Gross Margin %
+- Zoom control, help button, and filter chips added
+- Clear filters button in empty state
+
+### Onboarding (Group 2)
+- Set base currency is now the first step
+- Removed references to removed features
+
+### Demo data (Group 3)
+- All product markups above healthy threshold
+- Added 3 intermediate materials — Spice Blend, Tomato Base Sauce, Cream Mixture
+- Pack sizes on all price level products
+- Realistic exchange rates with 4 decimal places
+
+### Intermediate Materials (Groups 4, 18)
+- Full page detail view matching Product Detail and Material Detail quality
+- Two-column layout with BOM tab and Cost History tab
+- Markup-on-cost terminology throughout
+- Help button added
+- Excel export includes Yield % column after Unit
+
+### Products and ProductFormDrawer (Groups 5, 15)
+- Actual Markup % row in creation panel cost summary
+- Prev/next hint uses shared localStorage key
+- Close button aligned to standard pattern
+- Export column order matches UI table; gross margin columns labelled (reference)
+
+### Price Levels (Groups 12, 16)
+- Cost change warning badge when product costs changed since approval
+- Amber badge with AlertTriangle icon — click to review product
+- Excel export shows currency in header row and column labels
+
+### Settings (Group 8)
+- Default Markup % description added
+- Healthy markup threshold description explains all three bands with example
+- Category inputs replaced with chip-based tag editor
+
+### Reports and Analysis (Group 14)
+- Markup Analysis export header shows target threshold
+- Price Volatility export includes period label
+- Top Cost Drivers export includes % of Total Cost column
+- Approval History export uses readable date format (e.g. 15 Jun 2026)
+- All markup formulas consistent across report exports (markup on cost)
+
+### Export fixes (Groups 14–18)
+- Products: column order matches UI, gross margin columns labelled (reference)
+- Price Levels Excel: currency in header and column labels
+- Materials Excel: base currency unit cost column added
+- Intermediate Materials Excel: yield percentage column added
+
+### Material Detail (Groups 9, 13)
+- Usage tab shows BOM quantity and unit — product names clickable
+- Help button added
+
+### Dashboard (Group 7)
+- Help button on loading state
+- Below Markup Target link pre-selects Markup Analysis report
+
+### Markup Health popover (Groups 11)
+- Replaced fixed bottom-right legend card with smart toolbar info button
+- Popover opens above or below depending on screen position
+- Available on Dashboard, Products, Reports, Product Detail
+
+### Electron (Group 10)
+- Window size and position persisted between sessions
+- Auto-updater notification shows version number
+- Console.log wrapped in development-only condition
+
+### Server and database
+- rejection_reason column documented as deprecated
+- Database indexes on frequently queried columns
+- Material usage API returns BOM quantity alongside product name
+- Approval endpoint stores markupPercent as primary metric
+
+### Global currency (Group 6)
+- Central currency utility and useBaseCurrency hook
+- formatMoney/formatCurrency functions use configured base currency throughout app
 
 ---
 
@@ -209,7 +298,15 @@ TypeScript, Node.js/Express, SQLite.
 - [x] Price level pack size toolbar, edit-modal pack sizes, customer-facing exports (v1.0.32)
 - [x] Approval workflow redesign — primary Approve button, History tab, pending banner (v1.0.32)
 - [x] Styled modals replacing native browser dialogs app-wide (v1.0.32)
-- [x] Settings tabs grouped into Everyday and Advanced (v1.0.32)
+- [x] Markup Health popover on Dashboard, Products, Reports, Product Detail (v1.0.33)
+- [x] Export column fixes across Reports, Products, Price Levels, Materials, Intermediate Materials (v1.0.33)
+- [x] Intermediate Material detail page with BOM and Cost History tabs (v1.0.33)
+- [x] Price level cost-change warning badge (v1.0.33)
+- [x] Electron window persistence and updater version display (v1.0.33)
+- [x] Global base currency hook applied app-wide (v1.0.33)
+- [x] Activity page markup terminology and filter improvements (v1.0.33)
+- [x] Settings chip-based category editor and threshold descriptions (v1.0.33)
+- [x] Demo data refresh — intermediate materials, pack sizes, exchange rates (v1.0.33)
 
 ### Settings
 - [x] General settings
@@ -261,7 +358,7 @@ TypeScript, Node.js/Express, SQLite.
 - [ ] Code obfuscation — protect business logic
 - [x] Fix hardcoded localhost:3000 in Settings and LockScreen
 - [x] Compress logo PNG assets (~2MB in client/public)
-- [ ] Phase M markup simplification
+- [x] Phase M markup simplification (v1.0.33 — markup-on-cost terminology app-wide)
 - [ ] Help articles update
 
 ## Pending — Medium Priority
@@ -296,6 +393,7 @@ TypeScript, Node.js/Express, SQLite.
 | Products.tsx 2525 lines — maintenance risk | Low | Future refactor |
 | Materials.tsx 2458 lines — maintenance risk | Low | Future refactor |
 | console.log in download.ts line 11 | Low | Fixed v1.0.18 |
+| console.log in Electron main process | Low | Fixed v1.0.33 (dev-only wrapper) |
 | demo-mode.json committed as local state | Low | Fixed v1.0.18 |
 | v1.0.16 sidebar logo broken in packaged app | High | **Fixed in v1.0.17** (`1109771`) |
 | Input fields freezing on number inputs in Electron, required minimise/maximise to recover | Medium | **Fixed in v1.0.31** |
