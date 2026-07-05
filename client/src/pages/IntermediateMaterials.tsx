@@ -868,8 +868,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       material.sku || '',
       material.category,
       material.unit,
-      Number(material.bulkQuantity || 0),
       Number(material.yieldPercentage || 0),
+      Number(material.bulkQuantity || 0),
       Number(material.overheadPercentage || 0),
       Number(material.marginPercentage || 0),
       Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2),
@@ -879,11 +879,16 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     ]);
   }
 
+  const INTERMEDIATE_EXPORT_HEADERS = [
+    'Name', 'SKU', 'Category', 'Unit', 'Yield %', 'Bulk Quantity',
+    'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status',
+  ];
+
   function handleExportFilteredMaterialsCsv() {
     const date = new Date().toISOString().split('T')[0];
     downloadCsv(
       `intermediate-materials-${date}.csv`,
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
+      INTERMEDIATE_EXPORT_HEADERS,
       buildExportRows(filteredMaterials),
     );
     showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to CSV`, 'success');
@@ -892,7 +897,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   function handleExportFilteredMaterialsExcel() {
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
+      INTERMEDIATE_EXPORT_HEADERS,
       ...buildExportRows(filteredMaterials),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Intermediate Materials');
@@ -924,7 +929,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      ['Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Yield %', 'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status'],
+      INTERMEDIATE_EXPORT_HEADERS,
       ...buildExportRows(targets),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Intermediate');

@@ -204,6 +204,50 @@ function calculateActualProfitOnSales(product: ProductPricing): number | null {
   return ((approvedPrice - productionCost) / approvedPrice) * 100;
 }
 
+const PRODUCT_EXPORT_HEADERS = [
+  'Product Name',
+  'SKU',
+  'Category',
+  'Production Cost',
+  'Optimal Price',
+  'Approved Base Price',
+  'Actual Markup %',
+  'Optimal Markup %',
+  'Approval Status',
+  'Active',
+  'Optimal Gross Margin % (reference)',
+  'Actual Gross Margin % (reference)',
+];
+
+function formatProductExportPercent(value: number | null): string | number {
+  if (value == null) return '—';
+  return Number(value.toFixed(1));
+}
+
+function buildProductExportValues(product: ProductPricing): Array<string | number> {
+  const optimalMarkup = calculateOptimalProfitOnCost(product);
+  const optimalGross = calculateOptimalProfitOnSales(product);
+  const actualMarkup = calculateActualProfitOnCost(product);
+  const actualGross = calculateActualProfitOnSales(product);
+
+  return [
+    product.name,
+    product.sku || '-',
+    product.category || '—',
+    Number(product.totalCost || 0),
+    Number(product.optimalPrice || 0),
+    product.approvalStatus === 'approved' && product.approvedPrice != null
+      ? Number(product.approvedPrice)
+      : '—',
+    formatProductExportPercent(actualMarkup),
+    formatProductExportPercent(optimalMarkup),
+    getApprovalBadge(product.approvalStatus).label,
+    product.isActive !== false ? 'Active' : 'Inactive',
+    formatProductExportPercent(optimalGross),
+    formatProductExportPercent(actualGross),
+  ];
+}
+
 function getApprovalBadge(status?: Product['approvalStatus']) {
   if (!status) {
     return {
@@ -766,28 +810,11 @@ export default function Products() {
 
     try {
     const exportData = selectedProdList.map((product) => {
-      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
-      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
-      const actualProfitOnCost = calculateActualProfitOnCost(product);
-      const actualProfitOnSales = calculateActualProfitOnSales(product);
-      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
-      return ({
-      'Product Name': product.name,
-      'SKU': product.sku || '',
-      'Material Cost': product.materialCost.toFixed(2),
-      'Overhead %': product.overheadPercentage.toFixed(2),
-      'Total Cost': product.totalCost.toFixed(2),
-      'Valid until': normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-      'Optimal Markup %': optimalProfitOnCost != null ? optimalProfitOnCost.toFixed(1) : '—',
-      'Optimal Gross Margin % (reference)': optimalProfitOnSales != null ? optimalProfitOnSales.toFixed(1) : '—',
-      'Actual Markup %': actualProfitOnCost != null ? actualProfitOnCost.toFixed(1) : '—',
-      'Actual Gross Margin % (reference)': actualProfitOnSales != null ? actualProfitOnSales.toFixed(1) : '—',
-      'Optimal Price': product.optimalPrice.toFixed(2),
-      'Approved base price': product.approvalStatus === 'approved' && product.approvedPrice != null
-        ? Number(product.approvedPrice).toFixed(2)
-        : '—',
-      'Status': calculatePricingAnalysis(product).label,
-      });
+      const values = buildProductExportValues(product);
+      return PRODUCT_EXPORT_HEADERS.reduce<Record<string, string | number>>((row, header, index) => {
+        row[header] = values[index];
+        return row;
+      }, {});
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -818,20 +845,6 @@ export default function Products() {
     } catch (error: any) {
       showToastMessage(error?.message || 'Failed to export selected products', 'error');
     }
-  }
-
-  function formatApprovalDate(value?: string | number | null) {
-    if (!value) return '-';
-    const date = typeof value === 'number' ? new Date(value * 1000) : new Date(value);
-    if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
-
-  function formatExpiryDate(value?: string | null) {
-    if (!value) return '-';
-    const parsed = new Date(`${value.slice(0, 10)}T00:00:00`);
-    if (Number.isNaN(parsed.getTime())) return '-';
-    return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   function getTomorrowDateInputValue() {
@@ -1207,109 +1220,25 @@ export default function Products() {
   }
 
   function handleExportToExcel() {
-    const headers = [
-      'Product Name',
-      'SKU',
-      'Material Cost',
-      'Optimal Price',
-      'Valid until',
-      'Approved base price',
-      'Optimal Markup %',
-      'Optimal Gross Margin % (reference)',
-      'Actual Markup %',
-      'Actual Gross Margin % (reference)',
-      `Variance (${baseCurrency})`,
-      'Variance (%)',
-      'Pricing Status',
-    ];
-
-    const exportRows = products.map((product) => {
-      const analysis = calculatePricingAnalysis(product);
-      const currentPrice = Number(product.currentSellingPrice || 0);
-      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
-      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
-      const actualProfitOnCost = calculateActualProfitOnCost(product);
-      const actualProfitOnSales = calculateActualProfitOnSales(product);
-      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
-      return {
-        values: [
-          product.name,
-          product.sku || '-',
-          Number(product.materialCost || 0),
-          Number(product.optimalPrice || 0),
-          normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-          product.approvalStatus === 'approved' && product.approvedPrice != null
-            ? Number(product.approvedPrice)
-            : null,
-          optimalProfitOnCost != null ? Number(optimalProfitOnCost.toFixed(1)) : null,
-          optimalProfitOnSales != null ? Number(optimalProfitOnSales.toFixed(1)) : null,
-          actualProfitOnCost != null ? Number(actualProfitOnCost.toFixed(1)) : null,
-          actualProfitOnSales != null ? Number(actualProfitOnSales.toFixed(1)) : null,
-          currentPrice > 0 ? Number(analysis.variance || 0) : null,
-          currentPrice > 0 ? Number(analysis.variancePercent || 0) : null,
-          analysis.label,
-        ],
-        status: analysis.status,
-      };
-    });
-
     const ws = XLSX.utils.aoa_to_sheet([
-      headers,
-      ...exportRows.map((entry) => entry.values),
+      PRODUCT_EXPORT_HEADERS,
+      ...products.map((product) => buildProductExportValues(product)),
     ]);
 
     ws['!cols'] = [
       { wch: 30 },
       { wch: 15 },
+      { wch: 16 },
       { wch: 15 },
       { wch: 15 },
-      { wch: 14 },
-      { wch: 14 },
       { wch: 18 },
-      { wch: 22 },
-      { wch: 18 },
-      { wch: 22 },
-      { wch: 15 },
-      { wch: 14 },
-      { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 10 },
+      { wch: 28 },
+      { wch: 28 },
     ];
-
-    for (let rowIndex = 0; rowIndex < exportRows.length; rowIndex += 1) {
-      const excelRow = rowIndex + 2;
-      const currentPriceCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 5 });
-      const optimalProfitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 6 });
-      const optimalProfitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 7 });
-      const actualProfitOnCostCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 8 });
-      const actualProfitOnSalesCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 9 });
-      const varianceAmountCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 10 });
-      const variancePercentCell = XLSX.utils.encode_cell({ r: excelRow - 1, c: 11 });
-
-      if (ws[currentPriceCell]) ws[currentPriceCell].z = '#,##0.00';
-      if (ws[optimalProfitOnCostCell]) ws[optimalProfitOnCostCell].z = '0.0';
-      if (ws[optimalProfitOnSalesCell]) ws[optimalProfitOnSalesCell].z = '0.0';
-      if (ws[actualProfitOnCostCell]) ws[actualProfitOnCostCell].z = '0.0';
-      if (ws[actualProfitOnSalesCell]) ws[actualProfitOnSalesCell].z = '0.0';
-      if (ws[varianceAmountCell]) ws[varianceAmountCell].z = '#,##0.00';
-      if (ws[variancePercentCell]) ws[variancePercentCell].z = '0.0';
-
-      const status = exportRows[rowIndex].status;
-      const fillStyle =
-        status === 'below-optimal'
-          ? { fill: { patternType: 'solid', fgColor: { rgb: 'FDECEC' } }, font: { color: { rgb: 'B91C1C' }, bold: true } }
-          : status === 'above-optimal'
-            ? { fill: { patternType: 'solid', fgColor: { rgb: 'E8F5E9' } }, font: { color: { rgb: '166534' }, bold: true } }
-            : null;
-
-      if (fillStyle) {
-        if (ws[currentPriceCell]) ws[currentPriceCell].s = fillStyle as any;
-        if (ws[optimalProfitOnCostCell]) ws[optimalProfitOnCostCell].s = fillStyle as any;
-        if (ws[optimalProfitOnSalesCell]) ws[optimalProfitOnSalesCell].s = fillStyle as any;
-        if (ws[actualProfitOnCostCell]) ws[actualProfitOnCostCell].s = fillStyle as any;
-        if (ws[actualProfitOnSalesCell]) ws[actualProfitOnSalesCell].s = fillStyle as any;
-        if (ws[varianceAmountCell]) ws[varianceAmountCell].s = fillStyle as any;
-        if (ws[variancePercentCell]) ws[variancePercentCell].s = fillStyle as any;
-      }
-    }
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Products');
@@ -1501,38 +1430,11 @@ export default function Products() {
       return;
     }
 
-    const rows = filteredProducts.map((product) => {
-      const analysis = calculatePricingAnalysis(product);
-      const currentPrice = Number(product.currentSellingPrice || 0);
-      const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
-      const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
-      const actualProfitOnCost = calculateActualProfitOnCost(product);
-      const actualProfitOnSales = calculateActualProfitOnSales(product);
-      const normalizedExpiryDate = product.approvedPriceExpiresAt ? product.approvedPriceExpiresAt.slice(0, 10) : null;
-      return [
-        product.name,
-        product.sku || '-',
-        product.totalCost.toFixed(2),
-        product.optimalPrice.toFixed(2),
-        formatApprovalDate(product.approvedAt),
-        normalizedExpiryDate ? formatExpiryDate(normalizedExpiryDate) : '',
-        product.approvalStatus === 'approved' && product.approvedPrice != null
-          ? Number(product.approvedPrice).toFixed(2)
-          : '—',
-        optimalProfitOnCost != null ? `${optimalProfitOnCost.toFixed(1)}%` : '-',
-        optimalProfitOnSales != null ? `${optimalProfitOnSales.toFixed(1)}%` : '-',
-        actualProfitOnCost != null ? `${actualProfitOnCost.toFixed(1)}%` : '-',
-        actualProfitOnSales != null ? `${actualProfitOnSales.toFixed(1)}%` : '-',
-        currentPrice > 0 ? analysis.variance.toFixed(2) : '-',
-        currentPrice > 0 ? `${analysis.variancePercent.toFixed(1)}%` : '-',
-        analysis.label,
-        getApprovalBadge(product.approvalStatus).label,
-      ];
-    });
+    const rows = filteredProducts.map((product) => buildProductExportValues(product));
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Product Name', 'SKU', 'Total Cost', 'Optimal Price', 'Valid until', 'Approved base price', 'Optimal Markup %', 'Optimal Gross Margin % (reference)', 'Actual Markup %', 'Actual Gross Margin % (reference)', 'Variance Amount', 'Variance %', 'Pricing Status', 'Approval Status'],
+      PRODUCT_EXPORT_HEADERS,
       rows
     );
 

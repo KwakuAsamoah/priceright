@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
@@ -773,6 +774,29 @@ function getOverviewApprovalSortOrder(status: ProductPricingOverviewRow['approva
   if (status === 'pending') return 1;
   if (status === 'approved') return 2;
   return 3;
+}
+
+function roundExportMarkupPercent(approvedPrice: number, totalCost: number): number | null {
+  const markup = calculateActualMarkupPercent(approvedPrice, totalCost);
+  if (markup == null) return null;
+  return Math.round(markup * 100) / 100;
+}
+
+function formatApprovalExportDate(timestamp: string | number | null | undefined): string {
+  const date = parseDate(timestamp);
+  if (!date) return '—';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function getPriceVolatilityPeriodLabel(period: '30' | '90' | '180' | '365'): string {
+  if (period === '30') return 'Last 30 days';
+  if (period === '180') return 'Last 180 days';
+  if (period === '365') return 'Last 365 days';
+  return 'Last 90 days';
+}
+
+function getPriceVolatilityStartColumnLabel(period: '30' | '90' | '180' | '365'): string {
+  return `Cost at Start (${period} days ago)`;
 }
 
 function normalizeOverviewApprovalStatus(status: ProductRow['approvalStatus']): ProductPricingOverviewRow['approvalStatus'] {
@@ -1788,7 +1812,9 @@ export default function Reports() {
         variance: row.hasSellingPrice ? Number(row.variance.toFixed(2)) : null,
         variancePct: row.hasSellingPrice ? Number(row.variancePct.toFixed(1)) : null,
         profit: row.hasSellingPrice ? Number(row.profit.toFixed(2)) : null,
-        markupPct: row.hasSellingPrice ? Number(row.markupPct.toFixed(1)) : null,
+        markupPct: row.hasSellingPrice
+          ? roundExportMarkupPercent(row.sellingPrice, row.productionCost)
+          : null,
         pricingStatus: row.pricingStatus,
       }));
 
@@ -1818,7 +1844,7 @@ export default function Reports() {
         category: row.category,
         productionCost: Number(row.productionCost.toFixed(2)),
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
-        actualMarkupPercent: Number(row.actualMarkupPercent.toFixed(1)),
+        actualMarkupPercent: roundExportMarkupPercent(row.approvedPrice, row.productionCost) ?? '',
         targetGap: Number(row.targetGap.toFixed(1)),
       }));
       return {
@@ -1871,8 +1897,10 @@ export default function Reports() {
         currentStatus: row.currentStatus,
         approvedPrice: row.approvedPrice === null ? '' : row.approvedPrice.toFixed(2),
         currentOptimalPrice: row.optimalPrice.toFixed(2),
-        actualMarkupPercent: row.actualMarkupPercent == null ? '' : row.actualMarkupPercent.toFixed(1),
-        approvedOn: parseDate(row.approvedOn)?.toLocaleString() || '—',
+        actualMarkupPercent: row.approvedPrice != null && row.productionCost > 0
+          ? roundExportMarkupPercent(toNumber(row.approvedPrice), row.productionCost) ?? ''
+          : '',
+        approvedOn: formatApprovalExportDate(row.approvedOn),
         approvedBy: row.approvedBy,
         active: row.isActive ? 'Yes' : 'No',
       }));
@@ -1958,7 +1986,7 @@ export default function Reports() {
         category: row.category,
         productionCost: Number(row.productionCost.toFixed(2)),
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
-        actualMarkupPercent: Number(row.actualMarkupPercent.toFixed(1)),
+        actualMarkupPercent: roundExportMarkupPercent(row.approvedPrice, row.productionCost) ?? '',
       }));
       return {
         rows,
@@ -1980,7 +2008,7 @@ export default function Reports() {
         category: row.category,
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
         currentCost: Number(row.currentCost.toFixed(2)),
-        currentMarkupPercent: Number(row.currentMarkupPercent.toFixed(1)),
+        currentMarkupPercent: roundExportMarkupPercent(row.approvedPrice, row.currentCost) ?? '',
         targetMarkupPercent: Number(row.targetMarkupPercent.toFixed(1)),
         markupDrift: Number(row.markupDrift.toFixed(1)),
       }));
@@ -2045,6 +2073,7 @@ export default function Reports() {
 
     if (selectedReport === 'top-cost-drivers') {
       const data = reportData as ReportResultMap['top-cost-drivers'];
+      const totalSum = data.totalWeightedCost;
       const rows = data.rows.map((row, index) => ({
         rank: index + 1,
         materialName: row.materialName,
@@ -2052,7 +2081,9 @@ export default function Reports() {
         unitCost: Number(row.unitCost.toFixed(2)),
         bomUsageCount: row.bomUsageCount,
         totalContribution: Number(row.totalContribution.toFixed(2)),
-        percentOfTotal: Number(row.percentOfTotal.toFixed(1)),
+        percentOfTotal: totalSum > 0
+          ? Math.round((row.totalContribution / totalSum) * 1000) / 10
+          : 0,
       }));
       return {
         rows,
@@ -2085,7 +2116,7 @@ export default function Reports() {
           { key: 'materialName', label: 'Material Name' },
           { key: 'category', label: 'Category' },
           { key: 'unit', label: 'Unit' },
-          { key: 'costAtStart', label: `Cost at Start (${baseCurrency})` },
+          { key: 'costAtStart', label: `${getPriceVolatilityStartColumnLabel(priceVolatilityPeriod)} (${baseCurrency})` },
           { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
           { key: 'changeAmount', label: `Change Amount (${baseCurrency})` },
           { key: 'changePercent', label: 'Change %' },
@@ -2210,6 +2241,26 @@ export default function Reports() {
 
     const payload = getExcelPayload();
     if (!payload) return;
+
+    if (selectedReport === 'markup-analysis' || selectedReport === 'price-volatility') {
+      const preamble = selectedReport === 'markup-analysis'
+        ? [`Target markup threshold: ${markupAnalysisThreshold}%`]
+        : [`Period: ${getPriceVolatilityPeriodLabel(priceVolatilityPeriod)}`];
+      const worksheet = XLSX.utils.aoa_to_sheet([
+        preamble,
+        [],
+        payload.columns.map((column) => column.label),
+        ...payload.rows.map((row) => payload.columns.map((column) => row[column.key] ?? '')),
+      ]);
+      worksheet['!cols'] = payload.columns.map((column) => ({
+        wch: Math.max(14, column.label.length + 2),
+      }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+      XLSX.writeFile(workbook, payload.filename.replace(/\.csv$/i, '.xlsx'));
+      return;
+    }
+
     exportToExcel(payload.rows, payload.columns, payload.filename.replace(/\.csv$/i, '.xlsx'));
   }
 

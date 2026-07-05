@@ -617,12 +617,22 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     }
   }
 
+  function getMaterialBaseUnitCost(material: Material): number {
+    const rate = exchangeRates.find((entry) => entry.currencyId === material.purchaseCurrencyId)?.rateToBase || 1;
+    const purchaseUnitPrice = Number(material.bulkPrice || 0) / Math.max(1, Number(material.bulkQuantity || 1));
+    if ((material.purchaseCurrencyCode || baseCurrency).toUpperCase() === baseCurrency.toUpperCase()) {
+      return Number(material.unitPrice || purchaseUnitPrice);
+    }
+    return purchaseUnitPrice / rate;
+  }
+
   function handleExportFilteredMaterialsExcel() {
     if (filteredMaterials.length === 0) {
       showToastMessage('No materials to export', 'error');
       return;
     }
 
+    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const exportData = filteredMaterials.map((material) => ({
       'Material Name': material.name,
       'SKU': material.sku || '',
@@ -630,8 +640,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       'Unit': material.unit,
       'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
+      [unitCostHeader]: getMaterialBaseUnitCost(material).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
-      'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
       'Status': material.isActive ? 'Active' : 'Inactive',
       'Description': material.description || '',
     }));
