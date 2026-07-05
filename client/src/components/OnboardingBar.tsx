@@ -2,16 +2,24 @@ import { useOnboarding } from '../context/OnboardingContext';
 
 const STEPS = [
   {
-    key: 'materials',
+    key: 'currency',
     number: 1,
+    title: 'Set your base currency',
+    instruction:
+      'Go to Settings → Currencies & Rates and choose your base currency. All costs and prices are calculated in this currency.',
+    nextLabel: 'Done — go to Materials →',
+  },
+  {
+    key: 'materials',
+    number: 2,
     title: 'Add your materials',
     instruction:
-      'Set your base currency in Settings → Currencies & Rates first, then add your raw materials with their unit costs. Everything else builds from here.',
+      'Add your raw materials with their unit costs. Everything else builds from here.',
     nextLabel: 'Done — go to Products →',
   },
   {
     key: 'products',
-    number: 2,
+    number: 3,
     title: 'Build your products',
     instruction:
       'Create a product and add its ingredients. PriceRight calculates the production cost automatically.',
@@ -19,7 +27,7 @@ const STEPS = [
   },
   {
     key: 'prices',
-    number: 3,
+    number: 4,
     title: 'Approve your prices',
     instruction:
       'Click on any product to see its calculated cost and approve a selling price.',
@@ -27,7 +35,7 @@ const STEPS = [
   },
   {
     key: 'price-levels',
-    number: 4,
+    number: 5,
     title: 'Set up a price level',
     instruction:
       'Create a price level to organise and distribute your approved prices to your sales team.',

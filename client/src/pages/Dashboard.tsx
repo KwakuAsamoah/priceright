@@ -270,6 +270,7 @@ export default function Dashboard() {
 
   function openPrintableGuide() {
     const GUIDE_POINTS = [
+      'Set your base currency in Settings → Currencies & Rates.',
       'Add your raw materials and costs.',
       'Build products with bills of materials.',
       'Approve base prices for your products.',

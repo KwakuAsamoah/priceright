@@ -3,6 +3,7 @@ import { settingsApi } from '../api';
 
 export type OnboardingStep =
   | 'welcome'
+  | 'currency'
   | 'materials'
   | 'products'
   | 'prices'
@@ -34,6 +35,7 @@ export function useOnboarding() {
 }
 
 const STEP_ORDER: OnboardingStep[] = [
+  'currency',
   'materials',
   'products',
   'prices',
@@ -67,14 +69,14 @@ export function OnboardingProvider({
 
   const startOnboarding = useCallback(() => {
     setIsActive(true);
-    setCurrentStep('materials');
-    navigate('/materials');
+    setCurrentStep('currency');
+    navigate('/settings?tab=currencies');
   }, [navigate]);
 
   const resumeOnboarding = useCallback(() => {
     setIsActive(true);
-    setCurrentStep('materials');
-    navigate('/materials');
+    setCurrentStep('currency');
+    navigate('/settings?tab=currencies');
   }, [navigate]);
 
   const nextStep = useCallback(() => {
@@ -93,6 +95,8 @@ export function OnboardingProvider({
     setCurrentStep(next);
 
     const pageMap: Partial<Record<OnboardingStep, string>> = {
+      currency: '/settings?tab=currencies',
+      materials: '/materials',
       products: '/products',
       prices: '/products',
       'price-levels': '/price-levels',

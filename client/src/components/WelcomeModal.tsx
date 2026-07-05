@@ -25,7 +25,7 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
     onDismiss();
   }
 
-  async function handleStartMaterials() {
+  async function handleStartSetup() {
     setSaving(true);
     try {
       await settingsApi.save({
@@ -113,10 +113,10 @@ export function WelcomeModal({ onDismiss }: WelcomeModalProps) {
           <button
             type="button"
             className="welcome-modal-primary"
-            onClick={() => { void handleStartMaterials(); }}
+            onClick={() => { void handleStartSetup(); }}
             disabled={saving}
           >
-            Start with Materials →
+            Start setup →
           </button>
           <button
             type="button"
