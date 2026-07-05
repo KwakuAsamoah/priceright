@@ -70,13 +70,13 @@ export function OnboardingProvider({
   const startOnboarding = useCallback(() => {
     setIsActive(true);
     setCurrentStep('currency');
-    navigate('/settings?tab=currencies');
+    navigate('/settings?section=currencies');
   }, [navigate]);
 
   const resumeOnboarding = useCallback(() => {
     setIsActive(true);
     setCurrentStep('currency');
-    navigate('/settings?tab=currencies');
+    navigate('/settings?section=currencies');
   }, [navigate]);
 
   const nextStep = useCallback(() => {
@@ -95,7 +95,7 @@ export function OnboardingProvider({
     setCurrentStep(next);
 
     const pageMap: Partial<Record<OnboardingStep, string>> = {
-      currency: '/settings?tab=currencies',
+      currency: '/settings?section=currencies',
       materials: '/materials',
       products: '/products',
       prices: '/products',

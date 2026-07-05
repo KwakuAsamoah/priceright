@@ -605,7 +605,7 @@ function AppLayout({ children }: { children: ReactNode }) {
                 No base currency set.{' '}Cost calculations will not work correctly until you set a base currency.
               </span>
               <button
-                onClick={() => navigate('/settings?tab=currencies')}
+                onClick={() => navigate('/settings?section=currencies')}
                 style={{ background: 'white', color: '#DC2626', border: 'none', borderRadius: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
               >
                 Set base currency →

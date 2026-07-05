@@ -13,7 +13,7 @@ export default function DemoModeBanner() {
     <button
       type="button"
       className="demo-pill"
-      onClick={() => navigate('/settings?tab=data-backups')}
+      onClick={() => navigate('/settings?section=data')}
       aria-label="Demo mode active. Click to open Data and Backups to switch to your own data."
     >
       <span className="demo-dot" aria-hidden="true" />

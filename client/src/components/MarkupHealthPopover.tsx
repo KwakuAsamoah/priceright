@@ -204,7 +204,7 @@ export default function MarkupHealthPopover() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                navigate('/settings?tab=pricing');
+                navigate('/settings?section=pricing');
               }}
               style={{
                 padding: 0,

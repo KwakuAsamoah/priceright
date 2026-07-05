@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
+import { AlertTriangle, Building2, Calculator, CheckCircle2, Clock3, Database, Globe, HardDrive, Layers, Lock, Package, Plus, ShoppingBag, Tag, Trash2, TrendingUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
@@ -56,15 +56,65 @@ interface RateSaveBanner {
   reminder?: string;
 }
 
-type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups';
+type SettingsSection = 'business' | 'pricing' | 'currencies' | 'categories' | 'data';
 
-const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
-  { key: 'general', label: 'General', icon: Settings2 },
-  { key: 'pricing', label: 'Pricing Engine', icon: Calculator },
-  { key: 'currencies', label: 'Currencies & Rates', icon: WalletCards },
-  { key: 'master-data', label: 'Master Data', icon: ListTree },
-  { key: 'data-backups', label: 'Data & Backups', icon: Database },
+const SETTINGS_SECTIONS: Array<{
+  key: SettingsSection;
+  name: string;
+  description: string;
+  icon: LucideIcon;
+}> = [
+  {
+    key: 'business',
+    name: 'Your Business',
+    description: 'Company name, logo, and branding',
+    icon: Building2,
+  },
+  {
+    key: 'pricing',
+    name: 'Pricing Defaults',
+    description: 'Default markup, overhead, and healthy markup threshold',
+    icon: TrendingUp,
+  },
+  {
+    key: 'currencies',
+    name: 'Currencies',
+    description: 'Base currency and exchange rates',
+    icon: Globe,
+  },
+  {
+    key: 'categories',
+    name: 'Categories',
+    description: 'Product categories, material categories, and units of measure',
+    icon: Tag,
+  },
+  {
+    key: 'data',
+    name: 'Data',
+    description: 'Backup, restore, and demo data management',
+    icon: Database,
+  },
 ];
+
+function resolveSettingsSection(sectionParam: string | null, tabParam: string | null): SettingsSection | null {
+  if (
+    sectionParam === 'business'
+    || sectionParam === 'pricing'
+    || sectionParam === 'currencies'
+    || sectionParam === 'categories'
+    || sectionParam === 'data'
+  ) {
+    return sectionParam;
+  }
+
+  if (tabParam === 'general') return 'business';
+  if (tabParam === 'pricing') return 'pricing';
+  if (tabParam === 'currencies') return 'currencies';
+  if (tabParam === 'master-data') return 'categories';
+  if (tabParam === 'data-backups') return 'data';
+
+  return null;
+}
 
 function parseConfiguredList(rawValue: unknown): string[] {
   if (typeof rawValue !== 'string' || rawValue.trim().length === 0) {
@@ -245,7 +295,7 @@ function CategoryChipEditor({
 }
 
 export default function Settings() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
   const { downloading, handleDownload } = useTemplateDownload();
   const { setBaseCurrencyMissing } = useBaseCurrencyContext();
@@ -333,32 +383,26 @@ export default function Settings() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [isChangingPin, setIsChangingPin] = useState(false);
-  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
-    const urlTab = searchParams.get('tab');
-    if (
-      urlTab === 'general'
-      || urlTab === 'pricing'
-      || urlTab === 'currencies'
-      || urlTab === 'master-data'
-      || urlTab === 'data-backups'
-    ) {
-      return urlTab;
-    }
-    return 'general';
-  });
+  const [activeSection, setActiveSection] = useState<SettingsSection | null>(() =>
+    resolveSettingsSection(searchParams.get('section'), searchParams.get('tab')),
+  );
 
   useEffect(() => {
-    const urlTab = searchParams.get('tab');
-    if (
-      urlTab === 'general'
-      || urlTab === 'pricing'
-      || urlTab === 'currencies'
-      || urlTab === 'master-data'
-      || urlTab === 'data-backups'
-    ) {
-      setActiveTab(urlTab);
-    }
+    const nextSection = resolveSettingsSection(searchParams.get('section'), searchParams.get('tab'));
+    setActiveSection(nextSection);
   }, [searchParams]);
+
+  function openSettingsSection(section: SettingsSection) {
+    setActiveSection(section);
+    setSearchParams({ section });
+  }
+
+  function goToSettingsHome() {
+    setActiveSection(null);
+    setSearchParams({});
+  }
+
+  const activeSectionMeta = SETTINGS_SECTIONS.find((entry) => entry.key === activeSection) || null;
 
   useEffect(() => {
     loadData();
@@ -888,45 +932,20 @@ async function loadData() {
     }
   }
 
-  function handleTabChange(tab: SettingsTab) {
-    setActiveTab(tab);
-  }
-
-// Price Level Rules Functions
   return (
     <div className="app-page settings-page">
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       {/* Header */}
       <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
-        <h1 className="app-page-title">Settings</h1>
-        <div className="app-section-tabs" role="tablist" aria-label="Settings sections" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-          {SETTINGS_TABS.map((tab, index) => {
-            const isActive = activeTab === tab.key;
-            const TabIcon = tab.icon;
-            return (
-              <span key={tab.key} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                {index === 3 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', margin: '0 8px 0 4px', alignSelf: 'center' }}>
-                    <span style={{ width: '1px', height: '22px', backgroundColor: '#e2e8f0', display: 'inline-block' }} aria-hidden="true" />
-                    <span style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Advanced</span>
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className={`app-section-tab ${isActive ? 'is-active' : ''}`}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => handleTabChange(tab.key)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <TabIcon size={14} strokeWidth={2} aria-hidden="true" />
-                  {tab.label}
-                </button>
-              </span>
-            );
-          })}
-        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {activeSection === null ? (
+            <>
+              <h1 className="settings-home__title">Settings</h1>
+              <p className="settings-home__subtitle">Manage your PriceRight preferences</p>
+            </>
+          ) : (
+            <h1 className="settings-home__title">Settings</h1>
+          )}
         </div>
         <PageHelpButton context="settings" />
       </div>
@@ -961,10 +980,40 @@ async function loadData() {
           </div>
         )}
 
-        {(activeTab === 'general' || activeTab === 'pricing' || activeTab === 'master-data') && (
-        <div className="app-settings-grid">
-          <div>
-            {activeTab === 'general' && (
+        {activeSection === null && (
+          <div className="settings-home__grid">
+            {SETTINGS_SECTIONS.map((section) => {
+              const SectionIcon = section.icon;
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  className="settings-home__card"
+                  onClick={() => openSettingsSection(section.key)}
+                >
+                  <div className="settings-home__card-main">
+                    <SectionIcon size={28} color="#16A34A" style={{ marginBottom: '12px' }} />
+                    <div className="settings-home__card-name">{section.name}</div>
+                    <div className="settings-home__card-desc">{section.description}</div>
+                  </div>
+                  <span className="settings-home__arrow" aria-hidden="true">›</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {activeSection !== null && activeSectionMeta && (
+          <>
+            <button type="button" className="settings-section-back" onClick={goToSettingsHome}>
+              ← Settings
+            </button>
+            <h2 className="settings-section-title">{activeSectionMeta.name}</h2>
+            <p className="settings-section-subtitle">{activeSectionMeta.description}</p>
+          </>
+        )}
+
+        {activeSection === 'business' && (
             <>
             <div className="app-card app-settings-card">
               <h2>Company Branding</h2>
@@ -1154,7 +1203,8 @@ async function loadData() {
             </>
             )}
 
-            {activeTab === 'pricing' && (
+            {activeSection === 'pricing' && (
+            <>
             <div className="app-card app-settings-card">
               <h2>Default settings for new products</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
@@ -1282,61 +1332,7 @@ async function loadData() {
                 </button>
               </div>
             </div>
-            )}
 
-            {activeTab === 'master-data' && (
-            <div className="app-card app-settings-card">
-              <h2>Master Data</h2>
-              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                Define standard categories and units that appear as suggestions when creating products and materials.
-              </p>
-
-              <div style={{ display: 'grid', gap: '18px' }}>
-                <CategoryChipEditor
-                  label="Product Categories"
-                  hint="Suggested options when creating/editing products"
-                  values={productCategories}
-                  onChange={setProductCategories}
-                  usageCounts={productCategoryCounts}
-                  usageNoun="product"
-                />
-
-                <CategoryChipEditor
-                  label="Raw Material Categories"
-                  hint="Suggested options when creating/editing materials"
-                  values={materialCategories}
-                  onChange={setMaterialCategories}
-                  usageCounts={materialCategoryCounts}
-                  usageNoun="material"
-                />
-
-                <CategoryChipEditor
-                  label="Units of Measure"
-                  hint="Suggested options when specifying material quantities"
-                  values={materialUnits}
-                  onChange={setMaterialUnits}
-                  usageCounts={materialUnitCounts}
-                  usageNoun="material"
-                />
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSaveMasterData}
-                    disabled={isSavingMasterData}
-                    type="button"
-                  >
-                    {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
-                  </button>
-                  {masterDataMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{masterDataMessage}</span>}
-                </div>
-              </div>
-            </div>
-            )}
-          </div>
-
-          <div>
-            {activeTab === 'pricing' && (
             <div className="app-card app-settings-card">
               <h2 style={{ marginBottom: '8px', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Calculator size={18} strokeWidth={2} />
@@ -1417,12 +1413,60 @@ async function loadData() {
                 Use as Default
               </button>
             </div>
+            </>
             )}
-          </div>
-        </div>
-        )}
 
-        {activeTab === 'data-backups' && (
+            {activeSection === 'categories' && (
+            <div className="app-card app-settings-card">
+              <h2>Master Data</h2>
+              <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
+                Define standard categories and units that appear as suggestions when creating products and materials.
+              </p>
+
+              <div style={{ display: 'grid', gap: '18px' }}>
+                <CategoryChipEditor
+                  label="Product Categories"
+                  hint="Suggested options when creating/editing products"
+                  values={productCategories}
+                  onChange={setProductCategories}
+                  usageCounts={productCategoryCounts}
+                  usageNoun="product"
+                />
+
+                <CategoryChipEditor
+                  label="Raw Material Categories"
+                  hint="Suggested options when creating/editing materials"
+                  values={materialCategories}
+                  onChange={setMaterialCategories}
+                  usageCounts={materialCategoryCounts}
+                  usageNoun="material"
+                />
+
+                <CategoryChipEditor
+                  label="Units of Measure"
+                  hint="Suggested options when specifying material quantities"
+                  values={materialUnits}
+                  onChange={setMaterialUnits}
+                  usageCounts={materialUnitCounts}
+                  usageNoun="material"
+                />
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleSaveMasterData}
+                    disabled={isSavingMasterData}
+                    type="button"
+                  >
+                    {isSavingMasterData ? 'Saving...' : 'Save Master Data'}
+                  </button>
+                  {masterDataMessage && <span style={{ fontSize: '14px', color: '#475569' }}>{masterDataMessage}</span>}
+                </div>
+              </div>
+            </div>
+            )}
+
+        {activeSection === 'data' && (
         <>
         <div className="app-card app-settings-card" style={{ marginBottom: '16px' }}>
           <h2>Data mode</h2>
@@ -1645,7 +1689,7 @@ async function loadData() {
         </>
         )}
 
-        {activeTab === 'currencies' && (
+        {activeSection === 'currencies' && (
         <>
         <div className="app-card app-settings-card">
           <h2>Base Currency</h2>
