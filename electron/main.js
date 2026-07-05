@@ -19,6 +19,68 @@ const MAX_OFFLINE_LAUNCHES = 3;
 const SERVER_PORT = 3000;
 const isProd = app.isPackaged;
 
+const DEFAULT_WINDOW_STATE = {
+  width: 1200,
+  height: 800,
+  x: undefined,
+  y: undefined,
+  isMaximized: false,
+};
+
+function getWindowStatePath() {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function readWindowState() {
+  try {
+    const statePath = getWindowStatePath();
+    if (fs.existsSync(statePath)) {
+      const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      return {
+        width: Number(parsed.width) || DEFAULT_WINDOW_STATE.width,
+        height: Number(parsed.height) || DEFAULT_WINDOW_STATE.height,
+        x: Number.isFinite(parsed.x) ? parsed.x : undefined,
+        y: Number.isFinite(parsed.y) ? parsed.y : undefined,
+        isMaximized: Boolean(parsed.isMaximized),
+      };
+    }
+  } catch {}
+  return { ...DEFAULT_WINDOW_STATE };
+}
+
+function saveWindowState() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    const isMaximized = mainWindow.isMaximized();
+    const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
+    fs.writeFileSync(
+      getWindowStatePath(),
+      JSON.stringify({
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        isMaximized,
+      }),
+      'utf8',
+    );
+  } catch {}
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return function debounced(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+function devLog(...args) {
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    console.log(...args);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Licence helpers
 // ---------------------------------------------------------------------------
@@ -202,9 +264,10 @@ function checkServerOnce() {
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+  const savedState = readWindowState();
+  const windowOptions = {
+    width: savedState.width,
+    height: savedState.height,
     minWidth: 900,
     minHeight: 600,
     title: 'PriceRight',
@@ -216,7 +279,27 @@ function createWindow() {
     },
     show: false,
     backgroundColor: '#0f172a',
-  });
+  };
+
+  if (savedState.x !== undefined) {
+    windowOptions.x = savedState.x;
+  }
+  if (savedState.y !== undefined) {
+    windowOptions.y = savedState.y;
+  }
+
+  mainWindow = new BrowserWindow(windowOptions);
+
+  if (savedState.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  const debouncedSaveWindowState = debounce(saveWindowState, 500);
+  mainWindow.on('resize', debouncedSaveWindowState);
+  mainWindow.on('move', debouncedSaveWindowState);
+  mainWindow.on('maximize', saveWindowState);
+  mainWindow.on('unmaximize', saveWindowState);
+  mainWindow.on('close', saveWindowState);
 
   const savedZoom = (() => {
     try {
@@ -305,7 +388,7 @@ function setupAutoUpdater() {
   const logFile = path.join(app.getPath('userData'), 'updater.log');
   function ulog(msg) {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
-    console.log(msg);
+    devLog(msg);
     try { fs.appendFileSync(logFile, line); } catch (_) { /* ignore */ }
   }
 
@@ -325,22 +408,50 @@ function setupAutoUpdater() {
   autoUpdater.on('update-available', (info) => {
     ulog(`[updater] Update available: ${info.version}`);
     if (mainWindow) {
+      const title = 'PriceRight Update Available';
+      const message = `Version ${info.version} is ready to download. It includes improvements and fixes.`;
       mainWindow.webContents.send('update-available', {
         version: info.version,
+        title,
+        message,
         releaseNotes: info.releaseNotes || '',
         releaseDate: info.releaseDate || '',
       });
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title,
+        message,
+        buttons: ['Update Now', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+      }).catch(() => {});
     }
   });
 
   autoUpdater.on('update-downloaded', (info) => {
     ulog(`[updater] Update downloaded: ${info.version}`);
     if (mainWindow) {
+      const title = 'PriceRight Update Ready';
+      const message = `PriceRight ${info.version} has been downloaded and is ready to install. Restart now to apply the update.`;
       mainWindow.webContents.send('update-downloaded', {
         version: info.version,
+        title,
+        message,
         releaseNotes: info.releaseNotes || '',
         releaseDate: info.releaseDate || '',
       });
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title,
+        message,
+        buttons: ['Restart and update', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+      }).then(({ response }) => {
+        if (response === 0) {
+          autoUpdater.quitAndInstall();
+        }
+      }).catch(() => {});
     }
   });
 
@@ -351,7 +462,7 @@ function setupAutoUpdater() {
   // Check for updates 10 seconds after launch to not slow down startup
   setTimeout(() => {
     ulog(`[updater] Starting check (app version: ${app.getVersion()})`);
-    autoUpdater.checkForUpdatesAndNotify()
+    autoUpdater.checkForUpdates()
       .catch((err) => ulog(`[updater] Check failed: ${err.message}`));
   }, 10000);
 }
@@ -377,9 +488,9 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
   if (canceled || !filePath) return { success: false, canceled: true };
 
   function fetchAndSave(targetUrl, redirectCount) {
-    console.log('[download] fetching:', targetUrl);
+    devLog('[download] fetching:', targetUrl);
     if (redirectCount > 5) {
-      console.log('[download] too many redirects');
+      devLog('[download] too many redirects');
       return Promise.resolve({
         success: false,
         error: 'Too many redirects',
@@ -388,8 +499,8 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
 
     return new Promise((resolve) => {
       http.get(targetUrl, (response) => {
-        console.log('[download] status:', response.statusCode);
-        console.log('[download] content-type:', response.headers['content-type']);
+        devLog('[download] status:', response.statusCode);
+        devLog('[download] content-type:', response.headers['content-type']);
 
         if (
           response.statusCode === 301 ||
@@ -397,7 +508,7 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
           response.statusCode === 307 ||
           response.statusCode === 308
         ) {
-          console.log('[download] redirect to:', response.headers.location);
+          devLog('[download] redirect to:', response.headers.location);
           const location = response.headers.location;
           if (!location) {
             resolve({ success: false, error: 'Redirect with no location' });
@@ -410,7 +521,7 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
         }
 
         if (response.statusCode !== 200) {
-          console.log('[download] non-200, failing');
+          devLog('[download] non-200, failing');
           response.resume();
           try { fs.unlinkSync(filePath); } catch {}
           resolve({
@@ -420,7 +531,7 @@ ipcMain.handle('download-file', async (_event, url, defaultFilename) => {
           return;
         }
 
-        console.log('[download] 200 OK, saving to:', filePath);
+        devLog('[download] 200 OK, saving to:', filePath);
         const file = fs.createWriteStream(filePath);
         response.pipe(file);
         file.on('finish', () => {
@@ -659,7 +770,7 @@ app.whenReady().then(async () => {
       try {
         fs.copyFileSync(packagedDemoDb, userDemoDb);
         fs.writeFileSync(demoVersionFile, DEMO_DB_VERSION, 'utf8');
-        console.log('[startup] demo.db updated to version', DEMO_DB_VERSION);
+        devLog('[startup] demo.db updated to version', DEMO_DB_VERSION);
       } catch (copyErr) {
         console.error('[startup] Failed to update demo.db:', copyErr);
       }
