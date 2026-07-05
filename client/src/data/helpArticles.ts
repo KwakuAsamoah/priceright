@@ -17,8 +17,8 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Welcome to PriceRight',
     keywords: ['welcome', 'overview', 'what is priceright', 'introduction'],
-    readingTimeMinutes: 2,
-    relatedArticleIds: ['first-setup', 'understanding-workflow', 'sample-data'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['first-setup', 'understanding-workflow', 'sample-data', 'how-priceright-calculates-profit'],
     content: `
       <p>PriceRight is a pricing management system built for product-based businesses.
       It helps you calculate the true cost of every product you make, set profitable
@@ -36,18 +36,17 @@ export const helpArticles: HelpArticle[] = [
       connects everything — your raw material costs, Bill of materials,
       and Approved base prices — so when something changes, everything adjusts.</p>
 
-      <p>Here is what you can do with PriceRight:</p>
-      <ul>
-        <li>Track material costs in multiple currencies</li>
-        <li>Build products with a full Bill of Materials</li>
-        <li>Calculate optimal prices automatically</li>
-        <li>Approve prices through a proper workflow</li>
-        <li>Set different prices for different customer types</li>
-        <li>Create and share professional price lists</li>
-        <li>Use the Activity log to track important pricing actions</li>
-        <li>Review product Price history before making decisions</li>
-        <li>Run reports on your pricing health</li>
-      </ul>
+      <p><strong>Getting started in six steps:</strong></p>
+      <ol>
+        <li>Set your base currency in Settings</li>
+        <li>Add raw materials with bulk purchase prices</li>
+        <li>Create products with a bill of materials and markup</li>
+        <li>Approve base prices on the product detail page</li>
+        <li>Build a price list for each customer type</li>
+        <li>Export the price list to Excel or PDF</li>
+      </ol>
+
+      <p>PriceRight uses <strong>Markup on Cost</strong> as its main profit measure — the percentage you add on top of what it costs to make each product. Use <strong>Reports and Analysis</strong> to review pricing health across your catalogue.</p>
 
       <p>Sample data files are included so you can explore all features with realistic data before entering your own.</p>`,
   },
@@ -442,33 +441,27 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Intermediate materials',
     keywords: ['intermediate', 'semi-finished', 'in-house', 'produced material', 'sub-assembly'],
-    readingTimeMinutes: 16,
-    relatedArticleIds: ['intermediate-costing', 'building-product-bom', 'adding-materials'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['intermediate-costing', 'creation-panels', 'intermediate-detail-page'],
     content: `
       <p>Some materials you use in your products are made in-house from other
       raw materials. PriceRight calls these Intermediate Materials.</p>
 
-      <p><strong>Intermediate materials are managed under the Intermediate tab on
+      <p>Intermediate materials are managed under the <strong>Intermediate</strong> tab on
       the Materials page. Once created they appear as selectable components when
-      building product BOMs.</strong></p>
+      building product BOMs.</p>
 
-      <p>For example, Brown Sugar might be produced from raw sugar and molasses.
-      Instead of treating Brown Sugar as a purchased material with a fixed cost,
-      you build it as an intermediate material with its own Bill of Materials.</p>
+      <p>When raw material prices change, an intermediate material's cost updates automatically.
+      Every finished product that uses it recalculates too — keeping everything accurate without manual work.</p>
 
-      <p>When raw sugar prices change, Brown Sugar's cost updates automatically.
-      And when Brown Sugar's cost updates, every finished product that uses it
-      recalculates too. This two-level cascade keeps everything accurate without
-      any manual work.</p>
+      <p>To create one, go to Materials → Intermediate tab and click <strong>+ Add → Add single intermediate</strong>.
+      A floating overlay panel opens with two panels side by side — form fields on the left, BOM builder on the right.
+      You can add BOM items before saving.</p>
 
-      <p>To create an intermediate material, go to Materials and select the
-      Intermediate tab, then click <strong>+ Add → Add single intermediate</strong>. Set the overhead
-      percentage, optional Markup %, batch yield, and then build its BOM
-      from primary materials.</p>
+      <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead %, optional Markup %, and yield settings.
+      For yield-based costing, enter the <strong>Yield %</strong> — hint text below the field explains usable output (for example 80g from 100g of ingredients).</p>
 
-      <p>The calculated unit cost is then available as an input when building
-      finished products — it appears in the same material search alongside your
-      primary materials.</p>`,
+      <p>The calculated unit cost is then available when building finished products — it appears in the same material search alongside primary materials.</p>`,
   },
 
   {
@@ -562,33 +555,25 @@ export const helpArticles: HelpArticle[] = [
 
   {
     id: 'materials-analysis-tab',
-    title: 'Using the Materials Analysis tab',
-    section: 'Products and Materials',
-    keywords: ['materials analysis', 'analysis', 'cost breakdown', 'currency exposure', 'material trends', 'BOM exposure'],
-    readingTimeMinutes: 20,
-    relatedArticleIds: ['currency-exposure', 'pricing-analysis-page', 'active-inactive-filter'],
+    title: 'Materials Reports and Analysis',
+    section: 'Reports and Analysis',
+    keywords: ['materials reports', 'cost analysis', 'top cost drivers', 'price volatility', 'material price history', 'inactive materials'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['currency-exposure', 'reports-navigation', 'material-detail-page'],
     content: `
-      <p>The Materials Analysis tab helps you understand your material costs at a glance.</p>
+      <p>Materials analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Materials</strong> tab at the top, then choose a report from the dropdown. Reports generate automatically — no Generate button needed.</p>
 
-      <p>Go to <strong>Materials</strong> and click the <strong>Analysis</strong> tab.</p>
+      <p><strong>Currency Exposure</strong> — shows how many active materials you buy in each purchase currency. Expand a currency row to see individual materials. Helps you spot exchange-rate risk in your supply chain.</p>
 
-      <p>The tab shows these panels:</p>
+      <p><strong>Materials Cost Analysis</strong> — average unit cost by category, most-used materials in product recipes, and your highest unit-cost items. Good for understanding where your material spend is concentrated.</p>
 
-      <p><strong>Average unit cost by category</strong> — shows the average unit cost for each material category and how many items are in that category.</p>
+      <p><strong>Top Cost Drivers</strong> — ranks materials by total BOM cost contribution across all products. Shows which ingredients have the biggest impact on your overall production costs.</p>
 
-      <p><strong>Most used materials in products</strong> — lists materials that appear most often in product bills of materials.</p>
+      <p><strong>Price Volatility</strong> — highlights materials whose unit costs changed most over a selected period. Useful after supplier price increases or exchange-rate moves.</p>
 
-      <p><strong>Top 5 highest unit cost materials</strong> — your five most expensive materials by unit cost.</p>
+      <p><strong>Material Price History</strong> — pick a material and see its full price change history. Same data as the Price History tab on the material detail page.</p>
 
-      <p><strong>Cost exposure across product range</strong> — shows which materials would have the biggest impact on product costs if their prices went up. Amounts are based on how much of each material is used across your products.</p>
-
-      <p><strong>Price history</strong> — use the dropdown to select a material and see how its unit cost has changed over time.</p>
-
-      <p><strong>Currency exposure</strong> — shows how many materials you buy in each purchase currency. This is a count only, not a money total. Materials bought in foreign currencies can be affected when exchange rates change.</p>
-
-      <p><strong>Materials with no price changes</strong> — lists materials whose unit cost is zero and may need a price entered.</p>
-
-      <p><strong>Inactive materials still in product BOMs</strong> — a warning panel. If a material is marked inactive but still appears in an active product's bill of materials, your product costs may be wrong. Reactivate the material or update the product recipe.</p>`,
+      <p><strong>Inactive in Active BOMs</strong> — lists inactive materials still referenced in active product recipes. Fix these to keep product costs accurate.</p>`,
   },
 
   // ── PRODUCTS ───────────────────────────────────────────────────────────────
@@ -598,38 +583,21 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Building a product with a BOM',
     keywords: ['product', 'BOM', 'bill of materials', 'create product', 'recipe'],
-    readingTimeMinutes: 22,
-    relatedArticleIds: ['batch-vs-single', 'overhead-and-margin', 'how-approval-works'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['batch-vs-single', 'creation-panels', 'how-approval-works'],
     content: `
       <p>To create a product, go to <strong>Products</strong> and click
-      <strong>+ Add → Add single product</strong>.</p>
+      <strong>+ Add → Add single product</strong>. A floating overlay panel opens over the list — the table stays visible but dimmed behind it.</p>
 
-      <p>Give the product a name and category. Then choose the production mode —
-      Single Unit if you make one unit at a time, or Batch if your recipe produces
-      multiple units in one run.</p>
+      <p>The panel has two sections side by side: the <strong>product form</strong> on the left and the <strong>BOM builder</strong> on the right. As you add materials, production cost and optimal price update live on the left.</p>
 
-      <p>For batch production, enter the Batch Yield — how many finished units
-      your recipe produces. If you make 12 bottles of sauce from one batch,
-      enter 12.</p>
+      <p>Give the product a name and category. Choose <strong>Single Unit</strong> or <strong>Batch</strong> production mode. For batch, enter the Batch Yield — how many finished units one recipe run produces.</p>
 
-      <p>Set the Overhead percentage and Markup %. Overhead covers
-      your indirect costs. Markup % is the percentage added on top of
-      production cost.</p>
+      <p>Set Overhead % and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
 
-      <p>Then build the Bill of Materials. Search for each material and enter
-      the quantity used per batch. As you add materials, PriceRight calculates
-      the production cost and optimal price in real time.</p>
+      <p>After saving, the product status is <strong>Pending</strong>. Click the product row to open its detail page and approve an <strong>Approved base price</strong> before adding it to price levels.</p>
 
-        <p>When you save the product, PriceRight calculates the
-        <strong>Production cost</strong> automatically and sets the product status
-        to <strong>Pending</strong>.</p>
-
-        <p>Next, review and approve an <strong>Approved base price</strong>. Until
-        this approval is completed, the product cannot be used in
-        <strong>Price levels</strong>.</p>
-
-        <p>If you later update the cost of any material used in the BOM, the product
-        moves to <strong>Needs review</strong> and should be re-approved.</p>` ,
+      <p>If a material cost changes later, the product moves to <strong>Needs review</strong> and should be re-approved.</p>`,
   },
 
   {
@@ -661,38 +629,32 @@ export const helpArticles: HelpArticle[] = [
   {
     id: 'overhead-and-margin',
     section: 'Products and Materials',
-    title: 'Understanding overhead, markup and gross margin',
-    keywords: ['overhead', 'margin', 'markup', 'gross margin', 'cost', 'percentage'],
-    readingTimeMinutes: 23,
-    relatedArticleIds: ['price-types-explained', 'building-product-bom', 'how-approval-works'],
+    title: 'Understanding overhead and markup on cost',
+    keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom'],
     content: `
-      <p><strong>Overhead</strong> is a percentage added to your material costs to cover indirect production expenses — electricity, rent, equipment, and production labour.</p>
+      <p><strong>Overhead</strong> is a percentage added to material costs to cover indirect expenses — electricity, rent, equipment, and production labour.</p>
 
-      <p><strong>Where overhead is set:</strong></p>
-      <ul>
-        <li><strong>Per-product Overhead %</strong> — on each product's form. This applies only to that product and is used when calculating its production cost and optimal price.</li>
-        <li><strong>Settings → Pricing Engine → Default Overhead %</strong> — a business-wide default that pre-fills the overhead field when you create a new product. It does not change overhead on products you have already saved.</li>
-      </ul>
+      <p>Overhead is set per product on the product form, or pre-filled from <strong>Settings → Pricing Engine → Default Overhead %</strong> when creating new products. Use the overhead calculator on the Pricing Engine tab to work out a sensible default from your monthly figures.</p>
 
-      <p>You can use the overhead calculator on the Pricing Engine tab to work out a sensible default from your monthly figures. Enter your totals in your base currency.</p>
-
-      <p><strong>Markup %</strong> is set on each product. It is the main setting that drives the <strong>Optimal price</strong> calculation.</p>
+      <p><strong>Markup on Cost</strong> is PriceRight's primary profit metric. It is set on each product and drives the <strong>Optimal price</strong> calculation:</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
         Optimal price = Production cost × (1 + Markup%)
       </p>
 
-      <p>Example: if production cost is 2.41 and markup is 20%, the optimal price is 2.89.</p>
+      <p>At the approved price, actual markup on cost is:</p>
 
-      <p>The app also shows <strong>Gross Margin %</strong> — profit as a share of the selling price. At 2.89 with 2.41 cost, gross margin is about 16.7%.</p>
+      <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+        (Approved Price − Production Cost) ÷ Production Cost × 100
+      </p>
 
-      <p>Both numbers are useful:</p>
-      <ul>
-        <li><strong>Markup %</strong> — how much you add above what you spent to make the product.</li>
-        <li><strong>Gross Margin %</strong> — what you keep from each sale after production cost, often used by buyers and distributors.</li>
-      </ul>
+      <p>Example: production cost 10.00, approved price 14.00 → 40% markup on cost.</p>
 
-      <p>On the Products page you can show markup and margin columns. Open any product to see both figures at the suggested price.</p>`,
+      <p>Products are colour-coded by markup health using your <strong>Healthy Markup Threshold</strong> in Settings: <strong>Healthy</strong> (green) at or above the threshold, <strong>Low</strong> (amber) between half and full threshold, <strong>Critical</strong> (red) below half.</p>
+
+      <p><strong>Gross Margin %</strong> is available as an optional reference column on the Products table (labelled "reference") for accounting comparisons — but Markup on Cost is the primary metric throughout PriceRight.</p>`,
   },
 
   // ── PRICING AND APPROVALS ──────────────────────────────────────────────────
@@ -702,43 +664,31 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'How price approval works',
     keywords: ['approval', 'approve', 'reset to pending', 'pending', 'workflow', 'status'],
-    readingTimeMinutes: 25,
-    relatedArticleIds: ['bulk-approval', 'needs-review', 'price-types-explained'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['bulk-approval', 'needs-review', 'reset-to-pending'],
     content: `
       <p>Approval is the step where you set the product's official
       <strong>Approved base price</strong>. PriceRight calculates an <strong>Optimal price</strong>
-      from your <strong>Production cost</strong>, overhead, and markup settings, but the
-      price is not official until you approve it.</p>
+      from your production cost, overhead, and markup — but the price is not official until you approve it.</p>
 
-      <p>Use this workflow:</p>
+      <p><strong>On the product detail page:</strong></p>
       <ol>
-        <li>Create the product. Its status is <strong>Pending</strong>.</li>
-        <li>Build the <strong>Bill of materials (BOM)</strong> so PriceRight can calculate
-        <strong>Production cost</strong> and <strong>Optimal price</strong>.</li>
-        <li>Open the product detail page and review the numbers.</li>
-        <li>Choose one action:
+        <li>Review production cost, optimal price, and current markup on cost.</li>
+        <li>Click the primary <strong>Approve at Optimal Price</strong> button to approve at the recommended price.</li>
+        <li>Or expand <strong>Use a different price</strong> for other options:
           <ul>
-            <li><strong>Approve Optimal Price</strong> to approve at the current <strong>Optimal price</strong>.</li>
-            <li><strong>Keep current price</strong> to re-approve at the existing
-            <strong>Approved base price</strong> when the product is in <strong>Needs review</strong>.</li>
-            <li>Enter a value in the <strong>Custom Price</strong> field, then click
-            <strong>Approve Custom</strong> to approve a specific amount.</li>
-            <li><strong>Reset to Pending</strong> returns the product to pending status, clears the approved price, and requires re-approval before the price can be used in exports.</li>
+            <li><strong>Keep current price</strong> — re-approve at the existing approved price when in Needs review</li>
+            <li><strong>Custom Price</strong> — enter a specific amount, then click <strong>Approve Custom</strong></li>
           </ul>
         </li>
-        <li>After approval, status becomes <strong>Approved</strong> and that
-        <strong>Approved base price</strong> is used in <strong>Price levels</strong> and exports.</li>
+        <li><strong>Reset to pending</strong> — a low-prominence link below the form on approved or needs-review products. Clears the approved price and returns the product to pending status.</li>
       </ol>
 
-      <p>Open each product from the list to review updated <strong>Production cost</strong>,
-      last approved value, and <strong>Optimal price</strong>, then approve from the product detail page.
-      For bulk work, select products with row checkboxes and use the Approve menu in the bulk bar.</p>
+      <p>After approval, status becomes <strong>Approved</strong> and that price is used in price levels and exports.</p>
 
-      <p>After approval, rule-based prices in <strong>Price levels</strong> recalculate from
-      the new <strong>Approved base price</strong>. Custom level prices can show stale
-      warnings so you can review them manually. You can also set a price expiry
-      date when approving; when it expires, the product returns to
-      <strong>Needs review</strong>.</p>`,
+      <p>For bulk work, select products with row checkboxes. The bulk <strong>Approve</strong> menu defaults to <strong>Approve at optimal price</strong>. Use the <strong>More</strong> menu for <strong>Reset to Pending</strong>.</p>
+
+      <p>When material costs change, rule-based price level prices recalculate automatically. Custom level prices may show stale warnings until you review them. You can set a <strong>valid until</strong> date when approving — expired prices move to Needs review.</p>`,
   },
 
   {
@@ -848,38 +798,20 @@ export const helpArticles: HelpArticle[] = [
     title: 'Understanding price expiry',
     section: 'Pricing and Approvals',
     keywords: ['price expiry', 'expiry', 'expires', 'valid until', 'expired', 'renew price', 'price validity'],
-    readingTimeMinutes: 29,
+    readingTimeMinutes: 4,
     relatedArticleIds: ['needs-review', 'how-approval-works', 'price-history-tab'],
     content: `
       <p>Approved prices can have an expiry date. After this date, the price is flagged as
-      <strong>Needs review</strong> and must be re-approved before it can be included in an export.</p>
+      <strong>Needs review</strong> and must be re-approved before it can be included in a price level export.</p>
 
-      <p><strong>Setting an expiry date:</strong> When approving a price, you can optionally set a
-      <strong>valid until</strong> date. Leave it blank for a price that never expires.</p>
+      <p><strong>Setting an expiry date:</strong> When approving a price, optionally set a
+      <strong>valid until</strong> date in the approval form. Leave it blank for a price that never expires.</p>
 
-      <p><strong>Where expiry dates appear:</strong></p>
-      <ul>
-        <li><strong>Products list</strong> — the Valid until column shows the date. Dates within 7 days are shown in amber. Expired dates are shown in red.</li>
-        <li><strong>Product detail</strong> — the pricing panel shows the expiry date and a countdown in days.</li>
-        <li><strong>Dashboard</strong> — the Approval Workload card shows products with expired or expiring prices.</li>
-      </ul>
+      <p><strong>Where expiry dates appear:</strong> on the Products list (Valid until column), on the product detail pricing panel, and on the Dashboard Approval Workload card.</p>
 
-      <p><strong>What happens when a price expires:</strong></p>
-      <ul>
-        <li>The product status changes to <strong>Needs review</strong> automatically</li>
-        <li>The product cannot be included in a price level export until re-approved</li>
-        <li>You will see the product flagged in the Dashboard and Products list</li>
-      </ul>
+      <p><strong>When a price expires:</strong> the product moves to Needs review automatically and is excluded from price level exports until re-approved. Use the product detail page to review and approve with a new expiry date.</p>
 
-      <p><strong>To renew an expired price:</strong></p>
-      <ol>
-        <li>Click on the product to open the detail page</li>
-        <li>Click <strong>Update price</strong> in the pricing panel</li>
-        <li>Review the current optimal price</li>
-        <li>Approve with a new expiry date</li>
-      </ol>
-
-      <p><strong>Best practice:</strong> Set expiry dates that match your price review cycle — monthly, quarterly, or annually depending on how often your input costs change.</p>`,
+      <p>To export a price level, use the direct toolbar buttons — <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong> — once all items in the level are approved.</p>`,
   },
 
   // ── PRICE LEVELS AND EXPORTS ───────────────────────────────────────────────
@@ -915,37 +847,24 @@ export const helpArticles: HelpArticle[] = [
     title: 'Creating your first price level',
     section: 'Price Lists and Exports',
     keywords: ['price level', 'wizard', 'create price level', 'new price level', 'customer pricing', 'setup wizard'],
-    readingTimeMinutes: 31,
-    relatedArticleIds: ['price-levels', 'generating-price-list', 'price-level-approval'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['price-levels', 'price-level-approval', 'generating-price-list'],
     content: `
-      <p>When you create your first price level, PriceRight walks you through a four-step wizard.</p>
+      <p>Click <strong>Price Levels</strong> in the sidebar, then <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>. The wizard walks you through four steps.</p>
 
-      <p>Click <strong>Price Levels</strong> in the sidebar, then <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>.</p>
+      <p><strong>Step 1 — Name and currency:</strong> Enter a name (Retail, Wholesale, or a customer name) and choose the price list currency.</p>
 
-      <p><strong>Step 1 — Name and currency</strong><br />
-      Enter a name such as Retail, Wholesale, or a customer name. Choose the <strong>Price list currency</strong> — your base currency or another active currency. Prices will be converted using the current exchange rate when shown and exported.</p>
+      <p><strong>Step 2 — Add products:</strong> Select approved products to include. Only products with an approved base price can be added.</p>
 
-      <p><strong>Step 2 — Add products</strong><br />
-      Search and select the products to include. Only products with an approved base price can be added. You can select all or pick individual products.</p>
+      <p><strong>Step 3 — Set pricing rules:</strong> Set a rule per product or use <strong>Apply to all</strong> for percentage markup, discount, fixed add/deduct, or custom price.</p>
 
-      <p><strong>Step 3 — Set pricing rules</strong><br />
-      Set a rule for each product, or use <strong>Apply to all</strong> to set the same rule type for every selected product. Options include:</p>
+      <p><strong>Step 4 — Review and confirm:</strong> Check the summary, then choose how to handle approval:</p>
       <ul>
-        <li>Percentage markup — add a percentage on top of the approved base price</li>
-        <li>Percentage discount — reduce the approved base price by a percentage</li>
-        <li>Fixed amount add or deduct</li>
-        <li>Custom price per product</li>
+        <li><strong>Approve all prices now</strong> — under "Make this price list ready to export?" Creates the level with all prices approved so you can export immediately.</li>
+        <li><strong>I'll approve later</strong> — creates the level with prices pending; approve from the Price Levels page when ready.</li>
       </ul>
 
-      <p><strong>Step 4 — Review and confirm</strong><br />
-      Review the product list, rules, and calculated final prices. Click Confirm to create the level. New prices start as <strong>pending</strong> until you approve them on the Price Levels page.</p>
-
-      <p><strong>After creating the level:</strong></p>
-      <ul>
-        <li>Approve pending prices using <strong>Approve all pending</strong> or by approving individual rows</li>
-        <li>Add pack sizes from the row actions menu if needed</li>
-        <li>Export as Excel or PDF once prices are approved</li>
-      </ul>`,
+      <p>After creation, add pack sizes using the toolbar <strong>Pack sizes</strong> button and export via <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong>.</p>`,
   },
 
   {
@@ -1001,24 +920,23 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Generating a price list',
     keywords: ['price list', 'generate', 'export', 'customer price list', 'create price list'],
-    readingTimeMinutes: 34,
-    relatedArticleIds: ['price-level-wizard', 'price-level-approval', 'price-list-currencies'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['price-level-wizard', 'price-level-approval', 'export-guide'],
     content: `
-      <p>Generate price lists from the <strong>Price Levels</strong> page. Select a level in the left panel, then click <strong>Export price list</strong>.</p>
+      <p>Export price lists from the <strong>Price Levels</strong> page. Select a level in the left panel — only <strong>approved</strong> items can be exported.</p>
 
-      <p>Only products with <strong>approved</strong> prices in that level can be exported. Pending items are excluded. Before exporting, use <strong>Approve all pending</strong> or select individual rows and approve them.</p>
+      <p>Use the toolbar export buttons directly:</p>
+      <ul>
+        <li><strong>Export PDF</strong> — print-ready customer price list</li>
+        <li><strong>Export Excel</strong> — spreadsheet format</li>
+        <li><strong>Print</strong> — send to your printer</li>
+      </ul>
 
-      <p>The export modal lists approved products. You can select or deselect products, then choose Excel or PDF.</p>
+      <p>Click the chevron next to Export PDF to open <strong>Export selected</strong> if you only want certain products. Before exporting, use <strong>Approve all pending</strong> or approve individual rows.</p>
 
-      <p>Each row includes the product name, approved base price, final level price, and the rule applied (discount, markup, custom price, and so on).</p>
+      <p>Customer-facing exports show Product Name, Pack Size, Unit Price, Pack Price, and a <strong>Currency</strong> column — currency is not repeated in column headers. Internal columns like approved base price are not included on customer exports.</p>
 
-      <p>If you have configured <strong>pack sizes</strong>, each pack appears as its own row with pack quantity, unit price, and pack price.</p>
-
-      <p>If the price level uses a currency other than your base currency, exported prices appear in that chosen currency. A note at the bottom of the export shows the exchange rate used.</p>
-
-      <p>If custom prices were set before a newer base-price approval, the modal shows an amber stale warning. You can review those entries first or export as-is.</p>
-
-      <p>Excel works well for editing or sharing spreadsheets. PDF gives a print-ready layout for customers.</p>`,
+      <p>Add pack sizes using the toolbar <strong>Pack sizes</strong> button (not per-row menus). Each pack appears as its own row with unit and pack price. If custom prices may be outdated, an amber warning appears in Export selected — you can review first or export as-is.</p>`,
   },
 
   {
@@ -1026,20 +944,18 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Converting price lists to other currencies',
     keywords: ['currency', 'price list currency', 'USD price list', 'convert', 'foreign currency'],
-    readingTimeMinutes: 35,
-    relatedArticleIds: ['generating-price-list', 'foreign-currencies', 'price-level-currency'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['generating-price-list', 'foreign-currencies', 'export-guide'],
     content: `
       <p>PriceRight can show and export a price list in a currency other than your base currency. You do not need to convert prices manually in Excel.</p>
 
-      <p><strong>When creating a price level</strong> — in Step 1 of the wizard, choose <strong>Price list currency</strong>. You can keep your base currency or pick any other active currency from your settings.</p>
+      <p>When creating a price level, choose <strong>Price list currency</strong> in Step 1 of the wizard. When editing, change it in the level settings. PriceRight converts all prices using the current exchange rate.</p>
 
-      <p><strong>When editing an existing level</strong> — open the level and change <strong>Price list currency</strong> in the level settings if needed.</p>
+      <p>Exported price lists include a dedicated <strong>Currency</strong> column showing which currency each row is in. Column headers stay plain — no currency codes in header names.</p>
 
-      <p>PriceRight converts all prices to the selected currency using the current exchange rate. Unit prices, pack prices, and exported lists all use that currency.</p>
+      <p>A note on PDF and print exports shows which exchange rate was used. Keep rates up to date in <strong>Settings → Currencies &amp; Rates</strong>.</p>
 
-      <p>When you export, a note on the document shows which exchange rate was used and when.</p>
-
-      <p><strong>Currency Exposure report</strong> (under Reports) is a separate tool. It shows how many materials you buy in each purchase currency. It helps you understand exchange-rate risk on material costs — it is not used to convert price lists for customers.</p>`,
+      <p>The <strong>Currency Exposure</strong> report (Reports and Analysis → Materials tab) shows material purchase currencies — it helps with exchange-rate risk on costs, not customer price list conversion.</p>`,
   },
 
   // ── REPORTS AND ANALYSIS ───────────────────────────────────────────────────
@@ -1047,22 +963,22 @@ export const helpArticles: HelpArticle[] = [
   {
     id: 'pricing-analysis-page',
     section: 'Reports and Analysis',
-    title: 'Using the Products Analysis tab',
-    keywords: ['pricing analysis', 'catalog', 'variance', 'overpriced', 'underpriced', 'production calculator'],
-    readingTimeMinutes: 36,
-    relatedArticleIds: ['pricing-status-report', 'low-margin-report', 'needs-review'],
+    title: 'Products Reports and Analysis',
+    keywords: ['products reports', 'margin health', 'profitability ranking', 'price vs cost drift', 'optimal vs actual gap', 'pricing overview'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['product-pricing-overview', 'markup-health-guide', 'reports-navigation'],
     content: `
-      <p>Go to <strong>Products</strong> in the Setup section and open the <strong>Analysis</strong> tab.</p>
+      <p>Products analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Products</strong> tab at the top, then click a report pill. Reports generate automatically when selected.</p>
 
-      <p>The tab has four sections:</p>
-      <ol>
-        <li><strong>Pricing health</strong> — summary cards for Healthy markup, Low markup, Critical markup, and Not priced. Click a card to filter the table below.</li>
-        <li><strong>Margin distribution</strong> — a bar chart of product counts by markup band. Click a band to filter the table.</li>
-        <li><strong>Products by margin</strong> — a table of active products. Columns include Product, Category, Production cost, Approved base price, Actual Markup %, Actual Gross Margin %, and a Needs review icon column. Click any row to open that product's detail page. Use the <strong>Lowest first / Highest first</strong> sort button to rank products by margin.</li>
-        <li><strong>Price level coverage</strong> — shows which products are in at least one approved price level and which are not.</li>
-      </ol>
+      <p><strong>Product Pricing Overview</strong> — combines approval status and markup health in one table. See which products are pending, approved, or need review, and how healthy each markup is at a glance.</p>
 
-      <p>Use this tab to spot weak margins, products that still need a price, and products not yet on a price level for export.</p>`,
+      <p><strong>Margin Health</strong> — summary cards and distribution for Healthy, Low, and Critical markup bands based on your Healthy Markup Threshold in Settings. Click a band to filter the product list.</p>
+
+      <p><strong>Profitability Ranking</strong> — all active products ranked by Actual Markup %. Quickly find your best and weakest performers.</p>
+
+      <p><strong>Price vs Cost Drift</strong> — shows how much each product's actual markup has drifted since approval as material costs change. Negative drift means costs rose faster than your approved price.</p>
+
+      <p><strong>Optimal vs Actual Gap</strong> — compares each product's approved base price to today's optimal price. Highlights products priced above or below what the system currently recommends.</p>`,
   },
 
   {
@@ -1070,60 +986,33 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Running the Pricing Status report',
     keywords: ['pricing status', 'report', 'above optimal', 'below optimal', 'export report'],
-    readingTimeMinutes: 37,
-    relatedArticleIds: ['pricing-analysis-page', 'low-margin-report', 'product-pricing-overview'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['reports-navigation', 'markup-analysis-report', 'product-pricing-overview'],
     content: `
-      <p>Go to <strong>Reports</strong>, select <strong>Pricing Status Report</strong>, set filters if needed, then click <strong>Generate Report</strong>.</p>
+      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Pricing</strong> tab, and click the <strong>Pricing Status</strong> pill. The report generates automatically — there is no Generate button. Change filters and results update live; active filters appear as chips above the table.</p>
 
-      <p>Summary cards at the top include Total Products, Above Optimal, Below Optimal, and <strong>Avg Profit %</strong> (based on products with an approved base price set).</p>
+      <p>Summary cards show Total Products, Above Optimal, Below Optimal, and <strong>Avg Markup %</strong> (for products with an approved base price).</p>
 
-      <p>Products are grouped into sections in this order:</p>
-      <ol>
-        <li><strong>Below Optimal</strong> — requires attention</li>
-        <li><strong>Above Optimal</strong></li>
-        <li><strong>No approved base price set</strong></li>
-        <li><strong>At Optimal</strong></li>
-      </ol>
+      <p>Table columns include Product Name, Approval status, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, <strong>Actual Markup %</strong>, and pricing Status (Above/Below/At Optimal).</p>
 
-      <p>The table has two columns that look similar but mean different things:</p>
-      <ul>
-        <li><strong>Approval</strong> — the approval workflow status: pending, approved, or needs review</li>
-        <li><strong>Status</strong> — the pricing position: Above Optimal, Below Optimal, At Optimal, or blank when there is no approved base price</li>
-      </ul>
-
-      <p>Other columns include Product Name, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, and Profit %.</p>
-
-      <p>Export the report as Excel, PDF, or use Print. PDF and print hide the navigation so only the report content is shown.</p>`,
+      <p>Export as PDF, Excel, or Print from the report toolbar. Use the zoom control to adjust table size.</p>`,
   },
 
   {
     id: 'low-margin-report',
     section: 'Reports and Analysis',
-    title: 'Understanding the Low Margin report',
-    keywords: ['low margin', 'margin report', 'realised margin', 'threshold', 'markup'],
-    readingTimeMinutes: 38,
-    relatedArticleIds: ['pricing-status-report', 'overhead-and-margin', 'pricing-analysis-page'],
+    title: 'Markup Analysis Report',
+    keywords: ['markup analysis', 'below target', 'markup threshold', 'profitability', 'target gap'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['markup-analysis-report', 'how-priceright-calculates-profit', 'pricing-status-report'],
     content: `
-      <p>The Low Margin report identifies products where your realised gross margin
-      falls below a threshold you set. The report compares each product's realised
-      gross margin against your target markup percentage. A product is flagged as
-      low margin when its gross margin falls below the target threshold.</p>
+      <p>The <strong>Markup Analysis</strong> report replaces the old Low Margin report. Find it in <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The report runs automatically when you open it.</p>
 
-      <p>This is different from your target markup. A product might have a 20% markup
-      set in PriceRight, but if it was approved at a lower price, the realised gross
-      margin could be below 15%. This report catches that.</p>
+      <p>Set a <strong>threshold</strong> at the top — it defaults to your Healthy Markup Threshold from Settings. Filter by All, Above target, Below target, or a Custom markup range. Active filters appear as removable chips above the results.</p>
 
-      <p>Markup % is the target set on the product. Gross Margin % is what is
-      actually realised at the approved base price. The report compares the two.</p>
+      <p>Summary cards show Total Products Analysed, Above Target, Below Target, and Average Markup %. The table columns are Product Name, Category, Production Cost, Approved Price, Actual Markup %, and <strong>Target Gap</strong> — the difference between actual markup and your threshold. A negative gap means the product is below target.</p>
 
-      <p>Go to Reports, select Low Margin Report, set your threshold
-      (default is 15%), and click Generate Report. Products are sorted
-      from worst margin to best.</p>
-
-      <p>The <strong>Gap column</strong> shows the difference between the
-      realised gross margin and your target markup. A large negative gap means
-      the product is significantly underperforming and probably needs a
-      price review.</p>`,
+      <p>Export the report as PDF, Excel, or Print from the toolbar. See <strong>Using the Markup Analysis report</strong> for more detail.</p>`,
   },
 
   {
@@ -1188,39 +1077,18 @@ export const helpArticles: HelpArticle[] = [
     title: 'Approval History report',
     section: 'Reports and Analysis',
     keywords: ['approval history', 'report', 'price approvals', 'history', 'audit trail'],
-    readingTimeMinutes: 40,
-    relatedArticleIds: ['activity-log', 'price-history-tab', 'how-approval-works'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['activity-log', 'price-history-tab', 'reports-navigation'],
     content: `
-      <p>The Approval History report lists products and their current approval-related figures. Use it to review pricing decisions across your catalogue.</p>
+      <p>The Approval History report lists products and their current approval-related figures. Go to <strong>Reports and Analysis → Pricing tab → Approval History</strong> pill. The report auto-generates when selected.</p>
 
-      <p>Go to <strong>Reports</strong>, select <strong>Approval History</strong>, set your filters, then click <strong>Generate Report</strong>.</p>
+      <p>Filter by date range, approval status, or category. Active filters show as removable chips. Summary cards show Total Products, Approved, Pending, and Needs Review counts.</p>
 
-      <p><strong>Filters:</strong></p>
-      <ul>
-        <li>Date range (From and To)</li>
-        <li>Approval status — approved, pending, or needs review</li>
-        <li>Category</li>
-      </ul>
+      <p>Table columns include Product Name, Category, Current Status, Approved base price, Optimal Price (current), Actual Markup %, Approved On (readable date format), Approved By, and Active?</p>
 
-      <p>Summary cards show counts for Total Products, Approved, Pending, and Needs Review.</p>
+      <p><strong>Note:</strong> Optimal Price shows today's calculated value, not the value at approval time. For expiry dates, check the Products page or the product History tab.</p>
 
-      <p><strong>Table columns:</strong></p>
-      <ul>
-        <li>Product Name</li>
-        <li>Category</li>
-        <li>Current Status</li>
-        <li>Approved base price</li>
-        <li>Optimal Price (current)</li>
-        <li>Actual Markup %</li>
-        <li>Actual Gross Margin %</li>
-        <li>Approved On</li>
-        <li>Approved By</li>
-        <li>Active?</li>
-      </ul>
-
-      <p><strong>Important:</strong> Optimal Price shows the value calculated today, not the optimal price at the time of approval. PriceRight does not store historical optimal prices. There is no Valid Until column in this report — check the Products page or the Price history tab on a product for expiry dates.</p>
-
-      <p>Export as PDF or print. You can also export to Excel from the report toolbar.</p>`,
+      <p>Export as PDF, Excel, or Print from the report toolbar.</p>`,
   },
 
   // ── ACTIVITY AND HISTORY ──────────────────────────────────────────────────
@@ -1230,41 +1098,39 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Using the Activity log',
     keywords: ['activity', 'log', 'history', 'audit', 'who did what', 'changes', 'track', 'record'],
-    readingTimeMinutes: 41,
-    relatedArticleIds: ['price-history-tab', 'approval-history-report', 'data-backup'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['price-history-tab', 'approval-history-report', 'filter-chips'],
     content: `
-      <p>The Activity log is a complete record of significant actions in PriceRight. It helps you see who changed what, when it happened, and the key details of the change. Open <strong>Activity</strong> from the Pricing section of the sidebar.</p>
+      <p>The Activity log records significant actions in PriceRight. Open <strong>Activity</strong> from the Pricing section of the sidebar.</p>
 
-      <p>The log records product base price approvals, products reset to pending, products moved to <strong>Needs review</strong>, material cost updates, materials created, exchange-rate updates, price levels created or deleted, price level item approvals, and bulk price level approvals.</p>
+      <p>The log records product approvals, products reset to pending, products moved to Needs review, material cost updates, exchange-rate updates, and price level changes.</p>
 
-      <p>Each entry shows an action icon, a clear description, the time, and the person who performed the action. Descriptions include practical detail such as old and new prices, <strong>Gross Margin %</strong>, production cost values, and affected product counts where relevant.</p>
+      <p>Each entry shows an action icon, description, time, and who performed it. Approval entries show <strong>Markup %</strong> at the time of approval (older entries may show legacy gross margin values).</p>
 
-      <p>Use filters at the top to narrow results by entity type, action group, and date range. Entity type includes Products, Materials, Price Levels, and Exchange Rates. Action groups include Approvals, Cost changes, Created, and Deleted. Reset to Pending actions appear in the activity list when a product price is moved back to pending.</p>
+      <p>Filter by entity type (Products, Materials, Price Levels, Exchange Rates), action group (Approvals, Cost changes, Created, Deleted), and date range. Reset to Pending actions appear in the list. Active filters show as removable chips — click <strong>Clear all filters</strong> to reset.</p>
 
-      <p>Click <strong>Clear filters</strong> to reset all filters quickly. Results are shown newest first.</p>
-
-      <p>The page loads 50 entries at a time. Use <strong>Load more</strong> to fetch older entries.</p>`,
+      <p>Use the zoom control in the toolbar to make the table larger or smaller. Results load 50 entries at a time — click <strong>Load more</strong> for older entries.</p>`,
   },
 
   {
     id: 'price-history-tab',
-    section: 'Settings and Data',
-    title: 'Viewing a product\'s price history',
-    keywords: ['price history', 'past prices', 'approved prices', 'history tab', 'product history', 'price changes'],
-    readingTimeMinutes: 42,
-    relatedArticleIds: ['how-approval-works', 'activity-log', 'price-expiry'],
+    section: 'Products and Materials',
+    title: 'Product History Tab',
+    keywords: ['history tab', 'approval history', 'activity log', 'price changes', 'product history'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['how-approval-works', 'activity-log', 'reset-to-pending'],
     content: `
-      <p>Open a product from <strong>Products</strong>, then select the <strong>Price history</strong> tab on the product detail page. The tab sits between <strong>Bill of materials</strong> and <strong>Activity</strong>.</p>
+      <p>The product detail page has two tabs: <strong>Bill of materials</strong> and <strong>History</strong>. Click any product row on the Products page to open the detail page, then select the <strong>History</strong> tab.</p>
 
-      <p>The table shows approved base price history only, newest first. Each row shows approval date, <strong>Approved base price</strong>, <strong>Production cost</strong>, margin, price change, and who approved the price.</p>
+      <p>Use the filter buttons at the top of the History tab:</p>
+      <ul>
+        <li><strong>All</strong> — shows every event: approvals, resets to pending, cost changes, and review flags</li>
+        <li><strong>Approvals only</strong> — shows only approval events with approved price, production cost, markup %, price change, and who approved</li>
+      </ul>
 
-      <p>Margin is color coded for quick review. Green means 15% and above, amber means 10% to 14.9%, and red means below 10%.</p>
+      <p>In Approvals only view, markup is colour-coded using your Healthy Markup Threshold — green for Healthy, amber for Low, red for Critical. The most recent approval row is highlighted in light blue.</p>
 
-      <p>The change column compares each approval to the previous approved value. Positive changes appear with a plus sign, negative changes appear with a minus sign, and the first approval shows <strong>First approval</strong>.</p>
-
-      <p>The most recent approval row is highlighted in light blue. This is the currently active approved price.</p>
-
-      <p>This tab does not show reset-to-pending events or review flags. Use the full <strong>Activity log</strong> page for those events. If no approvals exist yet, the tab shows an empty state prompting first approval.</p>`,
+      <p>For a full audit trail across all products and materials, use the <strong>Activity log</strong> page in the sidebar.</p>`,
   },
 
   {
@@ -1291,18 +1157,16 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Stale custom price alerts',
     keywords: ['stale', 'custom price', 'outdated', 'alert', 'review', 'price level', 'custom', 'warning'],
-    readingTimeMinutes: 44,
+    readingTimeMinutes: 4,
     relatedArticleIds: ['special-pricing', 'price-level-approval', 'generating-price-list'],
     content: `
-      <p>A stale custom price happens when a product base price changes after a fixed custom price was set in a <strong>Price level</strong>. Rule-based entries recalculate automatically, but custom values stay fixed until you review them.</p>
+      <p>A stale custom price happens when a product's approved base price changes after a fixed custom price was set in a price level. Rule-based entries recalculate automatically; custom values stay fixed until you review them.</p>
 
-      <p>On the <strong>Price Levels</strong> page, stale custom entries trigger amber warnings. You will see a banner above the table and row-level warning indicators with tooltips about price overrides that may need review — there is no separate <strong>Review custom price</strong> row label.</p>
+      <p>On the Price Levels page, stale custom entries show amber warnings — a banner above the table and row-level indicators with tooltips.</p>
 
-      <p>When you edit a stale row, PriceRight shows relevant values so you can compare custom and current base context before saving. You can keep the custom value, change it, or switch to a rule-based adjustment.</p>
+      <p>When you edit a stale row in the <strong>Edit Pricing Rule</strong> modal, PriceRight shows current base context so you can keep, change, or switch to a rule-based price.</p>
 
-      <p>The export modal also shows an amber notice when selected items include stale custom prices. Export still works, so you can decide whether to review first or proceed with current values.</p>
-
-      <p>To resolve alerts, open the affected <strong>Price level</strong>, edit stale rows, and save the updated pricing decision. After saving, stale indicators clear for those rows.</p>`,
+      <p>If you use <strong>Export selected</strong>, an amber notice appears when selected items include stale custom prices. Direct toolbar exports (PDF, Excel, Print) export all approved items — review stale rows first if needed.</p>`,
   },
 
   {
@@ -1360,35 +1224,23 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Configuring master data',
     keywords: ['master data', 'categories', 'units', 'standard list', 'dropdown', 'configuration', 'settings'],
-    readingTimeMinutes: 48,
-    relatedArticleIds: ['adding-materials', 'building-product-bom', 'company-branding'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['adding-materials', 'markup-health-guide', 'company-branding'],
     content: `
-      <p>Master Data settings define standard categories and units that appear as suggestions when you create products and materials. This helps keep your data consistent and makes forms faster to fill.</p>
+      <p>Master Data defines standard categories and units suggested when you create products and materials. Open <strong>Settings</strong> — horizontal tabs across the top let you switch between General, Pricing Engine, Currencies &amp; Rates, Master Data, and Data &amp; Backups.</p>
 
-      <p>Open <strong>Settings</strong> and go to the <strong>Master Data</strong> tab. You will see three sections:</p>
+      <p>On the <strong>Master Data</strong> tab, three chip-based editors let you manage lists:</p>
+      <ul>
+        <li><strong>Product Categories</strong> — type a name and click Add; each category appears as a removable chip</li>
+        <li><strong>Raw Material Categories</strong> — same chip pattern for material categories</li>
+        <li><strong>Units of Measure</strong> — standard units like kg, liters, pieces</li>
+      </ul>
 
-      <h3>Product Categories</h3>
-      <p>Enter the standard product categories your business uses. Examples: Beverages, Snacks, Frozen Goods, Sauces.</p>
-      <p>When you create or edit a product, these appear as suggested options in the category dropdown. Below the input, the current list shows usage count — how many products use each category. Categories with zero usage are marked as not used.</p>
+      <p>Each section shows usage counts below the chips. Click × on a chip to remove an unused entry. Click <strong>Save Master Data</strong> when done — values are available immediately across the app.</p>
 
-      <h3>Raw Material Categories</h3>
-      <p>Enter the standard material categories for your raw materials and components. Examples: Packaging, Spices, Oils & Fats, Grains.</p>
-      <p>When you create or edit a material on the Primary or Intermediate tab, these appear as suggested options in the category dropdown. Below the input, the current list shows usage count — how many materials use each category. Categories with zero usage are marked as not used.</p>
+      <p>You can still type custom categories or units on any form — Master Data is a suggestion list, not a restriction.</p>
 
-      <h3>Units of Measure</h3>
-      <p>Enter the standard units you use when measuring materials. Examples: kg, liters, pieces, boxes, grams, tablespoons.</p>
-      <p>When you create or edit a material, these appear as suggested options in the unit dropdown. Below the input, the current list shows usage count — how many materials use each unit. Units with zero usage are marked as not used.</p>
-
-      <h3>What to do</h3>
-      <p><strong>First time setup:</strong> Think about the categories and units you actually use in your business. List them out and enter them here before you start adding products and materials. This gives you a consistent baseline.</p>
-
-      <p><strong>Ongoing use:</strong> When you see that new materials or products are using a category or unit that is not on your list, add it to Master Data so future entries get the suggestion. Keep the list current as your product range grows.</p>
-
-      <p><strong>Unused entries:</strong> If a category or unit is no longer used (all products or materials using it have been deleted), it can stay in Master Data or be removed. There is no harm in keeping it — it does not affect app performance or reports.</p>
-
-      <p><strong>Custom values:</strong> You are not limited to this list. When creating a product or material, you can type any custom category or unit value. The master data list is just a quick reference and starting point.</p>
-
-      <p>After editing Master Data, click <strong>Save Master Data</strong>. The new values are available across the app immediately.</p>`,
+      <p>On the <strong>Pricing Engine</strong> tab, set your <strong>Healthy Markup Threshold</strong> — the minimum markup % considered healthy. Products are colour-coded Healthy (green), Low (amber), or Critical (red) based on this setting.</p>`,
   },
 
   {
@@ -1396,14 +1248,16 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Choosing which columns to show in tables',
     keywords: ['columns', 'column selector', 'table', 'show hide', 'density', 'compact'],
-    readingTimeMinutes: 49,
-    relatedArticleIds: ['active-inactive-filter', 'prev-next-navigation', 'building-product-bom'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['active-inactive-filter', 'export-guide', 'building-product-bom'],
     content: `
       <p>The Products, Materials, and Intermediate Materials tables each have a column selector in the toolbar.</p>
 
-      <p>Click the <strong>Columns</strong> button in the toolbar to open a panel showing all available columns with checkboxes. Tick or untick columns to show or hide them. Your choices are saved automatically and stay the same the next time you open the app.</p>
+      <p>Click <strong>Columns</strong> to show or hide columns with checkboxes. Your choices are saved automatically.</p>
 
-      <p>The density toggle in the same toolbar switches the table between compact and comfortable row spacing. Use compact when you have many items and want to see more on screen at once.</p>`,
+      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Approved Base Price, Actual Markup %, and Approval Status. <strong>Gross Margin %</strong> columns are available but hidden by default — they are labelled "(reference)" because Markup on Cost is the primary metric.</p>
+
+      <p>The density toggle switches between compact and comfortable row spacing.</p>`,
   },
 
   {
@@ -1411,33 +1265,29 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Filtering active and inactive items',
     keywords: ['active', 'inactive', 'filter', 'hide', 'archive'],
-    readingTimeMinutes: 49,
-    relatedArticleIds: ['column-selector', 'materials-analysis-tab', 'building-product-bom'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['column-selector', 'materials-analysis-tab', 'filter-chips'],
     content: `
-      <p>Products, Materials, and Intermediate Materials each have an <strong>Active</strong>, <strong>Inactive</strong>, or <strong>All</strong> filter in the toolbar.</p>
+      <p>Products, Materials, and Intermediate Materials each have an Active, Inactive, or All filter in the toolbar. By default only active items are shown.</p>
 
-      <p>By default only active items are shown — inactive items are hidden from the table. Switch to <strong>Inactive</strong> to see only inactive items, or <strong>All</strong> to see everything together.</p>
+      <p>When any filter is active (including search), small <strong>filter chips</strong> appear below the toolbar showing what is filtered — for example "Showing: Inactive" or "Search: sugar". Click × on a chip to remove that filter, or <strong>Clear all filters</strong> to reset everything.</p>
 
-      <p>Setting a product or material to inactive removes it from day-to-day views without deleting it. Its history and cost data are preserved.</p>
-
-      <p>Inactive materials that are still used in a product BOM are flagged in the <strong>Materials Analysis</strong> tab as a warning.</p>`,
+      <p>Setting an item inactive removes it from day-to-day views without deleting it. Inactive materials still in active product BOMs are flagged in the <strong>Inactive in Active BOMs</strong> report under Reports and Analysis → Materials.</p>`,
   },
 
   {
     id: 'prev-next-navigation',
     section: 'Products and Materials',
     title: 'Moving between products and materials without closing',
-    keywords: ['previous', 'next', 'navigation', 'browse', 'edit drawer'],
-    readingTimeMinutes: 50,
-    relatedArticleIds: ['column-selector', 'building-product-bom', 'adding-materials'],
+    keywords: ['previous', 'next', 'navigation', 'browse', 'detail page'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['material-detail-page', 'intermediate-detail-page', 'building-product-bom'],
     content: `
-      <p>When you open a product, material, or intermediate material to view or edit it, you will see <strong>Previous</strong> and <strong>Next</strong> buttons.</p>
+      <p>On product, material, and intermediate detail pages, <strong>Previous</strong> and <strong>Next</strong> buttons let you move through the current filtered list without going back to the table. A counter shows your position — for example, <strong>3 of 47</strong>.</p>
 
-      <p>These let you move to the next or previous item in the current filtered list without closing and reopening. A position counter shows where you are — for example, <strong>3 of 47</strong>.</p>
+      <p>The first time you open a detail page, a one-time hint explains this navigation. The hint is shared across Products, Materials, and Intermediate Materials — dismiss it once and it will not appear again.</p>
 
-      <p>The navigation follows whatever filter or sort you have applied. If you are viewing only active products sorted by name, Previous and Next move through that same filtered list.</p>
-
-      <p>This is useful when reviewing or updating many items in sequence.</p>`,
+      <p>Navigation follows your current filters and sort order on the list page.</p>`,
   },
 
   {
@@ -1445,18 +1295,16 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Adding pack sizes to a price level',
     keywords: ['pack size', 'pack price', 'manage packs', 'bulk pack', 'case price'],
-    readingTimeMinutes: 50,
+    readingTimeMinutes: 4,
     relatedArticleIds: ['special-pricing', 'generating-price-list', 'price-levels'],
     content: `
       <p>A price level can show both unit prices and pack prices for each product.</p>
 
-      <p>To add pack sizes, open a price level, find the product row, click the row actions menu (<strong>···</strong>), and select <strong>Manage packs</strong>.</p>
+      <p>Click the toolbar <strong>Pack sizes</strong> button on the Price Levels page (not a per-row menu). The Manage Pack Sizes modal opens for the first product — use <strong>Previous</strong> and <strong>Next</strong> to move between products in the level.</p>
 
-      <p>In the modal, add one or more pack sizes by entering the pack quantity — for example 6, 12, or 24. The pack price is calculated automatically as unit price multiplied by pack quantity.</p>
+      <p>Enter pack quantities — for example 6, 12, or 1 (single-unit packs are accepted). Pack price is calculated as unit price × pack quantity. You can also add or remove packs from the <strong>Edit Pricing Rule</strong> modal for a specific product.</p>
 
-      <p>Each pack size appears as its own row in the price list table and on the exported price list. Products with no pack sizes show a single row with a dash in the Pack Size and Pack Price columns.</p>
-
-      <p>Pack sizes can be removed from the same <strong>Manage packs</strong> modal at any time.</p>`,
+      <p>Each pack appears as its own row in the price list table and on exported lists.</p>`,
   },
 
   {
@@ -1485,18 +1333,14 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Approving prices within a price level',
     keywords: ['approve', 'pending', 'price level approval', 'export', 'status'],
-    readingTimeMinutes: 52,
-    relatedArticleIds: ['generating-price-list', 'price-levels', 'stale-custom-price-alerts'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['generating-price-list', 'price-level-wizard', 'stale-custom-price-alerts'],
     content: `
-      <p>When you add products to a price level or change pricing rules, the affected items are set to <strong>Pending</strong> status.</p>
+      <p>When you add products to a price level or change pricing rules, affected items become <strong>Pending</strong>. Only approved items appear on exports.</p>
 
-      <p>Pending items are excluded from exported price lists — only <strong>Approved</strong> items appear on exports.</p>
+      <p><strong>At the end of the wizard:</strong> choose <strong>Approve all prices now</strong> to create the level ready for export, or <strong>I'll approve later</strong> to approve from the Price Levels page.</p>
 
-      <p>To approve items, open the price level and use the <strong>Approve all pending</strong> button to approve everything at once, or select individual rows and use <strong>Approve selected</strong>.</p>
-
-      <p>After approving, the item status changes to Approved and it will appear on the next export.</p>
-
-      <p>If you edit a pricing rule or custom price after approval, the item resets to Pending and needs to be re-approved before the next export.</p>`,
+      <p>On the Price Levels page, use <strong>Approve all pending</strong> for the whole level, or select rows and use <strong>Approve selected</strong> in the bulk bar. Editing a rule after approval resets the item to Pending.</p>`,
   },
 
   {
@@ -1540,8 +1384,8 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Updating exchange rates quickly',
     keywords: ['exchange rate', 'currency', 'toolbar', 'inline edit', 'foreign currency'],
-    readingTimeMinutes: 54,
-    relatedArticleIds: ['foreign-currencies', 'currency-exposure', 'adding-materials'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['foreign-currencies', 'currency-exposure', 'exchange-rate-status'],
     content: `
       <p>The current exchange rates for all your active foreign currencies are shown directly in the toolbar at the top of the Materials page.</p>
 
@@ -1552,6 +1396,249 @@ export const helpArticles: HelpArticle[] = [
       <p>Exchange rates affect the base currency cost of any material purchased in that currency, and flow through to product costs and price level conversions automatically.</p>
 
       <p>For full rate management including adding new currencies, go to <strong>Settings</strong> → <strong>Currencies &amp; Rates</strong>.</p>`,
+  },
+
+  // ── NEW ARTICLES (Batch I Phase 2) ─────────────────────────────────────────
+
+  {
+    id: 'how-priceright-calculates-profit',
+    section: 'Getting Started',
+    title: 'How PriceRight calculates profit',
+    keywords: ['markup', 'profit', 'gross margin', 'markup on cost', 'calculation', 'percentage'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['overhead-and-margin', 'markup-health-guide', 'how-approval-works'],
+    content: `
+      <p>PriceRight uses <strong>Markup on Cost</strong> as its profit metric — the percentage you add on top of what it costs to make a product.</p>
+
+      <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+        (Approved Price − Production Cost) ÷ Production Cost × 100
+      </p>
+
+      <p>Example: production cost GHS 10.00, approved price GHS 14.00 → 40% markup on cost.</p>
+
+      <p>Manufacturers usually think in markup on cost — "I add 30% on top of my costs." <strong>Gross margin</strong> is different: it divides profit by the selling price, not the cost. PriceRight shows Gross Margin % as an optional reference column on the Products table for accounting purposes.</p>
+
+      <p>Products are rated Healthy, Low, or Critical based on your <strong>Healthy Markup Threshold</strong> in Settings → Pricing Engine. See <strong>Understanding markup health bands</strong> for details.</p>`,
+  },
+
+  {
+    id: 'markup-health-guide',
+    section: 'Pricing and Approvals',
+    title: 'Understanding markup health bands',
+    keywords: ['healthy', 'low', 'critical', 'markup threshold', 'health bands', 'colour coding', 'green', 'amber', 'red'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['how-priceright-calculates-profit', 'markup-analysis-report', 'overhead-and-margin'],
+    content: `
+      <p>PriceRight colour-codes products by markup health using three bands tied to your <strong>Healthy Markup Threshold</strong> in Settings → Pricing Engine.</p>
+
+      <ul>
+        <li><strong>Healthy (green)</strong> — markup at or above the threshold</li>
+        <li><strong>Low (amber)</strong> — markup between half the threshold and the threshold</li>
+        <li><strong>Critical (red)</strong> — markup below half the threshold</li>
+      </ul>
+
+      <p>Example with a 20% threshold: Healthy ≥ 20%, Low 10%–20%, Critical &lt; 10%.</p>
+
+      <p>Colour coding appears on the Products table, Dashboard, Reports, and Product Detail. Click the <strong>Markup Health</strong> info button (ⓘ) in page toolbars to see your current bands at a glance — it updates automatically when you change the threshold in Settings.</p>`,
+  },
+
+  {
+    id: 'reset-to-pending',
+    section: 'Pricing and Approvals',
+    title: 'Resetting a product price to pending',
+    keywords: ['reset to pending', 'pending', 'remove approval', 'reprice', 'clear approved price'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['how-approval-works', 'needs-review', 'price-history-tab'],
+    content: `
+      <p><strong>Reset to Pending</strong> clears a product's approved price and returns it to pending status. Use it when costs have changed significantly and you want to start the approval process fresh.</p>
+
+      <p><strong>Individual:</strong> Open the product detail page. On approved or needs-review products, click the <strong>Reset to pending</strong> link below the approval form.</p>
+
+      <p><strong>Bulk:</strong> On the Products page, select products with checkboxes, open the bulk <strong>More</strong> menu, and click <strong>Reset to Pending</strong>.</p>
+
+      <p>After reset, the product appears in the pending approvals banner and cannot be exported in price levels until re-approved.</p>`,
+  },
+
+  {
+    id: 'material-detail-page',
+    section: 'Products and Materials',
+    title: 'Viewing material details',
+    keywords: ['material detail', 'usage', 'price history', 'material page', 'raw material'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['adding-materials', 'prev-next-navigation', 'foreign-currencies'],
+    content: `
+      <p>Click any material row on the Materials page to open the full <strong>Material Detail</strong> page at <strong>/materials/:id</strong>.</p>
+
+      <p>The page uses a two-column layout — material info and tabs on the left, pricing summary on the right. Two tabs are available:</p>
+      <ul>
+        <li><strong>Usage</strong> — which products use this material and the quantity in each BOM</li>
+        <li><strong>Price History</strong> — historical unit cost changes over time</li>
+      </ul>
+
+      <p>Quick actions include Edit, Duplicate, Delete, and View in table. Use <strong>Previous</strong> and <strong>Next</strong> to move between materials in your current filtered list.</p>`,
+  },
+
+  {
+    id: 'intermediate-detail-page',
+    section: 'Products and Materials',
+    title: 'Viewing intermediate material details',
+    keywords: ['intermediate detail', 'BOM', 'cost history', 'intermediate material page'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['intermediate-materials', 'creation-panels', 'prev-next-navigation'],
+    content: `
+      <p>Click any intermediate material row to open its full detail page. Layout matches Material Detail and Product Detail — two columns with tabs on the left.</p>
+
+      <ul>
+        <li><strong>BOM</strong> — component materials with quantities and costs</li>
+        <li><strong>Cost History</strong> — historical cost changes</li>
+      </ul>
+
+      <p>The <strong>Cost Summary</strong> card on the right shows yield %, material cost, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
+  },
+
+  {
+    id: 'creation-panels',
+    section: 'Products and Materials',
+    title: 'Creating products and intermediate materials',
+    keywords: ['create product', 'create intermediate', 'overlay panel', 'floating panel', 'two panel'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['building-product-bom', 'intermediate-materials', 'how-approval-works'],
+    content: `
+      <p>Products and intermediate materials are created in a floating overlay panel — the list stays visible but dimmed behind it.</p>
+
+      <p>Click <strong>+ Add</strong> on the Products or Intermediate Materials page. Two panels appear side by side: the <strong>form</strong> on the left and the <strong>BOM builder</strong> on the right. Cost figures update live as you add materials.</p>
+
+      <p>You can add BOM items before saving — no need to save the product first. The <strong>Save</strong> button is always visible at the bottom of the left panel. Click × or outside the panel to cancel without saving.</p>`,
+  },
+
+  {
+    id: 'reports-navigation',
+    section: 'Reports and Analysis',
+    title: 'Navigating Reports and Analysis',
+    keywords: ['reports navigation', 'tab bar', 'pills', 'pricing reports', 'products reports', 'materials reports', 'auto generate'],
+    readingTimeMinutes: 5,
+    relatedArticleIds: ['pricing-status-report', 'materials-analysis-tab', 'pricing-analysis-page'],
+    content: `
+      <p><strong>Reports and Analysis</strong> is organised into three groups via tabs at the top: <strong>Pricing</strong>, <strong>Products</strong>, and <strong>Materials</strong>.</p>
+
+      <p>Pricing and Products groups use <strong>pill selectors</strong> to pick a report. Materials uses a <strong>dropdown</strong>. Reports generate automatically when selected — there is no Generate button. Changing filters updates results live.</p>
+
+      <p><strong>Pricing reports:</strong> Pricing Status, Markup Analysis, Approval History, Price List Summary.</p>
+      <p><strong>Products reports:</strong> Product Pricing Overview, Margin Health, Profitability Ranking, Price vs Cost Drift, Optimal vs Actual Gap.</p>
+      <p><strong>Materials reports:</strong> Currency Exposure, Materials Cost Analysis, Top Cost Drivers, Price Volatility, Material Price History, Inactive in Active BOMs.</p>
+
+      <p>Active filters appear as removable chips above results. Use the zoom control and export buttons (PDF, Excel, Print) in the toolbar.</p>`,
+  },
+
+  {
+    id: 'filter-chips',
+    section: 'Getting Started',
+    title: 'Using filter chips',
+    keywords: ['filter chips', 'active filters', 'clear filters', 'filter indicator'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['active-inactive-filter', 'reports-navigation', 'activity-log'],
+    content: `
+      <p>When any filter is active, small pill-shaped <strong>filter chips</strong> appear below the toolbar — for example "Status: Approved" or "Search: soap".</p>
+
+      <p>Click × on a chip to remove that filter alone. Click <strong>Clear all filters</strong> to reset everything at once.</p>
+
+      <p>Filter chips appear on Products, Materials, Intermediate Materials, Reports and Analysis, and Activity. When filters produce no results, the empty state includes a Clear all filters button.</p>`,
+  },
+
+  {
+    id: 'exchange-rate-status',
+    section: 'Settings and Data',
+    title: 'Monitoring exchange rate status',
+    keywords: ['exchange rate status', 'currency rates', 'stale rates', 'rate update'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['foreign-currencies', 'inline-exchange-rate', 'currency-exposure'],
+    content: `
+      <p>The <strong>Exchange Rate Status</strong> widget on the Dashboard shows how recently your exchange rates were updated.</p>
+
+      <p>Green means all rates are current. Amber or red means some rates are stale and material costs in base currency may be inaccurate.</p>
+
+      <p>Click the widget to go to <strong>Settings → Currencies &amp; Rates</strong> and update your rates. You can also edit rates inline from the Materials page toolbar.</p>`,
+  },
+
+  {
+    id: 'price-level-cost-warning',
+    section: 'Price Lists and Exports',
+    title: 'Cost change warnings on price lists',
+    keywords: ['cost changed', 'needs review', 'warning badge', 'material cost change', 'price level warning'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['needs-review', 'price-level-approval', 'how-approval-works'],
+    content: `
+      <p>An amber <strong>Cost changed</strong> badge appears on price level rows when raw material costs have changed since the product's base price was approved.</p>
+
+      <p>The price level item stays approved — the badge is informational. Click it to open the product detail page and review the impact.</p>
+
+      <p>To resolve: update the product's approved base price if needed, then re-approve the price level item if the final customer price should change.</p>`,
+  },
+
+  {
+    id: 'markup-analysis-report',
+    section: 'Reports and Analysis',
+    title: 'Using the Markup Analysis report',
+    keywords: ['markup analysis', 'below target', 'above target', 'target gap', 'markup threshold', 'custom range'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['low-margin-report', 'markup-health-guide', 'how-priceright-calculates-profit'],
+    content: `
+      <p>Open <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The threshold input defaults to your Healthy Markup Threshold from Settings but can be changed for this session.</p>
+
+      <p>Filter by All products, Above target, Below target, or Custom range (enter min and max %). Stat cards show Total Analysed, Above Target, Below Target, and Average Markup %.</p>
+
+      <p>The table shows Product Name, Category, Production Cost, Approved Price, Actual Markup %, and <strong>Target Gap</strong> (Actual Markup % minus threshold). Positive gap = above target; negative = below.</p>
+
+      <p>Export includes the threshold value used. Filter chips show active filters above the results.</p>`,
+  },
+
+  {
+    id: 'product-pricing-overview',
+    section: 'Reports and Analysis',
+    title: 'Product Pricing Overview report',
+    keywords: ['pricing overview', 'approval status', 'margin health', 'combined report', 'pricing status'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['pricing-analysis-page', 'pricing-status-report', 'markup-health-guide'],
+    content: `
+      <p>Find this report at <strong>Reports and Analysis → Products tab → Pricing Overview</strong> pill. It combines approval status and markup health in one view.</p>
+
+      <p>Summary stat cards show counts by approval status and markup health band. The table lists all active products with Product Name, Category, Production Cost, Approved Base Price, Optimal Price, Actual Markup %, Approval Status badge, and Pricing Health badge.</p>
+
+      <p>Products sort with Needs Review first, then Pending, then Approved. Filter by category, approval status, or pricing health. Results update automatically when filters change.</p>`,
+  },
+
+  {
+    id: 'export-guide',
+    section: 'Price Lists and Exports',
+    title: 'Exporting and printing your data',
+    keywords: ['export', 'CSV', 'Excel', 'PDF', 'print', 'export guide', 'download'],
+    readingTimeMinutes: 4,
+    relatedArticleIds: ['generating-price-list', 'column-selector', 'price-list-currencies'],
+    content: `
+      <p>Most data pages have a standard export toolbar: <strong>Export CSV</strong>, <strong>Export Excel</strong>, and <strong>Print</strong>. Price Levels and Reports also include <strong>Export PDF</strong>.</p>
+
+      <p>All exports use the same columns in the same order. A <strong>Currency</strong> column shows which currency each row is in — headers stay plain without currency codes embedded in names.</p>
+
+      <p>Customer-facing price level exports show only Product Name, Pack Size, Unit Price, Pack Price, and Currency. Internal data exports (Materials, Products) include full detail columns.</p>
+
+      <p>On the Products page, use the column selector to choose which columns appear in exports. Reports export from the filter row toolbar.</p>`,
+  },
+
+  {
+    id: 'help-centre',
+    section: 'Getting Started',
+    title: 'Using the Help Centre',
+    keywords: ['help', 'help centre', 'articles', 'search', 'browse', 'documentation'],
+    readingTimeMinutes: 3,
+    relatedArticleIds: ['welcome', 'first-setup', 'filter-chips'],
+    content: `
+      <p>Open <strong>Help</strong> from the sidebar to reach the Help Centre.</p>
+
+      <p><strong>Where to start</strong> — six numbered steps link to the most important setup articles (currency, materials, products, approval, price lists, export).</p>
+
+      <p><strong>Browse by topic</strong> — a grid of categories (Getting Started, Products and Materials, Pricing and Approvals, and more). Click a category to see all articles in that section.</p>
+
+      <p>Use the search bar for instant suggestions as you type. Click any article to open it as a full page with related articles at the bottom. After reading, answer <strong>Was this article helpful?</strong> to send feedback.</p>`,
   },
 
 ];
