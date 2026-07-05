@@ -559,8 +559,8 @@ export default function Dashboard() {
 
     const latestUpdatedAt = parseDate(sortedRates[0]?.effectiveDate ?? sortedRates[0]?.updatedAt);
     const latestLabel = latestUpdatedAt
-      ? `Latest update: ${latestUpdatedAt.toLocaleDateString()}`
-      : 'Latest update unavailable';
+      ? `Last exchange rate update: ${latestUpdatedAt.toLocaleDateString()}`
+      : 'Last exchange rate update unavailable';
 
     return { staleCount, oldestAgeDays, latestLabel };
   }, [sortedRates]);
@@ -1058,13 +1058,18 @@ export default function Dashboard() {
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <RefreshCw size={16} strokeWidth={2} />
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Rate Health</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Exchange Rate Status</h3>
                 </div>
               </div>
+              <p className="dashboard-help-text">Shows how recently your exchange rates were updated in Settings.</p>
               <div style={{ display: 'grid', gap: '8px', fontSize: '15px', color: '#334155' }}>
                 <div>{staleRateSummary.latestLabel}</div>
-                <div><span className="dashboard-number-xs">{staleRateSummary.staleCount}</span> rate{staleRateSummary.staleCount === 1 ? '' : 's'} older than 7 days</div>
-                <div>Oldest update age: <span className="dashboard-number-xs">{staleRateSummary.oldestAgeDays}</span> day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'}</div>
+                <div>
+                  {staleRateSummary.staleCount === 0
+                    ? 'All exchange rates up to date'
+                    : `${staleRateSummary.staleCount} exchange rate${staleRateSummary.staleCount === 1 ? '' : 's'} need updating`}
+                </div>
+                <div>Oldest exchange rate update: <span className="dashboard-number-xs">{staleRateSummary.oldestAgeDays}</span> day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'} ago</div>
               </div>
             </div>
 
