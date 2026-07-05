@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { productsApi } from '../api';
 import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { MarkupInfoTooltip } from './ProfitTooltips';
+
+const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
 interface Product {
   id: number;
@@ -97,6 +100,34 @@ export default function ProductFormDrawer({
   const [editingBomId, setEditingBomId] = useState<number | null>(null);
   const [editingQuantity, setEditingQuantity] = useState('');
   const [newCategoryValue, setNewCategoryValue] = useState('');
+  const [closeButtonHovered, setCloseButtonHovered] = useState(false);
+  const [showPrevNextHint, setShowPrevNextHint] = useState(false);
+
+  const prevNextNavVisible = onPrev !== undefined && (totalCount ?? 0) >= 2;
+
+  function dismissPrevNextHint() {
+    setShowPrevNextHint(false);
+    try {
+      localStorage.setItem(PREV_NEXT_HINT_KEY, 'true');
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    if (!isOpen || !prevNextNavVisible) {
+      setShowPrevNextHint(false);
+      return;
+    }
+    try {
+      if (localStorage.getItem(PREV_NEXT_HINT_KEY) === 'true') return;
+    } catch {
+      // ignore
+    }
+    setShowPrevNextHint(true);
+    const timeoutId = window.setTimeout(() => dismissPrevNextHint(), 6000);
+    return () => window.clearTimeout(timeoutId);
+  }, [isOpen, prevNextNavVisible]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -736,11 +767,32 @@ export default function ProductFormDrawer({
         className="app-drawer-panel app-drawer-panel--narrow"
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="btn-close-x" onClick={onClose} aria-label="Close">
-          &times;
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          onMouseEnter={() => setCloseButtonHovered(true)}
+          onMouseLeave={() => setCloseButtonHovered(false)}
+          style={{
+            position: 'absolute',
+            top: '16px',
+            right: '16px',
+            zIndex: 2,
+            background: closeButtonHovered ? '#F1F5F9' : 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: closeButtonHovered ? '#0F2847' : '#64748b',
+            borderRadius: '6px',
+          }}
+        >
+          <X size={20} strokeWidth={2} />
         </button>
         <div className="app-drawer-panel__scroll">
-        <div className="app-drawer-header" style={{ paddingRight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+        <div className="app-drawer-header" style={{ paddingRight: 36, display: 'grid', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1 }}>
             <div>
               <h2>{product ? 'Edit Product' : 'Add Product'}</h2>
@@ -783,9 +835,32 @@ export default function ProductFormDrawer({
               </div>
             )}
           </div>
-          <button className="btn btn-danger-solid btn-sm" type="button" onClick={onClose}>
-            Close
-          </button>
+          {showPrevNextHint && prevNextNavVisible ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                backgroundColor: '#DCFCE7',
+                border: '1px solid #16A34A',
+                color: '#15803D',
+                fontSize: '12px',
+                padding: '6px 10px',
+                borderRadius: '6px',
+              }}
+            >
+              <span>Tip: Use the Previous and Next buttons to move between products without going back to the list</span>
+              <button
+                type="button"
+                onClick={dismissPrevNextHint}
+                aria-label="Dismiss tip"
+                style={{ border: 'none', background: 'transparent', color: '#15803D', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+              >
+                ×
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {formSections}
