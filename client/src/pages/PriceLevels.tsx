@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
 import PageHelpButton from '../components/PageHelpButton';
@@ -229,6 +230,7 @@ function levelActivityIcon(action: string) {
 }
 
 export default function PriceLevels() {
+  const navigate = useNavigate();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { isDemoMode } = useDemoMode();
   const { baseCurrency } = useBaseCurrency();
@@ -2348,7 +2350,35 @@ export default function PriceLevels() {
                                   </td>
                                 )}
                                 <td style={isFirstRow ? { textAlign: 'left' } : { color: 'rgba(0,0,0,0.3)', textAlign: 'left' }}>
-                                  {isFirstRow ? item.productName : ''}
+                                  {isFirstRow ? (
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                                      {item.productName}
+                                      {item.productApprovalStatus === 'needs_review' && (
+                                        <button
+                                          type="button"
+                                          title="Raw material costs have changed since this price was approved. Click to review the product."
+                                          onClick={() => navigate(`/products/${item.productId}`)}
+                                          style={{
+                                            backgroundColor: '#FEF3C7',
+                                            border: '1px solid #F59E0B',
+                                            color: '#92400E',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            padding: '2px 6px',
+                                            borderRadius: '10px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px',
+                                            marginLeft: '6px',
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          <AlertTriangle size={10} strokeWidth={2} />
+                                          Cost changed
+                                        </button>
+                                      )}
+                                    </span>
+                                  ) : ''}
                                 </td>
                                 {isFirstRow && (
                                   <td rowSpan={rowSpan} style={{ textAlign: 'right' }}>

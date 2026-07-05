@@ -558,6 +558,7 @@ async function toPriceLevelItemResponse(
     updatedAt: item.updatedAt,
     productApprovedAt,
     isStalePrice,
+    productApprovalStatus: productRow.approvalStatus,
     packSizes,
   };
 }

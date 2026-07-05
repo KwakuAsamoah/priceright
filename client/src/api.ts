@@ -169,6 +169,7 @@ export interface PriceLevelItemResponse {
   updatedAt: number;
   productApprovedAt: number | null;
   isStalePrice: boolean;
+  productApprovalStatus?: string;
   packSizes?: PriceLevelPackSize[];
 }
 
