@@ -14,6 +14,8 @@ type PrintExportTableOptions = {
   headers: string[];
   rows: Array<Array<unknown>>;
   rightAlignFromColumn?: number;
+  landscape?: boolean;
+  fontSize?: string;
 };
 
 export function printExportTable(options: PrintExportTableOptions): boolean {
@@ -47,6 +49,8 @@ export function printExportTable(options: PrintExportTableOptions): boolean {
     month: 'long',
     year: 'numeric',
   });
+  const tableFontSize = options.fontSize || '12px';
+  const pageSize = options.landscape ? 'A4 landscape' : 'A4 portrait';
 
   printWindow.document.write(`
     <!DOCTYPE html>
@@ -55,12 +59,13 @@ export function printExportTable(options: PrintExportTableOptions): boolean {
         <meta charset="UTF-8">
         <title>${escapeExportHtml(options.title)}</title>
         <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12px; color: #0f172a; padding: 32px 40px; }
+          body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: ${tableFontSize}; color: #0f172a; padding: 32px 40px; }
           h1 { margin: 0 0 6px; font-size: 20px; }
           .meta { margin: 0 0 20px; font-size: 12px; color: #64748b; }
           table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 12px; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: ${tableFontSize}; }
           th { background: #0f172a; color: #ffffff; }
+          @page { size: ${pageSize}; margin: 12mm; }
           @media print { body { padding: 0; } }
         </style>
       </head>

@@ -217,8 +217,8 @@ function getProductExportHeaders(): string[] {
     'Optimal Markup %',
     'Approval Status',
     'Active',
-    'Optimal Gross Margin % (reference)',
     'Actual Gross Margin % (reference)',
+    'Optimal Gross Margin % (reference)',
   ];
 }
 
@@ -247,8 +247,8 @@ function buildProductExportValues(product: ProductPricing, baseCurrency: string)
     formatProductExportPercent(optimalMarkup),
     getApprovalBadge(product.approvalStatus).label,
     product.isActive !== false ? 'Active' : 'Inactive',
-    formatProductExportPercent(optimalGross),
     formatProductExportPercent(actualGross),
+    formatProductExportPercent(optimalGross),
   ];
 }
 
@@ -822,12 +822,11 @@ export default function Products() {
     });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const columnWidths = [
-      { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 },
-      { wch: 12 }, { wch: 15 }, { wch: 12 },
+    worksheet['!cols'] = [
+      { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
+      { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+      { wch: 10 }, { wch: 28 }, { wch: 28 },
     ];
-    worksheet['!cols'] = columnWidths;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
@@ -1235,6 +1234,7 @@ export default function Products() {
       { wch: 15 },
       { wch: 16 },
       { wch: 15 },
+      { wch: 10 },
       { wch: 15 },
       { wch: 18 },
       { wch: 16 },
@@ -1459,6 +1459,8 @@ export default function Products() {
       headers: getProductExportHeaders(),
       rows: filteredProducts.map((product) => buildProductExportValues(product, baseCurrency)),
       rightAlignFromColumn: 3,
+      landscape: true,
+      fontSize: '11px',
     });
 
     if (!printed) {

@@ -143,17 +143,33 @@ function formatRateValue(value: number) {
   return Number(value || 0).toFixed(2);
 }
 
-const MATERIAL_FILTERED_EXPORT_HEADERS = [
-  'Material Name',
-  'SKU',
+const MATERIAL_EXPORT_HEADERS = [
+  'Name',
   'Category',
   'Unit',
   'Bulk Quantity',
-  'Bulk Price',
+  'Purchase Price',
   'Currency',
   'Unit Cost',
   'Status',
+  'SKU',
+  'Description',
 ];
+
+function buildMaterialExportRow(material: Material, unitCostValue: string): Array<string | number> {
+  return [
+    material.name,
+    material.category,
+    material.unit,
+    Number(material.bulkQuantity || 0).toFixed(2),
+    Number(material.bulkPrice || 0).toFixed(2),
+    material.purchaseCurrencyCode,
+    unitCostValue,
+    material.isActive ? 'Active' : 'Inactive',
+    material.sku || '',
+    material.description || '',
+  ];
+}
 
 function parseDateInput(value: string | number | null | undefined): Date | null {
   if (value == null) return null;
@@ -587,24 +603,17 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     }
 
     try {
-    const exportData = selectedMatList.map((material) => ({
-      'Material Name': material.name,
-      'SKU': material.sku || '',
-      'Category': material.category,
-      'Unit': material.unit,
-      'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
-      'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
-      'Currency': material.purchaseCurrencyCode,
-      'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
-      'Status': material.isActive ? 'Active' : 'Inactive',
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const columnWidths = [
-      { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      MATERIAL_EXPORT_HEADERS,
+      ...selectedMatList.map((material) => buildMaterialExportRow(
+        material,
+        parseFloat(material.unitPrice).toFixed(2),
+      )),
+    ]);
+    worksheet['!cols'] = [
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 },
     ];
-    worksheet['!cols'] = columnWidths;
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Materials');
@@ -643,22 +652,16 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
-    const exportData = filteredMaterials.map((material) => ({
-      'Material Name': material.name,
-      'SKU': material.sku || '',
-      'Category': material.category,
-      'Unit': material.unit,
-      'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
-      'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
-      'Currency': material.purchaseCurrencyCode,
-      'Unit Cost': getMaterialBaseUnitCost(material).toFixed(2),
-      'Status': material.isActive ? 'Active' : 'Inactive',
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      MATERIAL_EXPORT_HEADERS,
+      ...filteredMaterials.map((material) => buildMaterialExportRow(
+        material,
+        getMaterialBaseUnitCost(material).toFixed(2),
+      )),
+    ]);
     worksheet['!cols'] = [
-      { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
+      { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -700,21 +703,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
-    const rows = filteredMaterials.map((material) => [
-      material.name,
-      material.sku || '-',
-      material.category,
-      material.unit,
-      Number(material.bulkQuantity || 0).toFixed(2),
-      Number(material.bulkPrice || 0).toFixed(2),
-      material.purchaseCurrencyCode,
+    const rows = filteredMaterials.map((material) => buildMaterialExportRow(
+      material,
       Number(material.unitPrice || 0).toFixed(2),
-      material.isActive ? 'Active' : 'Inactive',
-    ]);
+    ));
 
     downloadCsv(
       `materials-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      MATERIAL_FILTERED_EXPORT_HEADERS,
+      MATERIAL_EXPORT_HEADERS,
       rows
     );
 
@@ -726,24 +722,19 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
-    const rows = filteredMaterials.map((material) => [
-      material.name,
-      material.sku || '-',
-      material.category,
-      material.unit,
-      Number(material.bulkQuantity || 0).toFixed(2),
-      Number(material.bulkPrice || 0).toFixed(2),
-      material.purchaseCurrencyCode,
+    const rows = filteredMaterials.map((material) => buildMaterialExportRow(
+      material,
       getMaterialBaseUnitCost(material).toFixed(2),
-      material.isActive ? 'Active' : 'Inactive',
-    ]);
+    ));
 
     const printed = printExportTable({
       title: 'Materials List',
       subtitle: `${filteredMaterials.length} materials`,
-      headers: MATERIAL_FILTERED_EXPORT_HEADERS,
+      headers: MATERIAL_EXPORT_HEADERS,
       rows,
-      rightAlignFromColumn: 4,
+      rightAlignFromColumn: 3,
+      landscape: true,
+      fontSize: '11px',
     });
 
     if (!printed) {

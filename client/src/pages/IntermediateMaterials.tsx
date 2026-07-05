@@ -253,21 +253,25 @@ interface IntermediateMaterialsProps {
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
+function formatIntermediateCostingMethod(mode?: MaterialRecord['intermediateCostMode']): string {
+  return mode === 'completed_output' ? 'Completed Output' : 'Yield-Based';
+}
+
 function getIntermediateExportHeaders(): string[] {
   return [
     'Name',
-    'SKU',
     'Category',
     'Unit',
     'Yield %',
-    'Bulk Quantity',
-    'Overhead %',
-    'Margin %',
-    'Calculated Cost/Unit',
+    'Costing Method',
+    'Calculated Cost Per Unit',
     'Currency',
-    'Stored Unit Cost',
     'Optimal Price',
+    'Overhead %',
+    'Markup %',
     'Status',
+    'SKU',
+    'Description',
   ];
 }
 
@@ -882,21 +886,24 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   function buildExportRows(source: MaterialRecord[]) {
-    return source.map((material) => [
-      material.name,
-      material.sku || '',
-      material.category,
-      material.unit,
-      Number(material.yieldPercentage || 0),
-      Number(material.bulkQuantity || 0),
-      Number(material.overheadPercentage || 0),
-      Number(material.marginPercentage || 0),
-      Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2),
-      baseCurrency,
-      Number(material.unitPrice || 0).toFixed(2),
-      (Number(material.unitPrice || material.calculatedCostPerUnit || 0) * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
-      material.isActive ? 'Active' : 'Inactive',
-    ]);
+    return source.map((material) => {
+      const calculatedCost = Number(material.unitPrice || material.calculatedCostPerUnit || 0);
+      return [
+        material.name,
+        material.category,
+        material.unit,
+        Number(material.yieldPercentage || 0),
+        formatIntermediateCostingMethod(material.intermediateCostMode),
+        calculatedCost.toFixed(2),
+        baseCurrency,
+        (calculatedCost * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
+        Number(material.overheadPercentage || 0),
+        Number(material.marginPercentage || 0),
+        material.isActive ? 'Active' : 'Inactive',
+        material.sku || '',
+        material.description || '',
+      ];
+    });
   }
 
   function handlePrintIntermediateExport() {
@@ -910,7 +917,9 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       subtitle: `${filteredMaterials.length} intermediates`,
       headers: getIntermediateExportHeaders(),
       rows: buildExportRows(filteredMaterials),
-      rightAlignFromColumn: 4,
+      rightAlignFromColumn: 3,
+      landscape: true,
+      fontSize: '11px',
     });
 
     if (!printed) {
