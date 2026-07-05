@@ -17,8 +17,8 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
-import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { printExportTable } from '../utils/exportPrint';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 import {
   MATERIAL_LOCKED_KEYS,
@@ -143,6 +143,18 @@ function formatRateValue(value: number) {
   return Number(value || 0).toFixed(2);
 }
 
+const MATERIAL_FILTERED_EXPORT_HEADERS = [
+  'Material Name',
+  'SKU',
+  'Category',
+  'Unit',
+  'Bulk Quantity',
+  'Bulk Price',
+  'Currency',
+  'Unit Cost',
+  'Status',
+];
+
 function parseDateInput(value: string | number | null | undefined): Date | null {
   if (value == null) return null;
   const asDate = new Date(value);
@@ -229,7 +241,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
-  const { handlePrint } = usePrint();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -576,7 +587,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     }
 
     try {
-    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const exportData = selectedMatList.map((material) => ({
       'Material Name': material.name,
       'SKU': material.sku || '',
@@ -585,14 +595,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
-      [unitCostHeader]: parseFloat(material.unitPrice).toFixed(2),
-      'Description': material.description || '',
+      'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
+      'Status': material.isActive ? 'Active' : 'Inactive',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const columnWidths = [
       { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 30 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
     ];
     worksheet['!cols'] = columnWidths;
 
@@ -633,7 +643,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
-    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const exportData = filteredMaterials.map((material) => ({
       'Material Name': material.name,
       'SKU': material.sku || '',
@@ -641,16 +650,15 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       'Unit': material.unit,
       'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
-      [unitCostHeader]: getMaterialBaseUnitCost(material).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
+      'Unit Cost': getMaterialBaseUnitCost(material).toFixed(2),
       'Status': material.isActive ? 'Active' : 'Inactive',
-      'Description': material.description || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet['!cols'] = [
       { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 },
-      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 30 },
+      { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -692,7 +700,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
-    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const rows = filteredMaterials.map((material) => [
       material.name,
       material.sku || '-',
@@ -707,11 +714,41 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     downloadCsv(
       `materials-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Bulk Price', 'Currency', unitCostHeader, 'Status'],
+      MATERIAL_FILTERED_EXPORT_HEADERS,
       rows
     );
 
     showToastMessage(`Exported ${filteredMaterials.length} filtered material${filteredMaterials.length !== 1 ? 's' : ''} to CSV`, 'success');
+  }
+  function handlePrintMaterialsExport() {
+    if (filteredMaterials.length === 0) {
+      showToastMessage('No materials to print', 'error');
+      return;
+    }
+
+    const rows = filteredMaterials.map((material) => [
+      material.name,
+      material.sku || '-',
+      material.category,
+      material.unit,
+      Number(material.bulkQuantity || 0).toFixed(2),
+      Number(material.bulkPrice || 0).toFixed(2),
+      material.purchaseCurrencyCode,
+      getMaterialBaseUnitCost(material).toFixed(2),
+      material.isActive ? 'Active' : 'Inactive',
+    ]);
+
+    const printed = printExportTable({
+      title: 'Materials List',
+      subtitle: `${filteredMaterials.length} materials`,
+      headers: MATERIAL_FILTERED_EXPORT_HEADERS,
+      rows,
+      rightAlignFromColumn: 4,
+    });
+
+    if (!printed) {
+      showToastMessage('Allow pop-ups to print the materials list.', 'error');
+    }
   }
 
   async function handleViewPriceHistory(material: Material) {
@@ -1380,14 +1417,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 key: 'print',
                 label: 'Print / Export PDF',
                 onSelect: () => {
-                  if (filteredMaterials.length === 0) {
-                    showToastMessage('No materials to print', 'error');
-                    return;
-                  }
-                  void handlePrint({
-                    title: 'Materials List',
-                    subtitle: `${filteredMaterials.length} materials`,
-                  });
+                  handlePrintMaterialsExport();
                 },
                 icon: <Printer size={15} strokeWidth={2} />,
               },

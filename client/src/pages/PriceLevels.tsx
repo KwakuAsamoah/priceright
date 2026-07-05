@@ -1430,8 +1430,6 @@ export default function PriceLevels() {
       return;
     }
     const exportCurrencyCode = levelCurrencyCode ?? baseCurrency;
-    const unitPriceLabel = `Unit Price (${exportCurrencyCode})`;
-    const packPriceLabel = `Pack Price (${exportCurrencyCode})`;
 
     const now = new Date();
     const metadataLine = [
@@ -1439,7 +1437,7 @@ export default function PriceLevels() {
       showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
     ].filter(Boolean).join('   |   ');
 
-    const headerRow = ['Product Name', 'Pack Size', unitPriceLabel, packPriceLabel];
+    const headerRow = ['Product Name', 'Pack Size', 'Unit Price', 'Pack Price', 'Currency'];
     const totalColumns = headerRow.length;
 
     const dataRows: Array<Array<string | number>> = [];
@@ -1449,7 +1447,7 @@ export default function PriceLevels() {
         : toNumber(item.finalPrice, 0);
 
       if (!item.packSizes?.length) {
-        dataRows.push([item.productName, 'Unit', unitPrice, '']);
+        dataRows.push([item.productName, 'Unit', unitPrice, '', exportCurrencyCode]);
       } else {
         item.packSizes.forEach((pack, idx) => {
           const packPrice = levelCurrencyCode
@@ -1460,6 +1458,7 @@ export default function PriceLevels() {
             pack.packQuantity,
             unitPrice,
             packPrice,
+            exportCurrencyCode,
           ]);
         });
       }
@@ -1468,7 +1467,6 @@ export default function PriceLevels() {
     const worksheet = XLSX.utils.aoa_to_sheet([
       [showCompanyName ? headerCompanyName.trim() : ''],
       [`Price List: ${selectedLevel.name}`],
-      [`Currency: ${exportCurrencyCode}`],
       [metadataLine],
       [],
       headerRow,
@@ -1482,21 +1480,21 @@ export default function PriceLevels() {
       { wch: 12 },
       { wch: 18 },
       { wch: 18 },
+      { wch: 10 },
     ];
 
-    const footerRowIndex = dataRows.length + 7;
+    const footerRowIndex = dataRows.length + 6;
     worksheet['!merges'] = [
       { s: { r: 0, c: 0 }, e: { r: 0, c: totalColumns - 1 } },
       { s: { r: 1, c: 0 }, e: { r: 1, c: totalColumns - 1 } },
       { s: { r: 2, c: 0 }, e: { r: 2, c: totalColumns - 1 } },
-      { s: { r: 3, c: 0 }, e: { r: 3, c: totalColumns - 1 } },
       { s: { r: footerRowIndex, c: 0 }, e: { r: footerRowIndex, c: totalColumns - 1 } },
     ];
 
     const centerStyle = { alignment: { horizontal: 'center', vertical: 'center' } };
     const headerFill = { fill: { patternType: 'solid', fgColor: { rgb: '0F172A' } }, font: { color: { rgb: 'FFFFFF' }, bold: true } };
 
-    ['A1', 'A2', 'A3', 'A4', `A${footerRowIndex + 1}`].forEach((cellRef) => {
+    ['A1', 'A2', 'A3', `A${footerRowIndex + 1}`].forEach((cellRef) => {
       if (worksheet[cellRef]) {
         worksheet[cellRef].s = centerStyle as any;
       }
@@ -1509,25 +1507,22 @@ export default function PriceLevels() {
       worksheet.A2.s = { ...centerStyle, font: { bold: true, sz: 12 } } as any;
     }
     if (worksheet.A3) {
-      worksheet.A3.s = { ...centerStyle, font: { italic: true, color: { rgb: '64748B' } } } as any;
-    }
-    if (worksheet.A4) {
-      worksheet.A4.s = { ...centerStyle, font: { italic: true, color: { rgb: '475569' } } } as any;
+      worksheet.A3.s = { ...centerStyle, font: { italic: true, color: { rgb: '475569' } } } as any;
     }
     if (worksheet[`A${footerRowIndex + 1}`]) {
       worksheet[`A${footerRowIndex + 1}`].s = { ...centerStyle, font: { italic: true, color: { rgb: '64748B' } } } as any;
     }
 
     for (let col = 0; col < totalColumns; col += 1) {
-      const cellRef = XLSX.utils.encode_cell({ r: 5, c: col });
+      const cellRef = XLSX.utils.encode_cell({ r: 4, c: col });
       if (worksheet[cellRef]) {
         worksheet[cellRef].s = headerFill as any;
       }
     }
 
     for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex += 1) {
-      const excelRow = rowIndex + 7;
-      for (let col = 2; col < totalColumns; col += 1) {
+      const excelRow = rowIndex + 6;
+      for (let col = 2; col < 4; col += 1) {
         const cellRef = XLSX.utils.encode_cell({ r: excelRow - 1, c: col });
         if (worksheet[cellRef]) worksheet[cellRef].z = '#,##0.00';
       }
@@ -1566,11 +1561,7 @@ export default function PriceLevels() {
       showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
     ].filter(Boolean).join(' | ');
 
-    const formatExportPrice = (value: number) => (
-      levelCurrencyCode
-        ? `${exportCurrencyCode} ${value.toFixed(2)}`
-        : formatMoney(value)
-    );
+    const formatExportPrice = (value: number) => value.toFixed(2);
 
     const rowParts: string[] = [];
     for (const item of exportedItems) {
@@ -1587,6 +1578,7 @@ export default function PriceLevels() {
             <td style="text-align:center;">Unit</td>
             <td style="text-align:right;">${escapeHtml(unitPrice)}</td>
             <td style="text-align:right;"></td>
+            <td>${escapeHtml(exportCurrencyCode)}</td>
           </tr>
         `);
       } else {
@@ -1602,6 +1594,7 @@ export default function PriceLevels() {
               <td style="text-align:center;">${pack.packQuantity}</td>
               <td style="text-align:right;">${escapeHtml(unitPrice)}</td>
               <td style="text-align:right;">${escapeHtml(packPrice)}</td>
+              <td>${escapeHtml(exportCurrencyCode)}</td>
             </tr>
           `);
         });
@@ -1630,21 +1623,21 @@ export default function PriceLevels() {
         <body>
           <h1>${showCompanyName ? escapeHtml(headerCompanyName.trim()) : ''}</h1>
           <h2>Price List: ${escapeHtml(selectedLevel.name)}</h2>
-          <p class="currency-note">All prices in ${escapeHtml(exportCurrencyCode)}</p>
           <p>${escapeHtml(metadata)}</p>
           <table>
             <thead>
               <tr>
                 <th>Product Name</th>
                 <th style="text-align:center;">Pack Size</th>
-                <th style="text-align:right;">Unit Price (${escapeHtml(exportCurrencyCode)})</th>
-                <th style="text-align:right;">Pack Price (${escapeHtml(exportCurrencyCode)})</th>
+                <th style="text-align:right;">Unit Price</th>
+                <th style="text-align:right;">Pack Price</th>
+                <th>Currency</th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>
             <tfoot>
               <tr>
-                <td colspan="4">Prepared in PriceRight</td>
+                <td colspan="5">Prepared in PriceRight</td>
               </tr>
             </tfoot>
           </table>
@@ -1701,9 +1694,16 @@ export default function PriceLevels() {
       ? `Exchange rate: 1 ${levelCurrencyCode} = ${levelRateToBase.toFixed(4)} ${printBaseCurrency} as of ${date}`
       : '';
 
+    const formatPrintPrice = (baseValue: number, convertedValue?: number) => {
+      if (levelCurrencyCode && convertedValue !== undefined) {
+        return toNumber(convertedValue).toFixed(2);
+      }
+      return toNumber(baseValue).toFixed(2);
+    };
+
     const rowHtml: string[] = [];
     for (const item of printableItems) {
-      const unitPrice = formatLevelMoney(item.finalPrice, item.finalPriceConverted);
+      const unitPrice = formatPrintPrice(item.finalPrice, item.finalPriceConverted);
 
       if (!item.packSizes || item.packSizes.length === 0) {
         rowHtml.push(`
@@ -1712,11 +1712,12 @@ export default function PriceLevels() {
           <td style="text-align:center">Unit</td>
           <td style="text-align:right">${escapeHtml(unitPrice)}</td>
           <td style="text-align:right">—</td>
+          <td>${escapeHtml(displayCurrency)}</td>
         </tr>
       `);
       } else {
         item.packSizes.forEach((pack, idx) => {
-          const packPrice = formatLevelMoney(pack.packPrice, pack.packPriceConverted);
+          const packPrice = formatPrintPrice(pack.packPrice, pack.packPriceConverted);
           rowHtml.push(`
             <tr>
               <td style="color: ${idx === 0 ? '#000' : '#999'}">
@@ -1725,6 +1726,7 @@ export default function PriceLevels() {
               <td style="text-align:center">${pack.packQuantity}</td>
               <td style="text-align:right">${escapeHtml(unitPrice)}</td>
               <td style="text-align:right">${escapeHtml(packPrice)}</td>
+              <td>${escapeHtml(displayCurrency)}</td>
             </tr>
           `);
         });
@@ -1818,7 +1820,6 @@ export default function PriceLevels() {
   <div class="header">
     <div class="company">${escapeHtml(companyName)}</div>
     <div class="level-name">${escapeHtml(selectedLevel.name || 'Price List')}</div>
-    <div class="currency-note">All prices in ${escapeHtml(displayCurrency)}</div>
     <div class="meta">Valid as of ${escapeHtml(date)}</div>
     ${exchangeRateNote ? `<div class="meta">${escapeHtml(exchangeRateNote)}</div>` : ''}
   </div>
@@ -1827,8 +1828,9 @@ export default function PriceLevels() {
       <tr>
         <th>Product</th>
         <th style="text-align:center">Pack Size</th>
-        <th style="text-align:right">Unit Price (${escapeHtml(displayCurrency)})</th>
-        <th style="text-align:right">Pack Price (${escapeHtml(displayCurrency)})</th>
+        <th style="text-align:right">Unit Price</th>
+        <th style="text-align:right">Pack Price</th>
+        <th>Currency</th>
       </tr>
     </thead>
     <tbody>

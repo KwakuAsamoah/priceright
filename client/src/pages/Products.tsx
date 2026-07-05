@@ -18,7 +18,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
-import { usePrint } from '../hooks/usePrint';
+import { printExportTable } from '../utils/exportPrint';
 import { readImportDataRows } from '../utils/importWorkbook';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import useUndoAction from '../hooks/useUndoAction';
@@ -204,14 +204,15 @@ function calculateActualProfitOnSales(product: ProductPricing): number | null {
   return ((approvedPrice - productionCost) / approvedPrice) * 100;
 }
 
-function getProductExportHeaders(baseCurrency: string): string[] {
+function getProductExportHeaders(): string[] {
   return [
     'Product Name',
     'SKU',
     'Category',
-    `Production Cost (${baseCurrency})`,
-    `Optimal Price (${baseCurrency})`,
-    `Approved Base Price (${baseCurrency})`,
+    'Production Cost',
+    'Currency',
+    'Optimal Price',
+    'Approved Base Price',
     'Actual Markup %',
     'Optimal Markup %',
     'Approval Status',
@@ -226,7 +227,7 @@ function formatProductExportPercent(value: number | null): string | number {
   return Number(value.toFixed(1));
 }
 
-function buildProductExportValues(product: ProductPricing): Array<string | number> {
+function buildProductExportValues(product: ProductPricing, baseCurrency: string): Array<string | number> {
   const optimalMarkup = calculateOptimalProfitOnCost(product);
   const optimalGross = calculateOptimalProfitOnSales(product);
   const actualMarkup = calculateActualProfitOnCost(product);
@@ -237,6 +238,7 @@ function buildProductExportValues(product: ProductPricing): Array<string | numbe
     product.sku || '-',
     product.category || '—',
     Number(product.totalCost || 0),
+    baseCurrency,
     Number(product.optimalPrice || 0),
     product.approvalStatus === 'approved' && product.approvedPrice != null
       ? Number(product.approvedPrice)
@@ -368,7 +370,6 @@ export default function Products() {
   } = useColumnVisibility('products-table-columns', PRODUCTS_COLUMNS);
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
-  const { handlePrint } = usePrint();
 
   function isProductColumnVisible(key: ProductColumnKey) {
     return isColumnIdVisible(PRODUCT_COLUMN_KEY_TO_ID[key]);
@@ -811,9 +812,9 @@ export default function Products() {
     }
 
     try {
-    const exportHeaders = getProductExportHeaders(baseCurrency);
+    const exportHeaders = getProductExportHeaders();
     const exportData = selectedProdList.map((product) => {
-      const values = buildProductExportValues(product);
+      const values = buildProductExportValues(product, baseCurrency);
       return exportHeaders.reduce<Record<string, string | number>>((row, header, index) => {
         row[header] = values[index];
         return row;
@@ -1223,10 +1224,10 @@ export default function Products() {
   }
 
   function handleExportToExcel() {
-    const exportHeaders = getProductExportHeaders(baseCurrency);
+    const exportHeaders = getProductExportHeaders();
     const ws = XLSX.utils.aoa_to_sheet([
       exportHeaders,
-      ...products.map((product) => buildProductExportValues(product)),
+      ...products.map((product) => buildProductExportValues(product, baseCurrency)),
     ]);
 
     ws['!cols'] = [
@@ -1434,8 +1435,8 @@ export default function Products() {
       return;
     }
 
-    const exportHeaders = getProductExportHeaders(baseCurrency);
-    const rows = filteredProducts.map((product) => buildProductExportValues(product));
+    const exportHeaders = getProductExportHeaders();
+    const rows = filteredProducts.map((product) => buildProductExportValues(product, baseCurrency));
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -1444,6 +1445,25 @@ export default function Products() {
     );
 
     showToastMessage(`Exported ${filteredProducts.length} filtered product${filteredProducts.length !== 1 ? 's' : ''} to CSV`, 'success');
+  }
+
+  function handlePrintProductsExport() {
+    if (filteredProducts.length === 0) {
+      showToastMessage('No products to print', 'error');
+      return;
+    }
+
+    const printed = printExportTable({
+      title: 'Products List',
+      subtitle: `${filteredProducts.length} products`,
+      headers: getProductExportHeaders(),
+      rows: filteredProducts.map((product) => buildProductExportValues(product, baseCurrency)),
+      rightAlignFromColumn: 3,
+    });
+
+    if (!printed) {
+      showToastMessage('Allow pop-ups to print the products list.', 'error');
+    }
   }
 
   const eligibleApproveCount = useMemo(() => {
@@ -1605,14 +1625,7 @@ export default function Products() {
                 key: 'print',
                 label: 'Print / Export PDF',
                 onSelect: () => {
-                  if (filteredProducts.length === 0) {
-                    showToastMessage('No products to print', 'error');
-                    return;
-                  }
-                  void handlePrint({
-                    title: 'Products List',
-                    subtitle: `${filteredProducts.length} products`,
-                  });
+                  handlePrintProductsExport();
                 },
                 icon: <Printer size={15} strokeWidth={2} />,
               },

@@ -17,8 +17,8 @@ import useAppToast from '../hooks/useAppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
-import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import { printExportTable } from '../utils/exportPrint';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -253,7 +253,7 @@ interface IntermediateMaterialsProps {
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
-function getIntermediateExportHeaders(baseCurrency: string): string[] {
+function getIntermediateExportHeaders(): string[] {
   return [
     'Name',
     'SKU',
@@ -263,9 +263,10 @@ function getIntermediateExportHeaders(baseCurrency: string): string[] {
     'Bulk Quantity',
     'Overhead %',
     'Margin %',
-    `Calculated Cost/Unit (${baseCurrency})`,
-    `Stored Unit Cost (${baseCurrency})`,
-    `Optimal Price (${baseCurrency})`,
+    'Calculated Cost/Unit',
+    'Currency',
+    'Stored Unit Cost',
+    'Optimal Price',
     'Status',
   ];
 }
@@ -292,7 +293,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   );
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
-  const { handlePrint } = usePrint();
   const { baseCurrency } = useBaseCurrency();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
@@ -892,15 +892,35 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       Number(material.overheadPercentage || 0),
       Number(material.marginPercentage || 0),
       Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2),
+      baseCurrency,
       Number(material.unitPrice || 0).toFixed(2),
       (Number(material.unitPrice || material.calculatedCostPerUnit || 0) * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
       material.isActive ? 'Active' : 'Inactive',
     ]);
   }
 
+  function handlePrintIntermediateExport() {
+    if (filteredMaterials.length === 0) {
+      showToastMessage('No materials to print', 'error');
+      return;
+    }
+
+    const printed = printExportTable({
+      title: 'Intermediate Materials',
+      subtitle: `${filteredMaterials.length} intermediates`,
+      headers: getIntermediateExportHeaders(),
+      rows: buildExportRows(filteredMaterials),
+      rightAlignFromColumn: 4,
+    });
+
+    if (!printed) {
+      showToastMessage('Allow pop-ups to print the intermediate materials list.', 'error');
+    }
+  }
+
   function handleExportFilteredMaterialsCsv() {
     const date = new Date().toISOString().split('T')[0];
-    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
+    const exportHeaders = getIntermediateExportHeaders();
     downloadCsv(
       `intermediate-materials-${date}.csv`,
       exportHeaders,
@@ -910,7 +930,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   function handleExportFilteredMaterialsExcel() {
-    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
+    const exportHeaders = getIntermediateExportHeaders();
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
       exportHeaders,
@@ -943,7 +963,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       return;
     }
 
-    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
+    const exportHeaders = getIntermediateExportHeaders();
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
       exportHeaders,
@@ -1254,14 +1274,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 key: 'print',
                 label: 'Print / Export PDF',
                 onSelect: () => {
-                  if (filteredMaterials.length === 0) {
-                    showToastMessage('No materials to print', 'error');
-                    return;
-                  }
-                  void handlePrint({
-                    title: 'Intermediate Materials',
-                    subtitle: `${filteredMaterials.length} intermediates`,
-                  });
+                  handlePrintIntermediateExport();
                 },
                 icon: <Printer size={15} strokeWidth={2} />,
               },

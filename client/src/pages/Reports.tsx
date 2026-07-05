@@ -20,8 +20,8 @@ import PageHelpButton from '../components/PageHelpButton';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
-import { exportToExcel, exportToExcelWorkbook, exportToPDF } from '../utils/reportExport';
-import { usePrint } from '../hooks/usePrint';
+import { exportToExcel, exportToExcelWorkbook, type ColumnDef, type ReportRow } from '../utils/reportExport';
+import { printReportPayload } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
@@ -32,7 +32,6 @@ import {
   getThresholdMarkupColor,
 } from '../utils/margin';
 import MarkupHealthPopover from '../components/MarkupHealthPopover';
-import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
   | 'pricing-status'
@@ -865,7 +864,6 @@ export default function Reports() {
   const [overviewPricingHealthFilter, setOverviewPricingHealthFilter] = useState<'All' | 'Healthy' | 'Low Markup' | 'Critical'>('All');
 
   const selectedMeta = REPORT_METADATA_BY_KEY[selectedReport];
-  const { handlePrint } = usePrint();
   const pageContentRef = useRef<HTMLDivElement>(null);
 
   function scrollReportsToTop() {
@@ -1798,6 +1796,27 @@ export default function Reports() {
     }
   }
 
+  function withCurrencyColumnAfter(
+    payload: { rows: ReportRow[]; columns: ColumnDef[]; filename: string },
+    afterKey: string,
+    currencyCode: string,
+  ) {
+    const afterIndex = payload.columns.findIndex((column) => column.key === afterKey);
+    if (afterIndex === -1) {
+      return payload;
+    }
+
+    return {
+      ...payload,
+      rows: payload.rows.map((row) => ({ ...row, currency: currencyCode })),
+      columns: [
+        ...payload.columns.slice(0, afterIndex + 1),
+        { key: 'currency', label: 'Currency' },
+        ...payload.columns.slice(afterIndex + 1),
+      ],
+    };
+  }
+
   function getExcelPayload(): { rows: ReportRow[]; columns: ColumnDef[]; filename: string } | null {
     if (!selectedReport || !reportData) return null;
 
@@ -1818,23 +1837,23 @@ export default function Reports() {
         pricingStatus: row.pricingStatus,
       }));
 
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'approvalStatus', label: 'Approval Status' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
-          { key: 'sellingPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'variance', label: `Variance (${baseCurrency})` },
+          { key: 'productionCost', label: 'Production Cost' },
+          { key: 'optimalPrice', label: 'Optimal Price' },
+          { key: 'sellingPrice', label: 'Approved base price' },
+          { key: 'variance', label: 'Variance' },
           { key: 'variancePct', label: 'Variance %' },
-          { key: 'profit', label: `Profit (${baseCurrency})` },
+          { key: 'profit', label: 'Profit' },
           { key: 'markupPct', label: 'Actual Markup %' },
           { key: 'pricingStatus', label: 'Pricing Status' },
         ],
         filename: 'pricing-status-report.csv',
-      };
+      }, 'productionCost', baseCurrency);
     }
 
     if (selectedReport === 'markup-analysis') {
@@ -1847,18 +1866,18 @@ export default function Reports() {
         actualMarkupPercent: roundExportMarkupPercent(row.approvedPrice, row.productionCost) ?? '',
         targetGap: Number(row.targetGap.toFixed(1)),
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'approvedPrice', label: `Approved Price (${baseCurrency})` },
+          { key: 'productionCost', label: 'Production Cost' },
+          { key: 'approvedPrice', label: 'Approved Price' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'targetGap', label: 'Target Gap %' },
         ],
         filename: 'markup-analysis-report.csv',
-      };
+      }, 'productionCost', baseCurrency);
     }
 
     if (selectedReport === 'price-list-summary') {
@@ -1904,21 +1923,21 @@ export default function Reports() {
         approvedBy: row.approvedBy,
         active: row.isActive ? 'Yes' : 'No',
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
           { key: 'currentStatus', label: 'Current Status' },
-          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'currentOptimalPrice', label: `Current Optimal Price (${baseCurrency})` },
+          { key: 'approvedPrice', label: 'Approved base price' },
+          { key: 'currentOptimalPrice', label: 'Current Optimal Price' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'approvedOn', label: 'Approved On' },
           { key: 'approvedBy', label: 'Approved By' },
           { key: 'active', label: 'Active' },
         ],
         filename: 'approval-history-report.csv',
-      };
+      }, 'approvedPrice', baseCurrency);
     }
 
     if (selectedReport === 'product-pricing-overview') {
@@ -1932,20 +1951,20 @@ export default function Reports() {
         approvalStatus: row.approvalStatus,
         pricingHealth: row.pricingHealth,
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'approvedPrice', label: `Approved Base Price (${baseCurrency})` },
-          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
+          { key: 'productionCost', label: 'Production Cost' },
+          { key: 'approvedPrice', label: 'Approved Base Price' },
+          { key: 'optimalPrice', label: 'Optimal Price' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'approvalStatus', label: 'Approval Status' },
           { key: 'pricingHealth', label: 'Pricing Health' },
         ],
         filename: 'product-pricing-overview-report.csv',
-      };
+      }, 'productionCost', baseCurrency);
     }
 
     if (selectedReport === 'margin-health') {
@@ -1964,18 +1983,18 @@ export default function Reports() {
           approvalStatus: product.approvalStatus || 'pending',
         };
       });
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'productionCost', label: 'Production Cost' },
+          { key: 'approvedPrice', label: 'Approved base price' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
           { key: 'approvalStatus', label: 'Approval Status' },
         ],
         filename: 'margin-health-report.csv',
-      };
+      }, 'productionCost', baseCurrency);
     }
 
     if (selectedReport === 'profitability-ranking') {
@@ -1988,18 +2007,18 @@ export default function Reports() {
         approvedPrice: Number(row.approvedPrice.toFixed(2)),
         actualMarkupPercent: roundExportMarkupPercent(row.approvedPrice, row.productionCost) ?? '',
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'rank', label: 'Rank' },
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'productionCost', label: `Production Cost (${baseCurrency})` },
-          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
+          { key: 'productionCost', label: 'Production Cost' },
+          { key: 'approvedPrice', label: 'Approved base price' },
           { key: 'actualMarkupPercent', label: 'Actual Markup %' },
         ],
         filename: 'profitability-ranking-report.csv',
-      };
+      }, 'productionCost', baseCurrency);
     }
 
     if (selectedReport === 'price-vs-cost-drift') {
@@ -2012,19 +2031,19 @@ export default function Reports() {
         targetMarkupPercent: Number(row.targetMarkupPercent.toFixed(1)),
         markupDrift: Number(row.markupDrift.toFixed(1)),
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
+          { key: 'approvedPrice', label: 'Approved base price' },
+          { key: 'currentCost', label: 'Current Cost' },
           { key: 'currentMarkupPercent', label: 'Current Markup %' },
           { key: 'targetMarkupPercent', label: 'Target Markup %' },
           { key: 'markupDrift', label: 'Markup Drift' },
         ],
         filename: 'price-vs-cost-drift-report.csv',
-      };
+      }, 'approvedPrice', baseCurrency);
     }
 
     if (selectedReport === 'optimal-vs-actual-gap') {
@@ -2036,18 +2055,18 @@ export default function Reports() {
         gap: Number(row.gap.toFixed(2)),
         gapPercent: Number(row.gapPercent.toFixed(1)),
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'productName', label: 'Product Name' },
           { key: 'category', label: 'Category' },
-          { key: 'optimalPrice', label: `Optimal Price (${baseCurrency})` },
-          { key: 'approvedPrice', label: `Approved base price (${baseCurrency})` },
-          { key: 'gap', label: `Gap (${baseCurrency})` },
+          { key: 'optimalPrice', label: 'Optimal Price' },
+          { key: 'approvedPrice', label: 'Approved base price' },
+          { key: 'gap', label: 'Gap' },
           { key: 'gapPercent', label: 'Gap %' },
         ],
         filename: 'optimal-vs-actual-gap-report.csv',
-      };
+      }, 'optimalPrice', baseCurrency);
     }
 
     if (selectedReport === 'materials-cost-analysis') {
@@ -2058,17 +2077,17 @@ export default function Reports() {
         unitCost: Number(row.unitCost.toFixed(2)),
         productsUsedCount: row.productsUsedCount,
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'materialName', label: 'Material Name' },
           { key: 'category', label: 'Category' },
           { key: 'unit', label: 'Unit' },
-          { key: 'unitCost', label: `Unit Cost (${baseCurrency})` },
+          { key: 'unitCost', label: 'Unit Cost' },
           { key: 'productsUsedCount', label: 'Used in Products' },
         ],
         filename: 'materials-cost-analysis-report.csv',
-      };
+      }, 'unitCost', baseCurrency);
     }
 
     if (selectedReport === 'top-cost-drivers') {
@@ -2085,19 +2104,19 @@ export default function Reports() {
           ? Math.round((row.totalContribution / totalSum) * 1000) / 10
           : 0,
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'rank', label: 'Rank' },
           { key: 'materialName', label: 'Material Name' },
           { key: 'category', label: 'Category' },
-          { key: 'unitCost', label: `Unit Cost (${baseCurrency})` },
+          { key: 'unitCost', label: 'Unit Cost' },
           { key: 'bomUsageCount', label: 'Times Used in BOMs' },
-          { key: 'totalContribution', label: `Total BOM Contribution (${baseCurrency})` },
+          { key: 'totalContribution', label: 'Total BOM Contribution' },
           { key: 'percentOfTotal', label: '% of Total Cost' },
         ],
         filename: 'top-cost-drivers-report.csv',
-      };
+      }, 'unitCost', baseCurrency);
     }
 
     if (selectedReport === 'price-volatility') {
@@ -2110,19 +2129,19 @@ export default function Reports() {
         changeAmount: Number(row.changeAmount.toFixed(2)),
         changePercent: Number(row.changePercent.toFixed(1)),
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'materialName', label: 'Material Name' },
           { key: 'category', label: 'Category' },
           { key: 'unit', label: 'Unit' },
-          { key: 'costAtStart', label: `${getPriceVolatilityStartColumnLabel(priceVolatilityPeriod)} (${baseCurrency})` },
-          { key: 'currentCost', label: `Current Cost (${baseCurrency})` },
-          { key: 'changeAmount', label: `Change Amount (${baseCurrency})` },
+          { key: 'costAtStart', label: getPriceVolatilityStartColumnLabel(priceVolatilityPeriod) },
+          { key: 'currentCost', label: 'Current Cost' },
+          { key: 'changeAmount', label: 'Change Amount' },
           { key: 'changePercent', label: 'Change %' },
         ],
         filename: 'price-volatility-report.csv',
-      };
+      }, 'costAtStart', baseCurrency);
     }
 
     if (selectedReport === 'material-price-history') {
@@ -2135,18 +2154,18 @@ export default function Reports() {
         changePercent: row.changePercent == null ? '' : Number(row.changePercent.toFixed(1)),
         changedBy: row.changedBy,
       }));
-      return {
+      return withCurrencyColumnAfter({
         rows,
         columns: [
           { key: 'date', label: 'Date' },
-          { key: 'oldCost', label: `Old Cost (${baseCurrency})` },
-          { key: 'newCost', label: `New Cost (${baseCurrency})` },
-          { key: 'changeAmount', label: `Change Amount (${baseCurrency})` },
+          { key: 'oldCost', label: 'Old Cost' },
+          { key: 'newCost', label: 'New Cost' },
+          { key: 'changeAmount', label: 'Change Amount' },
           { key: 'changePercent', label: 'Change %' },
           { key: 'changedBy', label: 'Changed By' },
         ],
         filename: `material-price-history-${data.materialName || 'report'}.csv`,
-      };
+      }, 'oldCost', baseCurrency);
     }
 
     if (selectedReport === 'inactive-in-boms') {
@@ -2185,7 +2204,7 @@ export default function Reports() {
         { key: 'currency', label: 'Currency' },
         { key: 'currencyCode', label: 'Currency Code' },
         { key: 'materialsCount', label: 'Materials Count' },
-        { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
+        { key: 'currentRateToGhs', label: 'Current Rate to Base' },
       ],
       filename: 'currency-exposure-report.csv',
     };
@@ -2204,8 +2223,9 @@ export default function Reports() {
         row.materials.map((material) => ({
           materialName: material.materialName,
           category: material.category,
-          currency: material.purchaseCurrency,
+          purchaseCurrency: material.purchaseCurrency,
           unitPriceGhs: Number(material.unitPriceGhs.toFixed(2)),
+          currency: baseCurrency,
           exchangeRate: Number(material.exchangeRateUsed.toFixed(2)),
         }))
       );
@@ -2219,7 +2239,7 @@ export default function Reports() {
               { key: 'currency', label: 'Currency' },
               { key: 'code', label: 'Code' },
               { key: 'materialsCount', label: 'Materials Count' },
-              { key: 'currentRateToGhs', label: `Current Rate to ${baseCurrency}` },
+              { key: 'currentRateToGhs', label: 'Current Rate to Base' },
             ],
           },
           {
@@ -2228,8 +2248,9 @@ export default function Reports() {
             columns: [
               { key: 'materialName', label: 'Material Name' },
               { key: 'category', label: 'Category' },
+              { key: 'purchaseCurrency', label: 'Purchase Currency' },
+              { key: 'unitPriceGhs', label: 'Unit Price' },
               { key: 'currency', label: 'Currency' },
-              { key: 'unitPriceGhs', label: `Unit Price (${baseCurrency})` },
               { key: 'exchangeRate', label: 'Exchange Rate' },
             ],
           },
@@ -2265,14 +2286,31 @@ export default function Reports() {
   }
 
   function handleExportPDF() {
-    exportToPDF('reporting-centre-print-area', `${selectedMeta?.name || 'report'}.pdf`);
+    const payload = getExcelPayload();
+    if (!payload) {
+      return;
+    }
+
+    printReportPayload(
+      selectedMeta?.name || 'Report',
+      `Generated: ${new Date().toLocaleDateString('en-GB')}`,
+      payload.columns,
+      payload.rows,
+    );
   }
 
   function handlePrintReport() {
-    void handlePrint({
-      title: selectedMeta?.name || 'Report',
-      subtitle: `Generated: ${new Date().toLocaleDateString('en-GB')}`,
-    });
+    const payload = getExcelPayload();
+    if (!payload) {
+      return;
+    }
+
+    printReportPayload(
+      selectedMeta?.name || 'Report',
+      `Generated: ${new Date().toLocaleDateString('en-GB')}`,
+      payload.columns,
+      payload.rows,
+    );
   }
 
   const pricingCategories = useMemo(() => availableCategories, [availableCategories]);
