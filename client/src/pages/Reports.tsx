@@ -939,6 +939,7 @@ export default function Reports() {
     if (group === 'pricing' || group === 'products' || group === 'materials') {
       const groupReports = GROUP_REPORT_KEYS[group as ReportGroupId];
       if (report && groupReports.includes(report as ReportKey)) {
+        resetFiltersForReport(report as ReportKey);
         setActiveGroup(group as ReportGroupId);
         setSelectedReport(report as ReportKey);
         setReportData(null);
@@ -947,7 +948,7 @@ export default function Reports() {
         setCurrentPage(1);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, lowMarkupThreshold]);
 
   useEffect(() => {
     void generateReport();

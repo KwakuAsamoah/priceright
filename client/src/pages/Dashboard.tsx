@@ -609,9 +609,12 @@ export default function Dashboard() {
                 <h1 className="app-page-title">Dashboard</h1>
               </div>
             </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
+            <PageHelpButton context="dashboard" />
           </div>
         </div>
+      </div>
 
         <div className="app-page-content">
           {skeletonCards}
