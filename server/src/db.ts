@@ -478,6 +478,22 @@ function ensureSchemaTables() {
 	if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
 		sqlite.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
 	}
+	if (!productColumns.some((column) => column.name === 'rejection_reason')) {
+		sqlite.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
+	}
+
+	// Performance indexes — created on first run and automatically applied to existing databases
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_approval_status ON products(approval_status)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_status ON materials(is_active)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_type ON materials(material_type)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_price_level_items_level_id ON price_level_items(price_level_id)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_price_level_items_product_id ON price_level_items(product_id)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_product_id ON activity_log(entity_id)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action)');
+	sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at)');
 }
 
 ensureSchemaTables();

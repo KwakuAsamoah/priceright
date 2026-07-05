@@ -83,6 +83,11 @@ export const products = sqliteTable('products', {
   approvedPriceExpiresAt: text('approved_price_expires_at'),
   priceExpiryNotifiedAt: text('price_expiry_notified_at'),
   needsReviewReason: text('needs_review_reason'),
+  // DEPRECATED: This column was used by the Reject feature removed in v1.0.32.
+  // Reject was replaced with Reset to Pending. This column is no longer written to
+  // or read by any part of the application. It is kept to avoid a destructive migration
+  // on existing user databases. Remove in a future major version with a full migration.
+  rejectionReason: text('rejection_reason'),
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
