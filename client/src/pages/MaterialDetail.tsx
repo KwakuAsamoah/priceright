@@ -44,11 +44,18 @@ interface MaterialRecord {
   updatedAt?: string | number | null;
 }
 
+interface MaterialUsageProductEntry {
+  productId: number;
+  productName: string;
+  quantity: number;
+  unit: string;
+}
+
 interface MaterialUsageRecord {
   materialId: number;
   materialName: string;
   productCount: number;
-  products: string[];
+  products: MaterialUsageProductEntry[];
 }
 
 interface PriceHistoryEntry {
@@ -122,8 +129,16 @@ function formatDetailDate(value: string | number | null | undefined): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function isProductUsageEntry(name: string) {
-  return !name.startsWith('Intermediate:');
+function isProductUsageEntry(entry: MaterialUsageProductEntry) {
+  return !entry.productName.startsWith('Intermediate:');
+}
+
+function formatUsageQuantity(quantity: number | null | undefined, unit: string): string {
+  if (quantity == null || quantity === 0) {
+    return '—';
+  }
+  const qtyLabel = quantity % 1 === 0 ? quantity.toString() : quantity.toFixed(3);
+  return unit ? `${qtyLabel} ${unit}` : qtyLabel;
 }
 
 export default function MaterialDetail() {
@@ -285,8 +300,8 @@ export default function MaterialDetail() {
   const prevNextNavVisible = materialOrder.length > 1;
 
   const productUsageEntries = useMemo(() => {
-    const names = usageRecord?.products || [];
-    return names.filter(isProductUsageEntry);
+    const entries = usageRecord?.products || [];
+    return entries.filter(isProductUsageEntry);
   }, [usageRecord]);
 
   const exchangeRate = useMemo(() => {
@@ -722,24 +737,48 @@ export default function MaterialDetail() {
                       This material is not used in any active product BOMs
                     </div>
                   ) : (
-                    <div style={{ display: 'grid', gap: '8px' }}>
-                      {productUsageEntries.map((productName) => (
-                        <div
-                          key={productName}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            gap: '12px',
-                            padding: '10px 12px',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            fontSize: '14px',
-                          }}
-                        >
-                          <span style={{ color: '#0F2847', fontWeight: 600 }}>{productName}</span>
-                          <span style={{ color: '#64748b' }}>—</span>
-                        </div>
-                      ))}
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                        <thead>
+                          <tr style={{ backgroundColor: '#e2e8f0' }}>
+                            <th style={{ padding: '8px', textAlign: 'left' }}>Product</th>
+                            <th style={{ padding: '8px', textAlign: 'right' }}>Quantity Used</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {productUsageEntries.map((usage) => (
+                            <tr key={usage.productId} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td style={{ padding: '8px', textAlign: 'left' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/products/${usage.productId}`)}
+                                  style={{
+                                    border: 'none',
+                                    background: 'transparent',
+                                    padding: 0,
+                                    color: '#16A34A',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    fontSize: '14px',
+                                    textAlign: 'left',
+                                  }}
+                                  onMouseEnter={(event) => {
+                                    event.currentTarget.style.textDecoration = 'underline';
+                                  }}
+                                  onMouseLeave={(event) => {
+                                    event.currentTarget.style.textDecoration = 'none';
+                                  }}
+                                >
+                                  {usage.productName}
+                                </button>
+                              </td>
+                              <td style={{ padding: '8px', textAlign: 'right', color: '#64748b' }}>
+                                {formatUsageQuantity(usage.quantity, usage.unit)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </>
