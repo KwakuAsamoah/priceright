@@ -59,11 +59,23 @@ export default function MarkupHealthPopover() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [showBelow, setShowBelow] = useState(false);
+  const [alignLeft, setAlignLeft] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const halfThreshold = Math.round((threshold / 2) * 10) / 10;
   const thresholdLabel = formatThresholdValue(threshold);
   const halfThresholdLabel = formatThresholdValue(halfThreshold);
+
+  function handleToggle() {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setShowBelow(rect.top < 300);
+      setAlignLeft(rect.left < 240);
+    }
+    setOpen((prev) => !prev);
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -92,11 +104,12 @@ export default function MarkupHealthPopover() {
   return (
     <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex' }}>
       <button
+        ref={buttonRef}
         type="button"
         title="Markup Health Guide"
         aria-expanded={open}
         aria-haspopup="dialog"
-        onClick={() => setOpen((current) => !current)}
+        onClick={handleToggle}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -118,8 +131,10 @@ export default function MarkupHealthPopover() {
           aria-label="Markup health guide"
           style={{
             position: 'absolute',
-            bottom: 'calc(100% + 8px)',
-            right: 0,
+            ...(showBelow
+              ? { top: 'calc(100% + 8px)', bottom: 'auto' }
+              : { bottom: 'calc(100% + 8px)', top: 'auto' }),
+            ...(alignLeft ? { left: 0, right: 'auto' } : { left: 'auto', right: 0 }),
             zIndex: 200,
             width: '240px',
             backgroundColor: '#ffffff',
@@ -129,6 +144,26 @@ export default function MarkupHealthPopover() {
             boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
           }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              right: '12px',
+              width: 0,
+              height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              ...(showBelow
+                ? {
+                    top: '-6px',
+                    borderBottom: '6px solid #E2E8F0',
+                  }
+                : {
+                    bottom: '-6px',
+                    borderTop: '6px solid #E2E8F0',
+                  }),
+            }}
+          />
           <div
             style={{
               fontSize: '11px',
