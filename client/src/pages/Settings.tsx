@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
 import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
@@ -116,6 +116,134 @@ function sanitizePinInput(value: string): string {
   return value.replace(/\D/g, '').slice(0, 6);
 }
 
+const CATEGORY_CHIP_STYLE: CSSProperties = {
+  background: '#F1F5F9',
+  border: '1px solid #CBD5E1',
+  color: '#475569',
+  fontSize: '13px',
+  padding: '4px 10px',
+  borderRadius: '16px',
+  display: 'inline-flex',
+  gap: '6px',
+  alignItems: 'center',
+};
+
+interface CategoryChipEditorProps {
+  label: string;
+  hint: string;
+  values: string[];
+  onChange: (values: string[]) => void;
+  usageCounts: Record<string, number>;
+  usageNoun: 'product' | 'material';
+}
+
+function CategoryChipEditor({
+  label,
+  hint,
+  values,
+  onChange,
+  usageCounts,
+  usageNoun,
+}: CategoryChipEditorProps) {
+  const [draft, setDraft] = useState('');
+  const [addError, setAddError] = useState('');
+
+  function addCategory() {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+
+    const exists = values.some((value) => value.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      setAddError('Already exists');
+      return;
+    }
+
+    onChange([...values, trimmed]);
+    setDraft('');
+    setAddError('');
+  }
+
+  function removeCategory(target: string) {
+    onChange(values.filter((value) => value !== target));
+    setAddError('');
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+        <label className="app-settings-label" style={{ margin: 0 }}>{label}</label>
+        <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
+          {hint}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px', minHeight: '32px' }}>
+        {values.length === 0 ? (
+          <span style={{ fontSize: '14px', color: '#94a3b8' }}>No categories yet</span>
+        ) : values.map((value) => (
+          <span key={value} style={CATEGORY_CHIP_STYLE}>
+            {value}
+            <button
+              type="button"
+              onClick={() => removeCategory(value)}
+              aria-label={`Remove ${value}`}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#94A3B8',
+                cursor: 'pointer',
+                fontSize: '14px',
+                lineHeight: 1,
+                padding: 0,
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <input
+          className="app-control"
+          type="text"
+          value={draft}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            if (addError) setAddError('');
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              addCategory();
+            }
+          }}
+          placeholder="Add category..."
+          style={{ width: '160px' }}
+        />
+        <button type="button" className="btn btn-secondary btn-sm" onClick={addCategory}>
+          Add
+        </button>
+        {addError ? <span style={{ fontSize: '13px', color: '#dc2626' }}>{addError}</span> : null}
+      </div>
+
+      {values.length > 0 && (
+        <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
+          <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({values.length}):</div>
+          {values.map((value) => {
+            const count = usageCounts[value.toLowerCase()] || 0;
+            return (
+              <div key={`usage-${value}`} style={{ marginBottom: '2px' }}>
+                • {value}{count > 0 ? ` (${count} ${usageNoun}${count === 1 ? '' : 's'})` : ' (not used)'}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const [searchParams] = useSearchParams();
   const { isDemoMode, setDemoMode, loading: demoModeLoading } = useDemoMode();
@@ -158,9 +286,9 @@ export default function Settings() {
   const [savingRateCurrencyId, setSavingRateCurrencyId] = useState<number | null>(null);
   const [rateSaveBanner, setRateSaveBanner] = useState<RateSaveBanner | null>(null);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
-  const [productCategoriesInput, setProductCategoriesInput] = useState('');
-  const [materialCategoriesInput, setMaterialCategoriesInput] = useState('');
-  const [materialUnitsInput, setMaterialUnitsInput] = useState('');
+  const [productCategories, setProductCategories] = useState<string[]>([]);
+  const [materialCategories, setMaterialCategories] = useState<string[]>([]);
+  const [materialUnits, setMaterialUnits] = useState<string[]>([]);
   const [isSavingMasterData, setIsSavingMasterData] = useState(false);
   const [masterDataMessage, setMasterDataMessage] = useState('');
   const [productCategoryCounts, setProductCategoryCounts] = useState<Record<string, number>>({});
@@ -232,19 +360,6 @@ export default function Settings() {
     }
   }, [searchParams]);
 
-  const configuredProductCategories = useMemo(
-    () => normalizeMasterListInput(productCategoriesInput),
-    [productCategoriesInput]
-  );
-  const configuredMaterialCategories = useMemo(
-    () => normalizeMasterListInput(materialCategoriesInput),
-    [materialCategoriesInput]
-  );
-  const configuredMaterialUnits = useMemo(
-    () => normalizeMasterListInput(materialUnitsInput),
-    [materialUnitsInput]
-  );
-
   useEffect(() => {
     loadData();
   }, []);
@@ -309,13 +424,13 @@ async function loadData() {
       }
 
       const productCategoriesSetting = settingsData.find((s: any) => s.settingKey === 'productCategories');
-      setProductCategoriesInput(parseConfiguredList(productCategoriesSetting?.settingValue || '').join('\n'));
+      setProductCategories(parseConfiguredList(productCategoriesSetting?.settingValue || ''));
 
       const materialCategoriesSetting = settingsData.find((s: any) => s.settingKey === 'materialCategories');
-      setMaterialCategoriesInput(parseConfiguredList(materialCategoriesSetting?.settingValue || '').join('\n'));
+      setMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue || ''));
 
       const materialUnitsSetting = settingsData.find((s: any) => s.settingKey === 'materialUnits');
-      setMaterialUnitsInput(parseConfiguredList(materialUnitsSetting?.settingValue || '').join('\n'));
+      setMaterialUnits(parseConfiguredList(materialUnitsSetting?.settingValue || ''));
 
       const safeProducts = Array.isArray(productsData) ? productsData as ProductSummary[] : [];
       const safeMaterials = Array.isArray(materialsData) ? materialsData as MaterialSummary[] : [];
@@ -359,20 +474,21 @@ async function loadData() {
     setIsSavingMasterData(true);
     setMasterDataMessage('');
     try {
-      const productCategories = normalizeMasterListInput(productCategoriesInput);
-      const materialCategories = normalizeMasterListInput(materialCategoriesInput);
-      const materialUnits = normalizeMasterListInput(materialUnitsInput);
+      const normalizedProductCategories = normalizeMasterListInput(productCategories.join('\n'));
+      const normalizedMaterialCategories = normalizeMasterListInput(materialCategories.join('\n'));
+      const normalizedMaterialUnits = normalizeMasterListInput(materialUnits.join('\n'));
 
       await Promise.all([
-        settingsApi.save({ settingKey: 'productCategories', settingValue: JSON.stringify(productCategories) }),
-        settingsApi.save({ settingKey: 'materialCategories', settingValue: JSON.stringify(materialCategories) }),
-        settingsApi.save({ settingKey: 'materialUnits', settingValue: JSON.stringify(materialUnits) }),
+        settingsApi.save({ settingKey: 'productCategories', settingValue: JSON.stringify(normalizedProductCategories) }),
+        settingsApi.save({ settingKey: 'materialCategories', settingValue: JSON.stringify(normalizedMaterialCategories) }),
+        settingsApi.save({ settingKey: 'materialUnits', settingValue: JSON.stringify(normalizedMaterialUnits) }),
       ]);
 
-      setProductCategoriesInput(productCategories.join('\n'));
-      setMaterialCategoriesInput(materialCategories.join('\n'));
-      setMaterialUnitsInput(materialUnits.join('\n'));
+      setProductCategories(normalizedProductCategories);
+      setMaterialCategories(normalizedMaterialCategories);
+      setMaterialUnits(normalizedMaterialUnits);
       setMasterDataMessage('Master data saved. New values are available across forms.');
+      showToastMessage('Master data saved successfully', 'success');
       window.setTimeout(() => setMasterDataMessage(''), 3000);
     } catch (error) {
       console.error('Error saving master data:', error);
@@ -1050,6 +1166,9 @@ async function loadData() {
                     Default Markup %
                     <MarkupInfoTooltip />
                   </label>
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px', marginBottom: '8px' }}>
+                    The default markup on cost applied when creating new products. You can override this on each product individually.
+                  </div>
                   <div style={{ position: 'relative' }}>
                     <input
                       className="app-control"
@@ -1085,7 +1204,18 @@ async function loadData() {
                     Healthy markup threshold (%)
                   </label>
                   <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px', marginBottom: '8px' }}>
-                    Products with a markup below this value are flagged as Low or Critical across the app — on the Dashboard, in Reports, and in the Products table. Healthy means markup at or above this value.
+                    Sets the minimum markup % considered healthy across the app. Products are colour-coded based on this threshold:
+                    <ul style={{ margin: '8px 0 0', paddingLeft: '20px', lineHeight: 1.6 }}>
+                      <li>Healthy (green) — markup at or above this value</li>
+                      <li>Low (amber) — markup between half this value and this value</li>
+                      <li>Critical (red) — markup below half this value</li>
+                    </ul>
+                    <div style={{ marginTop: '8px' }}>
+                      For example with a 30% threshold: Healthy ≥ 30%, Low 15%–30%, Critical &lt; 15%.
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      This threshold applies to the Dashboard, Products table, Reports, and the Markup Health Guide card.
+                    </div>
                   </div>
                   <div style={{ position: 'relative' }}>
                     <input
@@ -1108,7 +1238,7 @@ async function loadData() {
                     <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
                   </div>
                   <div style={{ marginTop: '8px', fontSize: '12px', color: '#94A3B8' }}>
-                    This threshold is used app-wide. Changing it updates all health indicators immediately.
+                    The Markup Health Guide card (visible on key pages) updates automatically when you change this value.
                   </div>
                 </div>
                 <button
@@ -1158,96 +1288,36 @@ async function loadData() {
             <div className="app-card app-settings-card">
               <h2>Master Data</h2>
               <p className="app-page-subtitle" style={{ marginBottom: '16px' }}>
-                Define standard categories and units that appear as suggestions when creating products and materials. Enter one value per line.
+                Define standard categories and units that appear as suggestions when creating products and materials.
               </p>
 
               <div style={{ display: 'grid', gap: '18px' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-                    <label className="app-settings-label" style={{ margin: 0 }}>Product Categories</label>
-                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
-                      Suggested options when creating/editing products
-                    </div>
-                  </div>
-                  <textarea
-                    className="app-control"
-                    value={productCategoriesInput}
-                    onChange={(e) => setProductCategoriesInput(e.target.value)}
-                    placeholder="Beverages&#10;Snacks&#10;Frozen Goods"
-                    style={{ minHeight: '90px', width: '100%' }}
-                  />
-                  {configuredProductCategories.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredProductCategories.length}):</div>
-                      {configuredProductCategories.map((value) => {
-                        const count = productCategoryCounts[value.toLowerCase()] || 0;
-                        return (
-                          <div key={value} style={{ marginBottom: '2px' }}>
-                            • {value}{count > 0 ? ` (${count} product${count === 1 ? '' : 's'})` : ' (not used)'}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <CategoryChipEditor
+                  label="Product Categories"
+                  hint="Suggested options when creating/editing products"
+                  values={productCategories}
+                  onChange={setProductCategories}
+                  usageCounts={productCategoryCounts}
+                  usageNoun="product"
+                />
 
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-                    <label className="app-settings-label" style={{ margin: 0 }}>Raw Material Categories</label>
-                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
-                      Suggested options when creating/editing materials
-                    </div>
-                  </div>
-                  <textarea
-                    className="app-control"
-                    value={materialCategoriesInput}
-                    onChange={(e) => setMaterialCategoriesInput(e.target.value)}
-                    placeholder="Packaging&#10;Spices&#10;Oils & Fats"
-                    style={{ minHeight: '90px', width: '100%' }}
-                  />
-                  {configuredMaterialCategories.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialCategories.length}):</div>
-                      {configuredMaterialCategories.map((value) => {
-                        const count = materialCategoryCounts[value.toLowerCase()] || 0;
-                        return (
-                          <div key={value} style={{ marginBottom: '2px' }}>
-                            • {value}{count > 0 ? ` (${count} material${count === 1 ? '' : 's'})` : ' (not used)'}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <CategoryChipEditor
+                  label="Raw Material Categories"
+                  hint="Suggested options when creating/editing materials"
+                  values={materialCategories}
+                  onChange={setMaterialCategories}
+                  usageCounts={materialCategoryCounts}
+                  usageNoun="material"
+                />
 
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
-                    <label className="app-settings-label" style={{ margin: 0 }}>Units of Measure</label>
-                    <div style={{ fontSize: '13px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '4px 8px', borderRadius: '3px' }}>
-                      Suggested options when specifying material quantities
-                    </div>
-                  </div>
-                  <textarea
-                    className="app-control"
-                    value={materialUnitsInput}
-                    onChange={(e) => setMaterialUnitsInput(e.target.value)}
-                    placeholder="kg&#10;liters&#10;pieces&#10;boxes"
-                    style={{ minHeight: '90px', width: '100%' }}
-                  />
-                  {configuredMaterialUnits.length > 0 && (
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#475569' }}>
-                      <div style={{ fontWeight: 600, marginBottom: '4px' }}>Current ({configuredMaterialUnits.length}):</div>
-                      {configuredMaterialUnits.map((value) => {
-                        const count = materialUnitCounts[value.toLowerCase()] || 0;
-                        return (
-                          <div key={value} style={{ marginBottom: '2px' }}>
-                            • {value}{count > 0 ? ` (${count} material${count === 1 ? '' : 's'})` : ' (not used)'}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                <CategoryChipEditor
+                  label="Units of Measure"
+                  hint="Suggested options when specifying material quantities"
+                  values={materialUnits}
+                  onChange={setMaterialUnits}
+                  usageCounts={materialUnitCounts}
+                  usageNoun="material"
+                />
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   <button
