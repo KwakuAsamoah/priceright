@@ -30,7 +30,7 @@ import {
   getMarkupHealthBand,
   getThresholdMarkupColor,
 } from '../utils/margin';
-import MarginLegendCard from '../components/MarginLegendCard';
+import MarkupHealthPopover from '../components/MarkupHealthPopover';
 import type { ColumnDef, ReportRow } from '../utils/reportExport';
 
 type ReportKey =
@@ -2843,6 +2843,7 @@ export default function Reports() {
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
+        <MarkupHealthPopover />
         <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
         <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -3926,7 +3927,6 @@ export default function Reports() {
           )}
         </div>
       </div>
-      <MarginLegendCard />
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } fr
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
-import MarginLegendCard from '../components/MarginLegendCard';
+import MarkupHealthPopover from '../components/MarkupHealthPopover';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
@@ -1577,7 +1577,10 @@ export default function Products() {
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
       <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
         <h1 className="app-page-title">Products</h1>
-        <PageHelpButton context="products" />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <MarkupHealthPopover />
+          <PageHelpButton context="products" />
+        </div>
       </div>
 
       <div className="app-page-content">
@@ -2863,7 +2866,6 @@ export default function Products() {
           }
         }
       `}</style>
-      <MarginLegendCard />
     </div>
   );
 }

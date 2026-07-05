@@ -27,7 +27,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { formatCurrency } from '../utils/currency';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
-import MarginLegendCard from '../components/MarginLegendCard';
+import MarkupHealthPopover from '../components/MarkupHealthPopover';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
 type BannerTone = 'success' | 'error';
@@ -611,6 +611,7 @@ export default function Dashboard() {
             </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
+            <MarkupHealthPopover />
             <PageHelpButton context="dashboard" />
           </div>
         </div>
@@ -702,6 +703,7 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div className="app-page-subtitle" style={{ fontSize: '15px' }}>{currentDateLabel}</div>
+            <MarkupHealthPopover />
             <PageHelpButton context="dashboard" />
           </div>
         </div>
@@ -1453,7 +1455,6 @@ export default function Dashboard() {
           }
         }
       `}</style>
-      <MarginLegendCard />
     </div>
   );
 }

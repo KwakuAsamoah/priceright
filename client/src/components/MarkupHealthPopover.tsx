@@ -1,21 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-
-const COLLAPSED_STORAGE_KEY = 'priceright_legend_card_collapsed';
 
 function formatThresholdValue(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-}
-
-function readCollapsedFromStorage(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSED_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
 }
 
 function HealthBandRow({
@@ -64,80 +54,93 @@ function HealthBandRow({
   );
 }
 
-export default function MarginLegendCard() {
+export default function MarkupHealthPopover() {
   const threshold = useLowMarkupThreshold();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(readCollapsedFromStorage);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(COLLAPSED_STORAGE_KEY, collapsed ? 'true' : 'false');
-    } catch {
-      // Ignore storage errors.
-    }
-  }, [collapsed]);
+  const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const halfThreshold = Math.round((threshold / 2) * 10) / 10;
   const thresholdLabel = formatThresholdValue(threshold);
   const halfThresholdLabel = formatThresholdValue(halfThreshold);
 
+  useEffect(() => {
+    if (!open) return;
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: '32px',
-        right: '32px',
-        zIndex: 50,
-        width: '220px',
-        maxWidth: 'calc(100vw - 64px)',
-        backgroundColor: '#ffffff',
-        border: '1px solid #E2E8F0',
-        borderRadius: '10px',
-        padding: '12px 14px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-      }}
-      aria-label="Markup health guide"
-    >
-      <div
+    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        title="Markup Health Guide"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => setOpen((current) => !current)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         style={{
-          display: 'flex',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'inline-flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: collapsed ? 0 : '8px',
+          color: hovered ? '#0F2847' : '#94A3B8',
         }}
       >
-        <div
-          style={{
-            fontSize: '11px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: '#94A3B8',
-          }}
-        >
-          Markup Health Guide
-        </div>
-        <button
-          type="button"
-          onClick={() => setCollapsed((current) => !current)}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand markup health guide' : 'Collapse markup health guide'}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 0,
-            border: 'none',
-            background: 'transparent',
-            color: '#94A3B8',
-            cursor: 'pointer',
-          }}
-        >
-          {collapsed ? <ChevronUp size={14} strokeWidth={2} /> : <ChevronDown size={14} strokeWidth={2} />}
-        </button>
-      </div>
+        <Info size={16} strokeWidth={2} />
+      </button>
 
-      {!collapsed && (
-        <>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Markup health guide"
+          style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 8px)',
+            right: 0,
+            zIndex: 200,
+            width: '240px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #E2E8F0',
+            borderRadius: '10px',
+            padding: '14px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '11px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              color: '#94A3B8',
+              marginBottom: '10px',
+            }}
+          >
+            Markup Health Guide
+          </div>
+
           <HealthBandRow
             dotColor="#16A34A"
             label="Healthy"
@@ -146,7 +149,7 @@ export default function MarginLegendCard() {
           <HealthBandRow
             dotColor="#D97706"
             label="Low"
-            range={`${halfThresholdLabel}% – ${thresholdLabel}% markup`}
+            range={`${halfThresholdLabel}%–${thresholdLabel}% markup`}
           />
           <HealthBandRow
             dotColor="#DC2626"
@@ -158,13 +161,16 @@ export default function MarginLegendCard() {
           <div
             style={{
               borderTop: '1px solid #F1F5F9',
-              marginTop: '8px',
-              paddingTop: '8px',
+              marginTop: '10px',
+              paddingTop: '10px',
             }}
           >
             <button
               type="button"
-              onClick={() => navigate('/settings?tab=pricing')}
+              onClick={() => {
+                setOpen(false);
+                navigate('/settings?tab=pricing');
+              }}
               style={{
                 padding: 0,
                 border: 'none',
@@ -178,7 +184,7 @@ export default function MarginLegendCard() {
               Change in Settings → Pricing Engine
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

@@ -10,7 +10,7 @@ import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import AppToast from '../components/AppToast';
-import MarginLegendCard from '../components/MarginLegendCard';
+import MarkupHealthPopover from '../components/MarkupHealthPopover';
 import { ActualMarkupInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
   calculateActualMarkupPercent,
@@ -577,7 +577,7 @@ export default function ProductDetail() {
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
           </div>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0, alignItems: 'center' }}>
             <AppButton
               variant="secondary"
               size="sm"
@@ -596,6 +596,7 @@ export default function ProductDetail() {
               {product.isActive ? <EyeOff size={13} strokeWidth={2} /> : <Eye size={13} strokeWidth={2} />}
               {product.isActive ? 'Set Inactive' : 'Set Active'}
             </AppButton>
+            <MarkupHealthPopover />
           </div>
         </div>
 
@@ -1320,7 +1321,6 @@ export default function ProductDetail() {
           </div>
         </div>
       )}
-      <MarginLegendCard />
     </div>
   );
 }
