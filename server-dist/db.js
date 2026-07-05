@@ -49,6 +49,26 @@ export function writeDemoModeState(demoMode) {
     fs.writeFileSync(DEMO_MODE_FILE_PATH, JSON.stringify({ demoMode }, null, 2), 'utf-8');
     return demoMode;
 }
+function applyProductColumnMigrations(database) {
+    const productColumns = database
+        .prepare("SELECT name FROM pragma_table_info('products')")
+        .all();
+    if (!productColumns.some((column) => column.name === 'is_active')) {
+        database.exec('ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
+    }
+    if (!productColumns.some((column) => column.name === 'approved_price_expires_at')) {
+        database.exec('ALTER TABLE products ADD COLUMN approved_price_expires_at TEXT');
+    }
+    if (!productColumns.some((column) => column.name === 'price_expiry_notified_at')) {
+        database.exec('ALTER TABLE products ADD COLUMN price_expiry_notified_at TEXT');
+    }
+    if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
+        database.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
+    }
+    if (!productColumns.some((column) => column.name === 'rejection_reason')) {
+        database.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
+    }
+}
 function ensureSchemaTables() {
     sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS currencies (
@@ -425,23 +445,22 @@ function ensureSchemaTables() {
 			FOREIGN KEY (component_material_id) REFERENCES materials(id) ON DELETE CASCADE
 		)
 	`);
-    const productColumns = sqlite
-        .prepare("SELECT name FROM pragma_table_info('products')")
-        .all();
-    if (!productColumns.some((column) => column.name === 'is_active')) {
-        sqlite.exec('ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
-    }
-    if (!productColumns.some((column) => column.name === 'approved_price_expires_at')) {
-        sqlite.exec('ALTER TABLE products ADD COLUMN approved_price_expires_at TEXT');
-    }
-    if (!productColumns.some((column) => column.name === 'price_expiry_notified_at')) {
-        sqlite.exec('ALTER TABLE products ADD COLUMN price_expiry_notified_at TEXT');
-    }
-    if (!productColumns.some((column) => column.name === 'needs_review_reason')) {
-        sqlite.exec('ALTER TABLE products ADD COLUMN needs_review_reason TEXT');
-    }
+    applyProductColumnMigrations(sqlite);
+    // Performance indexes — created on first run and automatically applied to existing databases
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_approval_status ON products(approval_status)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_products_is_active ON products(is_active)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_category ON materials(category)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_status ON materials(is_active)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_materials_type ON materials(material_type)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_price_level_items_level_id ON price_level_items(price_level_id)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_price_level_items_product_id ON price_level_items(product_id)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_product_id ON activity_log(entity_id)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_action ON activity_log(action)');
+    sqlite.exec('CREATE INDEX IF NOT EXISTS idx_activity_log_created_at ON activity_log(created_at)');
 }
 ensureSchemaTables();
+applyProductColumnMigrations(demoSqlite);
 migrateActivityLog(sqlite);
 migratePriceLevelCurrency(sqlite);
 migratePriceLevelPackSizes(sqlite);

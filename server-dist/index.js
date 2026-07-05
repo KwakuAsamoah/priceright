@@ -435,6 +435,7 @@ async function toPriceLevelItemResponse(item, productRow, levelCurrency, packSiz
         updatedAt: item.updatedAt,
         productApprovedAt,
         isStalePrice,
+        productApprovalStatus: productRow.approvalStatus,
         packSizes,
     };
 }
@@ -1352,6 +1353,12 @@ app.post('/api/materials/check-usage', async (req, res) => {
         const canDelete = [];
         const inUse = [];
         for (const materialId of materialIds) {
+            const [checkedMaterial] = await db
+                .select({ name: materials.name, unit: materials.unit })
+                .from(materials)
+                .where(eq(materials.id, materialId));
+            const materialUnit = checkedMaterial?.unit ?? '';
+            const materialName = checkedMaterial?.name ?? 'Unknown';
             // Find all products that use this material in their BOM
             const usageData = await db
                 .select({
@@ -1359,6 +1366,7 @@ app.post('/api/materials/check-usage', async (req, res) => {
                 materialName: materials.name,
                 productId: products.id,
                 productName: products.name,
+                quantity: billOfMaterials.quantity,
             })
                 .from(billOfMaterials)
                 .leftJoin(materials, eq(billOfMaterials.materialId, materials.id))
@@ -1368,6 +1376,7 @@ app.post('/api/materials/check-usage', async (req, res) => {
                 .select({
                 intermediateId: intermediateMaterialBom.intermediateMaterialId,
                 intermediateName: materials.name,
+                quantity: intermediateMaterialBom.quantity,
             })
                 .from(intermediateMaterialBom)
                 .leftJoin(materials, eq(intermediateMaterialBom.intermediateMaterialId, materials.id))
@@ -1377,26 +1386,36 @@ app.post('/api/materials/check-usage', async (req, res) => {
             }
             else {
                 const productSet = new Set();
-                const productNames = [];
+                const productEntries = [];
                 for (const usage of usageData) {
                     const key = `${usage.productId}-${usage.productName}`;
                     if (!productSet.has(key)) {
                         productSet.add(key);
-                        productNames.push(String(usage.productName || 'Unknown Product'));
+                        productEntries.push({
+                            productId: Number(usage.productId),
+                            productName: String(usage.productName || 'Unknown Product'),
+                            quantity: Number(usage.quantity ?? 0),
+                            unit: materialUnit,
+                        });
                     }
                 }
                 for (const usage of intermediateUsage) {
                     const label = `Intermediate: ${usage.intermediateName || usage.intermediateId}`;
                     if (!productSet.has(label)) {
                         productSet.add(label);
-                        productNames.push(label);
+                        productEntries.push({
+                            productId: Number(usage.intermediateId),
+                            productName: label,
+                            quantity: Number(usage.quantity ?? 0),
+                            unit: materialUnit,
+                        });
                     }
                 }
                 inUse.push({
                     materialId,
-                    materialName: usageData[0]?.materialName || 'Unknown',
+                    materialName: usageData[0]?.materialName || materialName,
                     productCount: productSet.size,
-                    products: productNames,
+                    products: productEntries,
                 });
             }
         }
@@ -2469,16 +2488,17 @@ app.post('/api/products/:id/approve', async (req, res) => {
             productionCost: computedProductionCost,
             optimalPrice: computedOptimalPrice,
         });
+        const productionCost = await calculateProductionCostForProduct(updated[0], productId);
+        const totalCost = productionCost;
+        const markupPercent = totalCost > 0
+            ? Math.round(((approvedPriceNumber - totalCost) / totalCost) * 100 * 100) / 100
+            : 0;
+        const grossMargin = approvedPriceNumber > 0
+            ? Math.round(((approvedPriceNumber - totalCost) / approvedPriceNumber) * 100 * 100) / 100
+            : 0;
         // Post-approval: activity log — wrapped so a failure does not cause a 500
         try {
             const performedBy = await getCurrentUserName();
-            const productionCost = await calculateProductionCostForProduct(updated[0], productId);
-            const margin = approvedPriceNumber > 0
-                ? ((approvedPriceNumber - productionCost) / approvedPriceNumber) * 100
-                : 0;
-            const markupPercent = productionCost > 0
-                ? ((approvedPriceNumber - productionCost) / productionCost) * 100
-                : 0;
             await logActivity({
                 entityType: 'product',
                 entityId: productId,
@@ -2488,8 +2508,10 @@ app.post('/api/products/:id/approve', async (req, res) => {
                     oldPrice: existing.approvedPrice == null ? null : Number(existing.approvedPrice),
                     newPrice: approvedPriceNumber,
                     productionCost: roundToTwo(productionCost),
-                    margin: roundToTwo(margin),
-                    markupPercent: roundToTwo(markupPercent),
+                    markupPercent,
+                    // Kept for backward compatibility — markupPercent is the primary metric
+                    grossMargin,
+                    margin: grossMargin,
                 },
                 performedBy,
             });
@@ -2525,6 +2547,9 @@ app.post('/api/products/:id/approve', async (req, res) => {
             success: true,
             product: updatedProduct,
             staleCustomPrices,
+            // markupPercent is the primary metric — grossMargin kept for backward compatibility
+            markupPercent,
+            grossMargin,
         });
     }
     catch (error) {
@@ -2665,8 +2690,13 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             };
             await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
             const productionCost = await calculateProductionCostForProduct(current, productId);
-            const margin = priceToApprove > 0 ? ((priceToApprove - productionCost) / priceToApprove) * 100 : 0;
-            const markupPercent = productionCost > 0 ? ((priceToApprove - productionCost) / productionCost) * 100 : 0;
+            const totalCost = productionCost;
+            const markupPercent = totalCost > 0
+                ? Math.round(((priceToApprove - totalCost) / totalCost) * 100 * 100) / 100
+                : 0;
+            const grossMargin = priceToApprove > 0
+                ? Math.round(((priceToApprove - totalCost) / priceToApprove) * 100 * 100) / 100
+                : 0;
             await logActivity({
                 entityType: 'product',
                 entityId: productId,
@@ -2676,8 +2706,10 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                     oldPrice: current.approvedPrice == null ? null : Number(current.approvedPrice),
                     newPrice: priceToApprove,
                     productionCost: roundToTwo(productionCost),
-                    margin: roundToTwo(margin),
-                    markupPercent: roundToTwo(markupPercent),
+                    markupPercent,
+                    // Kept for backward compatibility — markupPercent is the primary metric
+                    grossMargin,
+                    margin: grossMargin,
                 },
                 performedBy,
             });
