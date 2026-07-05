@@ -204,20 +204,22 @@ function calculateActualProfitOnSales(product: ProductPricing): number | null {
   return ((approvedPrice - productionCost) / approvedPrice) * 100;
 }
 
-const PRODUCT_EXPORT_HEADERS = [
-  'Product Name',
-  'SKU',
-  'Category',
-  'Production Cost',
-  'Optimal Price',
-  'Approved Base Price',
-  'Actual Markup %',
-  'Optimal Markup %',
-  'Approval Status',
-  'Active',
-  'Optimal Gross Margin % (reference)',
-  'Actual Gross Margin % (reference)',
-];
+function getProductExportHeaders(baseCurrency: string): string[] {
+  return [
+    'Product Name',
+    'SKU',
+    'Category',
+    `Production Cost (${baseCurrency})`,
+    `Optimal Price (${baseCurrency})`,
+    `Approved Base Price (${baseCurrency})`,
+    'Actual Markup %',
+    'Optimal Markup %',
+    'Approval Status',
+    'Active',
+    'Optimal Gross Margin % (reference)',
+    'Actual Gross Margin % (reference)',
+  ];
+}
 
 function formatProductExportPercent(value: number | null): string | number {
   if (value == null) return '—';
@@ -809,9 +811,10 @@ export default function Products() {
     }
 
     try {
+    const exportHeaders = getProductExportHeaders(baseCurrency);
     const exportData = selectedProdList.map((product) => {
       const values = buildProductExportValues(product);
-      return PRODUCT_EXPORT_HEADERS.reduce<Record<string, string | number>>((row, header, index) => {
+      return exportHeaders.reduce<Record<string, string | number>>((row, header, index) => {
         row[header] = values[index];
         return row;
       }, {});
@@ -1220,8 +1223,9 @@ export default function Products() {
   }
 
   function handleExportToExcel() {
+    const exportHeaders = getProductExportHeaders(baseCurrency);
     const ws = XLSX.utils.aoa_to_sheet([
-      PRODUCT_EXPORT_HEADERS,
+      exportHeaders,
       ...products.map((product) => buildProductExportValues(product)),
     ]);
 
@@ -1430,11 +1434,12 @@ export default function Products() {
       return;
     }
 
+    const exportHeaders = getProductExportHeaders(baseCurrency);
     const rows = filteredProducts.map((product) => buildProductExportValues(product));
 
     downloadCsv(
       `products-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      PRODUCT_EXPORT_HEADERS,
+      exportHeaders,
       rows
     );
 

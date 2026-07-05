@@ -576,6 +576,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     }
 
     try {
+    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const exportData = selectedMatList.map((material) => ({
       'Material Name': material.name,
       'SKU': material.sku || '',
@@ -584,7 +585,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       'Bulk Quantity': parseFloat(material.bulkQuantity).toFixed(2),
       'Bulk Price': parseFloat(material.bulkPrice).toFixed(2),
       'Currency': material.purchaseCurrencyCode,
-      'Unit Cost': parseFloat(material.unitPrice).toFixed(2),
+      [unitCostHeader]: parseFloat(material.unitPrice).toFixed(2),
       'Description': material.description || '',
     }));
 
@@ -691,6 +692,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       return;
     }
 
+    const unitCostHeader = `Unit Cost (${baseCurrency})`;
     const rows = filteredMaterials.map((material) => [
       material.name,
       material.sku || '-',
@@ -705,7 +707,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     downloadCsv(
       `materials-filtered-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Bulk Price', 'Currency', 'Unit Cost', 'Status'],
+      ['Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Bulk Price', 'Currency', unitCostHeader, 'Status'],
       rows
     );
 

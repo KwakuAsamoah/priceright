@@ -18,6 +18,7 @@ import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { usePrint } from '../hooks/usePrint';
+import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -252,6 +253,23 @@ interface IntermediateMaterialsProps {
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
+function getIntermediateExportHeaders(baseCurrency: string): string[] {
+  return [
+    'Name',
+    'SKU',
+    'Category',
+    'Unit',
+    'Yield %',
+    'Bulk Quantity',
+    'Overhead %',
+    'Margin %',
+    `Calculated Cost/Unit (${baseCurrency})`,
+    `Stored Unit Cost (${baseCurrency})`,
+    `Optimal Price (${baseCurrency})`,
+    'Status',
+  ];
+}
+
 export default function IntermediateMaterials({ refreshKey = 0, isActive = true }: IntermediateMaterialsProps) {
   const { version: materialCostVersion } = useMaterialCostSync();
   const [materials, setMaterials] = useState<MaterialRecord[]>([]);
@@ -275,6 +293,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
   const { handlePrint } = usePrint();
+  const { baseCurrency } = useBaseCurrency();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
@@ -879,25 +898,22 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     ]);
   }
 
-  const INTERMEDIATE_EXPORT_HEADERS = [
-    'Name', 'SKU', 'Category', 'Unit', 'Yield %', 'Bulk Quantity',
-    'Overhead %', 'Margin %', 'Calculated Cost/Unit', 'Stored Unit Cost', 'Optimal Price', 'Status',
-  ];
-
   function handleExportFilteredMaterialsCsv() {
     const date = new Date().toISOString().split('T')[0];
+    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
     downloadCsv(
       `intermediate-materials-${date}.csv`,
-      INTERMEDIATE_EXPORT_HEADERS,
+      exportHeaders,
       buildExportRows(filteredMaterials),
     );
     showToastMessage(`Exported ${filteredMaterials.length} intermediate materials to CSV`, 'success');
   }
 
   function handleExportFilteredMaterialsExcel() {
+    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      INTERMEDIATE_EXPORT_HEADERS,
+      exportHeaders,
       ...buildExportRows(filteredMaterials),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Intermediate Materials');
@@ -927,9 +943,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       return;
     }
 
+    const exportHeaders = getIntermediateExportHeaders(baseCurrency);
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
-      INTERMEDIATE_EXPORT_HEADERS,
+      exportHeaders,
       ...buildExportRows(targets),
     ]);
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Selected Intermediate');

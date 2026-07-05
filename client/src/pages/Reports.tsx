@@ -2991,7 +2991,7 @@ export default function Reports() {
             />
           </div>
 
-          {renderPricingStatusTable(paginatedPricingRows, { formatCurrency, markupThreshold: lowMarkupThreshold })}
+          {renderPricingStatusTable(paginatedPricingRows, { formatCurrency, markupThreshold: lowMarkupThreshold, baseCurrency })}
           {renderPaginationControls(data.rows.length)}
         </div>
       );
@@ -4035,10 +4035,10 @@ function StatCard({
 
 function renderPricingStatusTable(
   rows: PricingStatusComputedRow[],
-  options?: { noSellingPriceMode?: boolean; formatCurrency?: (value: number) => string; markupThreshold?: number },
+  options?: { noSellingPriceMode?: boolean; formatCurrency?: (value: number) => string; markupThreshold?: number; baseCurrency?: string },
 ) {
   const noSellingPriceMode = options?.noSellingPriceMode === true;
-  const formatMoney = options?.formatCurrency ?? ((value: number) => formatCurrencyAmount(value, 'GHS'));
+  const formatMoney = options?.formatCurrency ?? ((value: number) => formatCurrencyAmount(value, options?.baseCurrency ?? ''));
   const markupThreshold = options?.markupThreshold ?? 20;
 
   return (
