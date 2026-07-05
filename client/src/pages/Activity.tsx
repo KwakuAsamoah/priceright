@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeftRight,
@@ -7,6 +8,7 @@ import {
   CheckSquare,
   Clock,
   Clock3,
+  HelpCircle,
   PlusCircle,
   Printer,
   Tag,
@@ -18,6 +20,8 @@ import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import useTableZoom from '../hooks/useTableZoom';
+import TableZoomControl from '../components/TableZoomControl';
 import { getThresholdMarkupColor } from '../utils/margin';
 
 const PAGE_SIZE = 50;
@@ -28,6 +32,45 @@ type ActionGroupFilter = 'all' | 'approvals' | 'cost_changes' | 'created' | 'del
 type EntryVisual = {
   Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
   color: string;
+};
+
+const ENTITY_FILTER_LABELS: Record<EntityFilter, string> = {
+  all: 'All types',
+  product: 'Products',
+  material: 'Materials',
+  price_level: 'Price Levels',
+  exchange_rate: 'Exchange Rates',
+};
+
+const ACTION_GROUP_LABELS: Record<ActionGroupFilter, string> = {
+  all: 'All actions',
+  approvals: 'Approvals',
+  cost_changes: 'Cost changes',
+  created: 'Created',
+  deleted: 'Deleted',
+};
+
+const FILTER_CHIP_STYLE: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+  backgroundColor: '#F1F5F9',
+  border: '1px solid #CBD5E1',
+  color: '#475569',
+  fontSize: '12px',
+  padding: '3px 8px',
+  borderRadius: '12px',
+};
+
+const FILTER_CHIP_CLOSE_STYLE: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: '#94A3B8',
+  cursor: 'pointer',
+  fontSize: '14px',
+  lineHeight: 1,
+  padding: '2px 4px',
+  margin: '-2px -4px -2px 0',
 };
 
 function toMoney(value: unknown): string {
@@ -101,6 +144,8 @@ function resolveEntryVisual(action: string): EntryVisual {
       return { Icon: CheckCircle2, color: '#16a34a' };
     case 'product.reset_to_pending':
       return { Icon: RotateCcw, color: '#64748b' };
+    case 'product.rejected':
+      return { Icon: Clock3, color: '#64748b' };
     case 'product.needs_review':
       return { Icon: AlertTriangle, color: '#d97706' };
     case 'material.cost_updated':
@@ -144,7 +189,12 @@ function formatOverrideType(overrideType: unknown, value: unknown, currencyCode:
 function getActivityDescription(
   entry: ActivityEntry,
   currencyCode: string,
-): { title: string; subline?: string; markupPercentAtApproval?: number } {
+): {
+  title: string;
+  subline?: string;
+  markupPercentAtApproval?: number;
+  markupIsHistoricalGrossMargin?: boolean;
+} {
   const details = (entry.details || {}) as Record<string, unknown>;
   const entityName = entry.entityName || details.productName || details.materialName || details.levelName || details.currencyCode || 'Item';
 
@@ -155,13 +205,19 @@ function getActivityDescription(
       const title = oldPrice !== null && oldPrice !== undefined
         ? `${entityName} base price approved, changed from ${currencyCode} ${toMoney(oldPrice)} to ${currencyCode} ${toMoney(newPrice)}`
         : `${entityName} base price approved at ${currencyCode} ${toMoney(newPrice)}`;
-      const markupPercentAtApproval = Number(
-        details.markupPercent ?? details.margin,
-      );
+      const hasMarkupPercent = details.markupPercent !== undefined
+        && details.markupPercent !== null
+        && Number.isFinite(Number(details.markupPercent));
+      const markupIsHistoricalGrossMargin = !hasMarkupPercent
+        && (details.grossMargin !== undefined || details.margin !== undefined);
+      const markupPercentAtApproval = hasMarkupPercent
+        ? Number(details.markupPercent)
+        : Number(details.grossMargin ?? details.margin);
       return {
         title,
         subline: `Production cost: ${currencyCode} ${toMoney(details.productionCost)}`,
         markupPercentAtApproval: Number.isFinite(markupPercentAtApproval) ? markupPercentAtApproval : undefined,
+        markupIsHistoricalGrossMargin,
       };
     }
     case 'product.reset_to_pending': {
@@ -171,6 +227,11 @@ function getActivityDescription(
         subline: reason,
       };
     }
+    case 'product.rejected':
+      return {
+        title: 'Historical price rejection',
+        subline: entityName !== 'Item' ? String(entityName) : undefined,
+      };
     case 'product.needs_review':
       return {
         title: `${entityName} flagged for price review`,
@@ -240,8 +301,10 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
 }
 
 export default function Activity() {
+  const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
   const lowMarkupThreshold = useLowMarkupThreshold();
+  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('activityZoomPercent');
   // Tier 2: add role-based access control here
   // For Tier 1 Solo this page is accessible to all users
   const searchParams = new URLSearchParams(window.location.search);
@@ -265,6 +328,11 @@ export default function Activity() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { handlePrint } = usePrint();
+
+  const hasActiveFilters = entityType !== 'all'
+    || actionGroup !== 'all'
+    || fromDate !== ''
+    || toDate !== '';
 
   useEffect(() => {
     let mounted = true;
@@ -418,11 +486,114 @@ export default function Activity() {
               </div>
             </div>
 
+            {hasActiveFilters ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', margin: '6px 0' }}>
+                {entityType !== 'all' ? (
+                  <span style={FILTER_CHIP_STYLE}>
+                    Type: {ENTITY_FILTER_LABELS[entityType]}
+                    <button
+                      type="button"
+                      onClick={() => setEntityType('all')}
+                      aria-label="Clear entity type filter"
+                      style={FILTER_CHIP_CLOSE_STYLE}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : null}
+                {actionGroup !== 'all' ? (
+                  <span style={FILTER_CHIP_STYLE}>
+                    Action: {ACTION_GROUP_LABELS[actionGroup]}
+                    <button
+                      type="button"
+                      onClick={() => setActionGroup('all')}
+                      aria-label="Clear action filter"
+                      style={FILTER_CHIP_CLOSE_STYLE}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : null}
+                {fromDate !== '' ? (
+                  <span style={FILTER_CHIP_STYLE}>
+                    From: {fromDate}
+                    <button
+                      type="button"
+                      onClick={() => setFromDate('')}
+                      aria-label="Clear date from filter"
+                      style={FILTER_CHIP_CLOSE_STYLE}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : null}
+                {toDate !== '' ? (
+                  <span style={FILTER_CHIP_STYLE}>
+                    To: {toDate}
+                    <button
+                      type="button"
+                      onClick={() => setToDate('')}
+                      aria-label="Clear date to filter"
+                      style={FILTER_CHIP_CLOSE_STYLE}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}
+                >
+                  Clear all filters
+                </button>
+              </div>
+            ) : null}
+
             <div className="app-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontSize: '14px', color: '#64748b' }}>
-                Showing {entries.length} of {total} entries
+              <div
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #e2e8f0',
+                  fontSize: '14px',
+                  color: '#64748b',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                }}
+                data-print-hide
+              >
+                <span>Showing {entries.length} of {total} entries</span>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                  <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
+                  <button
+                    type="button"
+                    title="Help"
+                    onClick={() => navigate('/help?context=activity')}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      padding: '4px',
+                      cursor: 'pointer',
+                      color: '#94A3B8',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                    }}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.color = '#0F2847';
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.color = '#94A3B8';
+                    }}
+                  >
+                    <HelpCircle size={20} />
+                  </button>
+                </div>
               </div>
 
+              <div style={{ zoom: `${zoomPercent}%` }}>
               {loading ? (
                 <div style={{ padding: '22px 16px', textAlign: 'center', color: '#64748b' }}>Loading activity...</div>
               ) : error ? (
@@ -447,6 +618,16 @@ export default function Activity() {
                   <div className="app-empty-state-text">
                     Actions in PriceRight are recorded here — approvals, price changes, material updates, and more.
                   </div>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ marginTop: '16px' }}
+                      onClick={clearFilters}
+                    >
+                      Clear all filters
+                    </button>
+                  ) : null}
                 </div>
               ) : (
                 <div>
@@ -482,13 +663,15 @@ export default function Activity() {
                             <div style={{ marginTop: '3px', fontSize: '14px', color: '#64748b' }}>
                               {description.markupPercentAtApproval !== undefined && (
                                 <>
-                                  Markup % (at approval):{' '}
+                                  Markup %:{' '}
                                   <span style={{
-                                    // Historical values are gross margin — threshold comparison is approximate
-                                    color: getThresholdMarkupColor(description.markupPercentAtApproval, lowMarkupThreshold),
+                                    color: description.markupIsHistoricalGrossMargin
+                                      ? '#64748b'
+                                      : getThresholdMarkupColor(description.markupPercentAtApproval, lowMarkupThreshold),
                                     fontWeight: 600,
                                   }}>
                                     {description.markupPercentAtApproval.toFixed(1)}%
+                                    {description.markupIsHistoricalGrossMargin ? ' (gross margin)' : ''}
                                   </span>
                                   {description.subline ? ' | ' : null}
                                 </>
@@ -520,6 +703,7 @@ export default function Activity() {
                   )}
                 </div>
               )}
+              </div>
             </div>
         </>
       </div>
