@@ -189,6 +189,30 @@ const bomActionCellStyle = {
   minWidth: '72px',
 };
 
+const COSTING_TAB_BASE_STYLE = {
+  borderRadius: '999px',
+  padding: '8px 14px',
+  fontSize: '14px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap' as const,
+};
+
+const COSTING_TAB_ACTIVE_STYLE = {
+  ...COSTING_TAB_BASE_STYLE,
+  backgroundColor: '#16A34A',
+  color: '#ffffff',
+  border: '1.5px solid #16A34A',
+  fontWeight: 600,
+};
+
+const COSTING_TAB_INACTIVE_STYLE = {
+  ...COSTING_TAB_BASE_STYLE,
+  backgroundColor: '#F1F5F9',
+  color: '#475569',
+  border: '1.5px solid #E2E8F0',
+  fontWeight: 400,
+};
+
 const panelHeaderStyle = {
   display: 'flex',
   flexDirection: 'row' as const,
@@ -624,11 +648,23 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
 
                     <div>
                       <label style={fieldLabelStyle}>Costing Method</label>
-                      <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
-                        <button className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'completed_output'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}>
+                      <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '8px' }} role="tablist" aria-label="Costing method">
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={form.intermediateCostMode === 'completed_output'}
+                          style={form.intermediateCostMode === 'completed_output' ? COSTING_TAB_ACTIVE_STYLE : COSTING_TAB_INACTIVE_STYLE}
+                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
+                        >
                           Completed output
                         </button>
-                        <button className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`} type="button" role="tab" aria-selected={form.intermediateCostMode === 'yield'} onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={form.intermediateCostMode === 'yield'}
+                          style={form.intermediateCostMode === 'yield' ? COSTING_TAB_ACTIVE_STYLE : COSTING_TAB_INACTIVE_STYLE}
+                          onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
+                        >
                           Yield-based
                         </button>
                       </div>
