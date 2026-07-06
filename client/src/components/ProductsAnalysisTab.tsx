@@ -3,10 +3,10 @@ import { CheckCircle, Dot, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { priceLevelItemsApi, priceLevelRulesApi } from '../api';
 import AppBadge from './AppBadge';
-import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip } from './ProfitTooltips';
+import { ActualMarkupInfoTooltip } from './ProfitTooltips';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { formatCurrency } from '../utils/currency';
-import { getThresholdMarkupColor } from '../utils/margin';
+import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 
 interface ProductRow {
   id: number;
@@ -63,32 +63,18 @@ function getApprovedPrice(product: ProductRow): number | null {
   return approved > 0 ? approved : null;
 }
 
-function getGrossMarginPercent(product: ProductRow): number | null {
-  const approved = getApprovedPrice(product);
-  const cost = toNumber(product.totalCost);
-  if (approved == null || approved <= 0 || cost <= 0) {
-    return null;
-  }
-  return ((approved - cost) / approved) * 100;
-}
-
 function getMarkupPercent(product: ProductRow): number | null {
   const approved = getApprovedPrice(product);
   const cost = toNumber(product.totalCost);
-  if (approved == null || approved <= 0 || cost <= 0) {
+  if (approved == null) {
     return null;
   }
-  return ((approved - cost) / cost) * 100;
+  return calculateActualMarkupPercent(approved, cost);
 }
 
 function isNotPricedProduct(product: ProductRow): boolean {
   if (product.approvalStatus !== 'approved') return true;
   return getMarkupPercent(product) == null;
-}
-
-function getGrossMarginColor(value: number | null, threshold: number): string {
-  if (value == null) return '#9ca3af';
-  return getThresholdMarkupColor(value, threshold);
 }
 
 function getFilterLabel(filterKey: FilterKey, threshold: number): string {
@@ -166,7 +152,6 @@ export default function ProductsAnalysisTab({
   const rankedRows = useMemo(() => {
     const rows = activeProducts.map((product) => ({
       product,
-      grossMargin: getGrossMarginPercent(product),
       markup: getMarkupPercent(product),
       notPriced: isNotPricedProduct(product),
       approvedPrice: getApprovedPrice(product),
@@ -447,21 +432,13 @@ export default function ProductsAnalysisTab({
                       <ActualMarkupInfoTooltip position="bottom" />
                     </span>
                   </th>
-                  <th style={{ minWidth: '140px', textAlign: 'right' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      Actual Gross Margin %
-                      <ActualGrossMarginInfoTooltip position="bottom" />
-                    </span>
-                  </th>
                   <th style={{ width: '90px', textAlign: 'center' }}>Needs review</th>
                 </tr>
               </thead>
               <tbody>
                 {rankedRows.map((row, index) => {
                   const markup = row.markup;
-                  const grossMargin = row.grossMargin;
                   const markupColor = markup == null ? '#9ca3af' : getThresholdMarkupColor(markup, lowMarginThreshold);
-                  const grossMarginColor = getGrossMarginColor(grossMargin, lowMarginThreshold);
                   const barScaleMax = Math.min(lowMarginThreshold * 2, 100);
                   const barWidth = markup != null && barScaleMax > 0
                     ? `${Math.min(100, Math.max(0, (Math.max(0, markup) / barScaleMax) * 100))}%`
@@ -502,13 +479,6 @@ export default function ProductsAnalysisTab({
                             </div>
                             <span style={{ color: markupColor, fontWeight: 700 }}>{markup.toFixed(1)}%</span>
                           </div>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        {grossMargin == null ? (
-                          <span style={{ color: '#9ca3af' }}>—</span>
-                        ) : (
-                          <span style={{ color: grossMarginColor, fontWeight: 700 }}>{grossMargin.toFixed(1)}%</span>
                         )}
                       </td>
                       <td style={{ textAlign: 'center' }}>

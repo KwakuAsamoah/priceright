@@ -29,7 +29,7 @@ import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-import { getThresholdMarkupColor } from '../utils/margin';
+import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import { formatCurrency } from '../utils/currency';
 
 type PriceLevelRule = {
@@ -123,10 +123,8 @@ function computeFinalPrice(overrideType: OverrideType, value: number, approvedBa
 }
 
 function computeMarginPercent(finalPrice: number, productionCost: number): number {
-  if (productionCost <= 0 || finalPrice <= 0) {
-    return 0;
-  }
-  return roundToTwo(((finalPrice - productionCost) / productionCost) * 100);
+  const markup = calculateActualMarkupPercent(finalPrice, productionCost);
+  return markup == null ? 0 : roundToTwo(markup);
 }
 
 function itemStatusVariant(status: PriceLevelItemResponse['status']): 'pending' | 'approved' {
@@ -2604,7 +2602,7 @@ export default function PriceLevels() {
               return (
                 <>
                   <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
-                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Markup: <strong>{draftMarkup.toFixed(1)}%</strong>
+                    Final price: <strong>{formatMoney(draftFinal)}</strong> | Markup: <strong style={{ color: getThresholdMarkupColor(draftMarkup, lowMarkupThreshold) }}>{draftMarkup.toFixed(1)}%</strong>
                   </div>
 
                   {!belowCost && draftMarkup < criticalMarkupThreshold && (

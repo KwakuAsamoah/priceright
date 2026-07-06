@@ -11,6 +11,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import AppToast from '../components/AppToast';
 import MarkupHealthPopover from '../components/MarkupHealthPopover';
+import PageHelpButton from '../components/PageHelpButton';
 import { ActualMarkupInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
   calculateActualMarkupPercent,
@@ -597,6 +598,7 @@ export default function ProductDetail() {
               {product.isActive ? 'Set Inactive' : 'Set Active'}
             </AppButton>
             <MarkupHealthPopover />
+            <PageHelpButton context="products" />
           </div>
         </div>
 
