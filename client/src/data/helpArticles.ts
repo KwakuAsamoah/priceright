@@ -4,7 +4,6 @@ export interface HelpArticle {
   title: string;
   content: string;
   keywords: string[];
-  readingTimeMinutes: number;
   relatedArticleIds: string[];
 }
 
@@ -17,7 +16,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Welcome to PriceRight',
     keywords: ['welcome', 'overview', 'what is priceright', 'introduction'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['first-setup', 'understanding-workflow', 'sample-data', 'how-priceright-calculates-profit'],
     content: `
       <p>PriceRight is a pricing management system built for product-based businesses.
@@ -56,7 +54,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Using the sample data files',
     keywords: ['sample', 'sample data', 'demo files', 'import sample', 'getting started', 'example data', 'try', 'explore'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['first-setup', 'demo-mode', 'import-templates-overview'],
     content: `
       <p>PriceRight includes three sample data files designed as a realistic food-manufacturing example. Use them to explore all features with realistic data before entering your own.</p>
@@ -81,7 +78,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Setting up for the first time',
     keywords: ['setup', 'getting started', 'first time', 'onboarding', 'steps'],
-    readingTimeMinutes: 6,
     relatedArticleIds: ['understanding-workflow', 'adding-materials', 'building-product-bom'],
     content: `
       <p>Setting up PriceRight for the first time takes about 10 minutes if your
@@ -131,7 +127,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Understanding the workflow',
     keywords: ['workflow', 'how it works', 'process', 'overview', 'approval chain'],
-    readingTimeMinutes: 6,
     relatedArticleIds: ['first-setup', 'how-approval-works', 'price-levels'],
     content: `
       <p>PriceRight follows a five-step workflow from costing to export. Each step
@@ -167,7 +162,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Using the setup guide',
     section: 'Getting Started',
     keywords: ['onboarding', 'setup guide', 'getting started', 'welcome', 'first steps'],
-    readingTimeMinutes: 7,
     relatedArticleIds: ['first-setup', 'adding-materials', 'welcome'],
     content: `
       <p>When you launch PriceRight for the first time, a welcome screen appears
@@ -198,7 +192,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'App updates and the notification bell',
     section: 'Getting Started',
     keywords: ['update', 'auto-update', 'notification', 'bell', 'new version', 'upgrade'],
-    readingTimeMinutes: 8,
     relatedArticleIds: ['welcome', 'data-backup', 'restoring-from-backup'],
     content: `
       <p>PriceRight updates itself automatically when a new version is available.
@@ -226,7 +219,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Restoring your data from a backup',
     section: 'Getting Started',
     keywords: ['restore', 'backup', 'recovery', 'data loss', 'restore backup'],
-    readingTimeMinutes: 9,
     relatedArticleIds: ['data-backup', 'demo-mode', 'auto-updater'],
     content: `
       <p>If you need to recover your data from a backup, follow these steps.</p>
@@ -274,7 +266,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Adding your first materials',
     keywords: ['add material', 'create material', 'raw material', 'new material'],
-    readingTimeMinutes: 10,
     relatedArticleIds: ['bulk-prices-units', 'foreign-currencies', 'building-product-bom'],
     content: `
       <p>To add a material, go to Materials (select the Primary tab) and click
@@ -303,7 +294,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Setting bulk prices and units',
     keywords: ['bulk price', 'unit price', 'bulk quantity', 'unit cost', 'calculation'],
-    readingTimeMinutes: 11,
     relatedArticleIds: ['adding-materials', 'foreign-currencies', 'importing-materials'],
     content: `
       <p>The bulk price and bulk quantity fields are how PriceRight calculates your
@@ -330,7 +320,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Using foreign currencies',
     keywords: ['currency', 'USD', 'exchange rate', 'foreign', 'base currency', 'convert'],
-    readingTimeMinutes: 12,
     relatedArticleIds: ['inline-exchange-rate', 'adding-materials', 'currency-exposure'],
     content: `
       <p>PriceRight supports multiple currencies. When you buy materials in USD,
@@ -362,7 +351,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Importing materials in bulk',
     keywords: ['import', 'bulk import', 'CSV', 'upload', 'template', 'excel'],
-    readingTimeMinutes: 13,
     relatedArticleIds: ['import-templates-overview', 'adding-materials', 'bulk-prices-units'],
     content: `
       <p>If you have many materials to add, use the bulk import feature. Go to
@@ -398,7 +386,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Importing data with templates',
     section: 'Products and Materials',
     keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload', 'intermediate'],
-    readingTimeMinutes: 15,
     relatedArticleIds: ['importing-materials', 'sample-data', 'building-product-bom'],
     content: `
       <p>PriceRight provides Excel templates for importing materials and products in bulk. This is faster than adding items one by one.</p>
@@ -441,7 +428,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Intermediate materials',
     keywords: ['intermediate', 'semi-finished', 'in-house', 'produced material', 'sub-assembly'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['intermediate-costing', 'creation-panels', 'intermediate-detail-page'],
     content: `
       <p>Some materials you use in your products are made in-house from other
@@ -472,7 +458,6 @@ export const helpArticles: HelpArticle[] = [
       'intermediate cost', 'overhead', 'markup', 'transfer price',
       'roasted peanut', 'internal production', 'double counting'
     ],
-    readingTimeMinutes: 19,
     relatedArticleIds: ['intermediate-materials', 'overhead-and-margin', 'building-product-bom'],
     content: `
       <p>When you build an intermediate material in PriceRight, you need to
@@ -558,7 +543,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Materials Reports and Analysis',
     section: 'Reports and Analysis',
     keywords: ['materials reports', 'cost analysis', 'top cost drivers', 'price volatility', 'material price history', 'inactive materials'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['currency-exposure', 'reports-navigation', 'material-detail-page'],
     content: `
       <p>Materials analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Materials</strong> tab at the top, then choose a report from the dropdown. Reports generate automatically — no Generate button needed.</p>
@@ -583,7 +567,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Building a product with a BOM',
     keywords: ['product', 'BOM', 'bill of materials', 'create product', 'recipe'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['batch-vs-single', 'creation-panels', 'how-approval-works'],
     content: `
       <p>To create a product, go to <strong>Products</strong> and click
@@ -605,7 +588,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Batch vs single unit production',
     keywords: ['batch', 'single unit', 'production mode', 'yield', 'batch yield'],
-    readingTimeMinutes: 22,
     relatedArticleIds: ['building-product-bom', 'intermediate-materials', 'overhead-and-margin'],
     content: `
       <p>PriceRight supports two production modes.</p>
@@ -631,7 +613,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Understanding overhead and markup on cost',
     keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom'],
     content: `
       <p><strong>Overhead</strong> is a percentage added to material costs to cover indirect expenses — electricity, rent, equipment, and production labour.</p>
@@ -664,7 +645,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'How price approval works',
     keywords: ['approval', 'approve', 'reset to pending', 'pending', 'workflow', 'status'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['bulk-approval', 'needs-review', 'reset-to-pending'],
     content: `
       <p>Approval is the step where you set the product's official
@@ -696,7 +676,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'Production cost vs optimal price vs approved base price vs price level price',
     keywords: ['production cost', 'optimal price', 'approved base price', 'price level price', 'above optimal', 'below optimal', 'difference'],
-    readingTimeMinutes: 27,
     relatedArticleIds: ['how-approval-works', 'overhead-and-margin', 'keep-current-price'],
     content: `
       <p>PriceRight uses four price types. Understanding each one helps you review
@@ -726,7 +705,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'Approving prices in bulk',
     keywords: ['bulk approve', 'approve all', 'bulk action', 'mass approve'],
-    readingTimeMinutes: 27,
     relatedArticleIds: ['how-approval-works', 'undo-bulk-approve', 'needs-review'],
     content: `
       <p>Use bulk approval when many products need approval at once — for example during first-time setup or after a broad cost change.</p>
@@ -757,7 +735,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'What Needs Review means',
     keywords: ['needs review', 'review', 'cost change', 'flag', 'recalculate'],
-    readingTimeMinutes: 28,
     relatedArticleIds: ['how-approval-works', 'keep-current-price', 'price-expiry'],
     content: `
       <p><strong>Needs review</strong> means a product's current
@@ -798,7 +775,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Understanding price expiry',
     section: 'Pricing and Approvals',
     keywords: ['price expiry', 'expiry', 'expires', 'valid until', 'expired', 'renew price', 'price validity'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['needs-review', 'how-approval-works', 'price-history-tab'],
     content: `
       <p>Approved prices can have an expiry date. After this date, the price is flagged as
@@ -821,7 +797,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Setting up price levels',
     keywords: ['price level', 'tier', 'discount', 'markup', 'wholesale', 'retail', 'customer tier'],
-    readingTimeMinutes: 30,
     relatedArticleIds: ['price-level-wizard', 'special-pricing', 'generating-price-list'],
     content: `
       <p>Price levels let you set different prices for different customer types — wholesale, retail, export, or a named customer — without entering every price by hand.</p>
@@ -847,7 +822,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Creating your first price level',
     section: 'Price Lists and Exports',
     keywords: ['price level', 'wizard', 'create price level', 'new price level', 'customer pricing', 'setup wizard'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['price-levels', 'price-level-approval', 'generating-price-list'],
     content: `
       <p>Click <strong>Price Levels</strong> in the sidebar, then <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>. The wizard walks you through four steps.</p>
@@ -872,7 +846,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Handling customer-specific pricing',
     keywords: ['customer', 'add customer', 'create customer', 'assign price level'],
-    readingTimeMinutes: 32,
     relatedArticleIds: ['special-pricing', 'price-levels', 'price-level-wizard'],
     content: `
       <p>PriceRight no longer uses a separate customer management page.</p>
@@ -890,7 +863,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Setting customer-specific prices with price levels',
     keywords: ['price levels', 'custom price', 'override', 'negotiated', 'individual price'],
-    readingTimeMinutes: 33,
     relatedArticleIds: ['price-levels', 'stale-custom-price-alerts', 'pack-size-pricing'],
     content: `
       <p>Price levels support both rule-based pricing and custom prices per product.</p>
@@ -920,7 +892,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Generating a price list',
     keywords: ['price list', 'generate', 'export', 'customer price list', 'create price list'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['price-level-wizard', 'price-level-approval', 'export-guide'],
     content: `
       <p>Export price lists from the <strong>Price Levels</strong> page. Select a level in the left panel — only <strong>approved</strong> items can be exported.</p>
@@ -944,7 +915,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Converting price lists to other currencies',
     keywords: ['currency', 'price list currency', 'USD price list', 'convert', 'foreign currency'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['generating-price-list', 'foreign-currencies', 'export-guide'],
     content: `
       <p>PriceRight can show and export a price list in a currency other than your base currency. You do not need to convert prices manually in Excel.</p>
@@ -965,7 +935,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Products Reports and Analysis',
     keywords: ['products reports', 'margin health', 'profitability ranking', 'price vs cost drift', 'optimal vs actual gap', 'pricing overview'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['product-pricing-overview', 'markup-health-guide', 'reports-navigation'],
     content: `
       <p>Products analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Products</strong> tab at the top, then click a report pill. Reports generate automatically when selected.</p>
@@ -986,7 +955,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Running the Pricing Status report',
     keywords: ['pricing status', 'report', 'above optimal', 'below optimal', 'export report'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['reports-navigation', 'markup-analysis-report', 'product-pricing-overview'],
     content: `
       <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Pricing</strong> tab, and click the <strong>Pricing Status</strong> pill. The report generates automatically — there is no Generate button. Change filters and results update live; active filters appear as chips above the table.</p>
@@ -1003,7 +971,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Markup Analysis Report',
     keywords: ['markup analysis', 'below target', 'markup threshold', 'profitability', 'target gap'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['markup-analysis-report', 'how-priceright-calculates-profit', 'pricing-status-report'],
     content: `
       <p>The <strong>Markup Analysis</strong> report replaces the old Low Margin report. Find it in <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The report runs automatically when you open it.</p>
@@ -1020,7 +987,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Currency exposure',
     keywords: ['currency exposure', 'FX risk', 'exchange rate risk', 'USD exposure', 'foreign currency risk'],
-    readingTimeMinutes: 38,
     relatedArticleIds: ['foreign-currencies', 'materials-analysis-tab', 'inline-exchange-rate'],
     content: `
       <p>The Currency Exposure report shows how your active materials are spread across purchase currencies. This helps you see which currencies your material catalogue depends on.</p>
@@ -1039,7 +1005,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Price List Summary report',
     section: 'Reports and Analysis',
     keywords: ['price list summary', 'report', 'price lists', 'coverage', 'export coverage'],
-    readingTimeMinutes: 39,
     relatedArticleIds: ['generating-price-list', 'price-expiry', 'price-levels'],
     content: `
       <p>The Price List Summary report shows all your price levels and whether each list is still valid or coming up for renewal.</p>
@@ -1077,7 +1042,6 @@ export const helpArticles: HelpArticle[] = [
     title: 'Approval History report',
     section: 'Reports and Analysis',
     keywords: ['approval history', 'report', 'price approvals', 'history', 'audit trail'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['activity-log', 'price-history-tab', 'reports-navigation'],
     content: `
       <p>The Approval History report lists products and their current approval-related figures. Go to <strong>Reports and Analysis → Pricing tab → Approval History</strong> pill. The report auto-generates when selected.</p>
@@ -1098,7 +1062,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Using the Activity log',
     keywords: ['activity', 'log', 'history', 'audit', 'who did what', 'changes', 'track', 'record'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['price-history-tab', 'approval-history-report', 'filter-chips'],
     content: `
       <p>The Activity log records significant actions in PriceRight. Open <strong>Activity</strong> from the Pricing section of the sidebar.</p>
@@ -1117,7 +1080,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Product History Tab',
     keywords: ['history tab', 'approval history', 'activity log', 'price changes', 'product history'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['how-approval-works', 'activity-log', 'reset-to-pending'],
     content: `
       <p>The product detail page has two tabs: <strong>Bill of materials</strong> and <strong>History</strong>. Click any product row on the Products page to open the detail page, then select the <strong>History</strong> tab.</p>
@@ -1138,7 +1100,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Keeping the current price after a cost change',
     keywords: ['keep current price', 'absorb cost', 'maintain price', 'cost increase', 'same price', 'no change'],
-    readingTimeMinutes: 43,
     relatedArticleIds: ['needs-review', 'how-approval-works', 'price-expiry'],
     content: `
       <p><strong>Keep current price</strong> lets you re-approve a product at its existing <strong>Approved base price</strong> after costs change. Use it when you need to hold market price while still clearing <strong>Needs review</strong>.</p>
@@ -1157,7 +1118,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Stale custom price alerts',
     keywords: ['stale', 'custom price', 'outdated', 'alert', 'review', 'price level', 'custom', 'warning'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['special-pricing', 'price-level-approval', 'generating-price-list'],
     content: `
       <p>A stale custom price happens when a product's approved base price changes after a fixed custom price was set in a price level. Rule-based entries recalculate automatically; custom values stay fixed until you review them.</p>
@@ -1174,7 +1134,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Backing up and restoring your data',
     keywords: ['backup', 'restore', 'data', 'save', 'export data', 'database', 'protect', 'recovery'],
-    readingTimeMinutes: 45,
     relatedArticleIds: ['demo-mode', 'restoring-from-backup', 'master-data'],
     content: `
       <p>PriceRight stores working data in a local SQLite database file. Live business data uses <strong>priceright.db</strong> and demo data uses <strong>demo.db</strong> as a separate file.</p>
@@ -1202,7 +1161,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Using demo mode',
     keywords: ['demo', 'demo mode', 'sample data', 'test', 'explore', 'try', 'Savanna Foods', 'switch'],
-    readingTimeMinutes: 46,
     relatedArticleIds: ['sample-data', 'data-backup', 'welcome'],
     content: `
       <p>Demo mode switches the app to a separate sample database so you can test workflows without affecting live business data. In Settings, demo mode maps to <strong>demo.db</strong>, while live mode maps to <strong>priceright.db</strong>.</p>
@@ -1224,7 +1182,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Configuring master data',
     keywords: ['master data', 'categories', 'units', 'standard list', 'dropdown', 'configuration', 'settings'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['adding-materials', 'markup-health-guide', 'company-branding'],
     content: `
       <p>Master Data defines standard categories and units suggested when you create products and materials. Open <strong>Settings</strong> — horizontal tabs across the top let you switch between General, Pricing Engine, Currencies &amp; Rates, Master Data, and Data &amp; Backups.</p>
@@ -1248,7 +1205,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Choosing which columns to show in tables',
     keywords: ['columns', 'column selector', 'table', 'show hide', 'density', 'compact'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['active-inactive-filter', 'export-guide', 'building-product-bom'],
     content: `
       <p>The Products, Materials, and Intermediate Materials tables each have a column selector in the toolbar.</p>
@@ -1265,7 +1221,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Filtering active and inactive items',
     keywords: ['active', 'inactive', 'filter', 'hide', 'archive'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['column-selector', 'materials-analysis-tab', 'filter-chips'],
     content: `
       <p>Products, Materials, and Intermediate Materials each have an Active, Inactive, or All filter in the toolbar. By default only active items are shown.</p>
@@ -1280,7 +1235,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Moving between products and materials without closing',
     keywords: ['previous', 'next', 'navigation', 'browse', 'detail page'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['material-detail-page', 'intermediate-detail-page', 'building-product-bom'],
     content: `
       <p>On product, material, and intermediate detail pages, <strong>Previous</strong> and <strong>Next</strong> buttons let you move through the current filtered list without going back to the table. A counter shows your position — for example, <strong>3 of 47</strong>.</p>
@@ -1295,7 +1249,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Adding pack sizes to a price level',
     keywords: ['pack size', 'pack price', 'manage packs', 'bulk pack', 'case price'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['special-pricing', 'generating-price-list', 'price-levels'],
     content: `
       <p>A price level can show both unit prices and pack prices for each product.</p>
@@ -1312,7 +1265,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Setting a price level to a different currency',
     keywords: ['currency', 'exchange rate', 'foreign currency', 'price list currency', 'convert'],
-    readingTimeMinutes: 51,
     relatedArticleIds: ['price-list-currencies', 'price-levels', 'foreign-currencies'],
     content: `
       <p>When creating or editing a price level, you can choose any active currency for that price list.</p>
@@ -1333,7 +1285,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Approving prices within a price level',
     keywords: ['approve', 'pending', 'price level approval', 'export', 'status'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['generating-price-list', 'price-level-wizard', 'stale-custom-price-alerts'],
     content: `
       <p>When you add products to a price level or change pricing rules, affected items become <strong>Pending</strong>. Only approved items appear on exports.</p>
@@ -1348,7 +1299,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'Undoing a bulk approval',
     keywords: ['undo', 'bulk approve', 'reverse', 'mistake'],
-    readingTimeMinutes: 53,
     relatedArticleIds: ['bulk-approval', 'how-approval-works', 'needs-review'],
     content: `
       <p>After completing a bulk approval, a confirmation banner appears at the bottom of the screen with a <strong>Yes, Undo</strong> button.</p>
@@ -1365,7 +1315,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Adding your company name and logo',
     keywords: ['company name', 'logo', 'branding', 'dashboard', 'settings'],
-    readingTimeMinutes: 53,
     relatedArticleIds: ['master-data', 'welcome', 'generating-price-list'],
     content: `
       <p>Go to <strong>Settings</strong> and open the <strong>General</strong> tab.</p>
@@ -1384,7 +1333,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Updating exchange rates quickly',
     keywords: ['exchange rate', 'currency', 'toolbar', 'inline edit', 'foreign currency'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['foreign-currencies', 'currency-exposure', 'exchange-rate-status'],
     content: `
       <p>The current exchange rates for all your active foreign currencies are shown directly in the toolbar at the top of the Materials page.</p>
@@ -1405,7 +1353,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'How PriceRight calculates profit',
     keywords: ['markup', 'profit', 'gross margin', 'markup on cost', 'calculation', 'percentage'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['overhead-and-margin', 'markup-health-guide', 'how-approval-works'],
     content: `
       <p>PriceRight uses <strong>Markup on Cost</strong> as its profit metric — the percentage you add on top of what it costs to make a product.</p>
@@ -1426,7 +1373,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'Understanding markup health bands',
     keywords: ['healthy', 'low', 'critical', 'markup threshold', 'health bands', 'colour coding', 'green', 'amber', 'red'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['how-priceright-calculates-profit', 'markup-analysis-report', 'overhead-and-margin'],
     content: `
       <p>PriceRight colour-codes products by markup health using three bands tied to your <strong>Healthy Markup Threshold</strong> in Settings → Pricing Engine.</p>
@@ -1447,7 +1393,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Pricing and Approvals',
     title: 'Resetting a product price to pending',
     keywords: ['reset to pending', 'pending', 'remove approval', 'reprice', 'clear approved price'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['how-approval-works', 'needs-review', 'price-history-tab'],
     content: `
       <p><strong>Reset to Pending</strong> clears a product's approved price and returns it to pending status. Use it when costs have changed significantly and you want to start the approval process fresh.</p>
@@ -1464,7 +1409,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Viewing material details',
     keywords: ['material detail', 'usage', 'price history', 'material page', 'raw material'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['adding-materials', 'prev-next-navigation', 'foreign-currencies'],
     content: `
       <p>Click any material row on the Materials page to open the full <strong>Material Detail</strong> page at <strong>/materials/:id</strong>.</p>
@@ -1483,7 +1427,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Viewing intermediate material details',
     keywords: ['intermediate detail', 'BOM', 'cost history', 'intermediate material page'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['intermediate-materials', 'creation-panels', 'prev-next-navigation'],
     content: `
       <p>Click any intermediate material row to open its full detail page. Layout matches Material Detail and Product Detail — two columns with tabs on the left.</p>
@@ -1501,7 +1444,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Creating products and intermediate materials',
     keywords: ['create product', 'create intermediate', 'overlay panel', 'floating panel', 'two panel'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['building-product-bom', 'intermediate-materials', 'how-approval-works'],
     content: `
       <p>Products and intermediate materials are created in a floating overlay panel — the list stays visible but dimmed behind it.</p>
@@ -1516,7 +1458,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Navigating Reports and Analysis',
     keywords: ['reports navigation', 'tab bar', 'pills', 'pricing reports', 'products reports', 'materials reports', 'auto generate'],
-    readingTimeMinutes: 5,
     relatedArticleIds: ['pricing-status-report', 'materials-analysis-tab', 'pricing-analysis-page'],
     content: `
       <p><strong>Reports and Analysis</strong> is organised into three groups via tabs at the top: <strong>Pricing</strong>, <strong>Products</strong>, and <strong>Materials</strong>.</p>
@@ -1535,7 +1476,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Using filter chips',
     keywords: ['filter chips', 'active filters', 'clear filters', 'filter indicator'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['active-inactive-filter', 'reports-navigation', 'activity-log'],
     content: `
       <p>When any filter is active, small pill-shaped <strong>filter chips</strong> appear below the toolbar — for example "Status: Approved" or "Search: soap".</p>
@@ -1550,7 +1490,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Monitoring exchange rate status',
     keywords: ['exchange rate status', 'currency rates', 'stale rates', 'rate update'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['foreign-currencies', 'inline-exchange-rate', 'currency-exposure'],
     content: `
       <p>The <strong>Exchange Rate Status</strong> widget on the Dashboard shows how recently your exchange rates were updated.</p>
@@ -1565,7 +1504,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Cost change warnings on price lists',
     keywords: ['cost changed', 'needs review', 'warning badge', 'material cost change', 'price level warning'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['needs-review', 'price-level-approval', 'how-approval-works'],
     content: `
       <p>An amber <strong>Cost changed</strong> badge appears on price level rows when raw material costs have changed since the product's base price was approved.</p>
@@ -1580,7 +1518,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Using the Markup Analysis report',
     keywords: ['markup analysis', 'below target', 'above target', 'target gap', 'markup threshold', 'custom range'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['low-margin-report', 'markup-health-guide', 'how-priceright-calculates-profit'],
     content: `
       <p>Open <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The threshold input defaults to your Healthy Markup Threshold from Settings but can be changed for this session.</p>
@@ -1597,7 +1534,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Product Pricing Overview report',
     keywords: ['pricing overview', 'approval status', 'margin health', 'combined report', 'pricing status'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['pricing-analysis-page', 'pricing-status-report', 'markup-health-guide'],
     content: `
       <p>Find this report at <strong>Reports and Analysis → Products tab → Pricing Overview</strong> pill. It combines approval status and markup health in one view.</p>
@@ -1612,7 +1548,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Price Lists and Exports',
     title: 'Exporting and printing your data',
     keywords: ['export', 'CSV', 'Excel', 'PDF', 'print', 'export guide', 'download'],
-    readingTimeMinutes: 4,
     relatedArticleIds: ['generating-price-list', 'column-selector', 'price-list-currencies'],
     content: `
       <p>Most data pages have a standard export toolbar: <strong>Export CSV</strong>, <strong>Export Excel</strong>, and <strong>Print</strong>. Price Levels and Reports also include <strong>Export PDF</strong>.</p>
@@ -1629,7 +1564,6 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Using the Help Centre',
     keywords: ['help', 'help centre', 'articles', 'search', 'browse', 'documentation'],
-    readingTimeMinutes: 3,
     relatedArticleIds: ['welcome', 'first-setup', 'filter-chips'],
     content: `
       <p>Open <strong>Help</strong> from the sidebar to reach the Help Centre.</p>

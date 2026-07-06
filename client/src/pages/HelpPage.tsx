@@ -135,8 +135,8 @@ export default function HelpPage() {
   const setupSteps = useMemo(() => {
     return WHERE_TO_START_STEPS.map((step) => {
       const article = helpArticles.find((entry) => entry.id === step.id);
-      return article ? { ...step, article } : null;
-    }).filter((item): item is typeof WHERE_TO_START_STEPS[number] & { article: HelpArticle } => item !== null);
+      return article ? step : null;
+    }).filter((item): item is typeof WHERE_TO_START_STEPS[number] => item !== null);
   }, []);
 
   const openHome = useCallback(() => {
@@ -284,7 +284,7 @@ export default function HelpPage() {
               <section className="help-centre__setup">
                 <h2 className="help-centre__setup-heading">Where to start</h2>
                 <div className="help-centre__setup-grid">
-                  {setupSteps.map(({ step, id, title, description, icon: StepIcon, article }) => (
+                  {setupSteps.map(({ step, id, title, description, icon: StepIcon }) => (
                     <button
                       key={id}
                       type="button"
@@ -296,7 +296,6 @@ export default function HelpPage() {
                       <div className="help-centre__setup-title">{title}</div>
                       <div className="help-centre__setup-description">{description}</div>
                       <div className="help-centre__setup-link">Read article →</div>
-                      <span className="help-centre__setup-meta">{article.readingTimeMinutes} min read</span>
                     </button>
                   ))}
                 </div>
@@ -350,7 +349,6 @@ export default function HelpPage() {
                     <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
                     <div className="help-centre__article-card-meta">
                       <span className="help-centre__badge">{article.section}</span>
-                      <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
                     </div>
                   </button>
                 ))}
@@ -375,9 +373,6 @@ export default function HelpPage() {
                   >
                     <div className="help-centre__article-card-title">{article.title}</div>
                     <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
-                    <div className="help-centre__article-card-meta">
-                      <span className="help-centre__reading-time">{article.readingTimeMinutes} min read</span>
-                    </div>
                   </button>
                 ))}
               </div>
@@ -393,9 +388,6 @@ export default function HelpPage() {
                 {backLabel}
               </button>
               <h2 className="help-centre__article-heading">{selectedArticle.title}</h2>
-              <div className="help-centre__reading-time help-centre__reading-time--article">
-                {selectedArticle.readingTimeMinutes} min read
-              </div>
               <div
                 className="help-article-body help-centre__article-body"
                 dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
@@ -418,7 +410,6 @@ export default function HelpPage() {
                         }
                       >
                         <div className="help-centre__related-card-title">{article.title}</div>
-                        <div className="help-centre__reading-time">{article.readingTimeMinutes} min read</div>
                       </button>
                     ))}
                   </div>
