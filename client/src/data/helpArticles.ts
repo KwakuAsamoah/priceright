@@ -973,7 +973,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['markup analysis', 'below target', 'markup threshold', 'profitability', 'target gap'],
     relatedArticleIds: ['markup-analysis-report', 'how-priceright-calculates-profit', 'pricing-status-report'],
     content: `
-      <p>The <strong>Markup Analysis</strong> report replaces the old Low Margin report. Find it in <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The report runs automatically when you open it.</p>
+      <p>The <strong>Markup Analysis</strong> report is in <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The report runs automatically when you open it.</p>
 
       <p>Set a <strong>threshold</strong> at the top — it defaults to your Healthy Markup Threshold from Settings. Filter by All, Above target, Below target, or a Custom markup range. Active filters appear as removable chips above the results.</p>
 
@@ -991,8 +991,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>The Currency Exposure report shows how your active materials are spread across purchase currencies. This helps you see which currencies your material catalogue depends on.</p>
 
-      <p>Go to Reports and select Currency Exposure Report, then click
-      Generate Report.</p>
+      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Materials</strong> tab, and select <strong>Currency Exposure</strong> from the dropdown. Reports generate automatically when you select them — no button needed.</p>
 
       <p>The report shows each currency with a count of materials purchased in that currency.
       Expand any currency row to see the individual materials.</p>
@@ -1009,7 +1008,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>The Price List Summary report shows all your price levels and whether each list is still valid or coming up for renewal.</p>
 
-      <p>Go to <strong>Reports</strong>, select <strong>Price List Summary</strong>, then click <strong>Generate Report</strong>.</p>
+      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Pricing</strong> tab, and click the <strong>Price List Summary</strong> pill. The report generates automatically when selected.</p>
 
       <p>Summary cards show:</p>
       <ul>
@@ -1104,7 +1103,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p><strong>Keep current price</strong> lets you re-approve a product at its existing <strong>Approved base price</strong> after costs change. Use it when you need to hold market price while still clearing <strong>Needs review</strong>.</p>
 
-      <p>Use this option when cost movement is temporary, customer commitments require stable pricing, or competitive pressure makes an immediate increase risky. Before confirming, review the updated margin to ensure the result is acceptable.</p>
+      <p>Use this option when cost movement is temporary, customer commitments require stable pricing, or competitive pressure makes an immediate increase risky. Before confirming, review the updated markup to ensure the result is acceptable.</p>
 
       <p>When a product is in <strong>Needs review</strong>, open its product detail page from the <strong>Products</strong> list. Compare current approved value, updated <strong>Production cost</strong>, and new <strong>Optimal price</strong>, then select <strong>Keep current price</strong>.</p>
 
