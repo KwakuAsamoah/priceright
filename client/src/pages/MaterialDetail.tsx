@@ -133,6 +133,61 @@ function isProductUsageEntry(entry: MaterialUsageProductEntry) {
   return !entry.productName.startsWith('Intermediate:');
 }
 
+function DetailLoadingSkeleton() {
+  const line = (width: string, height = 16) => (
+    <div
+      className="detail-skeleton-block"
+      style={{ width, height, marginBottom: height === 16 ? 10 : 0 }}
+    />
+  );
+
+  return (
+    <div className="app-page">
+      <style>{`
+        .detail-skeleton-block {
+          background: #E2E8F0;
+          border-radius: 6px;
+          animation: detailSkeletonPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes detailSkeletonPulse {
+          0% { opacity: 0.55; }
+          50% { opacity: 1; }
+          100% { opacity: 0.55; }
+        }
+      `}</style>
+      <div className="app-page-header">
+        <div className="detail-skeleton-block" style={{ width: '120px', height: 16 }} />
+      </div>
+      <div style={{ padding: '0 24px 24px', display: 'flex', gap: '20px', minHeight: 0 }}>
+        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="app-card" style={{ padding: '16px' }}>
+            {line('55%')}
+            {line('40%')}
+            {line('70%')}
+            {line('35%')}
+          </div>
+          <div className="app-card" style={{ padding: '16px', minHeight: '220px' }}>
+            {line('30%')}
+            {line('100%', 12)}
+            {line('90%', 12)}
+            {line('75%', 12)}
+          </div>
+        </div>
+        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="app-card" style={{ padding: '16px' }}>
+            <div className="detail-skeleton-block" style={{ width: '45%', height: 16, marginBottom: 16 }} />
+            <div className="detail-skeleton-block" style={{ width: '100%', height: 100 }} />
+          </div>
+          <div className="app-card" style={{ padding: '16px' }}>
+            <div className="detail-skeleton-block" style={{ width: '40%', height: 16, marginBottom: 16 }} />
+            <div className="detail-skeleton-block" style={{ width: '100%', height: 100 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatUsageQuantity(quantity: number | null | undefined, unit: string): string {
   if (quantity == null || quantity === 0) {
     return '—';
@@ -528,20 +583,7 @@ export default function MaterialDetail() {
   }
 
   if (loading) {
-    return (
-      <div className="app-page">
-        <div className="app-page-header">
-          <button
-            type="button"
-            onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-          >
-            <ArrowLeft size={14} strokeWidth={2} /> Materials
-          </button>
-        </div>
-        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading...</div>
-      </div>
-    );
+    return <DetailLoadingSkeleton />;
   }
 
   if (error || !material) {
@@ -968,7 +1010,7 @@ export default function MaterialDetail() {
               </div>
               <div className="app-modal-actions" style={{ marginTop: '24px' }}>
                 <button className="btn btn-secondary" type="button" onClick={() => setShowEditModal(false)} disabled={saving}>Cancel</button>
-                <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Update Material'}</button>
+                <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
           </div>

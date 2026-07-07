@@ -16,7 +16,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
+import AppToast from '../components/AppToast';
 import PageHelpButton from '../components/PageHelpButton';
+import useAppToast from '../hooks/useAppToast';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
@@ -816,6 +818,7 @@ export default function Reports() {
   const [searchParams] = useSearchParams();
   const { baseCurrency } = useBaseCurrency();
   const lowMarkupThreshold = useLowMarkupThreshold();
+  const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const formatCurrency = (value: number) => {
     const absValue = Math.abs(value);
     const text = formatCurrencyAmount(absValue, baseCurrency);
@@ -940,6 +943,7 @@ export default function Reports() {
       } catch {
         if (!cancelled) {
           setAvailableCategories([]);
+          showToastMessage('Unable to load report data. Please try again.', 'error');
         }
       }
     }
@@ -1787,10 +1791,11 @@ export default function Reports() {
       }
 
       setGeneratedAt(new Date());
-    } catch (err: any) {
-      setError(err?.message || 'Failed to generate report');
+    } catch {
+      setError('Unable to load report data. Please try again.');
       setReportData(null);
       setGeneratedAt(null);
+      showToastMessage('Unable to load report data. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -3878,6 +3883,7 @@ export default function Reports() {
 
   return (
     <div className="app-page">
+      {showToast && <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />}
       <div className="app-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: 0 }}>
         <h1 className="app-page-title">Reports & Analysis</h1>

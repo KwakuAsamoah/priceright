@@ -364,6 +364,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       console.error('Error loading data:', error);
       setMaterials([]);
       setCurrencies([]);
+      showToastMessage('Unable to load materials. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -1980,20 +1981,20 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
               <div className="app-modal-actions" style={{ marginTop: '24px' }}>
                 <button
-                  className="btn btn-danger-solid"
+                  className="btn btn-secondary"
                   type="button"
                   onClick={() => {
                     setShowAddModal(false);
                     setEditingMaterial(null);
                   }}
                 >
-                  Close
+                  Cancel
                 </button>
                 <button
                   className="btn btn-primary"
                   type="submit"
                 >
-                  {editingMaterial ? 'Update Material' : 'Add Material'}
+                  {editingMaterial ? 'Save' : 'Add Material'}
                 </button>
               </div>
             </form>
@@ -2467,10 +2468,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-danger-solid"
+                className="btn btn-secondary"
                 onClick={() => setShowDeleteModal(false)}
               >
-                Close
+                Cancel
               </button>
               <button
                 className="btn btn-danger-solid"
@@ -2537,21 +2538,21 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
             <div className="app-modal-actions">
               <button
-                className="btn btn-danger-solid"
+                className="btn btn-secondary"
                 onClick={() => {
                   setShowCategoryModal(false);
                   setBulkCategoryValue('');
                   setBulkCustomCategoryValue('');
                 }}
               >
-                Close
+                Cancel
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleBulkCategoryChange}
                 disabled={!normalizeChoiceValue(bulkCategoryValue, bulkCustomCategoryValue)}
               >
-                Apply
+                Save
               </button>
             </div>
           </div>
