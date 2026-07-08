@@ -18,6 +18,7 @@ import {
 import AppBadge from '../components/AppBadge';
 import AppToast from '../components/AppToast';
 import PageHelpButton from '../components/PageHelpButton';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import useAppToast from '../hooks/useAppToast';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
@@ -3904,7 +3905,9 @@ export default function Reports() {
 
           {!isLoading && !error && shouldShowReportBody && (
             <div style={{ zoom: `${zoomPercent}%` }}>
-              {renderReportBody()}
+              <ErrorBoundary key={selectedReport}>
+                {renderReportBody()}
+              </ErrorBoundary>
             </div>
           )}
         </div>

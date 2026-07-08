@@ -23,6 +23,7 @@ import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import TableZoomControl from '../components/TableZoomControl';
 import { getThresholdMarkupColor } from '../utils/margin';
+import { safeRender } from '../utils/render';
 
 const PAGE_SIZE = 50;
 
@@ -196,7 +197,9 @@ function getActivityDescription(
   markupIsHistoricalGrossMargin?: boolean;
 } {
   const details = (entry.details || {}) as Record<string, unknown>;
-  const entityName = entry.entityName || details.productName || details.materialName || details.levelName || details.currencyCode || 'Item';
+  const entityName = safeRender(
+    entry.entityName ?? details.productName ?? details.materialName ?? details.levelName ?? details.currencyCode ?? 'Item',
+  ) || 'Item';
 
   switch (entry.action) {
     case 'product.approved': {
@@ -221,7 +224,7 @@ function getActivityDescription(
       };
     }
     case 'product.reset_to_pending': {
-      const reason = details.reason ? `Reason: ${String(details.reason)}` : undefined;
+      const reason = details.reason ? `Reason: ${safeRender(details.reason)}` : undefined;
       return {
         title: 'Price reset to pending',
         subline: reason,
@@ -230,7 +233,7 @@ function getActivityDescription(
     case 'product.rejected':
       return {
         title: 'Historical price rejection',
-        subline: entityName !== 'Item' ? String(entityName) : undefined,
+        subline: entityName !== 'Item' ? entityName : undefined,
       };
     case 'product.needs_review':
       return {
@@ -248,29 +251,29 @@ function getActivityDescription(
       };
     case 'exchange_rate.updated':
       return {
-        title: `${String(details.currencyCode || entityName)} exchange rate updated`,
+        title: `${safeRender(details.currencyCode || entityName)} exchange rate updated`,
         subline: `${toNumberString(details.oldRate, 4)} -> ${toNumberString(details.newRate, 4)} ${currencyCode} | ${toNumberString(details.productsAffected, 0)} products affected`,
       };
     case 'price_level.created':
       return {
-        title: `Price level '${String(details.levelName || entityName)}' created`,
+        title: `Price level '${safeRender(details.levelName || entityName)}' created`,
       };
     case 'price_level.deleted':
       return {
-        title: `Price level '${String(details.levelName || entityName)}' deleted`,
+        title: `Price level '${safeRender(details.levelName || entityName)}' deleted`,
       };
     case 'price_level_item.approved':
       return {
-        title: `${String(details.productName || entityName)} price approved in ${String(details.levelName || 'Price level')}`,
+        title: `${safeRender(details.productName || entityName)} price approved in ${safeRender(details.levelName || 'Price level')}`,
         subline: `${formatOverrideType(details.overrideType, details.value, currencyCode)} - ${currencyCode} ${toMoney(details.finalPrice)}`,
       };
     case 'price_level_item.bulk_approved':
       return {
-        title: `${toNumberString(details.count, 0)} prices approved in ${String(details.levelName || entityName || 'Price level')}`,
+        title: `${toNumberString(details.count, 0)} prices approved in ${safeRender(details.levelName || entityName || 'Price level')}`,
       };
     default:
       return {
-        title: entry.action,
+        title: safeRender(entry.action),
       };
   }
 }
@@ -683,7 +686,7 @@ export default function Activity() {
 
                         <div style={{ textAlign: 'right', minWidth: '140px' }}>
                           <div title={absoluteTime} style={{ fontSize: '14px', color: '#334155' }}>{relativeTime}</div>
-                          <div style={{ marginTop: '2px', fontSize: '14px', color: '#94a3b8' }}>{entry.userName || entry.performedBy || currentUserName || 'Admin'}</div>
+                          <div style={{ marginTop: '2px', fontSize: '14px', color: '#94a3b8' }}>{safeRender(entry.userName || entry.performedBy || currentUserName || 'Admin')}</div>
                         </div>
                       </div>
                     );

@@ -24,6 +24,12 @@ import PageHelpButton from '../components/PageHelpButton';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
+import { TabErrorBoundary } from '../components/ErrorBoundary';
+import {
+  formatUsageQuantity,
+  isUsageObject,
+  safeRender,
+} from '../utils/render';
 
 interface MaterialRecord {
   id: number;
@@ -51,11 +57,20 @@ interface MaterialUsageProductEntry {
   unit: string;
 }
 
+type MaterialUsageListItem = string | MaterialUsageProductEntry;
+
 interface MaterialUsageRecord {
   materialId: number;
   materialName: string;
   productCount: number;
-  products: MaterialUsageProductEntry[];
+  products: MaterialUsageListItem[];
+}
+
+interface NormalizedUsageEntry {
+  key: string;
+  label: string;
+  quantityLabel: string | null;
+  productId: number | null;
 }
 
 interface PriceHistoryEntry {
@@ -129,8 +144,32 @@ function formatDetailDate(value: string | number | null | undefined): string {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function isProductUsageEntry(entry: MaterialUsageProductEntry) {
-  return !entry.productName.startsWith('Intermediate:');
+function normalizeUsageEntry(item: MaterialUsageListItem, index: number): NormalizedUsageEntry | null {
+  if (typeof item === 'string') {
+    return {
+      key: `usage-string-${index}-${item}`,
+      label: item,
+      quantityLabel: null,
+      productId: null,
+    };
+  }
+  if (isUsageObject(item)) {
+    if (item.productName.startsWith('Intermediate:')) {
+      return null;
+    }
+    return {
+      key: String(item.productId),
+      label: item.productName,
+      quantityLabel: formatUsageQuantity(item.quantity, item.unit),
+      productId: item.productId,
+    };
+  }
+  return {
+    key: `usage-unknown-${index}`,
+    label: safeRender(item),
+    quantityLabel: null,
+    productId: null,
+  };
 }
 
 function DetailLoadingSkeleton() {
@@ -186,14 +225,6 @@ function DetailLoadingSkeleton() {
       </div>
     </div>
   );
-}
-
-function formatUsageQuantity(quantity: number | null | undefined, unit: string): string {
-  if (quantity == null || quantity === 0) {
-    return '—';
-  }
-  const qtyLabel = quantity % 1 === 0 ? quantity.toString() : quantity.toFixed(3);
-  return unit ? `${qtyLabel} ${unit}` : qtyLabel;
 }
 
 export default function MaterialDetail() {
@@ -356,7 +387,9 @@ export default function MaterialDetail() {
 
   const productUsageEntries = useMemo(() => {
     const entries = usageRecord?.products || [];
-    return entries.filter(isProductUsageEntry);
+    return entries
+      .map((item, index) => normalizeUsageEntry(item, index))
+      .filter((entry): entry is NormalizedUsageEntry => entry !== null);
   }, [usageRecord]);
 
   const exchangeRate = useMemo(() => {
@@ -767,66 +800,73 @@ export default function MaterialDetail() {
 
             <div style={{ padding: '16px' }}>
               {activeTab === 'usage' && (
-                <>
-                  <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <BarChart2 size={15} />
-                    Used in {productUsageEntries.length} product{productUsageEntries.length !== 1 ? 's' : ''}
-                  </div>
-                  {usageLoading ? (
-                    <div style={{ color: '#64748b', fontSize: '14px' }}>Loading usage...</div>
-                  ) : productUsageEntries.length === 0 ? (
-                    <div style={{ color: '#64748b', fontSize: '14px', padding: '12px 0' }}>
-                      This material is not used in any active product BOMs
+                <TabErrorBoundary>
+                  <>
+                    <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <BarChart2 size={15} />
+                      Used in {productUsageEntries.length} product{productUsageEntries.length !== 1 ? 's' : ''}
                     </div>
-                  ) : (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                        <thead>
-                          <tr style={{ backgroundColor: '#e2e8f0' }}>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Product</th>
-                            <th style={{ padding: '8px', textAlign: 'right' }}>Quantity Used</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {productUsageEntries.map((usage) => (
-                            <tr key={usage.productId} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '8px', textAlign: 'left' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => navigate(`/products/${usage.productId}`)}
-                                  style={{
-                                    border: 'none',
-                                    background: 'transparent',
-                                    padding: 0,
-                                    color: '#16A34A',
-                                    cursor: 'pointer',
-                                    fontWeight: 600,
-                                    fontSize: '14px',
-                                    textAlign: 'left',
-                                  }}
-                                  onMouseEnter={(event) => {
-                                    event.currentTarget.style.textDecoration = 'underline';
-                                  }}
-                                  onMouseLeave={(event) => {
-                                    event.currentTarget.style.textDecoration = 'none';
-                                  }}
-                                >
-                                  {usage.productName}
-                                </button>
-                              </td>
-                              <td style={{ padding: '8px', textAlign: 'right', color: '#64748b' }}>
-                                {formatUsageQuantity(usage.quantity, usage.unit)}
-                              </td>
+                    {usageLoading ? (
+                      <div style={{ color: '#64748b', fontSize: '14px' }}>Loading usage...</div>
+                    ) : productUsageEntries.length === 0 ? (
+                      <div style={{ color: '#64748b', fontSize: '14px', padding: '12px 0' }}>
+                        This material is not used in any active product BOMs
+                      </div>
+                    ) : (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#e2e8f0' }}>
+                              <th style={{ padding: '8px', textAlign: 'left' }}>Product</th>
+                              <th style={{ padding: '8px', textAlign: 'right' }}>Quantity Used</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </>
+                          </thead>
+                          <tbody>
+                            {productUsageEntries.map((usage) => (
+                              <tr key={usage.key} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                <td style={{ padding: '8px', textAlign: 'left' }}>
+                                  {usage.productId != null ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate(`/products/${usage.productId}`)}
+                                      style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        padding: 0,
+                                        color: '#16A34A',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        fontSize: '14px',
+                                        textAlign: 'left',
+                                      }}
+                                      onMouseEnter={(event) => {
+                                        event.currentTarget.style.textDecoration = 'underline';
+                                      }}
+                                      onMouseLeave={(event) => {
+                                        event.currentTarget.style.textDecoration = 'none';
+                                      }}
+                                    >
+                                      {usage.label}
+                                    </button>
+                                  ) : (
+                                    <span style={{ fontWeight: 600, fontSize: '14px', color: '#0F2847' }}>{usage.label}</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '8px', textAlign: 'right', color: '#64748b' }}>
+                                  {usage.quantityLabel ?? '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                </TabErrorBoundary>
               )}
 
               {activeTab === 'history' && (
+                <TabErrorBoundary>
                 <>
                   {historyLoading ? (
                     <div style={{ color: '#64748b', fontSize: '14px' }}>Loading price history...</div>
@@ -880,6 +920,7 @@ export default function MaterialDetail() {
                     </div>
                   )}
                 </>
+                </TabErrorBoundary>
               )}
             </div>
           </div>

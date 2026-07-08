@@ -26,6 +26,12 @@ import {
   MATERIALS_COLUMNS,
   type MaterialColumnKey,
 } from '../config/materialsColumns';
+import {
+  formatUsageQuantity,
+  getUsageProductKey,
+  getUsageProductLabel,
+  isUsageObject,
+} from '../utils/render';
 
 interface Material {
   id: number;
@@ -74,11 +80,18 @@ interface ExchangeRateUpdateResponse {
   recalculationFailed?: boolean;
 }
 
+interface MaterialUsageProductEntry {
+  productId: number;
+  productName: string;
+  quantity: number;
+  unit: string;
+}
+
 interface MaterialUsage {
   materialId: number;
   materialName: string;
   productCount: number;
-  products: string[];
+  products: Array<string | MaterialUsageProductEntry>;
 }
 
 interface UsageCheckResult {
@@ -2345,19 +2358,30 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                   Used in {selectedMaterialUsage.productCount} product{selectedMaterialUsage.productCount !== 1 ? 's' : ''}
                 </div>
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '260px', overflowY: 'auto' }}>
-                  {selectedMaterialUsage.products.map((productName, index) => (
-                    <div
-                      key={`${selectedMaterialUsage.materialId}-${productName}-${index}`}
-                      style={{
-                        padding: '10px 12px',
-                        borderBottom: index === selectedMaterialUsage.products.length - 1 ? 'none' : '1px solid #f1f5f9',
-                        fontSize: '16px',
-                        color: '#0F2847',
-                      }}
-                    >
-                      {productName}
-                    </div>
-                  ))}
+                  {selectedMaterialUsage.products.map((product, index) => {
+                    const productLabel = getUsageProductLabel(product);
+                    const quantityLabel = isUsageObject(product)
+                      ? formatUsageQuantity(product.quantity, product.unit)
+                      : null;
+                    return (
+                      <div
+                        key={getUsageProductKey(product, index, selectedMaterialUsage.materialId)}
+                        style={{
+                          padding: '10px 12px',
+                          borderBottom: index === selectedMaterialUsage.products.length - 1 ? 'none' : '1px solid #f1f5f9',
+                          fontSize: '16px',
+                          color: '#0F2847',
+                        }}
+                      >
+                        <div>{productLabel}</div>
+                        {quantityLabel ? (
+                          <div style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>
+                            {quantityLabel}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -2446,8 +2470,11 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                       <strong>{item.materialName}</strong>
                       <div style={{ fontSize: '14px', marginLeft: '8px', marginTop: '4px' }}>
                         Used in {item.productCount} product{item.productCount !== 1 ? 's' : ''}:
-                        {item.products.slice(0, 3).map((p, idx) => (
-                          <div key={idx}>• {p}</div>
+                        {item.products.slice(0, 3).map((product, idx) => (
+                          <div key={getUsageProductKey(product, idx, item.materialId)}>
+                            • {getUsageProductLabel(product)}
+                            {isUsageObject(product) ? ` (${formatUsageQuantity(product.quantity, product.unit)})` : ''}
+                          </div>
                         ))}
                         {item.products.length > 3 && <div>+ {item.products.length - 3} more</div>}
                       </div>

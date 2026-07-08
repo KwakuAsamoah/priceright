@@ -28,6 +28,8 @@ import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { formatCurrency } from '../utils/currency';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import MarkupHealthPopover from '../components/MarkupHealthPopover';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { safeRender } from '../utils/render';
 
 type ProductApprovalStatus = 'pending' | 'approved' | 'needs_review';
 type BannerTone = 'success' | 'error';
@@ -836,6 +838,7 @@ export default function Dashboard() {
         </div>
 
         <div className="dashboard-chart-grid">
+          <ErrorBoundary>
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>Below Markup Target</h3>
@@ -877,7 +880,7 @@ export default function Dashboard() {
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '3px', gap: '8px' }}>
-                        <span className="dashboard-chart-label" style={{ color: '#475569' }}>{product.name}</span>
+                        <span className="dashboard-chart-label" style={{ color: '#475569' }}>{safeRender(product.name)}</span>
                         <span className="dashboard-number-sm" style={{ color: markupColor }}>{actualMarkup.toFixed(1)}% markup</span>
                       </div>
                       <div
@@ -888,7 +891,7 @@ export default function Dashboard() {
                           marginBottom: '4px',
                         }}
                       >
-                        {referencePriceLabel}: {formatCurrency(referencePrice, baseCurrency)} · Cost: {formatCurrency(productionCost, baseCurrency)}
+                        {safeRender(referencePriceLabel)}: {formatCurrency(referencePrice, baseCurrency)} · Cost: {formatCurrency(productionCost, baseCurrency)}
                       </div>
                       <div style={{ height: '8px', borderRadius: '999px', backgroundColor: '#fee2e2' }}>
                         <div style={{ width: `${widthPercent}%`, height: '8px', borderRadius: '999px', backgroundColor: markupColor }} />
@@ -906,6 +909,7 @@ export default function Dashboard() {
               View Markup Analysis →
             </button>
           </div>
+          </ErrorBoundary>
 
           <div className="app-card dashboard-chart-card" style={{ padding: '18px' }}>
             <div className="dashboard-widget-head">
@@ -1054,6 +1058,7 @@ export default function Dashboard() {
               </div>
             </div>
 
+            <ErrorBoundary>
             <div className="app-card" style={{ padding: '20px' }}>
               <div className="dashboard-widget-head">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1063,7 +1068,7 @@ export default function Dashboard() {
               </div>
               <p className="dashboard-help-text">Shows how recently your exchange rates were updated in Settings.</p>
               <div style={{ display: 'grid', gap: '8px', fontSize: '15px', color: '#334155' }}>
-                <div>{staleRateSummary.latestLabel}</div>
+                <div>{safeRender(staleRateSummary.latestLabel)}</div>
                 <div>
                   {staleRateSummary.staleCount === 0
                     ? 'All exchange rates up to date'
@@ -1072,6 +1077,7 @@ export default function Dashboard() {
                 <div>Oldest exchange rate update: <span className="dashboard-number-xs">{staleRateSummary.oldestAgeDays}</span> day{staleRateSummary.oldestAgeDays === 1 ? '' : 's'} ago</div>
               </div>
             </div>
+            </ErrorBoundary>
 
             <div className="app-card" style={{ padding: '20px' }}>
               <div className="dashboard-widget-head">

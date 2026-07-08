@@ -20,6 +20,7 @@ import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
+import { TabErrorBoundary } from '../components/ErrorBoundary';
 
 interface IntermediateDetailLocationState {
   from?: string;
@@ -643,6 +644,7 @@ export default function IntermediateDetail() {
 
             <div style={{ padding: '16px' }}>
               {activeTab === 'bom' && (
+                <TabErrorBoundary>
                 <>
                   {bomItems.length === 0 ? (
                     <div style={{ color: '#64748b', fontSize: '14px', padding: '12px 0' }}>
@@ -679,9 +681,11 @@ export default function IntermediateDetail() {
                     </div>
                   )}
                 </>
+                </TabErrorBoundary>
               )}
 
               {activeTab === 'history' && (
+                <TabErrorBoundary>
                 <>
                   {historyLoading ? (
                     <div style={{ color: '#64748b', fontSize: '14px' }}>Loading cost history...</div>
@@ -735,6 +739,7 @@ export default function IntermediateDetail() {
                     </div>
                   )}
                 </>
+                </TabErrorBoundary>
               )}
             </div>
           </div>

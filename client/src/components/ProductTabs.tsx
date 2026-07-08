@@ -5,6 +5,8 @@ import { activityLogApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { getThresholdMarkupColor } from '../utils/margin';
+import { safeRender } from '../utils/render';
+import { TabErrorBoundary } from './ErrorBoundary';
 interface Product {
   id: number;
   name: string;
@@ -82,11 +84,11 @@ function describeProductActivity(action: string, details: Record<string, unknown
       : 'Approved product base price';
   }
   if (action === 'product.reset_to_pending') {
-    const reason = data.reason ? ` - ${String(data.reason)}` : '';
+    const reason = data.reason ? ` - ${safeRender(data.reason)}` : '';
     return `Price reset to pending${reason}`;
   }
   if (action === 'product.rejected') {
-    const reason = data.reason ? ` - ${String(data.reason)}` : '';
+    const reason = data.reason ? ` - ${safeRender(data.reason)}` : '';
     return `Rejected product price${reason}`;
   }
   if (action === 'product.needs_review') {
@@ -198,6 +200,7 @@ export default function ProductTabs({
       {/* Tab Content */}
       <div style={{ backgroundColor: 'white' }}>
         {activeTab === 'bom' && (
+          <TabErrorBoundary>
           <div style={{ padding: '16px' }}>
             <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
               Bill of Materials {product.productionMode === 'batch' ? `(per unit from batch of ${product.batchYield || 1})` : ''}
@@ -246,9 +249,11 @@ export default function ProductTabs({
               </Fragment>
             )}
           </div>
+          </TabErrorBoundary>
         )}
 
         {activeTab === 'history' && (
+          <TabErrorBoundary>
           <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
               <button
@@ -309,7 +314,7 @@ export default function ProductTabs({
                             {describeProductActivity(entry.action, entry.details, baseCurrency)}
                           </div>
                           <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'right' }}>
-                            {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${entry.performedBy}` : ''}
+                            {formatRelativeTime(entry.createdAt)}{entry.performedBy ? ` by ${safeRender(entry.performedBy)}` : ''}
                           </div>
                         </div>
                       );
@@ -398,7 +403,7 @@ export default function ProductTabs({
                               ) : '—'}
                             </td>
                             <td style={{ padding: '8px', textAlign: 'left', color: '#475569' }}>
-                              {entry.performedBy ?? '—'}
+                              {entry.performedBy ? safeRender(entry.performedBy) : '—'}
                             </td>
                           </tr>
                         </Fragment>
@@ -412,6 +417,7 @@ export default function ProductTabs({
               </Fragment>
             )}
           </div>
+          </TabErrorBoundary>
         )}
       </div>
     </div>

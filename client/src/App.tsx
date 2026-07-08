@@ -18,6 +18,7 @@ import Reports from './pages/Reports';
 import Activity from './pages/Activity';
 import HelpPage from './pages/HelpPage';
 import UndoBanner from './components/UndoBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { UndoActionProvider } from './hooks/useUndoAction';
 import { WelcomeModal } from './components/WelcomeModal';
 import { OnboardingBar } from './components/OnboardingBar';
@@ -661,7 +662,49 @@ function AuthenticatedApp() {
       element: (
         <OnboardingProviderWrapper>
           <AppLayout>
-            <Outlet />
+            <ErrorBoundary
+              fallback={(
+                <div style={{
+                  minHeight: '100vh',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: '#64748b',
+                  backgroundColor: '#f8fafc',
+                }}
+                >
+                  <div>
+                    <div style={{ fontSize: '40px', marginBottom: '16px' }}>⚠️</div>
+                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#0F2847', marginBottom: '8px' }}>
+                      PriceRight encountered an error
+                    </div>
+                    <div style={{ fontSize: '15px', marginBottom: '20px' }}>
+                      Please reload the application. Your data is safe.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => window.location.reload()}
+                      style={{
+                        backgroundColor: '#16A34A',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '10px 20px',
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Reload
+                    </button>
+                  </div>
+                </div>
+              )}
+            >
+              <Outlet />
+            </ErrorBoundary>
           </AppLayout>
         </OnboardingProviderWrapper>
       ),
