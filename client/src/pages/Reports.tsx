@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   ArrowUpDown,
   ChevronDown,
+  Download,
   FileText,
   LineChart,
   Loader2,
@@ -23,9 +24,10 @@ import useAppToast from '../hooks/useAppToast';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
-import { exportInChunks, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
+import { exportInChunks, exportToCsv, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
@@ -796,6 +798,7 @@ export default function Reports() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const formatCurrency = (value: number) => {
@@ -2082,6 +2085,22 @@ export default function Reports() {
     };
   }
 
+  function getCsvPayload(): { rows: ReportRow[]; columns: ColumnDef[]; filename: string } | null {
+    return getExcelPayload();
+  }
+
+  async function handleExportCsv() {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const payload = getCsvPayload();
+      if (!payload) return;
+      exportToCsv(payload.rows, payload.columns, payload.filename);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   async function handleExportExcel() {
     if (isExporting) return;
     setIsExporting(true);
@@ -2184,7 +2203,10 @@ export default function Reports() {
     }
   }
 
-  function buildReportPdfOptions(payload: { rows: ReportRow[]; columns: ColumnDef[]; filename: string }) {
+  function buildReportPdfOptions(
+    payload: { rows: ReportRow[]; columns: ColumnDef[]; filename: string },
+    company?: string,
+  ) {
     const date = new Date().toLocaleDateString('en-GB');
     return {
       title: selectedMeta?.name || 'Report',
@@ -2195,6 +2217,7 @@ export default function Reports() {
       })),
       rows: payload.rows as Record<string, unknown>[],
       landscape: true,
+      companyName: company,
       filename: payload.filename.replace(/\.csv$/i, '.pdf'),
     };
   }
@@ -2206,7 +2229,7 @@ export default function Reports() {
     }
 
     try {
-      await generateTablePDF(buildReportPdfOptions(payload));
+      await generateTablePDF(buildReportPdfOptions(payload, companyName));
     } catch (error: unknown) {
       console.error(error);
     }
@@ -2219,7 +2242,7 @@ export default function Reports() {
     }
 
     try {
-      await printTable(buildReportPdfOptions(payload));
+      await printTable(buildReportPdfOptions(payload, companyName));
     } catch (error: unknown) {
       console.error(error);
     }
@@ -2846,13 +2869,17 @@ export default function Reports() {
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
         <MarkupHealthPopover />
         <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportPDF()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <FileText size={14} />
-          Export PDF
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportCsv()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Download size={14} />
+          Export CSV
         </button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportExcel()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
           {isExporting ? 'Exporting...' : 'Export Excel'}
+        </button>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportPDF()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <FileText size={14} />
+          Export PDF
         </button>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void handlePrintReport()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Printer size={14} />

@@ -27,6 +27,7 @@ import { useDemoMode } from '../context/DemoModeContext';
 import useAppToast from '../hooks/useAppToast';
 import useTableZoom from '../hooks/useTableZoom';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import { formatCurrency } from '../utils/currency';
@@ -166,16 +167,18 @@ function buildPriceLevelPdfOptions(
   items: PriceLevelItemResponse[],
   exportCurrencyCode: string,
   useConvertedPrices: boolean,
+  companyName?: string,
 ) {
   const now = new Date();
   const safeLevelName = levelName.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
 
   return {
     title: levelName,
-    subtitle: `${levelName} · Exported ${formatDateForMeta(now)}`,
+    subtitle: `${levelName} · Export date: ${formatDateForMeta(now)}`,
     columns: [...PRICE_LEVEL_PDF_COLUMNS],
     rows: buildPriceLevelPdfRows(items, exportCurrencyCode, useConvertedPrices),
     landscape: false,
+    companyName,
     filename: `${safeLevelName || 'price-level'}-price-list-${formatDateForFilename(now)}.pdf`,
   };
 }
@@ -311,6 +314,7 @@ export default function PriceLevels() {
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { isDemoMode } = useDemoMode();
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const criticalMarkupThreshold = lowMarkupThreshold / 2;
   const formatMoney = (value: number) => formatCurrency(toNumber(value), baseCurrency);
@@ -1634,6 +1638,7 @@ export default function PriceLevels() {
           exportedItems,
           exportCurrencyCode,
           Boolean(levelCurrencyCode),
+          companyName,
         ),
       );
     } catch (error: unknown) {
@@ -1664,6 +1669,7 @@ export default function PriceLevels() {
           printableItems,
           exportCurrencyCode,
           Boolean(levelCurrencyCode),
+          companyName,
         ),
       );
     } catch (error: unknown) {

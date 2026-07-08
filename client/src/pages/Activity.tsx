@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import TableZoomControl from '../components/TableZoomControl';
@@ -57,6 +58,7 @@ function buildActivityPdfOptions(
   entries: ActivityEntry[],
   currencyCode: string,
   dateRange: string,
+  companyName?: string,
 ) {
   const date = new Date().toISOString().slice(0, 10);
   return {
@@ -65,6 +67,7 @@ function buildActivityPdfOptions(
     columns: [...ACTIVITY_PDF_COLUMNS],
     rows: buildActivityPdfRows(entries, currencyCode),
     landscape: false,
+    companyName,
     filename: `activity-log-${date}.pdf`,
   };
 }
@@ -348,6 +351,7 @@ function matchesActionFilter(entry: ActivityEntry, filter: ActionGroupFilter): b
 export default function Activity() {
   const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('activityZoomPercent');
   // Tier 2: add role-based access control here
@@ -384,7 +388,7 @@ export default function Activity() {
       : 'All dates';
 
     try {
-      await generateTablePDF(buildActivityPdfOptions(entries, baseCurrency, dateRange));
+      await generateTablePDF(buildActivityPdfOptions(entries, baseCurrency, dateRange, companyName));
     } catch (exportError: unknown) {
       setError(exportError instanceof Error ? exportError.message : 'Failed to export activity log PDF.');
     }
@@ -401,7 +405,7 @@ export default function Activity() {
       : 'All dates';
 
     try {
-      await printTable(buildActivityPdfOptions(entries, baseCurrency, dateRange));
+      await printTable(buildActivityPdfOptions(entries, baseCurrency, dateRange, companyName));
     } catch (printError: unknown) {
       setError(printError instanceof Error ? printError.message : 'Allow pop-ups to print the activity log.');
     }

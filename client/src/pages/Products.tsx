@@ -15,6 +15,7 @@ import MarkupHealthPopover from '../components/MarkupHealthPopover';
 import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
@@ -239,7 +240,7 @@ function buildProductPdfRows(products: ProductPricing[], currencyCode: string): 
   });
 }
 
-function buildProductsPdfOptions(products: ProductPricing[], currencyCode: string) {
+function buildProductsPdfOptions(products: ProductPricing[], currencyCode: string, companyName?: string) {
   const date = new Date().toISOString().slice(0, 10);
   return {
     title: 'Products',
@@ -247,6 +248,7 @@ function buildProductsPdfOptions(products: ProductPricing[], currencyCode: strin
     columns: [...PRODUCT_PDF_COLUMNS],
     rows: buildProductPdfRows(products, currencyCode),
     landscape: true,
+    companyName,
     filename: `products-${date}.pdf`,
   };
 }
@@ -395,6 +397,7 @@ function parseCsvText(text: string) {
 
 export default function Products() {
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const location = useLocation();
   const navigate = useNavigate();
@@ -1509,7 +1512,7 @@ export default function Products() {
     }
 
     try {
-      await generateTablePDF(buildProductsPdfOptions(filteredProducts, baseCurrency));
+      await generateTablePDF(buildProductsPdfOptions(filteredProducts, baseCurrency, companyName));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
     }
@@ -1522,7 +1525,7 @@ export default function Products() {
     }
 
     try {
-      await printTable(buildProductsPdfOptions(filteredProducts, baseCurrency));
+      await printTable(buildProductsPdfOptions(filteredProducts, baseCurrency, companyName));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the products list.', 'error');
     }

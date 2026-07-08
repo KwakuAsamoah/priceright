@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Printer, Search } from 'lucide-react';
-import { generateArticlePDF, slugifyFilename } from '../utils/exportPrint';
+import { generateArticlePDF } from '../utils/exportPrint';
+import useCompanyName from '../hooks/useCompanyName';
 import { useSearchParams } from 'react-router-dom';
 import {
   HELP_CATEGORIES,
@@ -53,6 +54,8 @@ function writeFeedback(articleId: string, value: 'yes' | 'no') {
 
 export default function HelpPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const companyName = useCompanyName();
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const articleId = searchParams.get('article');
   const categoryParam = searchParams.get('category');
@@ -242,12 +245,18 @@ export default function HelpPage() {
   };
 
   async function handlePrintArticle() {
-    if (!selectedArticle) return;
-    await generateArticlePDF({
-      title: selectedArticle.title,
-      content: selectedArticle.content,
-      filename: slugifyFilename(selectedArticle.title),
-    });
+    if (!selectedArticle || isPrinting) return;
+    setIsPrinting(true);
+    try {
+      await generateArticlePDF({
+        title: selectedArticle.title,
+        content: selectedArticle.content,
+        companyName,
+        filename: `${selectedArticle.id}.pdf`,
+      });
+    } finally {
+      setIsPrinting(false);
+    }
   }
 
   return (
@@ -459,10 +468,11 @@ export default function HelpPage() {
                     type="button"
                     className="btn btn-outline btn-sm help-centre__print-button"
                     onClick={() => void handlePrintArticle()}
+                    disabled={isPrinting}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
                   >
                     <Printer size={16} />
-                    Print article
+                    {isPrinting ? 'Generating...' : 'Print article'}
                   </button>
                 </div>
               </div>

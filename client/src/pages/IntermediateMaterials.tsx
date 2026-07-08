@@ -18,6 +18,7 @@ import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { readImportDataRows } from '../utils/importWorkbook';
@@ -307,7 +308,11 @@ function buildIntermediatePdfRows(source: MaterialRecord[], currencyCode: string
   });
 }
 
-function buildIntermediatePdfOptions(materials: MaterialRecord[], currencyCode: string) {
+function buildIntermediatePdfOptions(
+  materials: MaterialRecord[],
+  currencyCode: string,
+  companyName?: string,
+) {
   const date = new Date().toISOString().slice(0, 10);
   return {
     title: 'Intermediate Materials',
@@ -315,6 +320,7 @@ function buildIntermediatePdfOptions(materials: MaterialRecord[], currencyCode: 
     columns: [...INTERMEDIATE_PDF_COLUMNS],
     rows: buildIntermediatePdfRows(materials, currencyCode),
     landscape: true,
+    companyName,
     filename: `intermediate-materials-${date}.pdf`,
   };
 }
@@ -342,6 +348,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
@@ -955,7 +962,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     }
 
     try {
-      await generateTablePDF(buildIntermediatePdfOptions(filteredMaterials, baseCurrency));
+      await generateTablePDF(buildIntermediatePdfOptions(filteredMaterials, baseCurrency, companyName));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
     }
@@ -968,7 +975,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     }
 
     try {
-      await printTable(buildIntermediatePdfOptions(filteredMaterials, baseCurrency));
+      await printTable(buildIntermediatePdfOptions(filteredMaterials, baseCurrency, companyName));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the intermediate materials list.', 'error');
     }

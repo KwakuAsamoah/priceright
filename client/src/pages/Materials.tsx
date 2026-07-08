@@ -18,6 +18,7 @@ import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
+import useCompanyName from '../hooks/useCompanyName';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
@@ -168,7 +169,11 @@ const MATERIAL_PDF_COLUMNS = [
   { header: 'Status', dataKey: 'status' },
 ] as const;
 
-function buildMaterialsPdfOptions(materials: Material[], rows: Record<string, unknown>[]) {
+function buildMaterialsPdfOptions(
+  materials: Material[],
+  rows: Record<string, unknown>[],
+  companyName?: string,
+) {
   const date = new Date().toISOString().slice(0, 10);
   return {
     title: 'Materials',
@@ -176,6 +181,7 @@ function buildMaterialsPdfOptions(materials: Material[], rows: Record<string, un
     columns: [...MATERIAL_PDF_COLUMNS],
     rows,
     landscape: true,
+    companyName,
     filename: `materials-${date}.pdf`,
   };
 }
@@ -295,6 +301,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const highlightedRowRef = useRef<HTMLTableRowElement | null>(null);
   const { notifyMaterialCostsChanged } = useMaterialCostSync();
   const { baseCurrency } = useBaseCurrency();
+  const companyName = useCompanyName();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([]);
@@ -786,6 +793,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       await generateTablePDF(buildMaterialsPdfOptions(
         filteredMaterials,
         materialExportRowsToPdfRows(filteredMaterials, getMaterialBaseUnitCost),
+        companyName,
       ));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
@@ -802,6 +810,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       await printTable(buildMaterialsPdfOptions(
         filteredMaterials,
         materialExportRowsToPdfRows(filteredMaterials, getMaterialBaseUnitCost),
+        companyName,
       ));
     } catch (error: unknown) {
       showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the materials list.', 'error');
