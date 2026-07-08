@@ -68,6 +68,8 @@ interface Window {
     onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
     restartAndUpdate: () => void;
     refocusWindow: () => Promise<boolean>;
+    getAppVersion: () => Promise<string>;
+    openExternal: (url: string) => Promise<boolean>;
   };
 }
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Notification, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -15,6 +15,8 @@ const LICENCE_STATE_FILE = path.join(
   app.getPath('userData'), 'licence.json'
 );
 const MAX_OFFLINE_LAUNCHES = 3;
+const UPDATE_CHECK_TIMEOUT_MS = 10000;
+const GITHUB_RELEASES_URL = 'https://github.com/KwakuAsamoah/priceright/releases';
 
 const SERVER_PORT = 3000;
 const isProd = app.isPackaged;
@@ -439,6 +441,14 @@ function setupAutoUpdater() {
     try { fs.appendFileSync(logFile, line); } catch (_) { /* ignore */ }
   }
 
+  function checkForUpdatesWithTimeout() {
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Update check timed out')), UPDATE_CHECK_TIMEOUT_MS);
+    });
+    const updatePromise = autoUpdater.checkForUpdates();
+    return Promise.race([updatePromise, timeoutPromise]);
+  }
+
   // Wire electron-updater's internal logger to our file
   autoUpdater.logger = { info: ulog, warn: ulog, error: ulog, debug: () => {} };
   autoUpdater.autoDownload = true;
@@ -468,9 +478,13 @@ function setupAutoUpdater() {
         type: 'info',
         title,
         message,
-        buttons: ['Update Now', 'Later'],
+        buttons: ['Update Now', 'Later', 'View release history'],
         defaultId: 0,
         cancelId: 1,
+      }).then(({ response }) => {
+        if (response === 2) {
+          shell.openExternal(GITHUB_RELEASES_URL);
+        }
       }).catch(() => {});
     }
   });
@@ -503,14 +517,21 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
+    if (!app.isPackaged) {
+      console.log('Auto-updater error:', err && err.message ? err.message : String(err));
+    }
     ulog(`[updater] Error: ${err && err.message ? err.message : String(err)}`);
   });
 
   // Check for updates 10 seconds after launch to not slow down startup
   setTimeout(() => {
     ulog(`[updater] Starting check (app version: ${app.getVersion()})`);
-    autoUpdater.checkForUpdates()
-      .catch((err) => ulog(`[updater] Check failed: ${err.message}`));
+    checkForUpdatesWithTimeout()
+      .catch((err) => {
+        if (!app.isPackaged) {
+          console.log('[updater] Check failed:', err.message);
+        }
+      });
   }, 10000);
 }
 
@@ -520,6 +541,13 @@ ipcMain.handle('refocus-window', () => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('open-external-url', async (_event, url) => {
+  await shell.openExternal(url);
+  return true;
 });
 
 ipcMain.handle('download-file', async (_event, url, defaultFilename) => {

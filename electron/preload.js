@@ -30,4 +30,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('restart-and-update'),
   refocusWindow: () =>
     ipcRenderer.invoke('refocus-window'),
+  getAppVersion: () =>
+    ipcRenderer.invoke('get-app-version'),
+  openExternal: (url) =>
+    ipcRenderer.invoke('open-external-url', url),
 });

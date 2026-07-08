@@ -58,6 +58,8 @@ interface RateSaveBanner {
 
 type SettingsTab = 'general' | 'pricing' | 'currencies' | 'master-data' | 'data-backups';
 
+const GITHUB_RELEASES_URL = 'https://github.com/KwakuAsamoah/priceright/releases';
+
 const SETTINGS_TABS: Array<{ key: SettingsTab; label: string; icon: LucideIcon }> = [
   { key: 'general', label: 'General', icon: Settings2 },
   { key: 'pricing', label: 'Pricing Engine', icon: Calculator },
@@ -328,6 +330,7 @@ export default function Settings() {
   const [deleteCurrencyTarget, setDeleteCurrencyTarget] = useState<Currency | null>(null);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [appVersion, setAppVersion] = useState(import.meta.env.VITE_APP_VERSION);
 
   useEffect(() => {
     setHasOpenForm(
@@ -366,6 +369,16 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
+    if (window.electronAPI?.getAppVersion) {
+      void window.electronAPI.getAppVersion().then((version) => {
+        if (version) {
+          setAppVersion(version);
+        }
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     if (!rateSaveBanner) {
       return;
     }
@@ -380,7 +393,15 @@ export default function Settings() {
   }, [rateSaveBanner]);
 
 
-async function loadData() {
+  async function handleOpenReleases() {
+    if (window.electronAPI?.openExternal) {
+      await window.electronAPI.openExternal(GITHUB_RELEASES_URL);
+      return;
+    }
+    window.open(GITHUB_RELEASES_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  async function loadData() {
     try {
       const [currenciesData, ratesData, settingsData, backupData, productsData, materialsData] = await Promise.all([
         currenciesApi.getAll(),
@@ -1642,6 +1663,31 @@ async function loadData() {
               </a>
             </div>
           </div>
+        </div>
+
+        <div className="app-card app-settings-card">
+          <h2>Version history</h2>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '8px' }}>
+            Running PriceRight v{appVersion}
+          </p>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '12px' }}>
+            If you need to roll back to a previous version you can download any earlier release from our releases page.
+          </p>
+          <button
+            type="button"
+            onClick={() => { void handleOpenReleases(); }}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: '#16A34A',
+              fontSize: '13px',
+              cursor: 'pointer',
+              textDecoration: 'none',
+            }}
+          >
+            View all releases →
+          </button>
         </div>
         </>
         )}
