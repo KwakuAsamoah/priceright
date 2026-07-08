@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { productsApi } from '../api';
 import AppToast from './AppToast';
@@ -7,6 +8,43 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { MarkupInfoTooltip } from './ProfitTooltips';
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
+
+type FormSnapshot = {
+  formData: {
+    name: string;
+    sku: string;
+    description: string;
+    category: string;
+    overheadPercentage: string;
+    profitMargin: string;
+    otherDirectCosts: string;
+    productionMode: 'single' | 'batch';
+    batchYield: string;
+    currentSellingPrice: string;
+  };
+  newCategoryValue: string;
+  bom: Array<{ materialId: number; quantity: number }>;
+};
+
+type DiscardPendingAction = 'close' | 'navigate' | 'prev' | 'next';
+
+function captureFormSnapshot(
+  formData: FormSnapshot['formData'],
+  newCategoryValue: string,
+  bom: BOMMaterial[],
+): FormSnapshot {
+  return {
+    formData: { ...formData },
+    newCategoryValue,
+    bom: bom
+      .map((item) => ({ materialId: item.materialId, quantity: item.quantity }))
+      .sort((a, b) => a.materialId - b.materialId || a.quantity - b.quantity),
+  };
+}
+
+function snapshotsEqual(a: FormSnapshot, b: FormSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 interface Product {
   id: number;
@@ -102,6 +140,23 @@ export default function ProductFormDrawer({
   const [newCategoryValue, setNewCategoryValue] = useState('');
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
+  const [snapshotReady, setSnapshotReady] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [pendingDiscardAction, setPendingDiscardAction] = useState<DiscardPendingAction | null>(null);
+  const initialSnapshotRef = useRef<FormSnapshot | null>(null);
+
+  const isDirty = useMemo(() => {
+    if (!snapshotReady || !initialSnapshotRef.current) return false;
+    return !snapshotsEqual(
+      initialSnapshotRef.current,
+      captureFormSnapshot(formData, newCategoryValue, tempBomMaterials),
+    );
+  }, [snapshotReady, formData, newCategoryValue, tempBomMaterials]);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isOpen && isDirty && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   const prevNextNavVisible = onPrev !== undefined && (totalCount ?? 0) >= 2;
 
@@ -130,39 +185,152 @@ export default function ProductFormDrawer({
   }, [isOpen, prevNextNavVisible]);
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    if (product) {
-      const productCategory = (product.category || '').trim();
-      const hasKnownCategory = productCategory.length > 0 && categoryOptions.includes(productCategory);
-
-      setFormData({
-        name: product.name,
-        sku: product.sku || '',
-        description: product.description || '',
-        category: hasKnownCategory ? productCategory : productCategory ? '__custom__' : '',
-        overheadPercentage: product.overheadPercentage?.toString() || defaultOverhead,
-        profitMargin: product.profitMargin?.toString() || defaultProfitMargin,
-        otherDirectCosts: product.otherDirectCosts?.toString() || '0',
-        productionMode: product.productionMode || 'single',
-        batchYield: product.batchYield?.toString() || '1',
-        currentSellingPrice: product.currentSellingPrice?.toString() || '0',
-      });
-      setNewCategoryValue(hasKnownCategory ? '' : productCategory);
-      loadExistingBOM(product.id);
-    } else {
-      resetForm();
+    if (isOpen && isDirty && blocker.state === 'blocked' && !showDiscardModal) {
+      setPendingDiscardAction('navigate');
+      setShowDiscardModal(true);
     }
-  }, [isOpen, product, defaultOverhead, defaultProfitMargin]);
+  }, [blocker.state, isOpen, isDirty, showDiscardModal]);
 
-  async function loadExistingBOM(productId: number) {
-    try {
-      const bom = await productsApi.getBOM(productId);
-      setTempBomMaterials(bom);
-    } catch (error) {
-      console.error('Error loading BOM:', error);
+  useEffect(() => {
+    if (!isOpen) {
+      initialSnapshotRef.current = null;
+      setSnapshotReady(false);
+      setShowDiscardModal(false);
+      setPendingDiscardAction(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function initForm() {
+      setSnapshotReady(false);
+
+      if (product) {
+        const productCategory = (product.category || '').trim();
+        const hasKnownCategory = productCategory.length > 0 && categoryOptions.includes(productCategory);
+        const nextFormData = {
+          name: product.name,
+          sku: product.sku || '',
+          description: product.description || '',
+          category: hasKnownCategory ? productCategory : productCategory ? '__custom__' : '',
+          overheadPercentage: product.overheadPercentage?.toString() || defaultOverhead,
+          profitMargin: product.profitMargin?.toString() || defaultProfitMargin,
+          otherDirectCosts: product.otherDirectCosts?.toString() || '0',
+          productionMode: product.productionMode || 'single',
+          batchYield: product.batchYield?.toString() || '1',
+          currentSellingPrice: product.currentSellingPrice?.toString() || '0',
+        };
+        const nextCategoryValue = hasKnownCategory ? '' : productCategory;
+
+        setFormData(nextFormData);
+        setNewCategoryValue(nextCategoryValue);
+        setMaterialSearchTerm('');
+        setEditingBomId(null);
+        setEditingQuantity('');
+
+        let bom: BOMMaterial[] = [];
+        try {
+          bom = await productsApi.getBOM(product.id);
+        } catch (error) {
+          console.error('Error loading BOM:', error);
+        }
+
+        if (cancelled) return;
+
+        setTempBomMaterials(bom);
+        initialSnapshotRef.current = captureFormSnapshot(nextFormData, nextCategoryValue, bom);
+        setSnapshotReady(true);
+        return;
+      }
+
+      const emptyFormData = {
+        name: '',
+        sku: '',
+        description: '',
+        category: '',
+        overheadPercentage: defaultOverhead,
+        profitMargin: defaultProfitMargin,
+        otherDirectCosts: '0',
+        productionMode: 'single' as 'single' | 'batch',
+        batchYield: '1',
+        currentSellingPrice: '0',
+      };
+      setFormData(emptyFormData);
       setTempBomMaterials([]);
+      setMaterialSearchTerm('');
+      setEditingBomId(null);
+      setEditingQuantity('');
+      setNewCategoryValue('');
+      initialSnapshotRef.current = captureFormSnapshot(emptyFormData, '', []);
+      setSnapshotReady(true);
     }
+
+    void initForm();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, product, defaultOverhead, defaultProfitMargin, categoryOptions]);
+
+  function requestClose() {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    setPendingDiscardAction('close');
+    setShowDiscardModal(true);
+  }
+
+  function requestPrev() {
+    if (!isDirty) {
+      onPrev?.();
+      return;
+    }
+    setPendingDiscardAction('prev');
+    setShowDiscardModal(true);
+  }
+
+  function requestNext() {
+    if (!isDirty) {
+      onNext?.();
+      return;
+    }
+    setPendingDiscardAction('next');
+    setShowDiscardModal(true);
+  }
+
+  function cancelDiscard() {
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  }
+
+  function confirmDiscard() {
+    const action = pendingDiscardAction;
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+
+    if (action === 'navigate') {
+      if (blocker.state === 'blocked') {
+        blocker.proceed();
+      }
+      onClose();
+      return;
+    }
+
+    if (action === 'prev') {
+      onPrev?.();
+      return;
+    }
+
+    if (action === 'next') {
+      onNext?.();
+      return;
+    }
+
+    onClose();
   }
 
   function resetForm() {
@@ -375,7 +543,7 @@ export default function ProductFormDrawer({
       <button
         className="btn btn-danger-solid"
         type="button"
-        onClick={onClose}
+        onClick={requestClose}
       >
         {isPageLayout ? 'Cancel' : 'Close'}
       </button>
@@ -769,7 +937,7 @@ export default function ProductFormDrawer({
       >
         <button
           type="button"
-          onClick={onClose}
+          onClick={requestClose}
           aria-label="Close"
           onMouseEnter={() => setCloseButtonHovered(true)}
           onMouseLeave={() => setCloseButtonHovered(false)}
@@ -807,7 +975,7 @@ export default function ProductFormDrawer({
               }}>
                 <button
                   type="button"
-                  onClick={onPrev}
+                  onClick={requestPrev}
                   disabled={currentIndex === 0}
                   className="btn btn-ghost btn-sm"
                   style={{ padding: '4px 8px' }}
@@ -824,7 +992,7 @@ export default function ProductFormDrawer({
                 </span>
                 <button
                   type="button"
-                  onClick={onNext}
+                  onClick={requestNext}
                   disabled={currentIndex === (totalCount ?? 1) - 1}
                   className="btn btn-ghost btn-sm"
                   style={{ padding: '4px 8px' }}
@@ -868,6 +1036,30 @@ export default function ProductFormDrawer({
         {actionBar}
       </div>
     </div>
+      )}
+      {showDiscardModal && (
+        <div className="app-modal-overlay" onClick={cancelDiscard}>
+          <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={cancelDiscard} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Discard changes?</h2>
+            <p style={{ marginTop: '12px', color: '#475569' }}>
+              You have unsaved changes. If you close now your changes will be lost.
+            </p>
+            <div className="app-modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" type="button" onClick={cancelDiscard} autoFocus>
+                Keep editing
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={confirmDiscard}
+                style={{ marginLeft: '12px', color: '#dc2626', borderColor: '#fecaca' }}
+              >
+                Discard changes
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

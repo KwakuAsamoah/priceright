@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { materialsApi, productsApi, settingsApi } from '../api';
 import AppToast from '../components/AppToast';
 import { ActualMarkupInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { useFormState } from '../context/FormStateContext';
 import { calculateActualMarkupPercent } from '../utils/margin';
 
 interface Material {
@@ -213,8 +213,44 @@ const panelHeaderStyle = {
   position: 'relative' as const,
 };
 
+type CreateFormSnapshot = {
+  formData: {
+    name: string;
+    sku: string;
+    description: string;
+    category: string;
+    overheadPercentage: string;
+    profitMargin: string;
+    otherDirectCosts: string;
+    productionMode: 'single' | 'batch';
+    batchYield: string;
+    currentSellingPrice: string;
+  };
+  newCategoryValue: string;
+  bom: Array<{ materialId: number; quantity: number }>;
+};
+
+type CreateDiscardAction = 'close' | 'navigate';
+
+function captureCreateSnapshot(
+  formData: CreateFormSnapshot['formData'],
+  newCategoryValue: string,
+  bom: BOMMaterial[],
+): CreateFormSnapshot {
+  return {
+    formData: { ...formData },
+    newCategoryValue,
+    bom: bom
+      .map((item) => ({ materialId: item.materialId, quantity: item.quantity }))
+      .sort((a, b) => a.materialId - b.materialId || a.quantity - b.quantity),
+  };
+}
+
+function createSnapshotsEqual(a: CreateFormSnapshot, b: CreateFormSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePanelProps) {
-  const { setHasOpenForm } = useFormState();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
   const { baseCurrency } = useBaseCurrency();
 
@@ -224,6 +260,10 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
   const [configuredCategories, setConfiguredCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [snapshotReady, setSnapshotReady] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [pendingDiscardAction, setPendingDiscardAction] = useState<CreateDiscardAction | null>(null);
+  const initialSnapshotRef = useRef<CreateFormSnapshot | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -248,12 +288,67 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
   const [editingQuantity, setEditingQuantity] = useState('');
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
 
+  const captureCurrentSnapshot = useCallback(
+    () => captureCreateSnapshot(formData, newCategoryValue, tempBomMaterials),
+    [formData, newCategoryValue, tempBomMaterials],
+  );
+
+  const isDirty = useMemo(() => {
+    if (!snapshotReady || !initialSnapshotRef.current) return false;
+    return !createSnapshotsEqual(initialSnapshotRef.current, captureCurrentSnapshot());
+  }, [snapshotReady, captureCurrentSnapshot]);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && currentLocation.pathname !== nextLocation.pathname,
+  );
+
   useEffect(() => {
-    setHasOpenForm(true);
-    return () => {
-      setHasOpenForm(false);
-    };
-  }, [setHasOpenForm]);
+    if (isDirty && blocker.state === 'blocked' && !showDiscardModal) {
+      setPendingDiscardAction('navigate');
+      setShowDiscardModal(true);
+    }
+  }, [blocker.state, isDirty, showDiscardModal]);
+
+  useEffect(() => {
+    if (loading || snapshotReady) return;
+
+    initialSnapshotRef.current = captureCreateSnapshot(formData, newCategoryValue, tempBomMaterials);
+    setSnapshotReady(true);
+  }, [loading, snapshotReady, formData, newCategoryValue, tempBomMaterials]);
+
+  function requestClose() {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    setPendingDiscardAction('close');
+    setShowDiscardModal(true);
+  }
+
+  function cancelDiscard() {
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  }
+
+  function confirmDiscard() {
+    const action = pendingDiscardAction;
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+
+    if (action === 'navigate') {
+      if (blocker.state === 'blocked') {
+        blocker.proceed();
+      }
+      onClose();
+      return;
+    }
+
+    onClose();
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -471,7 +566,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div style={pageOverlayStyle} onClick={onClose} aria-hidden="true" />
+      <div style={pageOverlayStyle} onClick={requestClose} aria-hidden="true" />
       <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
         <div style={panelHeaderStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -481,7 +576,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             onMouseEnter={() => setCloseButtonHovered(true)}
             onMouseLeave={() => setCloseButtonHovered(false)}
@@ -847,6 +942,30 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
           </div>
         )}
       </div>
+      {showDiscardModal && (
+        <div className="app-modal-overlay" onClick={cancelDiscard}>
+          <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={cancelDiscard} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Discard new product?</h2>
+            <p style={{ marginTop: '12px', color: '#475569' }}>
+              You have started creating a product. If you close now your details will be lost.
+            </p>
+            <div className="app-modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" type="button" onClick={cancelDiscard} autoFocus>
+                Keep editing
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={confirmDiscard}
+                style={{ marginLeft: '12px', color: '#dc2626', borderColor: '#fecaca' }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

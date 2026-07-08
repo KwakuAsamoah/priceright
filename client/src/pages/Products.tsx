@@ -432,8 +432,8 @@ export default function Products() {
   const { registerUndo } = useUndoAction();
 
   useEffect(() => {
-    setHasOpenForm(showDrawer || showImportModal || showCreatePanel);
-  }, [showDrawer, showImportModal, showCreatePanel, setHasOpenForm]);
+    setHasOpenForm(showImportModal);
+  }, [showImportModal, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
