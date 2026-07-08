@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 5 July 2026
-**Current version:** 1.0.33
+**Last updated:** 8 July 2026
+**Current version:** 1.0.34
 **Active branch:** main
 
 ---
@@ -76,6 +76,72 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.31 | Jul 2026 | Global currency support, multi-currency price levels, pack quantity pricing, prev/next drawer navigation, price level fixes, table/report alignment and font standardisation, input freeze fix |
 | v1.0.32 | Jul 2026 | Reports and Analysis overhaul, ten new reports, Material Detail page, creation overlays, price level UX, approval workflow redesign, UI standardisation, settings reorganisation, styled modals, help centre expansion |
 | v1.0.33 | Jul 2026 | Comprehensive audit pass (Groups 1–18): export fixes, markup terminology, demo data, Electron improvements, UI consistency, Material Detail usage tab, Markup Health popover, price level cost-change warnings |
+| v1.0.34 | Jul 2026 | Most polished release — calculation safety, data safety, export standardisation, performance (N+1 fixes, chunked Excel), error handling, auto-updater timeout and rollback path, help centre overhaul (65 articles), UI polish |
+
+---
+
+## v1.0.34 — Detailed Changes
+
+**Released:** 8 July 2026
+
+The most thoroughly tested and polished release — comprehensive quality, safety, and performance update covering audit Groups A–I.
+
+### Calculation safety (Group F)
+- Exchange rate of zero rejected on POST/PUT — prevents material costs being zeroed out
+- Markup calculation returns null safely when cost is zero — no Infinity values
+- Batch yield of zero uses safe divisor — production cost never crashes
+- Pack size of zero rejected — prevents NaN in pack price calculations
+
+### Data safety (Groups F, G)
+- Backup recommendation shown before Restore and Clear All Data actions
+- Download backup first button in all destructive action modals
+- Unsaved changes warning on ProductFormDrawer and ProductCreatePanel
+- Navigation blocked when form has unsaved changes
+
+### Export improvements (Groups B, C, D)
+- All four export formats (CSV, Excel, PDF, Print) have identical columns per section
+- Currency column added to all exports — no ambiguity about which currency prices are in
+- Currency codes removed from column headers — universal format for any country
+- Export toolbar standardised across all pages — consistent labels and icons
+- Materials, Products, Intermediate Materials, and Price Level exports fully standardised
+
+### Performance (Group H)
+- Top Cost Drivers and Price Volatility reports use optimised server JOIN queries — N+1 eliminated
+- Products list query selects only needed columns
+- Excel export processes in chunks — UI stays responsive during large exports
+- Loading skeletons on Material Detail and Intermediate Detail pages
+
+### Error handling (Groups E, F)
+- Friendly error dialog when Express server fails to start
+- Automatic retry before showing error
+- Error handling added to previously silent API failures in Reports and Materials
+- User-friendly error messages throughout
+
+### Auto-updater improvements (Group I)
+- Update check has 10-second timeout — app never hangs waiting for update server
+- View release history button in update notification dialog
+- Version history section in Settings → Data tab with link to all releases
+- Rollback path documented for users who need to downgrade
+
+### Help articles
+- 65 articles fully updated — all outdated references removed
+- 13 new articles added covering new features
+- Broken related article links fixed
+- All gross margin references updated to markup terminology
+- Reading time estimates removed
+
+### UI improvements
+- ProductDetail help button added
+- Gross margin column removed from Margin Health report table
+- Dynamic markup threshold used consistently in Price Levels
+- Dead code cleaned up across Reports and Price Levels
+- Console.log statements removed from production client code
+- Button labels standardised across all modals
+- Toast messages use consistent markup terminology
+
+### Settings
+- Version history section at bottom of Data & Backups tab
+- Backup download button in destructive action modals
 
 ---
 
@@ -307,6 +373,15 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Activity page markup terminology and filter improvements (v1.0.33)
 - [x] Settings chip-based category editor and threshold descriptions (v1.0.33)
 - [x] Demo data refresh — intermediate materials, pack sizes, exchange rates (v1.0.33)
+- [x] Export standardisation — CSV, Excel, PDF, Print identical columns with currency column (v1.0.34)
+- [x] Calculation safety — exchange rate zero guard, safe batch yield, safe pack size, null-safe markup (v1.0.34)
+- [x] Data safety — backup warnings before destructive actions, unsaved changes guards (v1.0.34)
+- [x] Performance — report N+1 fixes, chunked Excel export, optimised products query (v1.0.34)
+- [x] Auto-updater timeout and rollback path via GitHub releases (v1.0.34)
+- [x] Help centre overhaul — 65 articles updated, 13 new articles (v1.0.34)
+- [x] Server startup error dialog with retry (v1.0.34)
+- [x] Loading skeletons on Material Detail and Intermediate Detail (v1.0.34)
+- [x] Version history section in Settings Data tab (v1.0.34)
 
 ### Settings
 - [x] General settings
@@ -359,7 +434,17 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Fix hardcoded localhost:3000 in Settings and LockScreen
 - [x] Compress logo PNG assets (~2MB in client/public)
 - [x] Phase M markup simplification (v1.0.33 — markup-on-cost terminology app-wide)
-- [ ] Help articles update
+- [x] Help articles update (v1.0.34 — 65 articles updated, 13 new)
+- [ ] Google Search Console submission
+- [ ] DecideRight development (Phase 1)
+
+## Pending — v1.0.35 Polish
+
+- [ ] Activity page — zoom control position alignment
+- [ ] Intermediate Materials — table zoom control
+- [ ] Modal × close buttons — consistent styling and placement
+- [ ] Settings — Save/Update button label consistency
+- [ ] Reports — export toolbar button order standardisation
 
 ## Pending — Medium Priority
 
@@ -380,6 +465,7 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [ ] Multi-user/network version planning
 - [ ] Cloud version architecture planning
 - [x] Final logo decision and implementation
+- [ ] Microsoft Store submission (future)
 
 ---
 
