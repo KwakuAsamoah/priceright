@@ -677,6 +677,18 @@ export const packSizesApi = {
   },
 };
 
+// Reports API
+export const reportsApi = {
+  getTopCostDrivers: async () => {
+    const res = await fetch(`${API_BASE}/reports/top-cost-drivers`);
+    return parseResponse(res);
+  },
+  getPriceVolatility: async (period: '30' | '90' | '180' | '365') => {
+    const res = await fetch(`${API_BASE}/reports/price-volatility?period=${encodeURIComponent(period)}`);
+    return parseResponse(res);
+  },
+};
+
 // Backup API
 export const backupApi = {
   getStatus: async () => {

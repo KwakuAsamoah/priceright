@@ -58,6 +58,18 @@ export function exportToPDF(elementId: string, filename: string) {
   }, 40);
 }
 
+export async function exportInChunks<T>(
+  rows: T[],
+  processChunk: (chunk: T[]) => void,
+  chunkSize = 100,
+): Promise<void> {
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    processChunk(chunk);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 export function exportToExcel(data: ReportRow[], columns: ColumnDef[], filename: string) {
   exportToExcelWorkbook(
     [
@@ -69,6 +81,34 @@ export function exportToExcel(data: ReportRow[], columns: ColumnDef[], filename:
     ],
     filename,
   );
+}
+
+export async function exportToExcelWorkbookAsync(sheets: WorkbookSheet[], filename: string) {
+  const workbook = XLSX.utils.book_new();
+
+  for (const sheet of sheets) {
+    const worksheetRows: Record<string, ReportCell>[] = [];
+    await exportInChunks(sheet.rows, (chunk) => {
+      chunk.forEach((row) => {
+        const normalized: Record<string, ReportCell> = {};
+        sheet.columns.forEach((column) => {
+          const value = row[column.key];
+          normalized[column.label] = value === null || value === undefined ? '' : value;
+        });
+        worksheetRows.push(normalized);
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(worksheetRows);
+    worksheet['!cols'] = sheet.columns.map((column) => ({
+      wch: Math.max(14, column.label.length + 2),
+    }));
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31) || 'Sheet');
+  }
+
+  const safeName = filename.toLowerCase().endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+  XLSX.writeFile(workbook, safeName);
 }
 
 export function exportToExcelWorkbook(sheets: WorkbookSheet[], filename: string) {

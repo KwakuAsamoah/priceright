@@ -3,7 +3,7 @@ import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileUp, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -19,6 +19,7 @@ import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { printExportTable } from '../utils/exportPrint';
+import { exportInChunks } from '../utils/reportExport';
 import { readImportDataRows } from '../utils/importWorkbook';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import useUndoAction from '../hooks/useUndoAction';
@@ -358,6 +359,7 @@ export default function Products() {
   const [products, setProducts] = useState<ProductPricing[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [defaultOverhead, setDefaultOverhead] = useState('30');
   const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
 
@@ -1222,35 +1224,48 @@ export default function Products() {
     downloadCsv(`products-import-template-${date}.csv`, headers, rows);
   }
 
-  function handleExportToExcel() {
-    const exportHeaders = getProductExportHeaders();
-    const ws = XLSX.utils.aoa_to_sheet([
-      exportHeaders,
-      ...products.map((product) => buildProductExportValues(product, baseCurrency)),
-    ]);
+  async function handleExportToExcel() {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const exportHeaders = getProductExportHeaders();
+      const dataRows: Array<Array<string | number>> = [];
+      await exportInChunks(products, (chunk) => {
+        chunk.forEach((product) => {
+          dataRows.push(buildProductExportValues(product, baseCurrency));
+        });
+      });
 
-    ws['!cols'] = [
-      { wch: 30 },
-      { wch: 15 },
-      { wch: 16 },
-      { wch: 15 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 16 },
-      { wch: 10 },
-      { wch: 28 },
-      { wch: 28 },
-    ];
+      const ws = XLSX.utils.aoa_to_sheet([
+        exportHeaders,
+        ...dataRows,
+      ]);
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Products');
+      ws['!cols'] = [
+        { wch: 30 },
+        { wch: 15 },
+        { wch: 16 },
+        { wch: 15 },
+        { wch: 10 },
+        { wch: 15 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 16 },
+        { wch: 10 },
+        { wch: 28 },
+        { wch: 28 },
+      ];
 
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    XLSX.writeFile(wb, `Products_${dateStr}.xlsx`);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Products');
+
+      const today = new Date();
+      const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      XLSX.writeFile(wb, `Products_${dateStr}.xlsx`);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   const filteredProducts = useMemo(() => {
@@ -1599,11 +1614,12 @@ export default function Products() {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={handleExportToExcel}
+              onClick={() => void handleExportToExcel()}
+              disabled={isExporting}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              <Table size={14} />
-              Export Excel
+              {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
+              {isExporting ? 'Exporting...' : 'Export Excel'}
             </button>
             <button
               type="button"

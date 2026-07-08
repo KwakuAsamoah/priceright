@@ -268,6 +268,17 @@ function parseOptionalCurrencyId(value) {
     const numericValue = Number(value);
     return Number.isInteger(numericValue) && numericValue > 0 ? numericValue : null;
 }
+function safeBatchYield(batchYield) {
+    return Math.max(1, Number(batchYield) || 1);
+}
+const EXCHANGE_RATE_MUST_BE_POSITIVE = 'Exchange rate must be greater than zero. A rate of 0 would make all material costs in this currency appear as zero.';
+function parsePositiveExchangeRate(rateToBase) {
+    const numericRate = Number(rateToBase);
+    if (!Number.isFinite(numericRate) || numericRate <= 0) {
+        return null;
+    }
+    return numericRate;
+}
 async function calculateProductionCostForProduct(selectedProduct, productId) {
     const productionCostResponse = await db
         .select({
@@ -285,7 +296,8 @@ async function calculateProductionCostForProduct(selectedProduct, productId) {
     const overheadCost = totalMaterialCost * (Number(selectedProduct.overheadPercentage || 0) / 100);
     const totalCost = totalMaterialCost + overheadCost + otherCosts;
     if (selectedProduct.productionMode === 'batch') {
-        return totalCost / Math.max(1, Number(selectedProduct.batchYield || 1));
+        const safeYield = safeBatchYield(selectedProduct.batchYield);
+        return totalCost / safeYield;
     }
     return totalCost;
 }
@@ -348,8 +360,9 @@ function normalizeLegacyCustomPriceOverride(input) {
 }
 function buildPackSizesResponse(packSizeRows, finalPrice, finalPriceConverted) {
     return packSizeRows.map((row) => {
-        const packPrice = Math.round(finalPrice * row.packQuantity * 100) / 100;
-        const packPriceConverted = Math.round(finalPriceConverted * row.packQuantity * 100) / 100;
+        const safePackQuantity = Math.max(1, Number(row.packQuantity) || 1);
+        const packPrice = Math.round(finalPrice * safePackQuantity * 100) / 100;
+        const packPriceConverted = Math.round(finalPriceConverted * safePackQuantity * 100) / 100;
         return {
             id: row.id,
             packQuantity: row.packQuantity,
@@ -883,9 +896,13 @@ app.get('/api/exchange-rates', async (req, res) => {
 app.post('/api/exchange-rates', async (req, res) => {
     try {
         const { currencyId, rateToBase, source } = req.body;
+        const validatedRate = parsePositiveExchangeRate(rateToBase);
+        if (validatedRate == null) {
+            return res.status(400).json({ error: EXCHANGE_RATE_MUST_BE_POSITIVE });
+        }
         const result = await getActiveDb().insert(exchangeRates).values({
             currencyId,
-            rateToBase,
+            rateToBase: validatedRate,
             source: source || 'manual'
         }).returning();
         res.json(result[0]);
@@ -897,21 +914,25 @@ app.post('/api/exchange-rates', async (req, res) => {
 app.put('/api/exchange-rates/:currencyId', async (req, res) => {
     try {
         const { rateToBase } = req.body;
+        const validatedRate = parsePositiveExchangeRate(rateToBase);
+        if (validatedRate == null) {
+            return res.status(400).json({ error: EXCHANGE_RATE_MUST_BE_POSITIVE });
+        }
         const currencyId = parseInt(req.params.currencyId);
         const existing = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
-        const oldRateValue = existing.length > 0 ? Number(existing[0].rateToBase || 0) : Number(rateToBase || 0);
+        const oldRateValue = existing.length > 0 ? Number(existing[0].rateToBase || 0) : validatedRate;
         if (existing.length > 0) {
             await getActiveDb().update(exchangeRates)
-                .set({ rateToBase, effectiveDate: new Date() })
+                .set({ rateToBase: validatedRate, effectiveDate: new Date() })
                 .where(eq(exchangeRates.currencyId, currencyId));
         }
         else {
-            await getActiveDb().insert(exchangeRates).values({ currencyId, rateToBase, source: 'manual' });
+            await getActiveDb().insert(exchangeRates).values({ currencyId, rateToBase: validatedRate, source: 'manual' });
         }
         const updated = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, currencyId));
         const currencyRows = await getActiveDb().select().from(currencies).where(eq(currencies.id, currencyId));
         const currencyCode = currencyRows[0]?.code || String(currencyId);
-        const newRateValue = Number(updated[0]?.rateToBase || rateToBase || 0);
+        const newRateValue = Number(updated[0]?.rateToBase || validatedRate);
         const performedBy = await getCurrentUserName();
         try {
             const recalculation = await recalculateMaterialsForCurrency(currencyId);
@@ -1341,6 +1362,188 @@ app.get('/api/materials/:id/price-history', async (req, res) => {
     catch (error) {
         console.error('Error fetching price history:', error);
         res.status(500).json({ error: 'Failed to fetch price history' });
+    }
+});
+// ============================================
+// REPORTS ENDPOINTS
+// ============================================
+app.get('/api/reports/top-cost-drivers', async (_req, res) => {
+    try {
+        const rows = await db
+            .select({
+            materialId: materials.id,
+            materialName: materials.name,
+            category: materials.category,
+            unitCost: materials.unitPrice,
+            bomUsageCount: sql `count(${billOfMaterials.id})`.mapWith(Number),
+            totalContribution: sql `sum(${billOfMaterials.quantity} * ${materials.unitPrice})`.mapWith(Number),
+        })
+            .from(billOfMaterials)
+            .innerJoin(products, eq(billOfMaterials.productId, products.id))
+            .innerJoin(materials, eq(billOfMaterials.materialId, materials.id))
+            .where(and(eq(products.isActive, true), eq(materials.isActive, true)))
+            .groupBy(materials.id)
+            .orderBy(sql `sum(${billOfMaterials.quantity} * ${materials.unitPrice}) desc`);
+        const normalizedRows = rows.map((row) => ({
+            materialId: row.materialId,
+            materialName: row.materialName,
+            category: row.category || 'Uncategorised',
+            unitCost: Number(row.unitCost) || 0,
+            bomUsageCount: Number(row.bomUsageCount) || 0,
+            totalContribution: Number(row.totalContribution) || 0,
+        }));
+        const totalWeightedCost = normalizedRows.reduce((sum, row) => sum + row.totalContribution, 0);
+        const sortedRows = normalizedRows
+            .map((row) => ({
+            ...row,
+            percentOfTotal: totalWeightedCost > 0 ? (row.totalContribution / totalWeightedCost) * 100 : 0,
+        }))
+            .sort((a, b) => b.totalContribution - a.totalContribution);
+        res.json({
+            rows: sortedRows,
+            totalMaterialsInBoms: sortedRows.length,
+            totalWeightedCost,
+            mostImpactfulMaterial: sortedRows[0]?.materialName || '—',
+        });
+    }
+    catch (error) {
+        console.error('[reports] top-cost-drivers error:', error);
+        res.status(500).json({ error: 'Failed to fetch top cost drivers report' });
+    }
+});
+function parseVolatilityPeriodDays(period) {
+    const parsed = Number.parseInt(String(period ?? '90'), 10);
+    if (parsed === 30 || parsed === 90 || parsed === 180 || parsed === 365) {
+        return parsed;
+    }
+    return 90;
+}
+function parseReportTimestamp(value) {
+    if (value === null || value === undefined || value === '')
+        return null;
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value === 'number') {
+        const maybeMs = value > 1000000000000 ? value : value * 1000;
+        const fromNumber = new Date(maybeMs);
+        return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
+    }
+    const numericValue = Number(value);
+    if (Number.isFinite(numericValue) && String(value).trim() !== '') {
+        const maybeMs = numericValue > 1000000000000 ? numericValue : numericValue * 1000;
+        const fromNumber = new Date(maybeMs);
+        return Number.isNaN(fromNumber.getTime()) ? null : fromNumber;
+    }
+    const fromString = new Date(String(value));
+    return Number.isNaN(fromString.getTime()) ? null : fromString;
+}
+function getMaterialCostAtPeriodStart(historyAsc, periodStart) {
+    if (historyAsc.length === 0)
+        return null;
+    let costAtStart = null;
+    for (const entry of historyAsc) {
+        const changedAt = parseReportTimestamp(entry.changedAt);
+        if (changedAt && changedAt <= periodStart) {
+            costAtStart = Number(entry.priceInBaseCurrency) || 0;
+        }
+    }
+    if (costAtStart === null) {
+        costAtStart = Number(historyAsc[0].priceInBaseCurrency) || 0;
+    }
+    return costAtStart;
+}
+app.get('/api/reports/price-volatility', async (req, res) => {
+    try {
+        const periodDays = parseVolatilityPeriodDays(req.query.period);
+        const periodStart = new Date();
+        periodStart.setDate(periodStart.getDate() - periodDays);
+        const activeMaterials = await db
+            .select({
+            id: materials.id,
+            name: materials.name,
+            category: materials.category,
+            unit: materials.unit,
+            unitPrice: materials.unitPrice,
+        })
+            .from(materials)
+            .where(eq(materials.isActive, true));
+        const materialIds = activeMaterials.map((material) => material.id);
+        const historyByMaterialId = new Map();
+        if (materialIds.length > 0) {
+            const historyRows = await db
+                .select({
+                materialId: materialPriceHistory.materialId,
+                priceInBaseCurrency: materialPriceHistory.priceInBaseCurrency,
+                changedAt: materialPriceHistory.changedAt,
+            })
+                .from(materialPriceHistory)
+                .where(inArray(materialPriceHistory.materialId, materialIds))
+                .orderBy(asc(materialPriceHistory.materialId), asc(materialPriceHistory.changedAt));
+            for (const row of historyRows) {
+                const existing = historyByMaterialId.get(row.materialId) || [];
+                existing.push({
+                    changedAt: row.changedAt,
+                    priceInBaseCurrency: row.priceInBaseCurrency,
+                });
+                historyByMaterialId.set(row.materialId, existing);
+            }
+        }
+        const volatilityRows = [];
+        for (const material of activeMaterials) {
+            const historyAsc = historyByMaterialId.get(material.id) || [];
+            if (historyAsc.length === 0)
+                continue;
+            const changesInPeriod = historyAsc.filter((entry) => {
+                const changedAt = parseReportTimestamp(entry.changedAt);
+                return changedAt != null && changedAt >= periodStart;
+            });
+            if (changesInPeriod.length === 0)
+                continue;
+            const costAtStart = getMaterialCostAtPeriodStart(historyAsc, periodStart);
+            if (costAtStart == null)
+                continue;
+            const currentCost = Number(material.unitPrice) || 0;
+            const changeAmount = currentCost - costAtStart;
+            const changePercent = costAtStart > 0 ? (changeAmount / costAtStart) * 100 : 0;
+            volatilityRows.push({
+                materialName: material.name,
+                category: material.category || 'Uncategorised',
+                unit: material.unit || '—',
+                costAtStart,
+                currentCost,
+                changeAmount,
+                changePercent,
+            });
+        }
+        volatilityRows.sort((a, b) => b.changePercent - a.changePercent);
+        const averageChangePercent = volatilityRows.length > 0
+            ? volatilityRows.reduce((sum, row) => sum + row.changePercent, 0) / volatilityRows.length
+            : 0;
+        const biggestIncrease = volatilityRows.reduce((best, row) => {
+            if (!best || row.changePercent > best.changePercent)
+                return row;
+            return best;
+        }, null);
+        const biggestDecrease = volatilityRows.reduce((best, row) => {
+            if (!best || row.changePercent < best.changePercent)
+                return row;
+            return best;
+        }, null);
+        res.json({
+            rows: volatilityRows,
+            materialsWithChanges: volatilityRows.length,
+            averageChangePercent,
+            biggestIncreaseName: biggestIncrease?.materialName || '—',
+            biggestIncreasePercent: biggestIncrease?.changePercent ?? 0,
+            biggestDecreaseName: biggestDecrease?.materialName || '—',
+            biggestDecreasePercent: biggestDecrease?.changePercent ?? 0,
+            endpointAvailable: true,
+        });
+    }
+    catch (error) {
+        console.error('[reports] price-volatility error:', error);
+        res.status(500).json({ error: 'Failed to fetch price volatility report' });
     }
 });
 // Check material usage in BOMs
@@ -1847,11 +2050,12 @@ async function calculateProductCostSnapshot(productId) {
     // Gross margin at that price = (2.89-2.41)/2.89 = 16.6%
     const profitAmount = totalCost * (parseFloat(product.profitMargin.toString()) / 100);
     const recommendedPrice = totalCost + profitAmount;
+    const safeYield = safeBatchYield(product.batchYield);
     const perUnitMaterialCost = product.productionMode === 'batch'
-        ? totalMaterialCost / Math.max(1, product.batchYield || 1)
+        ? totalMaterialCost / safeYield
         : totalMaterialCost;
     const perUnitOptimalPrice = product.productionMode === 'batch'
-        ? recommendedPrice / Math.max(1, product.batchYield || 1)
+        ? recommendedPrice / safeYield
         : recommendedPrice;
     return {
         materialCost: Math.round(perUnitMaterialCost * 100) / 100,
@@ -2278,7 +2482,29 @@ app.get('/api/products', async (req, res) => {
     try {
         const status = parseStatusFilter(req.query.status);
         const allProducts = await db
-            .select()
+            .select({
+            id: products.id,
+            name: products.name,
+            sku: products.sku,
+            description: products.description,
+            category: products.category,
+            overheadPercentage: products.overheadPercentage,
+            profitMargin: products.profitMargin,
+            otherDirectCosts: products.otherDirectCosts,
+            productionMode: products.productionMode,
+            batchYield: products.batchYield,
+            currentSellingPrice: products.currentSellingPrice,
+            approvalStatus: products.approvalStatus,
+            approvedPrice: products.approvedPrice,
+            approvedBy: products.approvedBy,
+            approvedAt: products.approvedAt,
+            approvedPriceExpiresAt: products.approvedPriceExpiresAt,
+            priceExpiryNotifiedAt: products.priceExpiryNotifiedAt,
+            needsReviewReason: products.needsReviewReason,
+            isActive: products.isActive,
+            createdAt: products.createdAt,
+            updatedAt: products.updatedAt,
+        })
             .from(products)
             .where(status === 'all'
             ? sql `1=1`
@@ -2333,6 +2559,7 @@ app.get('/api/products/:id', async (req, res) => {
 app.post('/api/products', async (req, res) => {
     try {
         const { name, sku, description, category, overheadPercentage, profitMargin, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
+        const resolvedProductionMode = productionMode || 'single';
         const result = await getActiveDb().insert(products).values({
             name,
             sku: sku || null,
@@ -2341,8 +2568,8 @@ app.post('/api/products', async (req, res) => {
             overheadPercentage,
             profitMargin,
             otherDirectCosts: otherDirectCosts || 0,
-            productionMode: productionMode || 'single',
-            batchYield: batchYield || 1,
+            productionMode: resolvedProductionMode,
+            batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
             currentSellingPrice: currentSellingPrice || 0,
         }).returning();
         res.json(result[0]);
@@ -2370,7 +2597,8 @@ app.put('/api/products/:id', async (req, res) => {
         const profitMargin = Number(req.body?.profitMargin ?? existing.profitMargin);
         const otherDirectCosts = Number(req.body?.otherDirectCosts ?? existing.otherDirectCosts ?? 0);
         const productionMode = req.body?.productionMode ?? existing.productionMode ?? 'single';
-        const batchYield = Number(req.body?.batchYield ?? existing.batchYield ?? 1);
+        const rawBatchYield = Number(req.body?.batchYield ?? existing.batchYield ?? 1);
+        const batchYield = productionMode === 'batch' ? safeBatchYield(rawBatchYield) : 1;
         const hasCurrentSellingPriceInput = req.body?.currentSellingPrice !== undefined;
         const hasApprovedPriceInput = req.body?.approvedPrice !== undefined;
         let currentSellingPrice = Number(req.body?.currentSellingPrice ?? existing.currentSellingPrice ?? 0);
@@ -2403,7 +2631,7 @@ app.put('/api/products/:id', async (req, res) => {
             profitMargin,
             otherDirectCosts: otherDirectCosts || 0,
             productionMode: productionMode || 'single',
-            batchYield: batchYield || 1,
+            batchYield,
             currentSellingPrice: currentSellingPrice || 0,
             approvedPrice,
             isActive,

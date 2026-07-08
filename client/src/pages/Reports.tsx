@@ -21,8 +21,8 @@ import PageHelpButton from '../components/PageHelpButton';
 import useAppToast from '../hooks/useAppToast';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
-import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi } from '../api';
-import { exportToExcel, exportToExcelWorkbook, type ColumnDef, type ReportRow } from '../utils/reportExport';
+import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
+import { exportInChunks, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
 import { printReportPayload } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
@@ -728,28 +728,6 @@ function buildMaterialProductUsageMap(products: ProductWithBomRow[]): Map<number
   return new Map(Array.from(usage.entries()).map(([materialId, productIds]) => [materialId, productIds.size]));
 }
 
-function getCostAtPeriodStart(historyAsc: MaterialPriceHistoryApiEntry[], periodStart: Date): number | null {
-  if (historyAsc.length === 0) return null;
-
-  let costAtStart: number | null = null;
-  for (const entry of historyAsc) {
-    const changedAt = parseDate(entry.changedAt);
-    if (changedAt && changedAt <= periodStart) {
-      costAtStart = toNumber(entry.priceInBaseCurrency);
-    }
-  }
-
-  if (costAtStart === null) {
-    costAtStart = toNumber(historyAsc[0].priceInBaseCurrency);
-  }
-
-  return costAtStart;
-}
-
-function getVolatilityPeriodDays(period: '30' | '90' | '180' | '365'): number {
-  return Number(period);
-}
-
 function getOverviewApprovedPrice(product: ProductRow): number | null {
   const approved = toNumber(product.approvedPrice);
   return approved > 0 ? approved : null;
@@ -828,6 +806,7 @@ export default function Reports() {
   const [activeGroup, setActiveGroup] = useState<ReportGroupId>('pricing');
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<Date | null>(null);
   const [reportData, setReportData] = useState<ReportResultMap[ReportKey] | null>(null);
@@ -1361,131 +1340,18 @@ export default function Reports() {
       }
 
       if (selectedReport === 'top-cost-drivers') {
-        const [materials, productsWithBom] = await Promise.all([
-          materialsApi.getAll('active') as Promise<MaterialRow[]>,
-          loadActiveProductsWithBom(),
-        ]);
-
-        const materialsById = new Map(materials.map((material) => [material.id, material]));
-        const contributionMap = new Map<number, {
-          materialName: string;
-          category: string;
-          unitCost: number;
-          bomUsageCount: number;
-          totalContribution: number;
-        }>();
-
-        for (const product of productsWithBom) {
-          for (const entry of product.bom) {
-            if (!entry.materialId) continue;
-            const material = materialsById.get(entry.materialId);
-            if (!material) continue;
-
-            const lineContribution = toNumber(entry.quantity) * toNumber(material.unitPrice);
-            const existing = contributionMap.get(entry.materialId) || {
-              materialName: material.name,
-              category: material.category || 'Uncategorised',
-              unitCost: toNumber(material.unitPrice),
-              bomUsageCount: 0,
-              totalContribution: 0,
-            };
-            existing.bomUsageCount += 1;
-            existing.totalContribution += lineContribution;
-            contributionMap.set(entry.materialId, existing);
-          }
-        }
-
-        const contributions = Array.from(contributionMap.values());
-        const totalWeightedCost = contributions.reduce((sum, row) => sum + row.totalContribution, 0);
-        const sortedRows = contributions
-          .map((row) => ({
-            ...row,
-            percentOfTotal: totalWeightedCost > 0 ? (row.totalContribution / totalWeightedCost) * 100 : 0,
-          }))
-          .sort((a, b) => b.totalContribution - a.totalContribution);
-
+        const data = await reportsApi.getTopCostDrivers();
         setReportData({
-          rows: sortedRows,
-          totalMaterialsInBoms: sortedRows.length,
-          totalWeightedCost,
-          mostImpactfulMaterial: sortedRows[0]?.materialName || '—',
+          rows: data.rows,
+          totalMaterialsInBoms: data.totalMaterialsInBoms,
+          totalWeightedCost: data.totalWeightedCost,
+          mostImpactfulMaterial: data.mostImpactfulMaterial,
         });
       }
 
       if (selectedReport === 'price-volatility') {
-        const materials = (await materialsApi.getAll('active')) as MaterialRow[];
-        const periodDays = getVolatilityPeriodDays(priceVolatilityPeriod);
-        const periodStart = new Date();
-        periodStart.setDate(periodStart.getDate() - periodDays);
-
-        let endpointAvailable = true;
-        const volatilityRows: PriceVolatilityRow[] = [];
-
-        await Promise.all(
-          materials.map(async (material) => {
-            try {
-              const history = (await materialsApi.getPriceHistory(material.id)) as MaterialPriceHistoryApiEntry[];
-              if (!Array.isArray(history)) return;
-
-              const historyAsc = history
-                .slice()
-                .sort((a, b) => (parseDate(a.changedAt)?.getTime() ?? 0) - (parseDate(b.changedAt)?.getTime() ?? 0));
-
-              const changesInPeriod = historyAsc.filter((entry) => {
-                const changedAt = parseDate(entry.changedAt);
-                return changedAt != null && changedAt >= periodStart;
-              });
-
-              if (changesInPeriod.length === 0) return;
-
-              const costAtStart = getCostAtPeriodStart(historyAsc, periodStart);
-              if (costAtStart == null) return;
-
-              const currentCost = toNumber(material.unitPrice);
-              const changeAmount = currentCost - costAtStart;
-              const changePercent = costAtStart > 0 ? (changeAmount / costAtStart) * 100 : 0;
-
-              volatilityRows.push({
-                materialName: material.name,
-                category: material.category || 'Uncategorised',
-                unit: material.unit || '—',
-                costAtStart,
-                currentCost,
-                changeAmount,
-                changePercent,
-              });
-            } catch {
-              // Skip materials that fail to load individually.
-            }
-          }),
-        );
-
-        volatilityRows.sort((a, b) => b.changePercent - a.changePercent);
-
-        const averageChangePercent = volatilityRows.length > 0
-          ? volatilityRows.reduce((sum, row) => sum + row.changePercent, 0) / volatilityRows.length
-          : 0;
-
-        const biggestIncrease = volatilityRows.reduce<PriceVolatilityRow | null>((best, row) => {
-          if (!best || row.changePercent > best.changePercent) return row;
-          return best;
-        }, null);
-
-        const biggestDecrease = volatilityRows.reduce<PriceVolatilityRow | null>((best, row) => {
-          if (!best || row.changePercent < best.changePercent) return row;
-          return best;
-        }, null);
-
-        setReportData({
-          rows: volatilityRows,
-          materialsWithChanges: volatilityRows.length,
-          averageChangePercent,
-          biggestIncreaseName: biggestIncrease?.materialName || '—',
-          biggestIncreasePercent: biggestIncrease?.changePercent ?? 0,
-          biggestDecreaseName: biggestDecrease?.materialName || '—',
-          biggestDecreasePercent: biggestDecrease?.changePercent ?? 0,
-          endpointAvailable,
-        });
+        const data = await reportsApi.getPriceVolatility(priceVolatilityPeriod);
+        setReportData(data);
       }
 
       if (selectedReport === 'material-price-history') {
@@ -2215,79 +2081,106 @@ export default function Reports() {
     };
   }
 
-  function handleExportExcel() {
-    if (selectedReport === 'currency-exposure' && reportData) {
-      const summaryRows = (reportData as ReportResultMap['currency-exposure']).rows.map((row) => ({
-        currency: row.currencyName,
-        code: row.currencyCode,
-        materialsCount: row.materialsCount,
-        currentRateToGhs: Number(row.currentRateToGhs.toFixed(4)),
-      }));
+  async function handleExportExcel() {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      if (selectedReport === 'currency-exposure' && reportData) {
+        const exposureData = reportData as ReportResultMap['currency-exposure'];
+        const summaryRows = exposureData.rows.map((row) => ({
+          currency: row.currencyName,
+          code: row.currencyCode,
+          materialsCount: row.materialsCount,
+          currentRateToGhs: Number(row.currentRateToGhs.toFixed(4)),
+        }));
 
-      const detailRows = (reportData as ReportResultMap['currency-exposure']).rows.flatMap((row) =>
-        row.materials.map((material) => ({
-          materialName: material.materialName,
-          category: material.category,
-          purchaseCurrency: material.purchaseCurrency,
-          unitPriceGhs: Number(material.unitPriceGhs.toFixed(2)),
-          currency: baseCurrency,
-          exchangeRate: Number(material.exchangeRateUsed.toFixed(2)),
-        }))
-      );
+        const detailRows: ReportRow[] = [];
+        await exportInChunks(exposureData.rows, (chunk) => {
+          chunk.forEach((row) => {
+            row.materials.forEach((material) => {
+              detailRows.push({
+                materialName: material.materialName,
+                category: material.category,
+                purchaseCurrency: material.purchaseCurrency,
+                unitPriceGhs: Number(material.unitPriceGhs.toFixed(2)),
+                currency: baseCurrency,
+                exchangeRate: Number(material.exchangeRateUsed.toFixed(2)),
+              });
+            });
+          });
+        });
 
-      exportToExcelWorkbook(
+        await exportToExcelWorkbookAsync(
+          [
+            {
+              name: 'Summary',
+              rows: summaryRows,
+              columns: [
+                { key: 'currency', label: 'Currency' },
+                { key: 'code', label: 'Code' },
+                { key: 'materialsCount', label: 'Materials Count' },
+                { key: 'currentRateToGhs', label: 'Current Rate to Base' },
+              ],
+            },
+            {
+              name: 'Materials Detail',
+              rows: detailRows,
+              columns: [
+                { key: 'materialName', label: 'Material Name' },
+                { key: 'category', label: 'Category' },
+                { key: 'purchaseCurrency', label: 'Purchase Currency' },
+                { key: 'unitPriceGhs', label: 'Unit Price' },
+                { key: 'currency', label: 'Currency' },
+                { key: 'exchangeRate', label: 'Exchange Rate' },
+              ],
+            },
+          ],
+          'currency-exposure-report.xlsx',
+        );
+        return;
+      }
+
+      const payload = getExcelPayload();
+      if (!payload) return;
+
+      if (selectedReport === 'markup-analysis' || selectedReport === 'price-volatility') {
+        const preamble = selectedReport === 'markup-analysis'
+          ? [`Target markup threshold: ${markupAnalysisThreshold}%`]
+          : [`Period: ${getPriceVolatilityPeriodLabel(priceVolatilityPeriod)}`];
+        const dataRows: ReportCell[][] = [];
+        await exportInChunks(payload.rows, (chunk) => {
+          chunk.forEach((row) => {
+            dataRows.push(payload.columns.map((column) => row[column.key] ?? ''));
+          });
+        });
+        const worksheet = XLSX.utils.aoa_to_sheet([
+          preamble,
+          [],
+          payload.columns.map((column) => column.label),
+          ...dataRows,
+        ]);
+        worksheet['!cols'] = payload.columns.map((column) => ({
+          wch: Math.max(14, column.label.length + 2),
+        }));
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+        XLSX.writeFile(workbook, payload.filename.replace(/\.csv$/i, '.xlsx'));
+        return;
+      }
+
+      await exportToExcelWorkbookAsync(
         [
           {
-            name: 'Summary',
-            rows: summaryRows,
-            columns: [
-              { key: 'currency', label: 'Currency' },
-              { key: 'code', label: 'Code' },
-              { key: 'materialsCount', label: 'Materials Count' },
-              { key: 'currentRateToGhs', label: 'Current Rate to Base' },
-            ],
-          },
-          {
-            name: 'Materials Detail',
-            rows: detailRows,
-            columns: [
-              { key: 'materialName', label: 'Material Name' },
-              { key: 'category', label: 'Category' },
-              { key: 'purchaseCurrency', label: 'Purchase Currency' },
-              { key: 'unitPriceGhs', label: 'Unit Price' },
-              { key: 'currency', label: 'Currency' },
-              { key: 'exchangeRate', label: 'Exchange Rate' },
-            ],
+            name: 'Report',
+            rows: payload.rows,
+            columns: payload.columns,
           },
         ],
-        'currency-exposure-report.xlsx',
+        payload.filename.replace(/\.csv$/i, '.xlsx'),
       );
-      return;
+    } finally {
+      setIsExporting(false);
     }
-
-    const payload = getExcelPayload();
-    if (!payload) return;
-
-    if (selectedReport === 'markup-analysis' || selectedReport === 'price-volatility') {
-      const preamble = selectedReport === 'markup-analysis'
-        ? [`Target markup threshold: ${markupAnalysisThreshold}%`]
-        : [`Period: ${getPriceVolatilityPeriodLabel(priceVolatilityPeriod)}`];
-      const worksheet = XLSX.utils.aoa_to_sheet([
-        preamble,
-        [],
-        payload.columns.map((column) => column.label),
-        ...payload.rows.map((row) => payload.columns.map((column) => row[column.key] ?? '')),
-      ]);
-      worksheet['!cols'] = payload.columns.map((column) => ({
-        wch: Math.max(14, column.label.length + 2),
-      }));
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
-      XLSX.writeFile(workbook, payload.filename.replace(/\.csv$/i, '.xlsx'));
-      return;
-    }
-
-    exportToExcel(payload.rows, payload.columns, payload.filename.replace(/\.csv$/i, '.xlsx'));
   }
 
   function handleExportPDF() {
@@ -2933,7 +2826,7 @@ export default function Reports() {
   }
 
   function renderExportButtons() {
-    const exportDisabled = !generatedAt || isLoading || !!error || !canExportReport;
+    const exportDisabled = !generatedAt || isLoading || isExporting || !!error || !canExportReport;
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2943,9 +2836,9 @@ export default function Reports() {
           <FileText size={14} />
           Export PDF
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <Table size={14} />
-          Export Excel
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportExcel()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
+          {isExporting ? 'Exporting...' : 'Export Excel'}
         </button>
         <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Printer size={14} />
