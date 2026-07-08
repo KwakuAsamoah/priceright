@@ -12,7 +12,6 @@ import {
   packSizesApi,
   priceLevelRulesApi,
   productsApi,
-  settingsApi,
   type ActivityEntry,
   type PriceLevelItemResponse,
   type PriceLevelPackSize,
@@ -32,7 +31,7 @@ import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import { formatCurrency } from '../utils/currency';
 import { formatExportNumber } from '../utils/exportFormat';
-import { printHtmlContent } from '../utils/printPage';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 
 type PriceLevelRule = {
   id: number;
@@ -95,14 +94,6 @@ function pricingRuleLabel(item: PriceLevelItemResponse, currencyCode: string): s
   return `Discount ${toNumber(item.adjustmentPercentage).toFixed(2)}%`;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 type PriceLevelExportRow = [string, string, string, string, string];
 
 function buildPriceLevelExportRow(
@@ -119,6 +110,74 @@ function buildPriceLevelExportRow(
     packPrice != null && Number.isFinite(packPrice) ? formatExportNumber(packPrice) : '',
     currency,
   ];
+}
+
+const PRICE_LEVEL_PDF_COLUMNS = [
+  { header: 'Product Name', dataKey: 'productName' },
+  { header: 'Pack Size', dataKey: 'packSize' },
+  { header: 'Unit Price', dataKey: 'unitPrice' },
+  { header: 'Pack Price', dataKey: 'packPrice' },
+  { header: 'Currency', dataKey: 'currency' },
+] as const;
+
+function buildPriceLevelPdfRows(
+  items: PriceLevelItemResponse[],
+  exportCurrencyCode: string,
+  useConvertedPrices: boolean,
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+
+  for (const item of items) {
+    const unitPrice = useConvertedPrices
+      ? toNumber(item.finalPriceConverted, item.finalPrice)
+      : toNumber(item.finalPrice, 0);
+
+    if (!item.packSizes?.length) {
+      rows.push({
+        productName: item.productName,
+        packSize: 'Unit',
+        unitPrice,
+        packPrice: '',
+        currency: exportCurrencyCode,
+      });
+      continue;
+    }
+
+    item.packSizes.forEach((pack, index) => {
+      const packPrice = useConvertedPrices
+        ? toNumber(pack.packPriceConverted, pack.packPrice)
+        : toNumber(pack.packPrice, 0);
+
+      rows.push({
+        productName: index === 0 ? item.productName : '',
+        packSize: formatExportNumber(Number(pack.packQuantity)),
+        unitPrice,
+        packPrice,
+        currency: exportCurrencyCode,
+      });
+    });
+  }
+
+  return rows;
+}
+
+function buildPriceLevelPdfOptions(
+  levelName: string,
+  items: PriceLevelItemResponse[],
+  exportCurrencyCode: string,
+  useConvertedPrices: boolean,
+) {
+  const now = new Date();
+  const safeLevelName = levelName.trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]/g, '');
+
+  return {
+    title: levelName,
+    subtitle: `${levelName} · Exported ${formatDateForMeta(now)}`,
+    columns: [...PRICE_LEVEL_PDF_COLUMNS],
+    rows: buildPriceLevelPdfRows(items, exportCurrencyCode, useConvertedPrices),
+    landscape: false,
+    filename: `${safeLevelName || 'price-level'}-price-list-${formatDateForFilename(now)}.pdf`,
+  };
 }
 
 function parseDraftValue(raw: string): number | null {
@@ -257,7 +316,7 @@ export default function PriceLevels() {
   const formatMoney = (value: number) => formatCurrency(toNumber(value), baseCurrency);
 
   const [levelCurrencyCode, setLevelCurrencyCode] = useState<string | null>(null);
-  const [levelRateToBase, setLevelRateToBase] = useState(1);
+  const [, setLevelRateToBase] = useState(1);
   const [wizardCurrencyId, setWizardCurrencyId] = useState<number | null>(null);
   const [editLevelCurrencyId, setEditLevelCurrencyId] = useState<number | null>(null);
   const [activeCurrencies, setActiveCurrencies] = useState<ActiveCurrency[]>([]);
@@ -1410,7 +1469,7 @@ export default function PriceLevels() {
     if (!selectedLevel || approvedSelectedLevelItems.length === 0) {
       return;
     }
-    exportSelectedRowsToPdf(approvedSelectedLevelItems);
+    void exportSelectedRowsToPdf(approvedSelectedLevelItems);
   }
 
   function toggleExportProduct(productId: number, checked: boolean) {
@@ -1557,147 +1616,35 @@ export default function PriceLevels() {
     XLSX.writeFile(workbook, sanitizeExportFilename(selectedLevel.name, now));
   }
 
-  function exportSelectedRowsToPdf(
+  async function exportSelectedRowsToPdf(
     itemsOverride?: PriceLevelItemResponse[],
   ) {
     const exportedItems = itemsOverride ?? approvedSelectedLevelItems.filter((item) => selectedExportProductIds.has(item.productId));
-    const usingDirectExport = itemsOverride != null;
-    const headerCompanyName = usingDirectExport ? (isDemoMode ? 'Savanna' : '') : exportCompanyName;
-    const showCompanyName = usingDirectExport ? true : includeCompanyName;
-    const showGeneratedDate = usingDirectExport ? true : includeGeneratedDate;
-    const showValidUntil = usingDirectExport ? true : includeValidUntil;
-    const validUntilValue = usingDirectExport ? '' : exportValidUntil;
 
     if (!selectedLevel || exportedItems.length === 0) {
       return;
     }
 
     const exportCurrencyCode = levelCurrencyCode ?? baseCurrency;
-    const now = new Date();
-    const metadata = [
-      showGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
-      showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
-    ].filter(Boolean).join(' | ');
 
-    const rowParts: string[] = [];
-    for (const item of exportedItems) {
-      const unitPrice = formatExportNumber(
-        levelCurrencyCode
-          ? toNumber(item.finalPriceConverted, item.finalPrice)
-          : toNumber(item.finalPrice, 0),
+    try {
+      await generateTablePDF(
+        buildPriceLevelPdfOptions(
+          selectedLevel.name,
+          exportedItems,
+          exportCurrencyCode,
+          Boolean(levelCurrencyCode),
+        ),
       );
-
-      if (!item.packSizes?.length) {
-        rowParts.push(`
-          <tr>
-            <td>${escapeHtml(item.productName)}</td>
-            <td style="text-align:center;">Unit</td>
-            <td style="text-align:right;">${escapeHtml(unitPrice)}</td>
-            <td style="text-align:right;"></td>
-            <td>${escapeHtml(exportCurrencyCode)}</td>
-          </tr>
-        `);
-      } else {
-        item.packSizes.forEach((pack, idx) => {
-          const packPrice = formatExportNumber(
-            levelCurrencyCode
-              ? toNumber(pack.packPriceConverted, pack.packPrice)
-              : toNumber(pack.packPrice, 0),
-          );
-          rowParts.push(`
-            <tr>
-              <td>${idx === 0 ? escapeHtml(item.productName) : ''}</td>
-              <td style="text-align:center;">${escapeHtml(formatExportNumber(Number(pack.packQuantity)))}</td>
-              <td style="text-align:right;">${escapeHtml(unitPrice)}</td>
-              <td style="text-align:right;">${escapeHtml(packPrice)}</td>
-              <td>${escapeHtml(exportCurrencyCode)}</td>
-            </tr>
-          `);
-        });
-      }
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Failed to export price list PDF.', 'error');
     }
-    const rowsHtml = rowParts.join('');
-
-    const html = `
-      <html>
-        <head>
-          <title>${escapeHtml(selectedLevel.name)} Price List</title>
-          <style>
-            body { font-family: 'Plus Jakarta Sans', sans-serif; margin: 28px; color: #0f172a; }
-            h1, h2, p { text-align: center; margin-left: auto; margin-right: auto; }
-            h1 { margin: 0 0 8px; font-size: 25px; }
-            h2 { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #1e293b; }
-            .currency-note { margin: 0 0 6px; font-size: 13px; color: #64748b; text-align: center; }
-            p { margin: 0 0 20px; font-size: 13px; color: #475569; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; font-size: 13px; text-align: left; }
-            th { background: #0f172a; color: #ffffff; }
-            tfoot td { padding-top: 16px; border: none; text-align: center; color: #64748b; font-style: italic; }
-            @media print { body { margin: 0; } }
-          </style>
-        </head>
-        <body>
-          <h1>${showCompanyName ? escapeHtml(headerCompanyName.trim()) : ''}</h1>
-          <h2>Price List: ${escapeHtml(selectedLevel.name)}</h2>
-          <p>${escapeHtml(metadata)}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th style="text-align:center;">Pack Size</th>
-                <th style="text-align:right;">Unit Price</th>
-                <th style="text-align:right;">Pack Price</th>
-                <th>Currency</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-            <tfoot>
-              <tr>
-                <td colspan="5">Prepared in PriceRight</td>
-              </tr>
-            </tfoot>
-          </table>
-        </body>
-      </html>
-    `;
-
-    void printHtmlContent(html).then((printed) => {
-      if (!printed) {
-        showToastMessage('Allow pop-ups to print the price list PDF.', 'error');
-      }
-    });
   }
 
   async function handlePrintPriceList() {
     if (!selectedLevel || selectedLevelItems.length === 0) {
       return;
     }
-
-    let companyName = 'PriceRight';
-    let printBaseCurrency = baseCurrency;
-    try {
-      const settings = await settingsApi.getAll();
-      const companySetting = settings.find(
-        (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'companyName',
-      );
-      if (companySetting?.settingValue) {
-        companyName = companySetting.settingValue;
-      }
-      const currencySetting = settings.find(
-        (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'baseCurrency',
-      );
-      if (currencySetting?.settingValue) {
-        printBaseCurrency = currencySetting.settingValue;
-      }
-    } catch {
-      // Use defaults.
-    }
-
-    const date = new Date().toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
 
     const printableItems = approvedSelectedLevelItems.filter(
       (item) => item.finalPrice != null && Number.isFinite(Number(item.finalPrice)),
@@ -1708,164 +1655,19 @@ export default function PriceLevels() {
       return;
     }
 
-    const displayCurrency = levelCurrencyCode || printBaseCurrency;
-    const exchangeRateNote = levelCurrencyCode
-      ? `Exchange rate: 1 ${levelCurrencyCode} = ${levelRateToBase.toFixed(4)} ${printBaseCurrency} as of ${date}`
-      : '';
+    const exportCurrencyCode = levelCurrencyCode ?? baseCurrency;
 
-    const formatPrintPrice = (baseValue: number, convertedValue?: number) => {
-      if (levelCurrencyCode && convertedValue !== undefined) {
-        return formatExportNumber(toNumber(convertedValue));
-      }
-      return formatExportNumber(toNumber(baseValue));
-    };
-
-    const rowHtml: string[] = [];
-    for (const item of printableItems) {
-      const unitPrice = formatPrintPrice(item.finalPrice, item.finalPriceConverted);
-
-      if (!item.packSizes || item.packSizes.length === 0) {
-        rowHtml.push(`
-        <tr>
-          <td>${escapeHtml(item.productName || '')}</td>
-          <td style="text-align:center">Unit</td>
-          <td style="text-align:right">${escapeHtml(unitPrice)}</td>
-          <td style="text-align:right">—</td>
-          <td>${escapeHtml(displayCurrency)}</td>
-        </tr>
-      `);
-      } else {
-        item.packSizes.forEach((pack, idx) => {
-          const packPrice = formatPrintPrice(pack.packPrice, pack.packPriceConverted);
-          rowHtml.push(`
-            <tr>
-              <td style="color: ${idx === 0 ? '#000' : '#999'}">
-                ${idx === 0 ? escapeHtml(item.productName || '') : ''}
-              </td>
-              <td style="text-align:center">${escapeHtml(formatExportNumber(Number(pack.packQuantity)))}</td>
-              <td style="text-align:right">${escapeHtml(unitPrice)}</td>
-              <td style="text-align:right">${escapeHtml(packPrice)}</td>
-              <td>${escapeHtml(displayCurrency)}</td>
-            </tr>
-          `);
-        });
-      }
-    }
-    const rows = rowHtml.join('');
-
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>${escapeHtml(selectedLevel.name || 'Price List')}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 12px;
-      color: #000;
-      padding: 32px 40px;
-    }
-    .header {
-      margin-bottom: 28px;
-      padding-bottom: 16px;
-      border-bottom: 2px solid #000;
-    }
-    .company {
-      font-size: 20px;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .level-name {
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
-    .currency-note {
-      font-size: 13px;
-      color: #64748b;
-      margin-bottom: 4px;
-    }
-    .meta {
-      font-size: 11px;
-      color: #555;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    thead th {
-      text-align: left;
-      padding: 8px 12px;
-      background: #f5f5f5;
-      border-top: 1px solid #ccc;
-      border-bottom: 1px solid #ccc;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    thead th:last-child,
-    thead th[data-align="right"],
-    tbody td[data-align="right"] {
-      text-align: right;
-    }
-    tbody td {
-      padding: 7px 12px;
-      border-bottom: 1px solid #eee;
-      font-size: 12px;
-    }
-    tbody tr:nth-child(even) td {
-      background: #fafafa;
-    }
-    .footer {
-      margin-top: 24px;
-      padding-top: 12px;
-      border-top: 1px solid #ccc;
-      font-size: 10px;
-      color: #777;
-    }
-    @page {
-      margin: 15mm;
-      size: A4 portrait;
-    }
-    @media print {
-      body { padding: 0; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="company">${escapeHtml(companyName)}</div>
-    <div class="level-name">${escapeHtml(selectedLevel.name || 'Price List')}</div>
-    <div class="meta">Valid as of ${escapeHtml(date)}</div>
-    ${exchangeRateNote ? `<div class="meta">${escapeHtml(exchangeRateNote)}</div>` : ''}
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Product</th>
-        <th style="text-align:center">Pack Size</th>
-        <th style="text-align:right">Unit Price</th>
-        <th style="text-align:right">Pack Price</th>
-        <th>Currency</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
-  <div class="footer">
-    Generated by PriceRight · ${escapeHtml(companyName)} · ${escapeHtml(date)}
-    ${exchangeRateNote ? `<br>${escapeHtml(exchangeRateNote)}` : ''}
-  </div>
-</body>
-</html>`;
-
-    const printed = await printHtmlContent(html);
-    if (!printed) {
-      showToastMessage('Allow pop-ups to print the price list.', 'error');
+    try {
+      await printTable(
+        buildPriceLevelPdfOptions(
+          selectedLevel.name,
+          printableItems,
+          exportCurrencyCode,
+          Boolean(levelCurrencyCode),
+        ),
+      );
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the price list.', 'error');
     }
   }
 

@@ -1365,6 +1365,43 @@ textarea {
   white-space: normal;
 }
 
+.help-centre__article-view {
+  padding-bottom: 32px;
+}
+
+.help-centre__article-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.help-centre__article-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.help-centre__article-toolbar-row--title {
+  align-items: flex-start;
+}
+
+.help-centre__article-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.help-centre__article-toolbar-row--title .help-centre__article-heading {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
 .help-centre__list-section,
 .help-centre__article-view {
   max-width: 720px;

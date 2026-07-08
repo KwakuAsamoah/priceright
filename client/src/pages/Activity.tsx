@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Clock,
   Clock3,
+  FileText,
   HelpCircle,
   PlusCircle,
   Printer,
@@ -23,8 +24,50 @@ import useTableZoom from '../hooks/useTableZoom';
 import TableZoomControl from '../components/TableZoomControl';
 import { getThresholdMarkupColor } from '../utils/margin';
 import { safeRender } from '../utils/render';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 
 const PAGE_SIZE = 50;
+
+const ACTIVITY_PDF_COLUMNS = [
+  { header: 'Date', dataKey: 'date' },
+  { header: 'Action', dataKey: 'action' },
+  { header: 'Product', dataKey: 'product' },
+  { header: 'Details', dataKey: 'details' },
+] as const;
+
+function buildActivityPdfRows(entries: ActivityEntry[], currencyCode: string): Record<string, unknown>[] {
+  return entries.map((entry) => {
+    const description = getActivityDescription(entry, currencyCode);
+    return {
+      date: formatAbsoluteTime(entry.createdAt),
+      action: entry.action,
+      product: safeRender(
+        entry.entityName
+        ?? (entry.details as Record<string, unknown> | undefined)?.productName
+        ?? (entry.details as Record<string, unknown> | undefined)?.materialName
+        ?? (entry.details as Record<string, unknown> | undefined)?.levelName
+        ?? 'Item',
+      ),
+      details: [description.title, description.subline].filter(Boolean).join(' | '),
+    };
+  });
+}
+
+function buildActivityPdfOptions(
+  entries: ActivityEntry[],
+  currencyCode: string,
+  dateRange: string,
+) {
+  const date = new Date().toISOString().slice(0, 10);
+  return {
+    title: 'Activity Log',
+    subtitle: dateRange,
+    columns: [...ACTIVITY_PDF_COLUMNS],
+    rows: buildActivityPdfRows(entries, currencyCode),
+    landscape: false,
+    filename: `activity-log-${date}.pdf`,
+  };
+}
 
 type EntityFilter = 'all' | 'product' | 'material' | 'price_level' | 'exchange_rate';
 type ActionGroupFilter = 'all' | 'approvals' | 'cost_changes' | 'created' | 'deleted';
@@ -330,46 +373,37 @@ export default function Activity() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleActivityPrint() {
-    let companyName = 'PriceRight';
-    try {
-      const settings = await settingsApi.getAll();
-      const companySetting = settings.find(
-        (s: { settingKey: string; settingValue: string }) => s.settingKey === 'companyName',
-      );
-      if (companySetting?.settingValue) {
-        companyName = companySetting.settingValue;
-      }
-    } catch {
-      // Use default company name.
+  async function handleExportActivityPdf() {
+    if (entries.length === 0) {
+      setError('No activity entries to export.');
+      return;
     }
 
     const dateRange = fromDate || toDate
       ? `${fromDate || 'start'} to ${toDate || 'today'}`
       : 'All dates';
 
-    const printHeader = document.getElementById('print-header');
-    if (printHeader) {
-      printHeader.innerHTML = `
-        <div class="print-header-company">${companyName}</div>
-        <div class="print-header-title">Activity Log</div>
-        <div class="print-header-meta">
-          ${dateRange}
-          &nbsp;&nbsp;|&nbsp;&nbsp;
-          Printed: ${new Date().toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-          })}
-        </div>
-      `;
+    try {
+      await generateTablePDF(buildActivityPdfOptions(entries, baseCurrency, dateRange));
+    } catch (exportError: unknown) {
+      setError(exportError instanceof Error ? exportError.message : 'Failed to export activity log PDF.');
+    }
+  }
+
+  async function handleActivityPrint() {
+    if (entries.length === 0) {
+      setError('No activity entries to print.');
+      return;
     }
 
-    // Electron print uses the page's existing @media print CSS in index.css.
-    if (window.electronAPI?.print) {
-      await window.electronAPI.print({ landscape: true });
-    } else {
-      window.print();
+    const dateRange = fromDate || toDate
+      ? `${fromDate || 'start'} to ${toDate || 'today'}`
+      : 'All dates';
+
+    try {
+      await printTable(buildActivityPdfOptions(entries, baseCurrency, dateRange));
+    } catch (printError: unknown) {
+      setError(printError instanceof Error ? printError.message : 'Allow pop-ups to print the activity log.');
     }
   }
 
@@ -460,7 +494,18 @@ export default function Activity() {
       <div className="app-page-header">
         <h1 className="app-page-title">Activity</h1>
         <div className="app-page-subtitle">Complete record of all actions across the app</div>
-        <div style={{ marginTop: '10px' }} data-print-hide>
+        <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }} data-print-hide>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => {
+              void handleExportActivityPdf();
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <FileText size={14} />
+            Export PDF
+          </button>
           <button
             type="button"
             className="btn btn-outline btn-sm"
@@ -470,7 +515,7 @@ export default function Activity() {
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             <Printer size={14} />
-            Print / Export PDF
+            Print
           </button>
         </div>
       </div>

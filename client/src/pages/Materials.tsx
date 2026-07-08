@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Download, Eye, EyeOff, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Download, Eye, EyeOff, FileText, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -18,7 +18,7 @@ import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { printExportTable } from '../utils/exportPrint';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 import {
@@ -155,6 +155,55 @@ function formatListMessage(title: string, lines: string[]) {
 
 function formatRateValue(value: number) {
   return Number(value || 0).toFixed(2);
+}
+
+const MATERIAL_PDF_COLUMNS = [
+  { header: 'Name', dataKey: 'name' },
+  { header: 'Category', dataKey: 'category' },
+  { header: 'Unit', dataKey: 'unit' },
+  { header: 'Bulk Quantity', dataKey: 'bulkQuantity' },
+  { header: 'Purchase Price', dataKey: 'purchasePrice' },
+  { header: 'Currency', dataKey: 'currency' },
+  { header: 'Unit Cost', dataKey: 'unitCost' },
+  { header: 'Status', dataKey: 'status' },
+] as const;
+
+function buildMaterialsPdfOptions(materials: Material[], rows: Record<string, unknown>[]) {
+  const date = new Date().toISOString().slice(0, 10);
+  return {
+    title: 'Materials',
+    subtitle: `${materials.length} materials`,
+    columns: [...MATERIAL_PDF_COLUMNS],
+    rows,
+    landscape: true,
+    filename: `materials-${date}.pdf`,
+  };
+}
+
+function materialExportRowsToPdfRows(materials: Material[], getUnitCost: (material: Material) => number): Record<string, unknown>[] {
+  return materials.map((material) => {
+    const [
+      name,
+      category,
+      unit,
+      bulkQuantity,
+      purchasePrice,
+      currency,
+      unitCost,
+      status,
+    ] = buildMaterialExportRow(material, formatExportNumber(getUnitCost(material)));
+
+    return {
+      name,
+      category,
+      unit,
+      bulkQuantity,
+      purchasePrice,
+      currency,
+      unitCost,
+      status,
+    };
+  });
 }
 
 const MATERIAL_EXPORT_HEADERS = [
@@ -727,29 +776,35 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     showToastMessage(`Exported ${filteredMaterials.length} filtered material${filteredMaterials.length !== 1 ? 's' : ''} to CSV`, 'success');
   }
+  async function handleExportMaterialsPdf() {
+    if (filteredMaterials.length === 0) {
+      showToastMessage('No materials to export', 'error');
+      return;
+    }
+
+    try {
+      await generateTablePDF(buildMaterialsPdfOptions(
+        filteredMaterials,
+        materialExportRowsToPdfRows(filteredMaterials, getMaterialBaseUnitCost),
+      ));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
+    }
+  }
+
   async function handlePrintMaterialsExport() {
     if (filteredMaterials.length === 0) {
       showToastMessage('No materials to print', 'error');
       return;
     }
 
-    const rows = filteredMaterials.map((material) => buildMaterialExportRow(
-      material,
-      formatExportNumber(getMaterialBaseUnitCost(material)),
-    ));
-
-    const printed = await printExportTable({
-      title: 'Materials List',
-      subtitle: `${filteredMaterials.length} materials`,
-      headers: MATERIAL_EXPORT_HEADERS,
-      rows,
-      rightAlignFromColumn: 3,
-      landscape: true,
-      fontSize: '11px',
-    });
-
-    if (!printed) {
-      showToastMessage('Allow pop-ups to print the materials list.', 'error');
+    try {
+      await printTable(buildMaterialsPdfOptions(
+        filteredMaterials,
+        materialExportRowsToPdfRows(filteredMaterials, getMaterialBaseUnitCost),
+      ));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the materials list.', 'error');
     }
   }
 
@@ -1387,6 +1442,15 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             >
               <Table size={14} />
               Export Excel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => void handleExportMaterialsPdf()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <FileText size={14} />
+              Export PDF
             </button>
             <button
               type="button"

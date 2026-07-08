@@ -3,7 +3,7 @@ import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileText, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
@@ -18,7 +18,7 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
-import { printExportTable } from '../utils/exportPrint';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { exportInChunks } from '../utils/reportExport';
 import { readImportDataRows } from '../utils/importWorkbook';
@@ -204,6 +204,51 @@ function calculateActualProfitOnSales(product: ProductPricing): number | null {
   }
 
   return ((approvedPrice - productionCost) / approvedPrice) * 100;
+}
+
+const PRODUCT_PDF_COLUMNS = [
+  { header: 'Product Name', dataKey: 'productName' },
+  { header: 'Category', dataKey: 'category' },
+  { header: 'Production Cost', dataKey: 'productionCost' },
+  { header: 'Currency', dataKey: 'currency' },
+  { header: 'Optimal Price', dataKey: 'optimalPrice' },
+  { header: 'Approved Base Price', dataKey: 'approvedBasePrice' },
+  { header: 'Actual Markup %', dataKey: 'actualMarkupPercent' },
+  { header: 'Optimal Markup %', dataKey: 'optimalMarkupPercent' },
+  { header: 'Approval Status', dataKey: 'approvalStatus' },
+] as const;
+
+function buildProductPdfRows(products: ProductPricing[], currencyCode: string): Record<string, unknown>[] {
+  return products.map((product) => {
+    const optimalMarkup = calculateOptimalProfitOnCost(product);
+    const actualMarkup = calculateActualProfitOnCost(product);
+
+    return {
+      productName: product.name,
+      category: product.category || '—',
+      productionCost: formatExportNumber(Number(product.totalCost || 0)),
+      currency: currencyCode,
+      optimalPrice: formatExportNumber(Number(product.optimalPrice || 0)),
+      approvedBasePrice: product.approvalStatus === 'approved' && product.approvedPrice != null
+        ? formatExportNumber(Number(product.approvedPrice))
+        : '—',
+      actualMarkupPercent: formatProductExportPercent(actualMarkup),
+      optimalMarkupPercent: formatProductExportPercent(optimalMarkup),
+      approvalStatus: getApprovalBadge(product.approvalStatus).label,
+    };
+  });
+}
+
+function buildProductsPdfOptions(products: ProductPricing[], currencyCode: string) {
+  const date = new Date().toISOString().slice(0, 10);
+  return {
+    title: 'Products',
+    subtitle: `${products.length} products`,
+    columns: [...PRODUCT_PDF_COLUMNS],
+    rows: buildProductPdfRows(products, currencyCode),
+    landscape: true,
+    filename: `products-${date}.pdf`,
+  };
 }
 
 function getProductExportHeaders(): string[] {
@@ -1457,24 +1502,29 @@ export default function Products() {
     showToastMessage(`Exported ${filteredProducts.length} filtered product${filteredProducts.length !== 1 ? 's' : ''} to CSV`, 'success');
   }
 
+  async function handleExportProductsPdf() {
+    if (filteredProducts.length === 0) {
+      showToastMessage('No products to export', 'error');
+      return;
+    }
+
+    try {
+      await generateTablePDF(buildProductsPdfOptions(filteredProducts, baseCurrency));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
+    }
+  }
+
   async function handlePrintProductsExport() {
     if (filteredProducts.length === 0) {
       showToastMessage('No products to print', 'error');
       return;
     }
 
-    const printed = await printExportTable({
-      title: 'Products List',
-      subtitle: `${filteredProducts.length} products`,
-      headers: getProductExportHeaders(),
-      rows: filteredProducts.map((product) => buildProductExportValues(product, baseCurrency)),
-      rightAlignFromColumn: 3,
-      landscape: true,
-      fontSize: '11px',
-    });
-
-    if (!printed) {
-      showToastMessage('Allow pop-ups to print the products list.', 'error');
+    try {
+      await printTable(buildProductsPdfOptions(filteredProducts, baseCurrency));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the products list.', 'error');
     }
   }
 
@@ -1615,6 +1665,15 @@ export default function Products() {
             >
               {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
               {isExporting ? 'Exporting...' : 'Export Excel'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => void handleExportProductsPdf()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <FileText size={14} />
+              Export PDF
             </button>
             <button
               type="button"

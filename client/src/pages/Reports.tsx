@@ -24,7 +24,7 @@ import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
 import { exportInChunks, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
-import { printReportPayload } from '../utils/exportPrint';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
@@ -2184,32 +2184,45 @@ export default function Reports() {
     }
   }
 
-  function handleExportPDF() {
-    const payload = getExcelPayload();
-    if (!payload) {
-      return;
-    }
-
-    void printReportPayload(
-      selectedMeta?.name || 'Report',
-      `Generated: ${new Date().toLocaleDateString('en-GB')}`,
-      payload.columns,
-      payload.rows,
-    );
+  function buildReportPdfOptions(payload: { rows: ReportRow[]; columns: ColumnDef[]; filename: string }) {
+    const date = new Date().toLocaleDateString('en-GB');
+    return {
+      title: selectedMeta?.name || 'Report',
+      subtitle: `Generated: ${date}`,
+      columns: payload.columns.map((column) => ({
+        header: column.label,
+        dataKey: column.key,
+      })),
+      rows: payload.rows as Record<string, unknown>[],
+      landscape: true,
+      filename: payload.filename.replace(/\.csv$/i, '.pdf'),
+    };
   }
 
-  function handlePrintReport() {
+  async function handleExportPDF() {
     const payload = getExcelPayload();
     if (!payload) {
       return;
     }
 
-    void printReportPayload(
-      selectedMeta?.name || 'Report',
-      `Generated: ${new Date().toLocaleDateString('en-GB')}`,
-      payload.columns,
-      payload.rows,
-    );
+    try {
+      await generateTablePDF(buildReportPdfOptions(payload));
+    } catch (error: unknown) {
+      console.error(error);
+    }
+  }
+
+  async function handlePrintReport() {
+    const payload = getExcelPayload();
+    if (!payload) {
+      return;
+    }
+
+    try {
+      await printTable(buildReportPdfOptions(payload));
+    } catch (error: unknown) {
+      console.error(error);
+    }
   }
 
   const pricingCategories = useMemo(() => availableCategories, [availableCategories]);
@@ -2833,7 +2846,7 @@ export default function Reports() {
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
         <MarkupHealthPopover />
         <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
-        <button type="button" className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportPDF()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <FileText size={14} />
           Export PDF
         </button>
@@ -2841,7 +2854,7 @@ export default function Reports() {
           {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
           {isExporting ? 'Exporting...' : 'Export Excel'}
         </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={handlePrintReport} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handlePrintReport()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Printer size={14} />
           Print
         </button>

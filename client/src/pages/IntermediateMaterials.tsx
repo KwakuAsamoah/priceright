@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileUp, Layers, Plus, Printer, Table, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, FileUp, Layers, Plus, Printer, Table, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import ActionDropdown from '../components/ActionDropdown';
@@ -18,7 +18,7 @@ import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { printExportTable } from '../utils/exportPrint';
+import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
@@ -272,6 +272,51 @@ function getIntermediateExportHeaders(): string[] {
     'Markup %',
     'Status',
   ];
+}
+
+const INTERMEDIATE_PDF_COLUMNS = [
+  { header: 'Name', dataKey: 'name' },
+  { header: 'Category', dataKey: 'category' },
+  { header: 'Unit', dataKey: 'unit' },
+  { header: 'Yield %', dataKey: 'yieldPercent' },
+  { header: 'Costing Method', dataKey: 'costingMethod' },
+  { header: 'Calculated Cost Per Unit', dataKey: 'calculatedCostPerUnit' },
+  { header: 'Currency', dataKey: 'currency' },
+  { header: 'Optimal Price', dataKey: 'optimalPrice' },
+  { header: 'Overhead %', dataKey: 'overheadPercent' },
+  { header: 'Markup %', dataKey: 'markupPercent' },
+  { header: 'Status', dataKey: 'status' },
+] as const;
+
+function buildIntermediatePdfRows(source: MaterialRecord[], currencyCode: string): Record<string, unknown>[] {
+  return source.map((material) => {
+    const calculatedCost = Number(material.unitPrice || material.calculatedCostPerUnit || 0);
+    return {
+      name: material.name,
+      category: material.category,
+      unit: material.unit,
+      yieldPercent: formatExportNumber(Number(material.yieldPercentage || 0)),
+      costingMethod: formatIntermediateCostingMethod(material.intermediateCostMode),
+      calculatedCostPerUnit: formatExportNumber(calculatedCost),
+      currency: currencyCode,
+      optimalPrice: formatExportNumber(calculatedCost * (1 + Number(material.marginPercentage || 0) / 100)),
+      overheadPercent: formatExportNumber(Number(material.overheadPercentage || 0)),
+      markupPercent: formatExportNumber(Number(material.marginPercentage || 0)),
+      status: material.isActive ? 'Active' : 'Inactive',
+    };
+  });
+}
+
+function buildIntermediatePdfOptions(materials: MaterialRecord[], currencyCode: string) {
+  const date = new Date().toISOString().slice(0, 10);
+  return {
+    title: 'Intermediate Materials',
+    subtitle: `${materials.length} intermediates`,
+    columns: [...INTERMEDIATE_PDF_COLUMNS],
+    rows: buildIntermediatePdfRows(materials, currencyCode),
+    landscape: true,
+    filename: `intermediate-materials-${date}.pdf`,
+  };
 }
 
 export default function IntermediateMaterials({ refreshKey = 0, isActive = true }: IntermediateMaterialsProps) {
@@ -903,24 +948,29 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }
 
+  async function handleExportIntermediatePdf() {
+    if (filteredMaterials.length === 0) {
+      showToastMessage('No materials to export', 'error');
+      return;
+    }
+
+    try {
+      await generateTablePDF(buildIntermediatePdfOptions(filteredMaterials, baseCurrency));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Failed to export PDF', 'error');
+    }
+  }
+
   async function handlePrintIntermediateExport() {
     if (filteredMaterials.length === 0) {
       showToastMessage('No materials to print', 'error');
       return;
     }
 
-    const printed = await printExportTable({
-      title: 'Intermediate Materials',
-      subtitle: `${filteredMaterials.length} intermediates`,
-      headers: getIntermediateExportHeaders(),
-      rows: buildExportRows(filteredMaterials),
-      rightAlignFromColumn: 3,
-      landscape: true,
-      fontSize: '11px',
-    });
-
-    if (!printed) {
-      showToastMessage('Allow pop-ups to print the intermediate materials list.', 'error');
+    try {
+      await printTable(buildIntermediatePdfOptions(filteredMaterials, baseCurrency));
+    } catch (error: unknown) {
+      showToastMessage(error instanceof Error ? error.message : 'Allow pop-ups to print the intermediate materials list.', 'error');
     }
   }
 
@@ -1257,6 +1307,15 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             >
               <Table size={14} />
               Export Excel
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => void handleExportIntermediatePdf()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <FileText size={14} />
+              Export PDF
             </button>
             <button
               type="button"

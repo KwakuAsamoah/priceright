@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Printer, Search } from 'lucide-react';
+import { generateArticlePDF, slugifyFilename } from '../utils/exportPrint';
 import { useSearchParams } from 'react-router-dom';
 import {
   HELP_CATEGORIES,
@@ -191,6 +192,29 @@ export default function HelpPage() {
       .filter((article): article is HelpArticle => Boolean(article));
   }, [selectedArticle]);
 
+  const articleNavList = useMemo(() => {
+    if (searchQueryParam.trim()) {
+      return searchResults;
+    }
+    if (selectedCategory) {
+      return articlesByCategory[selectedCategory];
+    }
+    if (selectedArticle) {
+      return helpArticles.filter((article) => article.section === selectedArticle.section);
+    }
+    return [];
+  }, [articlesByCategory, searchQueryParam, searchResults, selectedArticle, selectedCategory]);
+
+  const currentArticleIndex = useMemo(() => {
+    if (!selectedArticle) return -1;
+    return articleNavList.findIndex((article) => article.id === selectedArticle.id);
+  }, [articleNavList, selectedArticle]);
+
+  const previousArticle = currentArticleIndex > 0 ? articleNavList[currentArticleIndex - 1] : null;
+  const nextArticle = currentArticleIndex >= 0 && currentArticleIndex < articleNavList.length - 1
+    ? articleNavList[currentArticleIndex + 1]
+    : null;
+
   const showSearchResults = Boolean(searchQueryParam.trim()) && !articleId && !categoryParam;
   const showCategoryView = Boolean(categoryParam) && !articleId;
   const showArticleView = Boolean(selectedArticle);
@@ -218,11 +242,12 @@ export default function HelpPage() {
   };
 
   async function handlePrintArticle() {
-    if (window.electronAPI?.print) {
-      await window.electronAPI.print({ landscape: false });
-      return;
-    }
-    window.print();
+    if (!selectedArticle) return;
+    await generateArticlePDF({
+      title: selectedArticle.title,
+      content: selectedArticle.content,
+      filename: slugifyFilename(selectedArticle.title),
+    });
   }
 
   return (
@@ -392,21 +417,55 @@ export default function HelpPage() {
               <div className="help-centre__breadcrumb">
                 Help &gt; {selectedArticle.section} &gt; {selectedArticle.title}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <button type="button" className="help-centre__back-link" onClick={handleBack}>
-                  {backLabel}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm help-centre__print-button"
-                  onClick={() => void handlePrintArticle()}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Printer size={16} />
-                  Print article
-                </button>
+              <div className="help-centre__article-toolbar">
+                <div className="help-centre__article-toolbar-row">
+                  <button type="button" className="help-centre__back-link" onClick={handleBack}>
+                    {backLabel}
+                  </button>
+                  <div className="help-centre__article-nav">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={!previousArticle}
+                      onClick={() => {
+                        if (!previousArticle) return;
+                        openArticle(previousArticle.id, {
+                          category: selectedCategory || previousArticle.section,
+                          q: searchQueryParam || undefined,
+                        });
+                      }}
+                    >
+                      ← Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={!nextArticle}
+                      onClick={() => {
+                        if (!nextArticle) return;
+                        openArticle(nextArticle.id, {
+                          category: selectedCategory || nextArticle.section,
+                          q: searchQueryParam || undefined,
+                        });
+                      }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+                <div className="help-centre__article-toolbar-row help-centre__article-toolbar-row--title">
+                  <h2 className="help-centre__article-heading">{selectedArticle.title}</h2>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm help-centre__print-button"
+                    onClick={() => void handlePrintArticle()}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
+                  >
+                    <Printer size={16} />
+                    Print article
+                  </button>
+                </div>
               </div>
-              <h2 className="help-centre__article-heading">{selectedArticle.title}</h2>
               <div
                 className="help-article-body help-centre__article-body help-centre__article-content"
                 dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
