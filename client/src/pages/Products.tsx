@@ -209,7 +209,6 @@ function calculateActualProfitOnSales(product: ProductPricing): number | null {
 function getProductExportHeaders(): string[] {
   return [
     'Product Name',
-    'SKU',
     'Category',
     'Production Cost',
     'Currency',
@@ -218,7 +217,6 @@ function getProductExportHeaders(): string[] {
     'Actual Markup %',
     'Optimal Markup %',
     'Approval Status',
-    'Active',
     'Actual Gross Margin % (reference)',
     'Optimal Gross Margin % (reference)',
   ];
@@ -237,7 +235,6 @@ function buildProductExportValues(product: ProductPricing, baseCurrency: string)
 
   return [
     product.name,
-    product.sku || '-',
     product.category || '—',
     formatExportNumber(Number(product.totalCost || 0)),
     baseCurrency,
@@ -248,7 +245,6 @@ function buildProductExportValues(product: ProductPricing, baseCurrency: string)
     formatProductExportPercent(actualMarkup),
     formatProductExportPercent(optimalMarkup),
     getApprovalBadge(product.approvalStatus).label,
-    product.isActive !== false ? 'Active' : 'Inactive',
     formatProductExportPercent(actualGross),
     formatProductExportPercent(optimalGross),
   ];
@@ -826,9 +822,9 @@ export default function Products() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet['!cols'] = [
-      { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
+      { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 10 },
       { wch: 12 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-      { wch: 10 }, { wch: 28 }, { wch: 28 },
+      { wch: 28 }, { wch: 28 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -1244,7 +1240,6 @@ export default function Products() {
 
       ws['!cols'] = [
         { wch: 30 },
-        { wch: 15 },
         { wch: 16 },
         { wch: 15 },
         { wch: 10 },
@@ -1253,7 +1248,6 @@ export default function Products() {
         { wch: 16 },
         { wch: 16 },
         { wch: 16 },
-        { wch: 10 },
         { wch: 28 },
         { wch: 28 },
       ];

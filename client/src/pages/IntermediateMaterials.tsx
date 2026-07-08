@@ -271,8 +271,6 @@ function getIntermediateExportHeaders(): string[] {
     'Overhead %',
     'Markup %',
     'Status',
-    'SKU',
-    'Description',
   ];
 }
 
@@ -901,8 +899,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         formatExportNumber(Number(material.overheadPercentage || 0)),
         formatExportNumber(Number(material.marginPercentage || 0)),
         material.isActive ? 'Active' : 'Inactive',
-        material.sku || '',
-        material.description || '',
       ];
     });
   }

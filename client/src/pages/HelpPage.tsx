@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Printer, Search } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import {
   HELP_CATEGORIES,
@@ -217,6 +217,14 @@ export default function HelpPage() {
     openHome();
   };
 
+  async function handlePrintArticle() {
+    if (window.electronAPI?.print) {
+      await window.electronAPI.print({ landscape: false });
+      return;
+    }
+    window.print();
+  }
+
   return (
     <div className="app-page help-page">
       <div ref={contentScrollRef} className="app-page-content">
@@ -384,12 +392,23 @@ export default function HelpPage() {
               <div className="help-centre__breadcrumb">
                 Help &gt; {selectedArticle.section} &gt; {selectedArticle.title}
               </div>
-              <button type="button" className="help-centre__back-link" onClick={handleBack}>
-                {backLabel}
-              </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <button type="button" className="help-centre__back-link" onClick={handleBack}>
+                  {backLabel}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm help-centre__print-button"
+                  onClick={() => void handlePrintArticle()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Printer size={16} />
+                  Print article
+                </button>
+              </div>
               <h2 className="help-centre__article-heading">{selectedArticle.title}</h2>
               <div
-                className="help-article-body help-centre__article-body"
+                className="help-article-body help-centre__article-body help-centre__article-content"
                 dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
               />
 

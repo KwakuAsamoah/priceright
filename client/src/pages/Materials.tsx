@@ -166,8 +166,6 @@ const MATERIAL_EXPORT_HEADERS = [
   'Currency',
   'Unit Cost',
   'Status',
-  'SKU',
-  'Description',
 ];
 
 function buildMaterialExportRow(material: Material, unitCostValue: string): Array<string | number> {
@@ -180,8 +178,6 @@ function buildMaterialExportRow(material: Material, unitCostValue: string): Arra
     material.purchaseCurrencyCode,
     unitCostValue,
     material.isActive ? 'Active' : 'Inactive',
-    material.sku || '',
-    material.description || '',
   ];
 }
 
@@ -627,7 +623,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     ]);
     worksheet['!cols'] = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 },
-      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -676,7 +672,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     ]);
     worksheet['!cols'] = [
       { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 12 },
-      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 30 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 10 },
     ];
 
     const workbook = XLSX.utils.book_new();

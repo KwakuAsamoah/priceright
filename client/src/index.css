@@ -2681,4 +2681,26 @@ hr {
     margin: 15mm;
     size: A4 landscape;
   }
+
+  .help-centre__hero,
+  .help-centre__search-wrap,
+  .help-centre__setup,
+  .help-centre__categories,
+  .help-centre__list-section,
+  .help-centre__breadcrumb,
+  .help-centre__back-link,
+  .help-centre__print-button,
+  .help-centre__related,
+  .help-centre__feedback {
+    display: none !important;
+  }
+
+  .help-centre__article-view {
+    padding: 0 !important;
+  }
+
+  .help-centre__article-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
 }

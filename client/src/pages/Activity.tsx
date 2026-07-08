@@ -17,7 +17,6 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
-import { usePrint } from '../hooks/usePrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
@@ -330,7 +329,49 @@ export default function Activity() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { handlePrint } = usePrint();
+
+  async function handleActivityPrint() {
+    let companyName = 'PriceRight';
+    try {
+      const settings = await settingsApi.getAll();
+      const companySetting = settings.find(
+        (s: { settingKey: string; settingValue: string }) => s.settingKey === 'companyName',
+      );
+      if (companySetting?.settingValue) {
+        companyName = companySetting.settingValue;
+      }
+    } catch {
+      // Use default company name.
+    }
+
+    const dateRange = fromDate || toDate
+      ? `${fromDate || 'start'} to ${toDate || 'today'}`
+      : 'All dates';
+
+    const printHeader = document.getElementById('print-header');
+    if (printHeader) {
+      printHeader.innerHTML = `
+        <div class="print-header-company">${companyName}</div>
+        <div class="print-header-title">Activity Log</div>
+        <div class="print-header-meta">
+          ${dateRange}
+          &nbsp;&nbsp;|&nbsp;&nbsp;
+          Printed: ${new Date().toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </div>
+      `;
+    }
+
+    // Electron print uses the page's existing @media print CSS in index.css.
+    if (window.electronAPI?.print) {
+      await window.electronAPI.print({ landscape: true });
+    } else {
+      window.print();
+    }
+  }
 
   const hasActiveFilters = entityType !== 'all'
     || actionGroup !== 'all'
@@ -424,13 +465,7 @@ export default function Activity() {
             type="button"
             className="btn btn-outline btn-sm"
             onClick={() => {
-              const dateRange = fromDate || toDate
-                ? `${fromDate || 'start'} to ${toDate || 'today'}`
-                : 'All dates';
-              void handlePrint({
-                title: 'Activity Log',
-                subtitle: dateRange,
-              });
+              void handleActivityPrint();
             }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >

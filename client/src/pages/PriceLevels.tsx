@@ -103,6 +103,24 @@ function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
+type PriceLevelExportRow = [string, string, string, string, string];
+
+function buildPriceLevelExportRow(
+  productName: string,
+  packSize: string | number,
+  unitPrice: number,
+  packPrice: number | null,
+  currency: string,
+): PriceLevelExportRow {
+  return [
+    productName,
+    typeof packSize === 'string' ? packSize : formatExportNumber(Number(packSize)),
+    formatExportNumber(unitPrice),
+    packPrice != null && Number.isFinite(packPrice) ? formatExportNumber(packPrice) : '',
+    currency,
+  ];
+}
+
 function parseDraftValue(raw: string): number | null {
   if (!raw.trim()) {
     return null;
@@ -1440,32 +1458,32 @@ export default function PriceLevels() {
     const headerRow = ['Product Name', 'Pack Size', 'Unit Price', 'Pack Price', 'Currency'];
     const totalColumns = headerRow.length;
 
-    const dataRows: Array<Array<string | number>> = [];
+    const dataRows: PriceLevelExportRow[] = [];
     for (const item of exportedItems) {
       const unitPrice = levelCurrencyCode
         ? toNumber(item.finalPriceConverted, item.finalPrice)
         : toNumber(item.finalPrice, 0);
 
       if (!item.packSizes?.length) {
-        dataRows.push([
+        dataRows.push(buildPriceLevelExportRow(
           item.productName,
           'Unit',
-          formatExportNumber(unitPrice),
-          '',
+          unitPrice,
+          null,
           exportCurrencyCode,
-        ]);
+        ));
       } else {
         item.packSizes.forEach((pack, idx) => {
           const packPrice = levelCurrencyCode
             ? toNumber(pack.packPriceConverted, pack.packPrice)
             : toNumber(pack.packPrice, 0);
-          dataRows.push([
+          dataRows.push(buildPriceLevelExportRow(
             idx === 0 ? item.productName : '',
-            formatExportNumber(Number(pack.packQuantity)),
-            formatExportNumber(unitPrice),
-            formatExportNumber(packPrice),
+            pack.packQuantity,
+            unitPrice,
+            packPrice,
             exportCurrencyCode,
-          ]);
+          ));
         });
       }
     }
@@ -2110,22 +2128,15 @@ export default function PriceLevels() {
                               </button>
                               <button
                                 type="button"
+                                className="btn btn-outline btn-sm"
                                 onClick={openExportSelectedModal}
                                 disabled={exportDisabled}
-                                title={exportDisabledTitle || 'Export selected products'}
-                                aria-label="Export selected products"
-                                style={{
-                                  border: '1px solid #e2e8f0',
-                                  background: '#ffffff',
-                                  color: exportDisabled ? '#94a3b8' : '#64748b',
-                                  borderRadius: '6px',
-                                  padding: '4px 6px',
-                                  cursor: exportDisabled ? 'not-allowed' : 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                }}
+                                title={exportDisabledTitle || 'Export selected products to Excel'}
+                                aria-label="Export selected products to Excel"
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                               >
                                 <ChevronDown size={14} />
+                                Export Selected to Excel
                               </button>
                             </div>
                             <button
