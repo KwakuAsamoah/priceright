@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -261,6 +261,53 @@ function fetchHealthStatus() {
 
 function checkServerOnce() {
   return fetchHealthStatus().then((health) => Boolean(health?.status === 'ok'));
+}
+
+const SERVER_STARTUP_ERROR_TITLE = 'PriceRight could not start';
+const SERVER_STARTUP_ERROR_MESSAGE = [
+  'The PriceRight server failed to start. This may be because:',
+  '• Another application is using the required port',
+  '• The application files are damaged',
+  '• Your antivirus software is blocking PriceRight',
+  '',
+  'Please try restarting the application. If the problem continues contact support at support@therighthub.com',
+].join('\n');
+
+function showServerStartupErrorDialog() {
+  dialog.showErrorBox(SERVER_STARTUP_ERROR_TITLE, SERVER_STARTUP_ERROR_MESSAGE);
+}
+
+function showReconnectNotification() {
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: 'PriceRight',
+      body: 'Trying to reconnect...',
+    });
+    notification.show();
+    return;
+  }
+
+  devLog('[startup] Trying to reconnect...');
+}
+
+async function waitForServerWithRetry() {
+  try {
+    await waitForServer();
+    return true;
+  } catch (firstError) {
+    console.error('[server] initial health check failed:', firstError);
+    showReconnectNotification();
+    serverModulePromise = null;
+
+    try {
+      await startServer();
+      await waitForServer();
+      return true;
+    } catch (retryError) {
+      console.error('[server] retry failed:', retryError);
+      return false;
+    }
+  }
 }
 
 function createWindow() {
@@ -782,24 +829,17 @@ app.whenReady().then(async () => {
       await startServer();
     } catch (error) {
       console.error('[server] failed to start:', error);
-      const detail = error?.code === 'ERR_DLOPEN_FAILED'
-        ? 'A required native module was built for the wrong platform.\n\nPlease download the latest version from priceright.app or contact support@priceright.app.'
-        : 'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.';
-      dialog.showErrorBox('PriceRight - Startup Error', detail);
+      showServerStartupErrorDialog();
       app.quit();
       return;
     }
-  }
 
-  try {
-    await waitForServer();
-  } catch (_err) {
-    dialog.showErrorBox(
-      'PriceRight - Startup Error',
-      'The PriceRight server could not start.\n\nPlease restart the application.\n\nIf this continues, reinstall PriceRight.'
-    );
-    app.quit();
-    return;
+    const serverReady = await waitForServerWithRetry();
+    if (!serverReady) {
+      showServerStartupErrorDialog();
+      app.quit();
+      return;
+    }
   }
 
   createWindow();

@@ -1,7 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
+import { AlertTriangle, Calculator, CheckCircle2, Clock3, Database, Download, HardDrive, Layers, ListTree, Package, Plus, Settings2, ShoppingBag, Trash2, WalletCards, Lock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { API_BASE, currenciesApi, exchangeRatesApi, settingsApi, backupApi, productsApi, materialsApi, demoModeApi, pinApi, templateUrl } from '../api';
 import AppToast from '../components/AppToast';
@@ -1854,6 +1854,26 @@ async function loadData() {
             {resetStep === 1 && (
               <>
                 <h2 className="app-modal-title">Clear All Data</h2>
+                <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginTop: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
+                    <div style={{ color: '#78350f', fontSize: '15px', lineHeight: 1.5 }}>
+                      <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>Recommended:</strong>
+                      Download a backup before clearing your data.
+                      This action permanently deletes ALL your data and cannot be undone.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => void handleBackup()}
+                  disabled={isBackingUp || isRestoring || isDemoMode}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}
+                >
+                  <Download size={16} strokeWidth={2} aria-hidden="true" />
+                  {isBackingUp ? 'Downloading backup...' : 'Download backup first'}
+                </button>
                 <p style={{ marginTop: '8px', color: '#475569' }}>
                   This will permanently delete everything in your live database:
                 </p>
@@ -1870,7 +1890,6 @@ async function loadData() {
                 <p style={{ marginTop: '12px', color: '#7f1d1d' }}><strong>This cannot be undone. Create a backup first if you want to keep a copy of your data.</strong></p>
                 <div className="app-modal-actions" style={{ marginTop: '16px' }}>
                   <button className="btn btn-secondary" onClick={() => { setShowResetModal(false); setResetStep(1); setResetConfirmText(''); }}>Cancel</button>
-                  <button className="btn btn-ghost" onClick={() => { setResetStep(2); }}>Create backup first</button>
                   <button className="btn btn-primary" onClick={() => { setResetStep(2); }}>Continue →</button>
                 </div>
               </>
@@ -1878,6 +1897,26 @@ async function loadData() {
             {resetStep === 2 && (
               <>
                 <h2 className="app-modal-title">Clear All Data</h2>
+                <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginTop: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                    <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
+                    <div style={{ color: '#78350f', fontSize: '15px', lineHeight: 1.5 }}>
+                      <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>Recommended:</strong>
+                      Download a backup before clearing your data.
+                      This action permanently deletes ALL your data and cannot be undone.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => void handleBackup()}
+                  disabled={isBackingUp || isRestoring || isDemoMode || isResetting}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}
+                >
+                  <Download size={16} strokeWidth={2} aria-hidden="true" />
+                  {isBackingUp ? 'Downloading backup...' : 'Download backup first'}
+                </button>
                 <p style={{ marginTop: '8px', color: '#475569' }}>
                   All your products, materials, price levels, and settings will be permanently deleted. This cannot be undone. Type <strong>DELETE</strong> to confirm.
                 </p>
@@ -1908,6 +1947,26 @@ async function loadData() {
           <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
             <button className="btn-close-x" onClick={() => { if (!isRestoring) { setShowRestoreModal(false); setPendingRestoreData(null); } }} aria-label="Close">&times;</button>
             <h2 className="app-modal-title">Restore Backup</h2>
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 14px', marginTop: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <AlertTriangle size={18} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} aria-hidden="true" />
+                <div style={{ color: '#78350f', fontSize: '15px', lineHeight: 1.5 }}>
+                  <strong style={{ color: '#92400e', display: 'block', marginBottom: '4px' }}>Recommended:</strong>
+                  Download a backup of your current data before restoring.
+                  Restoring will replace ALL your current data with the backup file.
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => void handleBackup()}
+              disabled={isBackingUp || isRestoring || isDemoMode}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '16px' }}
+            >
+              <Download size={16} strokeWidth={2} aria-hidden="true" />
+              {isBackingUp ? 'Downloading backup...' : 'Download backup first'}
+            </button>
             <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
               This will replace ALL your current data with the data from the backup file. This cannot be undone.
             </p>
@@ -1946,8 +2005,11 @@ async function loadData() {
           <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
             <button className="btn-close-x" onClick={() => setShowResetDemoModal(false)} aria-label="Close">&times;</button>
             <h2 className="app-modal-title">Reset Demo Data</h2>
+            <p style={{ color: '#64748b', marginBottom: '12px', fontSize: '16px' }}>
+              This will replace your current data with sample data.
+            </p>
             <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
-              All current data will be replaced with demo data. Type <strong>RESET</strong> to confirm.
+              Type <strong>RESET</strong> to confirm.
             </p>
             <input
               className="app-control"
