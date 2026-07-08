@@ -1819,16 +1819,15 @@ export default function PriceLevels() {
                   <div className="app-empty-state-icon" aria-hidden="true">🏷️</div>
                   <div className="app-empty-state-title">No price levels yet</div>
                   <div className="app-empty-state-text">
-                    Price levels let you set different prices for different customer types — wholesale,
-                    retail, export. Create your first level to get started.
+                    Create a price list to set customer-facing prices for your approved products.
                   </div>
                   <button
                     type="button"
-                    className="btn btn-primary"
+                    className="btn btn-success"
                     style={{ marginTop: '16px' }}
                     onClick={openWizard}
                   >
-                    + Create your first price level
+                    Create your first price list
                   </button>
                 </div>
               )}

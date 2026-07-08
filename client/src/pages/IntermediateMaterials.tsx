@@ -1584,15 +1584,15 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     No intermediate materials yet
                   </div>
                   <div className="app-empty-state-text">
-                    Intermediate materials are recipes built from your primary materials. Add one to get started.
+                    Intermediate materials are semi-finished goods you make before using in your products — like a spice blend or a sauce base.
                   </div>
                   <button
-                    className="btn btn-primary btn-sm"
+                    className="btn btn-success"
                     style={{ marginTop: '16px' }}
                     type="button"
                     onClick={handleAddIntermediate}
                   >
-                    + Add intermediate material
+                    Create your first intermediate material
                   </button>
                 </div>
               ) : (

@@ -1372,7 +1372,7 @@ textarea {
 .help-centre__article-toolbar {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   margin-bottom: 16px;
 }
 
@@ -1381,11 +1381,11 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .help-centre__article-toolbar-row--title {
   align-items: flex-start;
+  gap: 16px;
 }
 
 .help-centre__article-nav {
@@ -1400,6 +1400,9 @@ textarea {
   margin: 0;
   flex: 1;
   min-width: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #0F2847;
 }
 
 .help-centre__list-section,
