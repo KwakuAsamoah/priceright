@@ -230,6 +230,8 @@ export const helpArticles: HelpArticle[] = [
         <li>You are moving to a new computer</li>
       </ul>
 
+      <p>Before you restore, a backup recommendation appears in the restore modal. Use the <strong>Download backup first</strong> button to save your current data before selecting your backup file.</p>
+
       <p><strong>How to restore:</strong></p>
       <ol>
         <li>Go to <strong>Settings → Data &amp; Backups</strong></li>
@@ -787,7 +789,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>When a price expires:</strong> the product moves to Needs review automatically and is excluded from price level exports until re-approved. Use the product detail page to review and approve with a new expiry date.</p>
 
-      <p>To export a price level, use the direct toolbar buttons — <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong> — once all items in the level are approved.</p>`,
+      <p>To export a price level, use the direct toolbar buttons — <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong> — once all items in the level are approved. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   // ── PRICE LEVELS AND EXPORTS ───────────────────────────────────────────────
@@ -838,7 +840,7 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>I'll approve later</strong> — creates the level with prices pending; approve from the Price Levels page when ready.</li>
       </ul>
 
-      <p>After creation, add pack sizes using the toolbar <strong>Pack sizes</strong> button and export via <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong>.</p>`,
+      <p>After creation, add pack sizes using the toolbar <strong>Pack sizes</strong> button and export via <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong>. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -898,12 +900,13 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Use the toolbar export buttons directly:</p>
       <ul>
-        <li><strong>Export PDF</strong> — print-ready customer price list</li>
+        <li><strong>Export PDF</strong> — downloads a professional PDF price list</li>
         <li><strong>Export Excel</strong> — spreadsheet format</li>
-        <li><strong>Print</strong> — send to your printer</li>
+        <li><strong>Export Selected to Excel</strong> — exports only the rows you have selected</li>
+        <li><strong>Print</strong> — generates the same PDF as Export PDF for printing</li>
       </ul>
 
-      <p>Click the chevron next to Export PDF to open <strong>Export selected</strong> if you only want certain products. Before exporting, use <strong>Approve all pending</strong> or approve individual rows.</p>
+      <p>Before exporting, use <strong>Approve all pending</strong> or approve individual rows. Use the <strong>Export selected products</strong> modal if you want a PDF or Excel file of specific products only.</p>
 
       <p>Customer-facing exports show Product Name, Pack Size, Unit Price, Pack Price, and a <strong>Currency</strong> column — currency is not repeated in column headers. Internal columns like approved base price are not included on customer exports.</p>
 
@@ -963,7 +966,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Table columns include Product Name, Approval status, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, <strong>Actual Markup %</strong>, and pricing Status (Above/Below/At Optimal).</p>
 
-      <p>Export as PDF, Excel, or Print from the report toolbar. Use the zoom control to adjust table size.</p>`,
+      <p>Export as PDF or Excel from the report toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there. Use the zoom control to adjust table size.</p>`,
   },
 
   {
@@ -979,7 +982,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Summary cards show Total Products Analysed, Above Target, Below Target, and Average Markup %. The table columns are Product Name, Category, Production Cost, Approved Price, Actual Markup %, and <strong>Target Gap</strong> — the difference between actual markup and your threshold. A negative gap means the product is below target.</p>
 
-      <p>Export the report as PDF, Excel, or Print from the toolbar. See <strong>Using the Markup Analysis report</strong> for more detail.</p>`,
+      <p>Export the report as PDF or Excel from the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there. See <strong>Using the Markup Analysis report</strong> for more detail.</p>`,
   },
 
   {
@@ -1033,7 +1036,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Use this report to see which price lists are active, which are expiring soon, and which have already expired. It does not show per-product approval status inside each level.</p>
 
-      <p>Export the report as Excel, PDF, or print.</p>`,
+      <p>Export the report as Excel or PDF. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -1051,7 +1054,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>Note:</strong> Optimal Price shows today's calculated value, not the value at approval time. For expiry dates, check the Products page or the product History tab.</p>
 
-      <p>Export as PDF, Excel, or Print from the report toolbar.</p>`,
+      <p>Export as PDF or Excel from the report toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   // ── ACTIVITY AND HISTORY ──────────────────────────────────────────────────
@@ -1152,7 +1155,11 @@ export const helpArticles: HelpArticle[] = [
         <li>The app will restart with your restored data</li>
       </ol>
 
-      <p>Live and demo data are separate databases. Backup and restore operations for live usage should target the live database context.</p>`,
+      <p>Live and demo data are separate databases. Backup and restore operations for live usage should target the live database context.</p>
+
+      <p>Before restore or <strong>Clear All Data</strong>, a <strong>Download backup first</strong> button appears in the confirmation modal so you can save your current data before proceeding.</p>
+
+      <p>The <strong>Version history</strong> section at the bottom of the Data tab shows your current version and a link to download previous releases if you need to roll back.</p>`,
   },
 
   {
@@ -1256,7 +1263,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Enter pack quantities — for example 6, 12, or 1 (single-unit packs are accepted). Pack price is calculated as unit price × pack quantity. You can also add or remove packs from the <strong>Edit Pricing Rule</strong> modal for a specific product.</p>
 
-      <p>Each pack appears as its own row in the price list table and on exported lists.</p>`,
+      <p>Each pack appears as its own row in the price list table and on exported lists.</p>
+
+      <p>Pack quantities must be at least 1. Saving a pack size of zero shows an error. A pack of 1 is valid for showing individual unit pricing.</p>`,
   },
 
   {
@@ -1300,11 +1309,11 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['undo', 'bulk approve', 'reverse', 'mistake'],
     relatedArticleIds: ['bulk-approval', 'how-approval-works', 'needs-review'],
     content: `
-      <p>After completing a bulk approval, a confirmation banner appears at the bottom of the screen with a <strong>Yes, Undo</strong> button.</p>
+      <p>After completing a bulk approval, a confirmation banner appears at the bottom of the screen with a red <strong>Undo</strong> button on the left and a green <strong>Keep</strong> button on the right.</p>
 
-      <p>Click <strong>Yes, Undo</strong> to reverse the entire bulk approval and return all affected products to their previous status.</p>
+      <p>Click <strong>Undo</strong> to reverse the entire bulk approval and return all affected products to their previous status.</p>
 
-      <p>The banner stays until you click <strong>Yes, Undo</strong> or <strong>No, Keep</strong>. If you dismiss it with <strong>No, Keep</strong>, the action cannot be reversed from this button.</p>
+      <p>The banner stays until you click <strong>Undo</strong> or <strong>Keep</strong>. If you dismiss it with <strong>Keep</strong>, the action cannot be reversed from this button.</p>
 
       <p>If you miss the undo window, you can manually re-approve individual products from their product detail pages, or use <strong>Reset to Pending</strong> from the Products bulk bar if you need to clear approved prices.</p>`,
   },
@@ -1324,7 +1333,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Your logo appears in the Dashboard header alongside your company name.</p>
 
-      <p>These details are stored locally on your computer and are never sent to any server. You can update your company name or logo at any time from the same Settings page.</p>`,
+      <p>These details are stored locally on your computer and are never sent to any server. You can update your company name or logo at any time from the same Settings page.</p>
+
+      <p>Your company name also appears in the header of every PDF export across all sections of the app.</p>`,
   },
 
   {
@@ -1384,7 +1395,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Example with a 20% threshold: Healthy ≥ 20%, Low 10%–20%, Critical &lt; 10%.</p>
 
-      <p>Colour coding appears on the Products table, Dashboard, Reports, and Product Detail. Click the <strong>Markup Health</strong> info button (ⓘ) in page toolbars to see your current bands at a glance — it updates automatically when you change the threshold in Settings.</p>`,
+      <p>Colour coding appears on the Products table, Dashboard, Reports, and Product Detail. Click the <strong>Markup Health</strong> info button (ⓘ) in page toolbars to see your current bands at a glance — it updates automatically when you change the threshold in Settings.</p>
+
+      <p>The <strong>Below Markup Target</strong> widget on the Dashboard links directly to the Markup Analysis report — click <strong>View Markup Analysis →</strong> at the bottom of the widget.</p>`,
   },
 
   {
@@ -1449,7 +1462,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Click <strong>+ Add</strong> on the Products or Intermediate Materials page. Two panels appear side by side: the <strong>form</strong> on the left and the <strong>BOM builder</strong> on the right. Cost figures update live as you add materials.</p>
 
-      <p>You can add BOM items before saving — no need to save the product first. The <strong>Save</strong> button is always visible at the bottom of the left panel. Click × or outside the panel to cancel without saving.</p>`,
+      <p>You can add BOM items before saving — no need to save the product first. The <strong>Save</strong> button is always visible at the bottom of the left panel. Click × or outside the panel to cancel without saving.</p>
+
+      <p>Closing a product form mid-edit shows a <strong>Discard changes?</strong> warning. Choose <strong>Keep editing</strong> to return to the form, or <strong>Discard</strong> to close and lose your changes. Navigation away from the page is blocked while the form has unsaved changes.</p>`,
   },
 
   {
@@ -1467,7 +1482,7 @@ export const helpArticles: HelpArticle[] = [
       <p><strong>Products reports:</strong> Product Pricing Overview, Margin Health, Profitability Ranking, Price vs Cost Drift, Optimal vs Actual Gap.</p>
       <p><strong>Materials reports:</strong> Currency Exposure, Materials Cost Analysis, Top Cost Drivers, Price Volatility, Material Price History, Inactive in Active BOMs.</p>
 
-      <p>Active filters appear as removable chips above results. Use the zoom control and export buttons (PDF, Excel, Print) in the toolbar.</p>`,
+      <p>Active filters appear as removable chips above results. Use the zoom control and export buttons (PDF, Excel, Print) in the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -1495,7 +1510,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Green means all rates are current. Amber or red means some rates are stale and material costs in base currency may be inaccurate.</p>
 
-      <p>Click the widget to go to <strong>Settings → Currencies &amp; Rates</strong> and update your rates. You can also edit rates inline from the Materials page toolbar.</p>`,
+      <p>Click the widget to go to <strong>Settings → Currencies &amp; Rates</strong> and update your rates. You can also edit rates inline from the Materials page toolbar.</p>
+
+      <p>Exchange rates must be greater than zero. Saving a zero or negative rate shows an error message because a zero rate would make all material costs in that currency appear as zero.</p>`,
   },
 
   {
@@ -1525,7 +1542,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>The table shows Product Name, Category, Production Cost, Approved Price, Actual Markup %, and <strong>Target Gap</strong> (Actual Markup % minus threshold). Positive gap = above target; negative = below.</p>
 
-      <p>Export includes the threshold value used. Filter chips show active filters above the results.</p>`,
+      <p>Export includes the threshold value used. Filter chips show active filters above the results. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -1555,7 +1572,23 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Customer-facing price level exports show only Product Name, Pack Size, Unit Price, Pack Price, and Currency. Internal data exports (Materials, Products) include full detail columns.</p>
 
-      <p>On the Products page, use the column selector to choose which columns appear in exports. Reports export from the filter row toolbar.</p>`,
+      <p>On the Products page, use the column selector to choose which columns appear in exports. Reports export from the filter row toolbar.</p>
+
+      <p>PDF exports show your company name in the header (from <strong>Settings → Your Business</strong>), navy column headers, alternating row shading, page numbers, numbers formatted to two decimal places, a <strong>Currency</strong> column on each row, and no SKU, Description, or Active columns. All four formats — CSV, Excel, PDF, and Print — use identical columns in the same order.</p>
+
+      <p><strong>Print</strong> generates and downloads a PDF. Open the downloaded PDF in your PDF viewer to print from there.</p>`,
+  },
+
+  {
+    id: 'error-boundaries',
+    section: 'Getting Started',
+    title: 'When something goes wrong',
+    keywords: ['error', 'crash', 'something went wrong', 'try again', 'tab error'],
+    relatedArticleIds: ['help-centre'],
+    content: `
+      <p>If a tab encounters an error PriceRight shows a friendly message — <strong>This tab could not load</strong> — with a <strong>Try again</strong> button. Your data is safe. Click Try again to reload the section.</p>
+
+      <p>If the whole page encounters a serious error a <strong>Reload</strong> button appears. Click it to restart. If the problem continues contact <strong>support@therighthub.com</strong>.</p>`,
   },
 
   {
@@ -1571,7 +1604,9 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>Browse by topic</strong> — a grid of categories (Getting Started, Products and Materials, Pricing and Approvals, and more). Click a category to see all articles in that section.</p>
 
-      <p>Use the search bar for instant suggestions as you type. Click any article to open it as a full page with related articles at the bottom. After reading, answer <strong>Was this article helpful?</strong> to send feedback.</p>`,
+      <p>Use the search bar for instant suggestions as you type. Click any article to open it as a full page with related articles at the bottom. The <strong>Print article</strong> button generates and downloads a PDF of the article content only — no navigation or UI elements are included.</p>
+
+      <p>After reading, answer <strong>Was this article helpful?</strong> to send feedback.</p>`,
   },
 
 ];
