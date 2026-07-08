@@ -31,6 +31,8 @@ import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
 import { formatCurrency } from '../utils/currency';
+import { formatExportNumber } from '../utils/exportFormat';
+import { printHtmlContent } from '../utils/printPage';
 
 type PriceLevelRule = {
   id: number;
@@ -1445,7 +1447,13 @@ export default function PriceLevels() {
         : toNumber(item.finalPrice, 0);
 
       if (!item.packSizes?.length) {
-        dataRows.push([item.productName, 'Unit', unitPrice, '', exportCurrencyCode]);
+        dataRows.push([
+          item.productName,
+          'Unit',
+          formatExportNumber(unitPrice),
+          '',
+          exportCurrencyCode,
+        ]);
       } else {
         item.packSizes.forEach((pack, idx) => {
           const packPrice = levelCurrencyCode
@@ -1453,9 +1461,9 @@ export default function PriceLevels() {
             : toNumber(pack.packPrice, 0);
           dataRows.push([
             idx === 0 ? item.productName : '',
-            pack.packQuantity,
-            unitPrice,
-            packPrice,
+            formatExportNumber(Number(pack.packQuantity)),
+            formatExportNumber(unitPrice),
+            formatExportNumber(packPrice),
             exportCurrencyCode,
           ]);
         });
@@ -1548,22 +1556,14 @@ export default function PriceLevels() {
 
     const exportCurrencyCode = levelCurrencyCode ?? baseCurrency;
     const now = new Date();
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToastMessage('Allow pop-ups to print the price list PDF.', 'error');
-      return;
-    }
-
     const metadata = [
       showGeneratedDate ? `Generated on: ${formatDateForMeta(now)}` : '',
       showValidUntil && validUntilValue ? `Valid until: ${validUntilValue}` : '',
     ].filter(Boolean).join(' | ');
 
-    const formatExportPrice = (value: number) => value.toFixed(2);
-
     const rowParts: string[] = [];
     for (const item of exportedItems) {
-      const unitPrice = formatExportPrice(
+      const unitPrice = formatExportNumber(
         levelCurrencyCode
           ? toNumber(item.finalPriceConverted, item.finalPrice)
           : toNumber(item.finalPrice, 0),
@@ -1581,7 +1581,7 @@ export default function PriceLevels() {
         `);
       } else {
         item.packSizes.forEach((pack, idx) => {
-          const packPrice = formatExportPrice(
+          const packPrice = formatExportNumber(
             levelCurrencyCode
               ? toNumber(pack.packPriceConverted, pack.packPrice)
               : toNumber(pack.packPrice, 0),
@@ -1589,7 +1589,7 @@ export default function PriceLevels() {
           rowParts.push(`
             <tr>
               <td>${idx === 0 ? escapeHtml(item.productName) : ''}</td>
-              <td style="text-align:center;">${pack.packQuantity}</td>
+              <td style="text-align:center;">${escapeHtml(formatExportNumber(Number(pack.packQuantity)))}</td>
               <td style="text-align:right;">${escapeHtml(unitPrice)}</td>
               <td style="text-align:right;">${escapeHtml(packPrice)}</td>
               <td>${escapeHtml(exportCurrencyCode)}</td>
@@ -1600,7 +1600,7 @@ export default function PriceLevels() {
     }
     const rowsHtml = rowParts.join('');
 
-    printWindow.document.write(`
+    const html = `
       <html>
         <head>
           <title>${escapeHtml(selectedLevel.name)} Price List</title>
@@ -1641,10 +1641,13 @@ export default function PriceLevels() {
           </table>
         </body>
       </html>
-    `);
+    `;
 
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 250);
+    void printHtmlContent(html).then((printed) => {
+      if (!printed) {
+        showToastMessage('Allow pop-ups to print the price list PDF.', 'error');
+      }
+    });
   }
 
   async function handlePrintPriceList() {
@@ -1694,9 +1697,9 @@ export default function PriceLevels() {
 
     const formatPrintPrice = (baseValue: number, convertedValue?: number) => {
       if (levelCurrencyCode && convertedValue !== undefined) {
-        return toNumber(convertedValue).toFixed(2);
+        return formatExportNumber(toNumber(convertedValue));
       }
-      return toNumber(baseValue).toFixed(2);
+      return formatExportNumber(toNumber(baseValue));
     };
 
     const rowHtml: string[] = [];
@@ -1721,7 +1724,7 @@ export default function PriceLevels() {
               <td style="color: ${idx === 0 ? '#000' : '#999'}">
                 ${idx === 0 ? escapeHtml(item.productName || '') : ''}
               </td>
-              <td style="text-align:center">${pack.packQuantity}</td>
+              <td style="text-align:center">${escapeHtml(formatExportNumber(Number(pack.packQuantity)))}</td>
               <td style="text-align:right">${escapeHtml(unitPrice)}</td>
               <td style="text-align:right">${escapeHtml(packPrice)}</td>
               <td>${escapeHtml(displayCurrency)}</td>
@@ -1842,18 +1845,10 @@ export default function PriceLevels() {
 </body>
 </html>`;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
+    const printed = await printHtmlContent(html);
+    if (!printed) {
       showToastMessage('Allow pop-ups to print the price list.', 'error');
-      return;
     }
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
   }
 
   const allRowsSelected = selectedLevelItems.length > 0 && selectedRows.size === selectedLevelItems.length;

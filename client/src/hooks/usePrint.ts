@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { settingsApi } from '../api';
+import { printPage } from '../utils/printPage';
 
 interface PrintOptions {
   title: string;
@@ -38,7 +39,7 @@ export function usePrint() {
       `;
     }
 
-    window.print();
+    await printPage();
   }, []);
 
   return { handlePrint };

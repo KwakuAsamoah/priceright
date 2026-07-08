@@ -19,6 +19,7 @@ import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { printExportTable } from '../utils/exportPrint';
+import { formatExportNumber } from '../utils/exportFormat';
 import { exportInChunks } from '../utils/reportExport';
 import { readImportDataRows } from '../utils/importWorkbook';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
@@ -223,9 +224,9 @@ function getProductExportHeaders(): string[] {
   ];
 }
 
-function formatProductExportPercent(value: number | null): string | number {
+function formatProductExportPercent(value: number | null): string {
   if (value == null) return '—';
-  return Number(value.toFixed(1));
+  return formatExportNumber(value);
 }
 
 function buildProductExportValues(product: ProductPricing, baseCurrency: string): Array<string | number> {
@@ -238,11 +239,11 @@ function buildProductExportValues(product: ProductPricing, baseCurrency: string)
     product.name,
     product.sku || '-',
     product.category || '—',
-    Number(product.totalCost || 0),
+    formatExportNumber(Number(product.totalCost || 0)),
     baseCurrency,
-    Number(product.optimalPrice || 0),
+    formatExportNumber(Number(product.optimalPrice || 0)),
     product.approvalStatus === 'approved' && product.approvedPrice != null
-      ? Number(product.approvedPrice)
+      ? formatExportNumber(Number(product.approvedPrice))
       : '—',
     formatProductExportPercent(actualMarkup),
     formatProductExportPercent(optimalMarkup),
@@ -1462,13 +1463,13 @@ export default function Products() {
     showToastMessage(`Exported ${filteredProducts.length} filtered product${filteredProducts.length !== 1 ? 's' : ''} to CSV`, 'success');
   }
 
-  function handlePrintProductsExport() {
+  async function handlePrintProductsExport() {
     if (filteredProducts.length === 0) {
       showToastMessage('No products to print', 'error');
       return;
     }
 
-    const printed = printExportTable({
+    const printed = await printExportTable({
       title: 'Products List',
       subtitle: `${filteredProducts.length} products`,
       headers: getProductExportHeaders(),
@@ -1624,7 +1625,7 @@ export default function Products() {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={handlePrintProductsExport}
+              onClick={() => void handlePrintProductsExport()}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <Printer size={14} />

@@ -19,6 +19,7 @@ import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { printExportTable } from '../utils/exportPrint';
+import { formatExportNumber } from '../utils/exportFormat';
 import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
@@ -892,13 +893,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         material.name,
         material.category,
         material.unit,
-        Number(material.yieldPercentage || 0),
+        formatExportNumber(Number(material.yieldPercentage || 0)),
         formatIntermediateCostingMethod(material.intermediateCostMode),
-        calculatedCost.toFixed(2),
+        formatExportNumber(calculatedCost),
         baseCurrency,
-        (calculatedCost * (1 + Number(material.marginPercentage || 0) / 100)).toFixed(2),
-        Number(material.overheadPercentage || 0),
-        Number(material.marginPercentage || 0),
+        formatExportNumber(calculatedCost * (1 + Number(material.marginPercentage || 0) / 100)),
+        formatExportNumber(Number(material.overheadPercentage || 0)),
+        formatExportNumber(Number(material.marginPercentage || 0)),
         material.isActive ? 'Active' : 'Inactive',
         material.sku || '',
         material.description || '',
@@ -906,13 +907,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }
 
-  function handlePrintIntermediateExport() {
+  async function handlePrintIntermediateExport() {
     if (filteredMaterials.length === 0) {
       showToastMessage('No materials to print', 'error');
       return;
     }
 
-    const printed = printExportTable({
+    const printed = await printExportTable({
       title: 'Intermediate Materials',
       subtitle: `${filteredMaterials.length} intermediates`,
       headers: getIntermediateExportHeaders(),
@@ -1264,7 +1265,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={handlePrintIntermediateExport}
+              onClick={() => void handlePrintIntermediateExport()}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <Printer size={14} />

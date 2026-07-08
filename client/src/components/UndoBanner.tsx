@@ -41,15 +41,15 @@ export default function UndoBanner() {
             fontWeight: 400,
           }}
         >
-          <span style={{ flex: 1, minWidth: 0 }}>{undoState.description} Undo?</span>
+          <span style={{ flex: 1, minWidth: 0 }}>{undoState.description}</span>
           <button
             type="button"
             onClick={executeUndo}
             disabled={isUndoing}
             style={{
-              border: 'none',
-              backgroundColor: '#ffffff',
-              color: '#000000',
+              border: '1px solid #DC2626',
+              backgroundColor: 'transparent',
+              color: '#DC2626',
               borderRadius: '6px',
               padding: '6px 14px',
               fontSize: '14px',
@@ -57,14 +57,14 @@ export default function UndoBanner() {
               cursor: isUndoing ? 'not-allowed' : 'pointer',
             }}
           >
-            {isUndoing ? 'Undoing...' : 'Yes, Undo'}
+            {isUndoing ? 'Undoing...' : 'Undo'}
           </button>
           <button
             type="button"
             onClick={dismissUndo}
             style={{
-              border: '1px solid rgba(255,255,255,0.3)',
-              backgroundColor: 'transparent',
+              border: 'none',
+              backgroundColor: '#16A34A',
               color: '#ffffff',
               borderRadius: '6px',
               padding: '6px 14px',
@@ -73,7 +73,7 @@ export default function UndoBanner() {
               cursor: 'pointer',
             }}
           >
-            No, Keep
+            Keep
           </button>
         </div>
       )}

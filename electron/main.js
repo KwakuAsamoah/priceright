@@ -363,6 +363,19 @@ function createWindow() {
 
   mainWindow.webContents.setZoomFactor(savedZoom);
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.control && String(input.key).toLowerCase() === 'p') {
+      event.preventDefault();
+      mainWindow.webContents.print({
+        silent: false,
+        printBackground: true,
+        color: true,
+        margins: { marginType: 'printableArea' },
+        pageSize: 'A4',
+      });
+    }
+  });
+
   mainWindow.webContents.on('zoom-changed', (_event, zoomDirection) => {
     const current = mainWindow.webContents.getZoomFactor();
     const newZoom = zoomDirection === 'in'
@@ -541,6 +554,32 @@ ipcMain.handle('refocus-window', () => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('print-page', async (event, options = {}) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return { success: false, error: 'No window found' };
+
+  return new Promise((resolve) => {
+    win.webContents.print(
+      {
+        silent: false,
+        printBackground: true,
+        color: true,
+        margins: { marginType: 'printableArea' },
+        pageSize: 'A4',
+        landscape: options.landscape || false,
+        ...options,
+      },
+      (success, failureReason) => {
+        if (success) {
+          resolve({ success: true });
+        } else {
+          resolve({ success: false, error: failureReason });
+        }
+      },
+    );
+  });
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());

@@ -19,6 +19,7 @@ import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { printExportTable } from '../utils/exportPrint';
+import { formatExportNumber } from '../utils/exportFormat';
 import { parseMaterialImportFile, type ParsedMaterialImportRow } from '../utils/materialImport';
 import {
   MATERIAL_LOCKED_KEYS,
@@ -174,8 +175,8 @@ function buildMaterialExportRow(material: Material, unitCostValue: string): Arra
     material.name,
     material.category,
     material.unit,
-    Number(material.bulkQuantity || 0).toFixed(2),
-    Number(material.bulkPrice || 0).toFixed(2),
+    formatExportNumber(Number(material.bulkQuantity || 0)),
+    formatExportNumber(Number(material.bulkPrice || 0)),
     material.purchaseCurrencyCode,
     unitCostValue,
     material.isActive ? 'Active' : 'Inactive',
@@ -621,7 +622,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       MATERIAL_EXPORT_HEADERS,
       ...selectedMatList.map((material) => buildMaterialExportRow(
         material,
-        parseFloat(material.unitPrice).toFixed(2),
+        formatExportNumber(parseFloat(material.unitPrice)),
       )),
     ]);
     worksheet['!cols'] = [
@@ -670,7 +671,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       MATERIAL_EXPORT_HEADERS,
       ...filteredMaterials.map((material) => buildMaterialExportRow(
         material,
-        getMaterialBaseUnitCost(material).toFixed(2),
+        formatExportNumber(getMaterialBaseUnitCost(material)),
       )),
     ]);
     worksheet['!cols'] = [
@@ -719,7 +720,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     const rows = filteredMaterials.map((material) => buildMaterialExportRow(
       material,
-      Number(material.unitPrice || 0).toFixed(2),
+      formatExportNumber(getMaterialBaseUnitCost(material)),
     ));
 
     downloadCsv(
@@ -730,7 +731,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     showToastMessage(`Exported ${filteredMaterials.length} filtered material${filteredMaterials.length !== 1 ? 's' : ''} to CSV`, 'success');
   }
-  function handlePrintMaterialsExport() {
+  async function handlePrintMaterialsExport() {
     if (filteredMaterials.length === 0) {
       showToastMessage('No materials to print', 'error');
       return;
@@ -738,10 +739,10 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
     const rows = filteredMaterials.map((material) => buildMaterialExportRow(
       material,
-      getMaterialBaseUnitCost(material).toFixed(2),
+      formatExportNumber(getMaterialBaseUnitCost(material)),
     ));
 
-    const printed = printExportTable({
+    const printed = await printExportTable({
       title: 'Materials List',
       subtitle: `${filteredMaterials.length} materials`,
       headers: MATERIAL_EXPORT_HEADERS,
@@ -1394,7 +1395,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={handlePrintMaterialsExport}
+              onClick={() => void handlePrintMaterialsExport()}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
               <Printer size={14} />

@@ -1,7 +1,16 @@
 import type { ColumnDef, ReportRow } from './reportExport';
+import { formatExportNumber } from './exportFormat';
+import { printHtmlContent } from './printPage';
+
+function formatPrintCell(value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatExportNumber(value);
+  }
+  return String(value ?? '');
+}
 
 function escapeExportHtml(value: unknown): string {
-  return String(value ?? '')
+  return formatPrintCell(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -18,12 +27,7 @@ type PrintExportTableOptions = {
   fontSize?: string;
 };
 
-export function printExportTable(options: PrintExportTableOptions): boolean {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    return false;
-  }
-
+export async function printExportTable(options: PrintExportTableOptions): Promise<boolean> {
   const rightAlignFrom = options.rightAlignFromColumn ?? Number.POSITIVE_INFINITY;
   const headerCells = options.headers
     .map((header, index) => {
@@ -52,7 +56,7 @@ export function printExportTable(options: PrintExportTableOptions): boolean {
   const tableFontSize = options.fontSize || '12px';
   const pageSize = options.landscape ? 'A4 landscape' : 'A4 portrait';
 
-  printWindow.document.write(`
+  const html = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -82,12 +86,9 @@ export function printExportTable(options: PrintExportTableOptions): boolean {
         </table>
       </body>
     </html>
-  `);
+  `;
 
-  printWindow.document.close();
-  printWindow.focus();
-  window.setTimeout(() => printWindow.print(), 250);
-  return true;
+  return printHtmlContent(html, { landscape: options.landscape });
 }
 
 export function printReportPayload(
@@ -95,7 +96,7 @@ export function printReportPayload(
   subtitle: string | undefined,
   columns: ColumnDef[],
   rows: ReportRow[],
-): boolean {
+): Promise<boolean> {
   const headers = columns.map((column) => column.label);
   const dataRows = rows.map((row) => columns.map((column) => row[column.key] ?? ''));
   const firstNumericColumn = columns.findIndex((column) => {

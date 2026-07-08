@@ -2190,7 +2190,7 @@ export default function Reports() {
       return;
     }
 
-    printReportPayload(
+    void printReportPayload(
       selectedMeta?.name || 'Report',
       `Generated: ${new Date().toLocaleDateString('en-GB')}`,
       payload.columns,
@@ -2204,7 +2204,7 @@ export default function Reports() {
       return;
     }
 
-    printReportPayload(
+    void printReportPayload(
       selectedMeta?.name || 'Report',
       `Generated: ${new Date().toLocaleDateString('en-GB')}`,
       payload.columns,

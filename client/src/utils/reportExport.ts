@@ -1,4 +1,6 @@
 import * as XLSX from 'xlsx';
+import { formatExportNumber } from './exportFormat';
+import { printPage } from './printPage';
 
 export type ReportCell = string | number | boolean | null | undefined;
 export type ReportRow = Record<string, ReportCell>;
@@ -16,7 +18,7 @@ function toCsvCellValue(value: ReportCell): string {
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
+    return formatExportNumber(value);
   }
 
   if (typeof value === 'boolean') {
@@ -28,12 +30,21 @@ function toCsvCellValue(value: ReportCell): string {
   return `"${escaped}"`;
 }
 
+function formatWorksheetValue(value: ReportCell): ReportCell {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatExportNumber(value);
+  }
+  return value;
+}
+
 function toWorksheetRows(rows: ReportRow[], columns: ColumnDef[]) {
   return rows.map((row) => {
     const normalized: Record<string, ReportCell> = {};
     columns.forEach((column) => {
-      const value = row[column.key];
-      normalized[column.label] = value === null || value === undefined ? '' : value;
+      normalized[column.label] = formatWorksheetValue(row[column.key]);
     });
     return normalized;
   });
@@ -51,8 +62,8 @@ export function exportToPDF(elementId: string, filename: string) {
 
   element.classList.add('printable-report');
 
-  window.setTimeout(() => {
-    window.print();
+  window.setTimeout(async () => {
+    await printPage();
     element.classList.remove('printable-report');
     document.title = previousTitle;
   }, 40);
@@ -92,8 +103,7 @@ export async function exportToExcelWorkbookAsync(sheets: WorkbookSheet[], filena
       chunk.forEach((row) => {
         const normalized: Record<string, ReportCell> = {};
         sheet.columns.forEach((column) => {
-          const value = row[column.key];
-          normalized[column.label] = value === null || value === undefined ? '' : value;
+          normalized[column.label] = formatWorksheetValue(row[column.key]);
         });
         worksheetRows.push(normalized);
       });

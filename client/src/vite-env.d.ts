@@ -70,6 +70,7 @@ interface Window {
     refocusWindow: () => Promise<boolean>;
     getAppVersion: () => Promise<string>;
     openExternal: (url: string) => Promise<boolean>;
+    print: (options?: { landscape?: boolean }) => Promise<{ success: boolean; error?: string }>;
   };
 }
 
