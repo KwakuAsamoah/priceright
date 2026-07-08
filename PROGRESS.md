@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 8 July 2026
-**Current version:** 1.0.34
+**Current version:** 1.0.35
 **Active branch:** main
 
 ---
@@ -77,6 +77,41 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.32 | Jul 2026 | Reports and Analysis overhaul, ten new reports, Material Detail page, creation overlays, price level UX, approval workflow redesign, UI standardisation, settings reorganisation, styled modals, help centre expansion |
 | v1.0.33 | Jul 2026 | Comprehensive audit pass (Groups 1–18): export fixes, markup terminology, demo data, Electron improvements, UI consistency, Material Detail usage tab, Markup Health popover, price level cost-change warnings |
 | v1.0.34 | Jul 2026 | Most polished release — calculation safety, data safety, export standardisation, performance (N+1 fixes, chunked Excel), error handling, auto-updater timeout and rollback path, help centre overhaul (65 articles), UI polish |
+| v1.0.35 | Jul 2026 | React error #31 fixes, Electron print, export column cleanup, 2dp formatting, error boundaries, Help article print, undo toast fix, price level Excel alignment |
+
+---
+
+## v1.0.35 — Detailed Changes
+
+**Released:** 8 July 2026
+
+Bug fixes and quality improvements shipped after v1.0.34.
+
+### Bug fixes
+- Fixed React error when viewing material usage — objects now rendered correctly with product name and quantity
+- Fixed print functionality across all pages — native Electron print dialog now opens correctly
+- Fixed Activity page print — was using browser print which does not work in Electron
+- Fixed Currency column alignment in Price Level Excel export — values now correctly aligned under headers
+- Fixed undo toast after bulk approve — confusing button order and wording corrected
+
+### Export improvements
+- Removed unnecessary columns from all exports — SKU, Description, and Active status no longer exported
+- All numeric values standardised to 2 decimal places across all export formats
+- Export Selected button in Price Levels renamed to Export Selected to Excel for clarity
+
+### Error handling
+- Error boundaries added at page and tab level — a single component failure no longer crashes the entire page
+- Type safety guards added across all API data rendering — prevents object rendering errors
+- Shared safeRender utility added for defensive text rendering
+
+### Help page
+- Print article button added to all help articles
+- Print CSS added — printing an article shows only the article content, no navigation
+
+### Code quality
+- Dead code removed from multiple files
+- Console.log statements removed from production client code
+- All confirmed React error #31 sources fixed
 
 ---
 
@@ -382,6 +417,11 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Server startup error dialog with retry (v1.0.34)
 - [x] Loading skeletons on Material Detail and Intermediate Detail (v1.0.34)
 - [x] Version history section in Settings Data tab (v1.0.34)
+- [x] React error #31 fixes — safeRender, usage object format, error boundaries (v1.0.35)
+- [x] Electron print IPC handler across all pages (v1.0.35)
+- [x] Export column cleanup — SKU, Description, Active removed (v1.0.35)
+- [x] 2 decimal place standardisation in all exports (v1.0.35)
+- [x] Help article print button and print CSS (v1.0.35)
 
 ### Settings
 - [x] General settings
@@ -438,7 +478,7 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [ ] Google Search Console submission
 - [ ] DecideRight development (Phase 1)
 
-## Pending — v1.0.35 Polish
+## Pending — v1.0.36 Polish
 
 - [ ] Activity page — zoom control position alignment
 - [ ] Intermediate Materials — table zoom control
