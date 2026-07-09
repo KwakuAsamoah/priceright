@@ -703,7 +703,7 @@ export default function ProductFormDrawer({
             </div>
           </div>
 
-          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px' }}>
+          <div style={{ marginBottom: '16px', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', overflow: 'visible', minWidth: 0 }}>
             <h3 className="app-form-section-title">Bill of Materials</h3>
             <div style={{ marginBottom: '12px' }}>
               <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Select Material</label>
@@ -804,23 +804,24 @@ export default function ProductFormDrawer({
             </div>
 
             {tempBomMaterials.length > 0 ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflow: 'visible', minWidth: 0 }}>
+              <table className="app-table app-table-compact" style={{ width: '100%', minWidth: 0 }}>
                 <thead style={{ backgroundColor: '#f1f5f9' }}>
                   <tr>
-                    <th style={{ padding: '8px', textAlign: 'left' }}>Material</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Quantity</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Unit Price</th>
-                    <th style={{ padding: '8px', textAlign: 'right' }}>Total</th>
-                    <th style={{ padding: '8px', textAlign: 'center' }}>Action</th>
+                    <th style={{ textAlign: 'left' }}>Material</th>
+                    <th style={{ textAlign: 'right' }}>Quantity</th>
+                    <th style={{ textAlign: 'right' }}>Unit Price</th>
+                    <th style={{ textAlign: 'right' }}>Total</th>
+                    <th style={{ textAlign: 'center' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tempBomMaterials.map((item) => {
                     const totalCost = item.quantity * parseFloat(item.unitPrice);
                     return (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '8px', fontSize: '14px' }}>{item.materialName}</td>
-                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right' }}>
+                      <tr key={item.id}>
+                        <td style={{ textAlign: 'left' }}>{item.materialName}</td>
+                        <td style={{ textAlign: 'right' }}>
                           {editingBomId === item.id ? (
                             <input
                               type="number"
@@ -834,13 +835,13 @@ export default function ProductFormDrawer({
                             `${item.quantity.toFixed(3)} ${item.unit}`
                           )}
                         </td>
-                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right' }}>
+                        <td style={{ textAlign: 'right' }}>
                           {baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}
                         </td>
-                        <td style={{ padding: '8px', fontSize: '14px', textAlign: 'right', fontWeight: '600' }}>
+                        <td style={{ textAlign: 'right', fontWeight: '600' }}>
                           {baseCurrency} {totalCost.toFixed(2)}
                         </td>
-                        <td style={{ padding: '8px', textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center' }}>
                           {editingBomId === item.id ? (
                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                               <button
@@ -882,6 +883,7 @@ export default function ProductFormDrawer({
                   })}
                 </tbody>
               </table>
+              </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '16px', color: '#64748b', fontSize: '14px' }}>
                 No materials added yet

@@ -58,7 +58,7 @@
 
   --font-body: 14px;
   --font-small: var(--font-size-sm);
-  --font-table-head: 14px;
+  --font-table-head: 12px;
 
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -2022,19 +2022,13 @@ textarea {
 .app-table-wrap {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: visible;
   background: var(--color-bg);
   max-width: 100%;
-  scrollbar-width: none; /* Firefox */
-}
-
-.app-table-wrap::-webkit-scrollbar {
-  display: none; /* Chromium / Electron */
 }
 
 .app-table-wrap.app-table-sticky {
-  overflow-x: auto;
+  overflow-x: visible;
   overflow-y: auto;
   max-height: none;
   position: relative;
@@ -2367,7 +2361,7 @@ textarea {
 }
 
 .app-drawer-panel--narrow {
-  width: min(640px, 100%);
+  width: min(720px, 100%);
 }
 
 .app-drawer-panel__scroll {
