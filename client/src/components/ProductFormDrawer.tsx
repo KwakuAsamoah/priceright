@@ -429,6 +429,17 @@ export default function ProductFormDrawer({
     setEditingQuantity('');
   }
 
+  function handleInlineQuantityChange(id: number, rawValue: string) {
+    const quantity = parseFloat(rawValue);
+    if (!rawValue || Number.isNaN(quantity) || quantity <= 0) {
+      return;
+    }
+
+    setTempBomMaterials((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+    );
+  }
+
   function calculateLiveCost() {
     if (tempBomMaterials.length === 0) {
       return {
@@ -810,9 +821,10 @@ export default function ProductFormDrawer({
                   <tr>
                     <th style={{ textAlign: 'left' }}>Material</th>
                     <th style={{ textAlign: 'right' }}>Quantity</th>
+                    <th style={{ textAlign: 'left' }}>Unit</th>
                     <th style={{ textAlign: 'right' }}>Unit Price</th>
                     <th style={{ textAlign: 'right' }}>Total</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -832,9 +844,17 @@ export default function ProductFormDrawer({
                               style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0' }}
                             />
                           ) : (
-                            `${item.quantity.toFixed(3)} ${item.unit}`
+                            <input
+                              type="number"
+                              step="0.001"
+                              min="0.001"
+                              value={item.quantity}
+                              onChange={(e) => handleInlineQuantityChange(item.id, e.target.value)}
+                              style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0', textAlign: 'right' }}
+                            />
                           )}
                         </td>
+                        <td style={{ textAlign: 'left' }}>{item.unit}</td>
                         <td style={{ textAlign: 'right' }}>
                           {baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}
                         </td>

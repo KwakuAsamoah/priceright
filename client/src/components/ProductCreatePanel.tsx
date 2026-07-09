@@ -94,7 +94,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: 'calc((100vw - 260px) * 0.92)',
+  width: '92vw',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -171,7 +171,7 @@ const bomTableContainerStyle = {
 
 const bomTableStyle = {
   width: '100%',
-  minWidth: '520px',
+  minWidth: '580px',
 };
 
 const costSummaryRowStyle = {
@@ -464,6 +464,17 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
   function handleCancelBomEdit() {
     setEditingBomId(null);
     setEditingQuantity('');
+  }
+
+  function handleInlineQuantityChange(id: number, rawValue: string) {
+    const quantity = parseFloat(rawValue);
+    if (!rawValue || Number.isNaN(quantity) || quantity <= 0) {
+      return;
+    }
+
+    setTempBomMaterials((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+    );
   }
 
   function calculateLiveCost() {
@@ -842,11 +853,12 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                     <table className="app-table app-table-compact" style={bomTableStyle}>
                       <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr>
-                          <th style={{ textAlign: 'left', minWidth: '140px' }}>Material</th>
+                          <th style={{ textAlign: 'left', minWidth: '120px' }}>Material</th>
                           <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Quantity</th>
+                          <th style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>Unit</th>
                           <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
                           <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
-                          <th style={bomActionCellStyle}>Action</th>
+                          <th style={bomActionCellStyle}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -854,7 +866,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                           const totalCost = item.quantity * parseFloat(item.unitPrice);
                           return (
                             <tr key={item.id}>
-                              <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '140px' }}>{item.materialName}</td>
+                              <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '120px' }}>{item.materialName}</td>
                               <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                 {editingBomId === item.id ? (
                                   <input
@@ -866,9 +878,17 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                                     style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0' }}
                                   />
                                 ) : (
-                                  `${item.quantity.toFixed(3)} ${item.unit}`
+                                  <input
+                                    type="number"
+                                    step="0.001"
+                                    min="0.001"
+                                    value={item.quantity}
+                                    onChange={(e) => handleInlineQuantityChange(item.id, e.target.value)}
+                                    style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0', textAlign: 'right' }}
+                                  />
                                 )}
                               </td>
+                              <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{item.unit}</td>
                               <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}</td>
                               <td style={{ textAlign: 'right', fontWeight: '600', whiteSpace: 'nowrap' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
                               <td style={bomActionCellStyle}>
@@ -891,7 +911,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                     </table>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b', fontSize: '14px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      No materials added yet — search and add materials on the left.
+                      No materials added yet — search and select materials above.
                     </div>
                   )}
                   {tempBomMaterials.length === 0 ? (

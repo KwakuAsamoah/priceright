@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import AppToast from '../components/AppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import { materialsApi, currenciesApi, settingsApi, type MaterialRecord } from '../api';
@@ -20,6 +20,7 @@ interface MaterialFormState {
 }
 
 interface TempBomItem {
+  id: number;
   componentMaterialId: number;
   componentName: string;
   componentUnit: string;
@@ -83,7 +84,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: 'calc((100vw - 260px) * 0.92)',
+  width: '92vw',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -119,11 +120,9 @@ const rightPanelStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const bomControlsRowStyle = {
-  display: 'flex',
-  flexWrap: 'nowrap' as const,
-  gap: '8px',
-  marginBottom: '4px',
+const bomSearchWrapperStyle = {
+  position: 'relative' as const,
+  width: '100%',
   minWidth: 0,
   boxSizing: 'border-box' as const,
 };
@@ -148,12 +147,6 @@ const bomSectionStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const bomSearchInputFullWidthStyle = {
-  width: '100%',
-  boxSizing: 'border-box' as const,
-  marginBottom: '8px',
-};
-
 const bomTableContainerStyle = {
   flex: 1,
   minHeight: '200px',
@@ -166,7 +159,7 @@ const bomTableContainerStyle = {
 
 const bomTableStyle = {
   width: '100%',
-  minWidth: '480px',
+  minWidth: '580px',
 };
 
 const costSummaryRowStyle = {
@@ -186,7 +179,15 @@ const costSummaryValueStyle = {
 const bomActionCellStyle = {
   textAlign: 'center' as const,
   whiteSpace: 'nowrap' as const,
-  minWidth: '72px',
+  minWidth: '120px',
+};
+
+const bomActionButtonsStyle = {
+  display: 'flex',
+  gap: '4px',
+  justifyContent: 'center',
+  flexWrap: 'nowrap' as const,
+  flexShrink: 0,
 };
 
 const COSTING_TAB_BASE_STYLE = {
@@ -323,10 +324,13 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState('');
 
-  const [componentMaterialId, setComponentMaterialId] = useState(0);
-  const [componentQuantity, setComponentQuantity] = useState('1');
   const [componentSearch, setComponentSearch] = useState('');
+  const [componentDropdownOpen, setComponentDropdownOpen] = useState(false);
+  const [componentHighlightedIndex, setComponentHighlightedIndex] = useState(0);
+  const componentInputRef = useRef<HTMLInputElement>(null);
   const [tempBomItems, setTempBomItems] = useState<TempBomItem[]>([]);
+  const [editingBomId, setEditingBomId] = useState<number | null>(null);
+  const [editingQuantity, setEditingQuantity] = useState('');
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
 
   useEffect(() => {
@@ -440,39 +444,79 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
     return 'Intermediate';
   }
 
-  function removeTempBomItem(index: number) {
-    setTempBomItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  function removeTempBomItem(id: number) {
+    setTempBomItems((prev) => prev.filter((item) => item.id !== id));
   }
 
-  function addToTempBomItems() {
-    if (componentMaterialId <= 0) return;
+  function handleSelectComponentFromDropdown(material: MaterialRecord) {
+    setTempBomItems((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        componentMaterialId: material.id,
+        componentName: String(material.name || ''),
+        componentUnit: String(material.unit || ''),
+        quantity: 1,
+        unitCost: Number(material.unitPrice || 0),
+      },
+    ]);
+    setComponentSearch('');
+    setComponentDropdownOpen(false);
+    setComponentHighlightedIndex(0);
+    componentInputRef.current?.focus();
+  }
 
-    const resolvedQuantityText = commitMathExpression(componentQuantity, setComponentQuantity);
-    const quantity = Number(resolvedQuantityText || 0);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+  function handleComponentKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setComponentDropdownOpen(true);
+      setComponentHighlightedIndex((prev) => Math.min(prev + 1, filteredAvailableComponents.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setComponentHighlightedIndex((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredAvailableComponents[componentHighlightedIndex]) {
+        handleSelectComponentFromDropdown(filteredAvailableComponents[componentHighlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setComponentDropdownOpen(false);
+    }
+  }
+
+  function handleEditBomItem(id: number, currentQuantity: string) {
+    setEditingBomId(id);
+    setEditingQuantity(currentQuantity);
+  }
+
+  function handleSaveBomEdit(id: number) {
+    const quantity = parseFloat(editingQuantity);
+    if (!editingQuantity || Number.isNaN(quantity) || quantity <= 0) {
       showToastMessage('Please enter a valid quantity', 'error');
       return;
     }
 
-    const component = components.find((material) => material.id === componentMaterialId);
-    if (!component) {
-      showToastMessage('Selected component material not found', 'error');
+    setTempBomItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+    );
+    setEditingBomId(null);
+    setEditingQuantity('');
+  }
+
+  function handleCancelBomEdit() {
+    setEditingBomId(null);
+    setEditingQuantity('');
+  }
+
+  function handleInlineQuantityChange(id: number, rawValue: string) {
+    const quantity = parseFloat(rawValue);
+    if (!rawValue || Number.isNaN(quantity) || quantity <= 0) {
       return;
     }
 
-    setTempBomItems((prev) => [
-      ...prev,
-      {
-        componentMaterialId: component.id,
-        componentName: String(component.name || ''),
-        componentUnit: String(component.unit || ''),
-        quantity,
-        unitCost: Number(component.unitPrice || 0),
-      },
-    ]);
-    setComponentMaterialId(0);
-    setComponentQuantity('1');
-    setComponentSearch('');
+    setTempBomItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, quantity } : item)),
+    );
   }
 
   function validateForm() {
@@ -719,29 +763,74 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                 <div style={bomSectionStyle}>
                   <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
                   <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-                  <input className="app-input" type="search" placeholder="Search and select material..." value={componentSearch} onChange={(e) => setComponentSearch(e.target.value)} style={bomSearchInputFullWidthStyle} />
-                  <div style={bomControlsRowStyle}>
-                    <select className="app-input" value={componentMaterialId} onChange={(e) => setComponentMaterialId(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }}>
-                      <option value={0}>Select component material...</option>
-                      {filteredAvailableComponents.map((material) => (
-                        <option key={material.id} value={material.id}>{material.name}</option>
-                      ))}
-                    </select>
+                  <div style={bomSearchWrapperStyle}>
                     <input
+                      ref={componentInputRef}
                       className="app-input"
                       type="text"
-                      inputMode="decimal"
-                      value={componentQuantity}
-                      onChange={(e) => setComponentQuantity(e.target.value)}
-                      onBlur={() => {
-                        commitMathExpression(componentQuantity, setComponentQuantity);
+                      placeholder="Search and select material..."
+                      value={componentSearch}
+                      onChange={(e) => {
+                        setComponentSearch(e.target.value);
+                        setComponentDropdownOpen(true);
+                        setComponentHighlightedIndex(0);
                       }}
-                      placeholder="Qty or =2+2"
-                      style={{ width: '100px', flexShrink: 0 }}
+                      onFocus={() => setComponentDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setComponentDropdownOpen(false), 200)}
+                      onKeyDown={handleComponentKeyDown}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: `1px solid ${componentDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
+                        boxShadow: componentDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
+                      }}
                     />
-                    <button className="btn btn-secondary btn-sm" type="button" onClick={addToTempBomItems} style={{ flexShrink: 0 }}>Add</button>
+                    {componentDropdownOpen && filteredAvailableComponents.length > 0 ? (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          backgroundColor: 'white',
+                          border: '1px solid #e2e8f0',
+                          borderTop: 'none',
+                          borderRadius: '0 0 8px 8px',
+                          maxHeight: '200px',
+                          overflowY: 'auto',
+                          zIndex: 10,
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.07)',
+                        }}
+                      >
+                        {filteredAvailableComponents.map((material, index) => (
+                          <div
+                            key={material.id}
+                            onMouseDown={() => handleSelectComponentFromDropdown(material)}
+                            onMouseEnter={() => setComponentHighlightedIndex(index)}
+                            style={{
+                              padding: '10px 12px',
+                              cursor: 'pointer',
+                              backgroundColor: index === componentHighlightedIndex ? 'rgba(15, 40, 71, 0.05)' : 'white',
+                              borderBottom: '1px solid #f1f5f9',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '8px',
+                              minWidth: 0,
+                            }}
+                          >
+                            <span style={{ fontSize: '14px', fontWeight: '500', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.name}</span>
+                            <span style={{ fontSize: '13px', color: '#64748b', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                              {formatMoney(Number(material.unitPrice || 0))}/{material.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b' }}>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: '6px' }}>
                     Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
                   </div>
                 </div>
@@ -750,34 +839,64 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                   <table className="app-table app-table-compact" style={bomTableStyle}>
                     <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                       <tr>
-                        <th style={{ textAlign: 'left', minWidth: '140px' }}>Material</th>
+                        <th style={{ textAlign: 'left', minWidth: '120px' }}>Material</th>
                         <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Quantity</th>
+                        <th style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>Unit</th>
                         <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
                         <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
-                        <th style={bomActionCellStyle}>Action</th>
+                        <th style={bomActionCellStyle}>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tempBomItems.map((item, index) => {
+                      {tempBomItems.map((item) => {
                         const rowTotal = item.quantity * item.unitCost;
                         return (
-                          <tr key={`${item.componentMaterialId}-${index}`}>
-                            <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '140px' }}>{item.componentName}</td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{item.quantity.toFixed(3)} {item.componentUnit}</td>
+                          <tr key={item.id}>
+                            <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '120px' }}>{item.componentName}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {editingBomId === item.id ? (
+                                <input
+                                  type="number"
+                                  step="0.001"
+                                  value={editingQuantity}
+                                  onChange={(e) => setEditingQuantity(e.target.value)}
+                                  autoFocus
+                                  style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0' }}
+                                />
+                              ) : (
+                                <input
+                                  type="number"
+                                  step="0.001"
+                                  min="0.001"
+                                  value={item.quantity}
+                                  onChange={(e) => handleInlineQuantityChange(item.id, e.target.value)}
+                                  style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #E2E8F0', textAlign: 'right' }}
+                                />
+                              )}
+                            </td>
+                            <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{item.componentUnit}</td>
                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(item.unitCost)}</td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(rowTotal)}</td>
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: '600' }}>{formatMoney(rowTotal)}</td>
                             <td style={bomActionCellStyle}>
-                              <button className="btn btn-danger btn-sm" type="button" onClick={() => removeTempBomItem(index)}>
-                                <Trash2 size={14} />
-                              </button>
+                              {editingBomId === item.id ? (
+                                <div style={bomActionButtonsStyle}>
+                                  <button type="button" onClick={() => handleSaveBomEdit(item.id)} className="btn btn-success btn-sm">Save</button>
+                                  <button type="button" onClick={handleCancelBomEdit} className="btn btn-ghost btn-sm">Cancel</button>
+                                </div>
+                              ) : (
+                                <div style={bomActionButtonsStyle}>
+                                  <button type="button" onClick={() => handleEditBomItem(item.id, item.quantity.toString())} className="btn btn-secondary btn-sm">Edit</button>
+                                  <button type="button" onClick={() => removeTempBomItem(item.id)} className="btn btn-danger btn-sm">Delete</button>
+                                </div>
+                              )}
                             </td>
                           </tr>
                         );
                       })}
                       {tempBomItems.length === 0 ? (
                         <tr>
-                          <td colSpan={5} style={{ color: '#64748b', textAlign: 'center', padding: '32px' }}>
-                            No components yet — search and add raw materials on the left.
+                          <td colSpan={6} style={{ color: '#64748b', textAlign: 'center', padding: '32px' }}>
+                            No components yet — search and select materials above.
                           </td>
                         </tr>
                       ) : null}
