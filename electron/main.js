@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Notification, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Notification, screen, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -33,18 +33,52 @@ function getWindowStatePath() {
   return path.join(app.getPath('userData'), 'window-state.json');
 }
 
+function isValidBounds(bounds) {
+  if (!bounds) return false;
+  if (!bounds.width || !bounds.height) return false;
+  if (bounds.width < 800 || bounds.height < 600) return false;
+
+  const displays = screen.getAllDisplays();
+  const isVisible = displays.some((display) => {
+    const { x, y, width, height } = display.workArea;
+    return (
+      bounds.x !== undefined
+      && bounds.x < x + width
+      && bounds.x + bounds.width > x
+      && bounds.y !== undefined
+      && bounds.y < y + height
+      && bounds.y + bounds.height > y
+    );
+  });
+
+  if (!isVisible || bounds.x === undefined || bounds.y === undefined) {
+    return {
+      width: Math.max(bounds.width, 800),
+      height: Math.max(bounds.height, 600),
+      x: undefined,
+      y: undefined,
+      isMaximized: bounds.isMaximized || false,
+    };
+  }
+
+  return {
+    width: Math.max(bounds.width, 800),
+    height: Math.max(bounds.height, 600),
+    x: bounds.x,
+    y: bounds.y,
+    isMaximized: bounds.isMaximized || false,
+  };
+}
+
 function readWindowState() {
   try {
     const statePath = getWindowStatePath();
     if (fs.existsSync(statePath)) {
       const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-      return {
-        width: Number(parsed.width) || DEFAULT_WINDOW_STATE.width,
-        height: Number(parsed.height) || DEFAULT_WINDOW_STATE.height,
-        x: Number.isFinite(parsed.x) ? parsed.x : undefined,
-        y: Number.isFinite(parsed.y) ? parsed.y : undefined,
-        isMaximized: Boolean(parsed.isMaximized),
-      };
+      const validated = isValidBounds(parsed);
+      if (validated) {
+        return validated;
+      }
     }
   } catch {}
   return { ...DEFAULT_WINDOW_STATE };
@@ -53,20 +87,27 @@ function readWindowState() {
 function saveWindowState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   try {
-    const isMaximized = mainWindow.isMaximized();
-    const bounds = isMaximized ? mainWindow.getNormalBounds() : mainWindow.getBounds();
-    fs.writeFileSync(
-      getWindowStatePath(),
-      JSON.stringify({
-        width: bounds.width,
-        height: bounds.height,
-        x: bounds.x,
-        y: bounds.y,
-        isMaximized,
-      }),
-      'utf8',
-    );
-  } catch {}
+    const bounds = mainWindow.isMaximized()
+      ? savedNormalBounds
+      : mainWindow.getBounds();
+    if (!bounds) return;
+
+    const state = {
+      width: bounds.width,
+      height: bounds.height,
+      x: bounds.x,
+      y: bounds.y,
+      isMaximized: mainWindow.isMaximized(),
+    };
+    const statePath = getWindowStatePath();
+    const tmpPath = `${statePath}.tmp`;
+    fs.writeFileSync(tmpPath, JSON.stringify(state), 'utf8');
+    fs.renameSync(tmpPath, statePath);
+  } catch (err) {
+    if (!app.isPackaged) {
+      console.error('Failed to save window state:', err);
+    }
+  }
 }
 
 function debounce(fn, delay) {
@@ -160,6 +201,7 @@ async function checkLicenceWithServer(machineId) {
 
 let serverProcess = null;
 let mainWindow = null;
+let savedNormalBounds = null;
 let serverModulePromise = null;
 
 async function startServer() {
@@ -314,9 +356,16 @@ async function waitForServerWithRetry() {
 
 function createWindow() {
   const savedState = readWindowState();
+  const safeBounds = {
+    width: Math.max(savedState.width || 1200, 800),
+    height: Math.max(savedState.height || 800, 600),
+    x: savedState.x,
+    y: savedState.y,
+  };
+
   const windowOptions = {
-    width: savedState.width,
-    height: savedState.height,
+    width: safeBounds.width,
+    height: safeBounds.height,
     minWidth: 900,
     minHeight: 600,
     title: 'PriceRight',
@@ -330,24 +379,42 @@ function createWindow() {
     backgroundColor: '#0f172a',
   };
 
-  if (savedState.x !== undefined) {
-    windowOptions.x = savedState.x;
+  if (safeBounds.x !== undefined) {
+    windowOptions.x = safeBounds.x;
   }
-  if (savedState.y !== undefined) {
-    windowOptions.y = savedState.y;
+  if (safeBounds.y !== undefined) {
+    windowOptions.y = safeBounds.y;
   }
 
   mainWindow = new BrowserWindow(windowOptions);
+
+  if (!savedState.isMaximized) {
+    savedNormalBounds = mainWindow.getBounds();
+  }
 
   if (savedState.isMaximized) {
     mainWindow.maximize();
   }
 
   const debouncedSaveWindowState = debounce(saveWindowState, 500);
-  mainWindow.on('resize', debouncedSaveWindowState);
-  mainWindow.on('move', debouncedSaveWindowState);
+  const trackNormalBounds = () => {
+    if (!mainWindow.isMaximized()) {
+      savedNormalBounds = mainWindow.getBounds();
+    }
+  };
+  mainWindow.on('resize', () => {
+    trackNormalBounds();
+    debouncedSaveWindowState();
+  });
+  mainWindow.on('move', () => {
+    trackNormalBounds();
+    debouncedSaveWindowState();
+  });
   mainWindow.on('maximize', saveWindowState);
-  mainWindow.on('unmaximize', saveWindowState);
+  mainWindow.on('unmaximize', () => {
+    savedNormalBounds = mainWindow.getBounds();
+    saveWindowState();
+  });
   mainWindow.on('close', saveWindowState);
 
   const savedZoom = (() => {
@@ -854,67 +921,80 @@ ipcMain.handle('validate-licence', async (_event, key) => {
   }
 });
 
-app.whenReady().then(async () => {
-  const existingHealth = await fetchHealthStatus();
-  const serverAlreadyRunning = existingHealth?.status === 'ok';
+const gotTheLock = app.requestSingleInstanceLock();
 
-  if (serverAlreadyRunning && existingHealth?.runtime !== 'electron') {
-    dialog.showErrorBox(
-      'PriceRight - Wrong Server Running',
-      'A development server is already running on port 3000.\n\n'
-        + 'The desktop app needs its own server to load your saved data from AppData.\n\n'
-        + 'Please close any "npm run dev:server" terminal, then restart PriceRight.'
-    );
-    app.quit();
-    return;
-  }
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
 
-  // Copy demo.db from package resources to userData, replacing if version changed
-  const DEMO_DB_VERSION = '1.0.1';
-  if (app.isPackaged) {
-    const packagedDemoDb = path.join(process.resourcesPath, 'server', 'demo.db');
-    const userDemoDb = path.join(app.getPath('userData'), 'demo.db');
-    const demoVersionFile = path.join(app.getPath('userData'), 'demo.db.version');
-    const currentDemoVersion = fs.existsSync(demoVersionFile)
-      ? fs.readFileSync(demoVersionFile, 'utf8').trim()
-      : '0';
-    if (fs.existsSync(packagedDemoDb) && (
-      !fs.existsSync(userDemoDb) || currentDemoVersion !== DEMO_DB_VERSION
-    )) {
-      try {
-        fs.copyFileSync(packagedDemoDb, userDemoDb);
-        fs.writeFileSync(demoVersionFile, DEMO_DB_VERSION, 'utf8');
-        devLog('[startup] demo.db updated to version', DEMO_DB_VERSION);
-      } catch (copyErr) {
-        console.error('[startup] Failed to update demo.db:', copyErr);
+  app.whenReady().then(async () => {
+    const existingHealth = await fetchHealthStatus();
+    const serverAlreadyRunning = existingHealth?.status === 'ok';
+
+    if (serverAlreadyRunning && existingHealth?.runtime !== 'electron') {
+      dialog.showErrorBox(
+        'PriceRight - Wrong Server Running',
+        'A development server is already running on port 3000.\n\n'
+          + 'The desktop app needs its own server to load your saved data from AppData.\n\n'
+          + 'Please close any "npm run dev:server" terminal, then restart PriceRight.'
+      );
+      app.quit();
+      return;
+    }
+
+    // Copy demo.db from package resources to userData, replacing if version changed
+    const DEMO_DB_VERSION = '1.0.1';
+    if (app.isPackaged) {
+      const packagedDemoDb = path.join(process.resourcesPath, 'server', 'demo.db');
+      const userDemoDb = path.join(app.getPath('userData'), 'demo.db');
+      const demoVersionFile = path.join(app.getPath('userData'), 'demo.db.version');
+      const currentDemoVersion = fs.existsSync(demoVersionFile)
+        ? fs.readFileSync(demoVersionFile, 'utf8').trim()
+        : '0';
+      if (fs.existsSync(packagedDemoDb) && (
+        !fs.existsSync(userDemoDb) || currentDemoVersion !== DEMO_DB_VERSION
+      )) {
+        try {
+          fs.copyFileSync(packagedDemoDb, userDemoDb);
+          fs.writeFileSync(demoVersionFile, DEMO_DB_VERSION, 'utf8');
+          devLog('[startup] demo.db updated to version', DEMO_DB_VERSION);
+        } catch (copyErr) {
+          console.error('[startup] Failed to update demo.db:', copyErr);
+        }
       }
     }
-  }
 
-  if (!serverAlreadyRunning) {
-    try {
-      await startServer();
-    } catch (error) {
-      console.error('[server] failed to start:', error);
-      showServerStartupErrorDialog();
-      app.quit();
-      return;
+    if (!serverAlreadyRunning) {
+      try {
+        await startServer();
+      } catch (error) {
+        console.error('[server] failed to start:', error);
+        showServerStartupErrorDialog();
+        app.quit();
+        return;
+      }
+
+      const serverReady = await waitForServerWithRetry();
+      if (!serverReady) {
+        showServerStartupErrorDialog();
+        app.quit();
+        return;
+      }
     }
 
-    const serverReady = await waitForServerWithRetry();
-    if (!serverReady) {
-      showServerStartupErrorDialog();
-      app.quit();
-      return;
+    createWindow();
+
+    if (isProd) {
+      setupAutoUpdater();
     }
-  }
-
-  createWindow();
-
-  if (isProd) {
-    setupAutoUpdater();
-  }
-});
+  });
+}
 
 app.on('window-all-closed', () => {
   if (serverProcess) {
