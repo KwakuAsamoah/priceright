@@ -94,7 +94,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: '92vw',
+  width: 'max(1280px, 90vw)',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -117,13 +117,12 @@ const leftPanelStyle = {
 };
 
 const rightPanelStyle = {
-  width: '560px',
+  width: '700px',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
   overflow: 'visible',
   minHeight: 0,
-  minWidth: 0,
   borderLeft: '1px solid #E2E8F0',
   paddingLeft: '16px',
   paddingRight: '16px',
@@ -159,8 +158,8 @@ const bomSearchWrapperStyle = {
 
 const bomTableContainerStyle = {
   flex: 1,
+  width: '100%',
   minHeight: '200px',
-  minWidth: 0,
   overflow: 'visible' as const,
   border: '1px solid #e2e8f0',
   borderRadius: '8px',
@@ -171,7 +170,43 @@ const bomTableContainerStyle = {
 
 const bomTableStyle = {
   width: '100%',
-  minWidth: '580px',
+  tableLayout: 'fixed' as const,
+};
+
+const costSummaryCardStyle = {
+  flexShrink: 0,
+  width: '100%',
+  marginTop: '12px',
+  padding: '12px',
+  background: '#f8fbff',
+  border: '1px solid #dbeafe',
+  borderRadius: '8px',
+  boxSizing: 'border-box' as const,
+};
+
+const productionModeTabBaseStyle = {
+  borderRadius: '8px',
+  padding: '8px 14px',
+  fontSize: '14px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap' as const,
+  border: '1.5px solid transparent',
+};
+
+const productionModeTabActiveStyle = {
+  ...productionModeTabBaseStyle,
+  backgroundColor: '#16A34A',
+  color: '#ffffff',
+  border: '1.5px solid #16A34A',
+  fontWeight: 600,
+};
+
+const productionModeTabInactiveStyle = {
+  ...productionModeTabBaseStyle,
+  backgroundColor: '#F1F5F9',
+  color: '#475569',
+  border: '1.5px solid #E2E8F0',
+  fontWeight: 400,
 };
 
 const costSummaryRowStyle = {
@@ -630,50 +665,39 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                       />
                       {fieldErrors.name ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.name}</div> : null}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                      <div>
-                        <label style={fieldLabelStyle}>SKU</label>
+                    <div>
+                      <label style={fieldLabelStyle}>Category *</label>
+                      <select
+                        className="app-input"
+                        value={formData.category}
+                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                        style={fieldInputStyle}
+                      >
+                        <option value="" disabled>Select category</option>
+                        {categoryOptions.map((category) => (
+                          <option key={category} value={category}>{category}</option>
+                        ))}
+                        <option value="__custom__">+ Add new category...</option>
+                      </select>
+                      {formData.category === '__custom__' ? (
                         <input
                           className="app-input"
-                          type="text"
-                          value={formData.sku}
-                          onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                          style={fieldInputStyle}
+                          value={newCategoryValue}
+                          onChange={(e) => setNewCategoryValue(e.target.value)}
+                          placeholder="Enter new category"
+                          style={{ ...fieldInputStyle, marginTop: '8px' }}
                         />
-                      </div>
-                      <div>
-                        <label style={fieldLabelStyle}>Category *</label>
-                        <select
-                          className="app-input"
-                          value={formData.category}
-                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                          style={fieldInputStyle}
-                        >
-                          <option value="" disabled>Select category</option>
-                          {categoryOptions.map((category) => (
-                            <option key={category} value={category}>{category}</option>
-                          ))}
-                          <option value="__custom__">+ Add new category...</option>
-                        </select>
-                        {formData.category === '__custom__' ? (
-                          <input
-                            className="app-input"
-                            value={newCategoryValue}
-                            onChange={(e) => setNewCategoryValue(e.target.value)}
-                            placeholder="Enter new category"
-                            style={{ ...fieldInputStyle, marginTop: '8px' }}
-                          />
-                        ) : null}
-                        {fieldErrors.category ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.category}</div> : null}
-                      </div>
+                      ) : null}
+                      {fieldErrors.category ? <div style={{ color: '#dc2626', fontSize: '13px', marginTop: '4px' }}>{fieldErrors.category}</div> : null}
                     </div>
                     <div>
                       <label style={fieldLabelStyle}>Description</label>
                       <textarea
                         className="app-input"
+                        rows={2}
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        style={{ ...fieldInputStyle, minHeight: '72px', resize: 'none' }}
+                        style={{ ...fieldInputStyle, resize: 'none' }}
                       />
                     </div>
                   </div>
@@ -684,12 +708,12 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                   <div style={{ display: 'grid', gap: '12px' }}>
                     <div>
                       <label style={fieldLabelStyle}>Production Mode</label>
-                      <div className="app-choice-tabs" role="tablist" aria-label="Production mode">
+                      <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '8px' }} role="tablist" aria-label="Production mode">
                         <button
                           type="button"
                           role="tab"
                           aria-selected={formData.productionMode === 'single'}
-                          className={`app-choice-tab ${formData.productionMode === 'single' ? 'is-active' : ''}`}
+                          style={formData.productionMode === 'single' ? productionModeTabActiveStyle : productionModeTabInactiveStyle}
                           onClick={() => setFormData({ ...formData, productionMode: 'single', batchYield: '1' })}
                         >
                           Single
@@ -698,7 +722,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                           type="button"
                           role="tab"
                           aria-selected={formData.productionMode === 'batch'}
-                          className={`app-choice-tab ${formData.productionMode === 'batch' ? 'is-active' : ''}`}
+                          style={formData.productionMode === 'batch' ? productionModeTabActiveStyle : productionModeTabInactiveStyle}
                           onClick={() => setFormData({ ...formData, productionMode: 'batch', batchYield: formData.batchYield || '1' })}
                         >
                           Batch
@@ -921,7 +945,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                   ) : null}
                 </div>
 
-                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', boxSizing: 'border-box', minWidth: 0 }}>
+                <div style={costSummaryCardStyle}>
                   <h3 className="app-form-section-title" style={{ marginTop: 0, marginBottom: '8px', fontSize: '14px' }}>Cost Summary (per unit)</h3>
                   <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                     <div style={costSummaryRowStyle}>

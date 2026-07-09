@@ -84,7 +84,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: '92vw',
+  width: 'max(1280px, 90vw)',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -107,13 +107,12 @@ const leftPanelStyle = {
 };
 
 const rightPanelStyle = {
-  width: '560px',
+  width: '700px',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
   overflow: 'visible',
   minHeight: 0,
-  minWidth: 0,
   borderLeft: '1px solid #E2E8F0',
   paddingLeft: '16px',
   paddingRight: '16px',
@@ -149,17 +148,30 @@ const bomSectionStyle = {
 
 const bomTableContainerStyle = {
   flex: 1,
+  width: '100%',
   minHeight: '200px',
-  minWidth: 0,
   overflow: 'visible' as const,
   border: '1px solid #e2e8f0',
   borderRadius: '8px',
   boxSizing: 'border-box' as const,
+  display: 'flex',
+  flexDirection: 'column' as const,
 };
 
 const bomTableStyle = {
   width: '100%',
-  minWidth: '580px',
+  tableLayout: 'fixed' as const,
+};
+
+const costSummaryCardStyle = {
+  flexShrink: 0,
+  width: '100%',
+  marginTop: '12px',
+  padding: '12px',
+  background: '#f8fbff',
+  border: '1px solid #dbeafe',
+  borderRadius: '8px',
+  boxSizing: 'border-box' as const,
 };
 
 const costSummaryRowStyle = {
@@ -727,6 +739,11 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                         }}
                         style={fieldInputStyle}
                       />
+                      {form.intermediateCostMode === 'completed_output' ? (
+                        <div style={{ fontSize: '12px', color: '#F59E0B', marginTop: '4px' }}>
+                          Required — must be greater than zero for cost calculations to work correctly.
+                        </div>
+                      ) : null}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -830,9 +847,11 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginTop: '6px' }}>
-                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
-                  </div>
+                  {componentSearch.trim() ? (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: '6px' }}>
+                      Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                    </div>
+                  ) : null}
                 </div>
 
                 <div style={bomTableContainerStyle}>
@@ -904,7 +923,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                   </table>
                 </div>
 
-                <div style={{ flexShrink: 0, marginTop: '12px', padding: '12px', background: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', boxSizing: 'border-box', minWidth: 0 }}>
+                <div style={costSummaryCardStyle}>
                   {tempBomItems.length > 0 && estimatedCostPerUnit != null ? (
                     <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic', marginBottom: '8px' }}>
                       Estimated cost per unit (before save): {formatMoney(estimatedCostPerUnit)}
@@ -933,7 +952,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                       <span style={{ ...costSummaryValueStyle, fontWeight: '700' }}>{formatMoney(liveCost.costPerUnit)}</span>
                     </div>
                     <div style={costSummaryRowStyle}>
-                      <span style={{ minWidth: 0 }}>Profit ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
+                      <span style={{ minWidth: 0 }}>Markup ({Number(form.marginPercentage || 0).toFixed(0)}%)</span>
                       <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.profitAmount)}</span>
                     </div>
                     <div style={costSummaryRowStyle}>
