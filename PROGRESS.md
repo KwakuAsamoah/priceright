@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 9 July 2026
-**Current version:** 1.0.37
+**Current version:** 1.0.38
 **Active branch:** main
 
 ---
@@ -80,6 +80,48 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.35 | Jul 2026 | React error #31 fixes, Electron print, export column cleanup, 2dp formatting, error boundaries, Help article print, undo toast fix, price level Excel alignment |
 | v1.0.36 | Jul 2026 | Professional jsPDF exports, company name in PDF headers, export consistency, error boundaries and help article, UI polish, 66 help articles |
 | v1.0.37 | Jul 2026 | Window stability (bounds validation, atomic state write, single instance lock), BOM search/select alignment, content clipping fixes, table font standardisation |
+| v1.0.38 | Jul 2026 | Creation panel layout fixes, BOM alignment, green Production Mode toggle, SKU removal, Intermediate panel polish |
+
+---
+
+## v1.0.38 — Detailed Changes
+
+**Released:** 9 July 2026
+
+Creation panel improvements and window stability shipped after v1.0.37.
+
+### New Product creation panel
+- Right panel width adjusted to fit BOM table comfortably — no more overflow
+- Search box, BOM table, and Cost Summary all aligned to the same width
+- BOM table headers no longer overflow their container
+- Production Mode toggle now shows green for active state
+- SKU field removed from creation form — less clutter
+- Description field reduced to 2 rows
+- All columns visible with comfortable breathing room
+
+### New Intermediate Material creation panel
+- Same right panel alignment fixes applied
+- Showing X of X materials text only appears when user is searching
+- Cost Summary now correctly shows Markup instead of Profit
+- Completed Output Quantity field has amber hint — must be greater than zero
+- Edit button added to BOM rows — consistent with Products panel
+
+### BOM interaction improvements
+- Both creation panels now use the same search and select pattern
+- Type to search — results appear as dropdown
+- Click to add immediately — quantity input appears inline
+- Edit and Delete buttons on every BOM row in both panels
+
+### Window stability
+- Saved window bounds validated against current screen before applying
+- Window position clamped to visible screen area — handles monitor changes gracefully
+- Window dimensions clamped to minimum 800×600 on restore
+- Window state file uses atomic write — prevents corruption during rapid resizing
+- Single instance lock — opening PriceRight twice focuses the existing window
+
+### Font standardisation
+- Table header cells standardised to 12px across all pages
+- Table body cells standardised to 13px across all pages
 
 ---
 
@@ -540,6 +582,9 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] BOM search/select alignment across Product and Intermediate creation panels (v1.0.37)
 - [x] BOM panel and drawer clipping fixes — expanded panels, overflow visible (v1.0.37)
 - [x] Table font standardisation — 12px headers, 13px body cells app-wide (v1.0.37)
+- [x] Creation panel right panel width and BOM alignment — 700px panel, aligned search/table/summary (v1.0.38)
+- [x] Product creation — green Production Mode toggle, SKU removed, 2-row Description (v1.0.38)
+- [x] Intermediate creation — search count on type only, Markup label, Completed Output hint, BOM Edit button (v1.0.38)
 
 ### Settings
 - [x] General settings
@@ -597,7 +642,7 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [ ] DecideRight development (Phase 1)
 - [ ] Microsoft Store submission (future)
 
-## Pending — v1.0.38 Polish
+## Pending — v1.0.39 Polish
 
 - [ ] Activity page — zoom control position alignment
 - [ ] Intermediate Materials — table zoom control
