@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 9 July 2026
-**Current version:** 1.0.36
+**Current version:** 1.0.37
 **Active branch:** main
 
 ---
@@ -79,6 +79,57 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.34 | Jul 2026 | Most polished release — calculation safety, data safety, export standardisation, performance (N+1 fixes, chunked Excel), error handling, auto-updater timeout and rollback path, help centre overhaul (65 articles), UI polish |
 | v1.0.35 | Jul 2026 | React error #31 fixes, Electron print, export column cleanup, 2dp formatting, error boundaries, Help article print, undo toast fix, price level Excel alignment |
 | v1.0.36 | Jul 2026 | Professional jsPDF exports, company name in PDF headers, export consistency, error boundaries and help article, UI polish, 66 help articles |
+| v1.0.37 | Jul 2026 | Window stability (bounds validation, atomic state write, single instance lock), BOM search/select alignment, content clipping fixes, table font standardisation |
+
+---
+
+## v1.0.37 — Detailed Changes
+
+**Released:** 9 July 2026
+
+Window stability, BOM improvements, and UI polish shipped after v1.0.36.
+
+### Window resizing fix
+- Window no longer resizes randomly between sessions
+- Saved window bounds validated against current screen displays before applying
+- Window position clamped to visible screen area — handles monitor unplugging gracefully
+- Window dimensions clamped to minimum values (800×600) on restore
+- Window state file uses atomic write — prevents corruption during rapid resizing
+- Single instance lock added — opening PriceRight twice focuses the existing window
+
+### BOM improvements
+- ProductCreatePanel BOM material selection now works the same as Intermediate Materials
+- Search materials as you type — results appear in a dropdown
+- Click a result to add immediately — quantity input appears inline in the table row
+- Edit button added to Intermediate Materials BOM rows — consistent with Products
+- Both creation panels now have identical BOM interaction patterns
+
+### Content clipping fixes
+- ProductCreatePanel overlay expanded to 92vw — all BOM columns fully visible
+- BOM panel width increased to 560px — no more clipping of Actions column
+- IntermediateCreatePanel same expansion applied
+- ProductFormDrawer width increased to 600px — BOM table fully visible
+- `overflow: hidden` removed from all BOM table containers
+- `.app-table-wrap` overflow changed from hidden to visible
+
+### Font standardisation
+- Table header cells standardised to 12px across all pages
+- Table body cells standardised to 13px across all pages
+- Consistent font sizing across Products, Materials, Price Levels, Reports, Activity
+
+### PDF company name
+- Company name from Settings → Your Business appears in all PDF export headers
+- PDF exports include company name, report title, generation date, and page numbers
+
+### Error boundaries
+- Tab-level error boundaries added to IntermediateDetail BOM and Cost History tabs
+- ProductDetail History tab wrapped in error boundary
+- Friendly error messages shown instead of page crashes
+
+### Help articles
+- 66 articles — 20 updated, 1 new (When something goes wrong)
+- All articles updated to describe PDF exports correctly
+- Browse by topic category counts are now dynamic and always accurate
 
 ---
 
@@ -485,6 +536,10 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Price Levels and Intermediate Materials empty state CTAs (v1.0.36)
 - [x] Intermediate Detail help button (v1.0.36)
 - [x] Bulk approve undo toast — red Undo, green Keep (v1.0.36)
+- [x] Window bounds validation, atomic state write, single instance lock (v1.0.37)
+- [x] BOM search/select alignment across Product and Intermediate creation panels (v1.0.37)
+- [x] BOM panel and drawer clipping fixes — expanded panels, overflow visible (v1.0.37)
+- [x] Table font standardisation — 12px headers, 13px body cells app-wide (v1.0.37)
 
 ### Settings
 - [x] General settings
@@ -542,7 +597,7 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [ ] DecideRight development (Phase 1)
 - [ ] Microsoft Store submission (future)
 
-## Pending — v1.0.37 Polish
+## Pending — v1.0.38 Polish
 
 - [ ] Activity page — zoom control position alignment
 - [ ] Intermediate Materials — table zoom control
