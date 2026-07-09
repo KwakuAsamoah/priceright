@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 8 July 2026
-**Current version:** 1.0.35
+**Last updated:** 9 July 2026
+**Current version:** 1.0.36
 **Active branch:** main
 
 ---
@@ -78,6 +78,61 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.33 | Jul 2026 | Comprehensive audit pass (Groups 1–18): export fixes, markup terminology, demo data, Electron improvements, UI consistency, Material Detail usage tab, Markup Health popover, price level cost-change warnings |
 | v1.0.34 | Jul 2026 | Most polished release — calculation safety, data safety, export standardisation, performance (N+1 fixes, chunked Excel), error handling, auto-updater timeout and rollback path, help centre overhaul (65 articles), UI polish |
 | v1.0.35 | Jul 2026 | React error #31 fixes, Electron print, export column cleanup, 2dp formatting, error boundaries, Help article print, undo toast fix, price level Excel alignment |
+| v1.0.36 | Jul 2026 | Professional jsPDF exports, company name in PDF headers, export consistency, error boundaries and help article, UI polish, 66 help articles |
+
+---
+
+## v1.0.36 — Detailed Changes
+
+**Released:** 9 July 2026
+
+Professional PDF exports, error protection, and quality improvements shipped after v1.0.35.
+
+### PDF and print overhaul
+- All print and PDF exports now use jsPDF and autoTable for professional output
+- Company name from Settings appears in every PDF header
+- Navy blue column headers, alternating row colours, page numbers on every page
+- All numeric values formatted to two decimal places
+- Print button generates a downloadable PDF — no browser print dialog
+- Help articles now have a Print article button that generates a clean PDF
+
+### Export consistency
+- All four export formats (CSV, Excel, PDF, Print) have identical columns per section
+- SKU, Description, and Active status removed from all exports
+- Currency shown as a dedicated data column — no currency codes in headers
+- Approval History CSV column order now matches Excel
+- Price Levels PDF includes price level name and export date as subtitle
+- Intermediate Materials PDF includes Costing Method column
+- Export Selected button renamed to Export Selected to Excel for clarity
+
+### Error protection
+- Error boundaries added to all tabs — a tab failure shows a friendly message not a page crash
+- New help article: When something goes wrong — explains error messages and recovery
+- Type safety guards prevent React object rendering errors throughout the app
+- Unsaved changes warning when closing product edit forms mid-edit
+
+### UI improvements
+- Help article header redesigned as two rows — Back and Prev/Next on top, title and Print below
+- Price Levels empty state now has a Create your first price list button
+- Intermediate Materials empty state now has a Create your first intermediate material button
+- Intermediate Detail page now has a help button
+- Bulk approve undo toast redesigned — red Undo on left, green Keep on right
+- Activity page print fixed — generates PDF correctly
+
+### Help articles
+- 66 articles total — 20 updated, 1 new
+- All articles updated to describe PDF exports correctly
+- Backup recommendation, version history, exchange rate validation documented
+- Company branding, pack size validation, markup health guide all updated
+- Browse by topic category counts are now dynamic and always accurate
+
+### Settings
+- Company name from Settings now appears in all PDF export headers
+- Version history section shows current version and link to all releases
+
+### Code quality
+- Console.log statements removed from production client code
+- Dead code cleaned up
 
 ---
 
@@ -422,6 +477,14 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Export column cleanup — SKU, Description, Active removed (v1.0.35)
 - [x] 2 decimal place standardisation in all exports (v1.0.35)
 - [x] Help article print button and print CSS (v1.0.35)
+- [x] Professional jsPDF + autoTable PDF exports app-wide (v1.0.36)
+- [x] Company name in all PDF export headers (v1.0.36)
+- [x] Print generates downloadable PDF — no browser print dialog (v1.0.36)
+- [x] Help centre — 66 articles, dynamic category counts (v1.0.36)
+- [x] Error boundaries with friendly tab failure messages (v1.0.36)
+- [x] Price Levels and Intermediate Materials empty state CTAs (v1.0.36)
+- [x] Intermediate Detail help button (v1.0.36)
+- [x] Bulk approve undo toast — red Undo, green Keep (v1.0.36)
 
 ### Settings
 - [x] General settings
@@ -474,11 +537,12 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Fix hardcoded localhost:3000 in Settings and LockScreen
 - [x] Compress logo PNG assets (~2MB in client/public)
 - [x] Phase M markup simplification (v1.0.33 — markup-on-cost terminology app-wide)
-- [x] Help articles update (v1.0.34 — 65 articles updated, 13 new)
+- [x] Help articles update (v1.0.36 — 66 articles, 20 updated, 1 new)
 - [ ] Google Search Console submission
 - [ ] DecideRight development (Phase 1)
+- [ ] Microsoft Store submission (future)
 
-## Pending — v1.0.36 Polish
+## Pending — v1.0.37 Polish
 
 - [ ] Activity page — zoom control position alignment
 - [ ] Intermediate Materials — table zoom control
@@ -505,7 +569,6 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [ ] Multi-user/network version planning
 - [ ] Cloud version architecture planning
 - [x] Final logo decision and implementation
-- [ ] Microsoft Store submission (future)
 
 ---
 
