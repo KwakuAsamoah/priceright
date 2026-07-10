@@ -625,6 +625,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
       materialCost: totalMaterialCost / batchYield,
       laborCost: laborCost / batchYield,
       overheadCost: overheadAmount / batchYield,
+      otherDirectCosts: otherDirectCosts / batchYield,
       totalCost: totalCost / batchYield,
       profitAmount: profitAmount / batchYield,
       optimalPrice: totalPrice / batchYield,
@@ -887,6 +888,39 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                       </div>
                     </div>
                     <div>
+                      <label style={fieldLabelStyle}>Other Direct Costs</label>
+                      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '0 10px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRight: 'none',
+                            borderRadius: '8px 0 0 8px',
+                            fontSize: '14px',
+                            color: '#64748b',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {baseCurrency}
+                        </span>
+                        <input
+                          className="app-input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={formData.otherDirectCosts}
+                          onChange={(e) => setFormData({ ...formData, otherDirectCosts: e.target.value })}
+                          style={{ ...fieldInputStyle, borderRadius: '0 8px 8px 0', flex: 1 }}
+                        />
+                      </div>
+                      <div style={{ marginTop: '4px', color: '#64748b', fontSize: '13px' }}>
+                        One-off costs specific to this product that aren't materials, labor, or overhead — for example special packaging, certification fees, or per-batch consumables.
+                      </div>
+                    </div>
+                    <div>
                       <label style={fieldLabelStyle}>Approved base price</label>
                       <input
                         className="app-input"
@@ -1059,6 +1093,10 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                     <div style={costSummaryRowStyle}>
                       <span style={{ color: '#64748b', minWidth: 0 }}>Overhead ({formData.overheadPercentage}%)</span>
                       <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{baseCurrency} {liveCost.overheadCost.toFixed(2)}</span>
+                    </div>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ color: '#64748b', minWidth: 0 }}>Other Direct Costs</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{baseCurrency} {liveCost.otherDirectCosts.toFixed(2)}</span>
                     </div>
                     <div style={costSummaryRowStyle}>
                       <span style={{ color: '#64748b', minWidth: 0 }}>Total Production Cost</span>

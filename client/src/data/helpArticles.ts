@@ -567,7 +567,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Give the product a name and category. Choose <strong>Single Unit</strong> or <strong>Batch</strong> production mode. For batch, enter the Batch Yield — how many finished units one recipe run produces.</p>
 
-      <p>Set Overhead %, <strong>Direct Labor Cost</strong>, and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
+      <p>Set Overhead %, <strong>Direct Labor Cost</strong>, optional <strong>Other Direct Costs</strong>, and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
 
       <p>After saving, the product status is <strong>Pending</strong>. Click the product row to open its detail page and approve an <strong>Approved base price</strong> before adding it to price levels.</p>
 
@@ -611,8 +611,10 @@ export const helpArticles: HelpArticle[] = [
       <p>Production cost is calculated as:</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
-        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%)
+        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%) + Other Direct Costs
       </p>
+
+      <p><strong>Other Direct Costs</strong> are one-off product-specific amounts — for example special packaging, certification fees, or per-batch consumables. They are added after overhead and do not themselves receive overhead. This field applies to Products only, not Intermediate Materials.</p>
 
       <p>Overhead is set per product on the product form, or pre-filled from <strong>Settings → Pricing Engine → Default Overhead %</strong> when creating new products. Use the overhead calculator on the Pricing Engine tab to work out a sensible default from your monthly figures.</p>
 
@@ -1363,10 +1365,12 @@ export const helpArticles: HelpArticle[] = [
       <p>Production cost starts from your Bill of Materials, plus any <strong>Direct Labor Cost</strong> you enter, with overhead applied to that combined subtotal:</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
-        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%)
+        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%) + Other Direct Costs
       </p>
 
-      <p>For intermediate materials, the same batch formula applies, then PriceRight divides by output quantity to get cost per unit.</p>
+      <p><strong>Other Direct Costs</strong> (Products only) cover one-off costs such as special packaging or certification fees. They are added after overhead and are not multiplied by the overhead percentage. Intermediate Materials do not use this field.</p>
+
+      <p>For intermediate materials, the same batch formula applies (materials + direct labor, then overhead), then PriceRight divides by output quantity to get cost per unit.</p>
 
       <p>Actual markup on cost at the approved price is:</p>
 
