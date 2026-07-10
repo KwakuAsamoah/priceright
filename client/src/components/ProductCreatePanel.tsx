@@ -142,6 +142,8 @@ const bodyRowStyle = {
   boxSizing: 'border-box' as const,
 };
 
+const BOM_PANEL_BORDER = '1px solid #e2e8f0';
+
 const bomAlignedBlockStyle = {
   width: '100%',
   maxWidth: '100%',
@@ -149,26 +151,58 @@ const bomAlignedBlockStyle = {
   boxSizing: 'border-box' as const,
   marginLeft: 0,
   marginRight: 0,
+  scrollbarGutter: 'stable' as const,
 } as const;
 
-const bomSectionStyle = {
-  ...bomAlignedBlockStyle,
-  flexShrink: 0,
-  marginBottom: '12px',
+const bomPanelBorderStyle = {
+  border: BOM_PANEL_BORDER,
+  borderRadius: '8px',
+} as const;
+
+const bomSearchInputStyle = {
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  padding: '10px 12px',
+  borderRadius: '7px',
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+} as const;
+
+const bomSearchDropdownStyle = {
+  position: 'absolute' as const,
+  top: '100%',
+  left: 0,
+  right: 0,
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box' as const,
+  backgroundColor: 'white',
+  border: '1px solid #e2e8f0',
+  borderTop: 'none',
+  borderRadius: '0 0 8px 8px',
+  maxHeight: '200px',
+  overflowY: 'auto' as const,
+  overflowX: 'hidden' as const,
+  zIndex: 10,
+  boxShadow: '0 4px 6px rgba(0,0,0,0.07)',
+  scrollbarGutter: 'stable' as const,
 };
 
 const bomSearchWrapperStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   position: 'relative' as const,
+  flexShrink: 0,
+  marginBottom: '12px',
 };
 
 const bomTableContainerStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   flex: 1,
   minHeight: '200px',
   overflow: 'visible' as const,
-  border: '1px solid #e2e8f0',
-  borderRadius: '8px',
   display: 'flex',
   flexDirection: 'column' as const,
   alignSelf: 'stretch' as const,
@@ -179,16 +213,16 @@ const bomTableStyle = {
   tableLayout: 'fixed' as const,
   borderCollapse: 'collapse' as const,
   margin: 0,
+  border: 'none',
 };
 
 const costSummaryCardStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   flexShrink: 0,
   marginTop: '12px',
   padding: '12px',
   background: '#f8fbff',
-  border: '1px solid #dbeafe',
-  borderRadius: '8px',
   alignSelf: 'stretch' as const,
 };
 
@@ -850,50 +884,33 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
 
               {/* Right panel — BOM + cost summary */}
               <div style={rightPanelStyle}>
-                <div style={bomSectionStyle}>
-                  <h3 style={panelTitleStyle}>Bill of Materials</h3>
-                  <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-                  <div style={bomSearchWrapperStyle}>
-                    <input
-                      ref={materialInputRef}
-                      className="app-input"
-                      type="text"
-                      placeholder="Search and select material..."
-                      value={materialSearchTerm}
-                      onChange={(e) => {
-                        setMaterialSearchTerm(e.target.value);
-                        setMaterialDropdownOpen(true);
-                        setMaterialHighlightedIndex(0);
-                      }}
-                      onFocus={() => setMaterialDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setMaterialDropdownOpen(false), 200)}
-                      onKeyDown={handleMaterialKeyDown}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        border: `1px solid ${materialDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
-                        boxShadow: materialDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
-                      }}
-                    />
-                    {materialDropdownOpen && filteredMaterials.length > 0 ? (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderTop: 'none',
-                          borderRadius: '0 0 8px 8px',
-                          maxHeight: '200px',
-                          overflowY: 'auto',
-                          zIndex: 10,
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.07)',
-                        }}
-                      >
+                <h3 style={panelTitleStyle}>Bill of Materials</h3>
+                <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
+                <div
+                  style={{
+                    ...bomSearchWrapperStyle,
+                    border: `1px solid ${materialDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
+                    boxShadow: materialDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
+                  }}
+                >
+                  <input
+                    ref={materialInputRef}
+                    className="app-input"
+                    type="text"
+                    placeholder="Search and select material..."
+                    value={materialSearchTerm}
+                    onChange={(e) => {
+                      setMaterialSearchTerm(e.target.value);
+                      setMaterialDropdownOpen(true);
+                      setMaterialHighlightedIndex(0);
+                    }}
+                    onFocus={() => setMaterialDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setMaterialDropdownOpen(false), 200)}
+                    onKeyDown={handleMaterialKeyDown}
+                    style={bomSearchInputStyle}
+                  />
+                  {materialDropdownOpen && filteredMaterials.length > 0 ? (
+                    <div style={bomSearchDropdownStyle}>
                         {filteredMaterials.map((material, index) => (
                           <div
                             key={material.id}
@@ -919,7 +936,6 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                         ))}
                       </div>
                     ) : null}
-                  </div>
                 </div>
 
                 <div style={bomTableContainerStyle}>

@@ -120,6 +120,8 @@ const rightPanelStyle = {
   boxSizing: 'border-box' as const,
 };
 
+const BOM_PANEL_BORDER = '1px solid #e2e8f0';
+
 const bomAlignedBlockStyle = {
   width: '100%',
   maxWidth: '100%',
@@ -127,11 +129,50 @@ const bomAlignedBlockStyle = {
   boxSizing: 'border-box' as const,
   marginLeft: 0,
   marginRight: 0,
+  scrollbarGutter: 'stable' as const,
 } as const;
+
+const bomPanelBorderStyle = {
+  border: BOM_PANEL_BORDER,
+  borderRadius: '8px',
+} as const;
+
+const bomSearchInputStyle = {
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  padding: '10px 12px',
+  borderRadius: '7px',
+  border: 'none',
+  outline: 'none',
+  background: 'transparent',
+} as const;
+
+const bomSearchDropdownStyle = {
+  position: 'absolute' as const,
+  top: '100%',
+  left: 0,
+  right: 0,
+  width: '100%',
+  maxWidth: '100%',
+  boxSizing: 'border-box' as const,
+  backgroundColor: 'white',
+  border: '1px solid #e2e8f0',
+  borderTop: 'none',
+  borderRadius: '0 0 8px 8px',
+  maxHeight: '200px',
+  overflowY: 'auto' as const,
+  overflowX: 'hidden' as const,
+  zIndex: 10,
+  boxShadow: '0 4px 6px rgba(0,0,0,0.07)',
+  scrollbarGutter: 'stable' as const,
+};
 
 const bomSearchWrapperStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   position: 'relative' as const,
+  flexShrink: 0,
+  marginBottom: '12px',
 };
 
 const bodyRowStyle = {
@@ -146,19 +187,12 @@ const bodyRowStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const bomSectionStyle = {
-  ...bomAlignedBlockStyle,
-  flexShrink: 0,
-  marginBottom: '12px',
-};
-
 const bomTableContainerStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   flex: 1,
   minHeight: '200px',
   overflow: 'visible' as const,
-  border: '1px solid #e2e8f0',
-  borderRadius: '8px',
   display: 'flex',
   flexDirection: 'column' as const,
   alignSelf: 'stretch' as const,
@@ -169,16 +203,16 @@ const bomTableStyle = {
   tableLayout: 'fixed' as const,
   borderCollapse: 'collapse' as const,
   margin: 0,
+  border: 'none',
 };
 
 const costSummaryCardStyle = {
   ...bomAlignedBlockStyle,
+  ...bomPanelBorderStyle,
   flexShrink: 0,
   marginTop: '12px',
   padding: '12px',
   background: '#f8fbff',
-  border: '1px solid #dbeafe',
-  borderRadius: '8px',
   alignSelf: 'stretch' as const,
 };
 
@@ -827,50 +861,33 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
 
               {/* Right panel — BOM + cost summary */}
               <div style={rightPanelStyle}>
-                <div style={bomSectionStyle}>
-                  <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
-                  <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
-                  <div style={bomSearchWrapperStyle}>
-                    <input
-                      ref={componentInputRef}
-                      className="app-input"
-                      type="text"
-                      placeholder="Search and select material..."
-                      value={componentSearch}
-                      onChange={(e) => {
-                        setComponentSearch(e.target.value);
-                        setComponentDropdownOpen(true);
-                        setComponentHighlightedIndex(0);
-                      }}
-                      onFocus={() => setComponentDropdownOpen(true)}
-                      onBlur={() => setTimeout(() => setComponentDropdownOpen(false), 200)}
-                      onKeyDown={handleComponentKeyDown}
-                      style={{
-                        width: '100%',
-                        boxSizing: 'border-box',
-                        padding: '10px 12px',
-                        borderRadius: '8px',
-                        border: `1px solid ${componentDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
-                        boxShadow: componentDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
-                      }}
-                    />
-                    {componentDropdownOpen && filteredAvailableComponents.length > 0 ? (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: 'white',
-                          border: '1px solid #e2e8f0',
-                          borderTop: 'none',
-                          borderRadius: '0 0 8px 8px',
-                          maxHeight: '200px',
-                          overflowY: 'auto',
-                          zIndex: 10,
-                          boxShadow: '0 4px 6px rgba(0,0,0,0.07)',
-                        }}
-                      >
+                <h3 style={panelTitleStyle}>Bill of Materials (Recipe)</h3>
+                <label style={{ ...fieldLabelStyle, marginBottom: '4px' }}>Select Material</label>
+                <div
+                  style={{
+                    ...bomSearchWrapperStyle,
+                    border: `1px solid ${componentDropdownOpen ? '#0F2847' : '#e2e8f0'}`,
+                    boxShadow: componentDropdownOpen ? '0 0 0 3px rgba(15, 40, 71, 0.08)' : 'none',
+                  }}
+                >
+                  <input
+                    ref={componentInputRef}
+                    className="app-input"
+                    type="text"
+                    placeholder="Search and select material..."
+                    value={componentSearch}
+                    onChange={(e) => {
+                      setComponentSearch(e.target.value);
+                      setComponentDropdownOpen(true);
+                      setComponentHighlightedIndex(0);
+                    }}
+                    onFocus={() => setComponentDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setComponentDropdownOpen(false), 200)}
+                    onKeyDown={handleComponentKeyDown}
+                    style={bomSearchInputStyle}
+                  />
+                  {componentDropdownOpen && filteredAvailableComponents.length > 0 ? (
+                    <div style={bomSearchDropdownStyle}>
                         {filteredAvailableComponents.map((material, index) => (
                           <div
                             key={material.id}
@@ -896,13 +913,12 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                         ))}
                       </div>
                     ) : null}
-                  </div>
-                  {componentSearch.trim() ? (
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: '6px' }}>
-                      Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
-                    </div>
-                  ) : null}
                 </div>
+                {componentSearch.trim() ? (
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: '6px', marginBottom: '6px' }}>
+                    Showing {filteredAvailableComponents.length} of {availableComponents.length} active component materials
+                  </div>
+                ) : null}
 
                 <div style={bomTableContainerStyle}>
                   <table className="app-table app-table-compact" style={bomTableStyle}>
