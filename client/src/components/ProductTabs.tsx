@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
 import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
-import { activityLogApi, type ActivityEntry } from '../api';
+import { activityLogApi, materialsApi, type ActivityEntry, type IntermediateBomItemRecord } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { getThresholdMarkupColor } from '../utils/margin';
@@ -141,13 +141,67 @@ export default function ProductTabs({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyFetched, setHistoryFetched] = useState(false);
+  const [expandedIntermediateIds, setExpandedIntermediateIds] = useState<Set<number>>(new Set());
+  const [intermediateBomById, setIntermediateBomById] = useState<Record<number, IntermediateBomItemRecord[]>>({});
+  const [intermediateBomLoadingIds, setIntermediateBomLoadingIds] = useState<Set<number>>(new Set());
+  const [intermediateBomErrorById, setIntermediateBomErrorById] = useState<Record<number, string>>({});
 
   useEffect(() => {
     setHistoryFilter('all');
     setHistoryFetched(false);
     setPriceHistory([]);
     setHistoryError(null);
+    setExpandedIntermediateIds(new Set());
+    setIntermediateBomById({});
+    setIntermediateBomLoadingIds(new Set());
+    setIntermediateBomErrorById({});
   }, [productId]);
+
+  const fetchIntermediateBom = useCallback(async (materialId: number) => {
+    setIntermediateBomLoadingIds((prev) => new Set(prev).add(materialId));
+    setIntermediateBomErrorById((prev) => {
+      const next = { ...prev };
+      delete next[materialId];
+      return next;
+    });
+
+    try {
+      const rows = await materialsApi.getIntermediateBom(materialId);
+      setIntermediateBomById((prev) => ({
+        ...prev,
+        [materialId]: Array.isArray(rows) ? rows : [],
+      }));
+    } catch {
+      setIntermediateBomErrorById((prev) => ({
+        ...prev,
+        [materialId]: 'Could not load sub-recipe materials.',
+      }));
+    } finally {
+      setIntermediateBomLoadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(materialId);
+        return next;
+      });
+    }
+  }, []);
+
+  function toggleIntermediatePreview(materialId: number, event: React.MouseEvent) {
+    event.stopPropagation();
+    const isExpanded = expandedIntermediateIds.has(materialId);
+    if (isExpanded) {
+      setExpandedIntermediateIds((prev) => {
+        const next = new Set(prev);
+        next.delete(materialId);
+        return next;
+      });
+      return;
+    }
+
+    setExpandedIntermediateIds((prev) => new Set(prev).add(materialId));
+    if (intermediateBomById[materialId] === undefined && !intermediateBomLoadingIds.has(materialId)) {
+      void fetchIntermediateBom(materialId);
+    }
+  }
 
   const combinedHistoryEntries = useMemo(() => {
     const byId = new Map<number, ActivityEntry>();
@@ -238,43 +292,126 @@ export default function ProductTabs({
                     {displayBom.map((item) => {
                       const totalCost = toNumber(item.unitPrice) * item.quantity;
                       const isIntermediate = isIntermediateMaterial(item.materialType);
+                      const isExpanded = isIntermediate && expandedIntermediateIds.has(item.materialId);
+                      const nestedBom = intermediateBomById[item.materialId];
+                      const isNestedLoading = intermediateBomLoadingIds.has(item.materialId);
+                      const nestedError = intermediateBomErrorById[item.materialId];
+
                       return (
-                        <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>
-                            {isIntermediate ? (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/intermediate-materials/${item.materialId}`, { state: { from: `/products/${productId}` } })}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 0,
-                                  border: 'none',
-                                  background: 'transparent',
-                                  padding: 0,
-                                  margin: 0,
-                                  font: 'inherit',
-                                  color: '#0F2847',
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                  maxWidth: '100%',
-                                }}
-                                title="View sub-recipe details"
-                              >
-                                <span style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>{item.materialName}</span>
-                                <IntermediateMaterialIndicator inline />
-                              </button>
-                            ) : (
-                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                {item.materialName}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
-                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.unit}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{baseCurrency} {toNumber(item.unitPrice).toFixed(2)}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
-                        </tr>
+                        <Fragment key={item.id}>
+                          <tr style={{ borderBottom: isExpanded ? 'none' : '1px solid #e2e8f0' }}>
+                            <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>
+                              {isIntermediate ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => toggleIntermediatePreview(item.materialId, event)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    padding: 0,
+                                    margin: 0,
+                                    font: 'inherit',
+                                    color: '#0F2847',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    maxWidth: '100%',
+                                  }}
+                                  aria-expanded={isExpanded}
+                                  title={isExpanded ? 'Collapse sub-recipe preview' : 'Expand sub-recipe preview'}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp size={14} color="#64748B" strokeWidth={2} aria-hidden="true" />
+                                  ) : (
+                                    <ChevronDown size={14} color="#64748B" strokeWidth={2} aria-hidden="true" />
+                                  )}
+                                  <span>{item.materialName}</span>
+                                  <IntermediateMaterialIndicator inline />
+                                </button>
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                  {item.materialName}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
+                            <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.unit}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{baseCurrency} {toNumber(item.unitPrice).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px', fontWeight: '600' }}>{baseCurrency} {totalCost.toFixed(2)}</td>
+                          </tr>
+                          {isExpanded ? (
+                            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                              <td colSpan={5} style={{ padding: 0 }}>
+                                <div
+                                  style={{
+                                    backgroundColor: '#f8fafc',
+                                    borderTop: '1px solid #e2e8f0',
+                                    padding: '10px 12px 10px 28px',
+                                    fontSize: '12px',
+                                    color: '#475569',
+                                  }}
+                                >
+                                  <div style={{ fontWeight: 600, marginBottom: '8px', color: '#64748b' }}>
+                                    Sub-recipe: {item.materialName}
+                                  </div>
+                                  {isNestedLoading ? (
+                                    <div style={{ color: '#64748b', fontStyle: 'italic' }}>Loading sub-recipe materials...</div>
+                                  ) : nestedError ? (
+                                    <div style={{ color: '#dc2626' }}>{nestedError}</div>
+                                  ) : nestedBom && nestedBom.length > 0 ? (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                      <thead>
+                                        <tr style={{ color: '#64748b' }}>
+                                          <th style={{ padding: '4px 8px 4px 0', textAlign: 'left', fontWeight: 600 }}>Material Name</th>
+                                          <th style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600 }}>Quantity</th>
+                                          <th style={{ padding: '4px 0 4px 8px', textAlign: 'left', fontWeight: 600 }}>Unit</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {nestedBom.map((component) => (
+                                          <tr key={component.id}>
+                                            <td style={{ padding: '4px 8px 4px 0' }}>{component.componentMaterialName || '—'}</td>
+                                            <td style={{ padding: '4px 8px', textAlign: 'right' }}>{Number(component.quantity || 0).toFixed(3)}</td>
+                                            <td style={{ padding: '4px 0 4px 8px' }}>{component.unit || '—'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  ) : (
+                                    <div style={{ color: '#64748b', fontStyle: 'italic' }}>No materials in this sub-recipe.</div>
+                                  )}
+                                  <div style={{ marginTop: '8px', fontWeight: 600, color: '#334155' }}>
+                                    Cost per unit: {baseCurrency} {toNumber(item.unitPrice).toFixed(2)}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      navigate(`/intermediate-materials/${item.materialId}`, { state: { from: `/products/${productId}` } });
+                                    }}
+                                    style={{
+                                      marginTop: '8px',
+                                      border: 'none',
+                                      background: 'transparent',
+                                      padding: 0,
+                                      font: 'inherit',
+                                      fontSize: '12px',
+                                      fontWeight: 600,
+                                      color: '#0F2847',
+                                      cursor: 'pointer',
+                                      textDecoration: 'underline',
+                                      textUnderlineOffset: '2px',
+                                    }}
+                                  >
+                                    View full details →
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
                       );
                     })}
                   </tbody>
