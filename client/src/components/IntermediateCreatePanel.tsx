@@ -188,18 +188,60 @@ const costSummaryValueStyle = {
   whiteSpace: 'nowrap' as const,
 };
 
+const bomColMaterialStyle = {
+  width: '220px',
+  textAlign: 'left' as const,
+};
+
+const bomColQuantityStyle = {
+  width: '90px',
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomColUnitStyle = {
+  width: '60px',
+  textAlign: 'left' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomColUnitPriceStyle = {
+  width: '100px',
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomColTotalStyle = {
+  width: '100px',
+  textAlign: 'right' as const,
+  whiteSpace: 'nowrap' as const,
+};
+
+const bomMaterialCellStyle = {
+  ...bomColMaterialStyle,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap' as const,
+};
+
 const bomActionCellStyle = {
+  width: '130px',
   textAlign: 'center' as const,
   whiteSpace: 'nowrap' as const,
-  minWidth: '120px',
+  paddingLeft: '8px',
+  paddingRight: '12px',
 };
 
 const bomActionButtonsStyle = {
   display: 'flex',
-  gap: '4px',
+  gap: '6px',
   justifyContent: 'center',
   flexWrap: 'nowrap' as const,
   flexShrink: 0,
+};
+
+const bomActionButtonStyle = {
+  padding: '4px 10px',
 };
 
 const COSTING_TAB_BASE_STYLE = {
@@ -858,11 +900,11 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                   <table className="app-table app-table-compact" style={bomTableStyle}>
                     <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
                       <tr>
-                        <th style={{ textAlign: 'left', minWidth: '120px' }}>Material</th>
-                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Quantity</th>
-                        <th style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>Unit</th>
-                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Unit Price</th>
-                        <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Total</th>
+                        <th style={bomColMaterialStyle}>Material</th>
+                        <th style={bomColQuantityStyle}>Quantity</th>
+                        <th style={bomColUnitStyle}>Unit</th>
+                        <th style={bomColUnitPriceStyle}>Unit Price</th>
+                        <th style={bomColTotalStyle}>Total</th>
                         <th style={bomActionCellStyle}>Actions</th>
                       </tr>
                     </thead>
@@ -871,8 +913,8 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                         const rowTotal = item.quantity * item.unitCost;
                         return (
                           <tr key={item.id}>
-                            <td style={{ textAlign: 'left', wordBreak: 'break-word', minWidth: '120px' }}>{item.componentName}</td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <td style={bomMaterialCellStyle}>{item.componentName}</td>
+                            <td style={bomColQuantityStyle}>
                               {editingBomId === item.id ? (
                                 <input
                                   type="number"
@@ -893,19 +935,19 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                                 />
                               )}
                             </td>
-                            <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{item.componentUnit}</td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(item.unitCost)}</td>
-                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap', fontWeight: '600' }}>{formatMoney(rowTotal)}</td>
+                            <td style={bomColUnitStyle}>{item.componentUnit}</td>
+                            <td style={bomColUnitPriceStyle}>{formatMoney(item.unitCost)}</td>
+                            <td style={{ ...bomColTotalStyle, fontWeight: '600' }}>{formatMoney(rowTotal)}</td>
                             <td style={bomActionCellStyle}>
                               {editingBomId === item.id ? (
                                 <div style={bomActionButtonsStyle}>
-                                  <button type="button" onClick={() => handleSaveBomEdit(item.id)} className="btn btn-success btn-sm">Save</button>
-                                  <button type="button" onClick={handleCancelBomEdit} className="btn btn-ghost btn-sm">Cancel</button>
+                                  <button type="button" onClick={() => handleSaveBomEdit(item.id)} className="btn btn-success btn-sm" style={bomActionButtonStyle}>Save</button>
+                                  <button type="button" onClick={handleCancelBomEdit} className="btn btn-ghost btn-sm" style={bomActionButtonStyle}>Cancel</button>
                                 </div>
                               ) : (
                                 <div style={bomActionButtonsStyle}>
-                                  <button type="button" onClick={() => handleEditBomItem(item.id, item.quantity.toString())} className="btn btn-secondary btn-sm">Edit</button>
-                                  <button type="button" onClick={() => removeTempBomItem(item.id)} className="btn btn-danger btn-sm">Delete</button>
+                                  <button type="button" onClick={() => handleEditBomItem(item.id, item.quantity.toString())} className="btn btn-secondary btn-sm" style={bomActionButtonStyle}>Edit</button>
+                                  <button type="button" onClick={() => removeTempBomItem(item.id)} className="btn btn-danger btn-sm" style={bomActionButtonStyle}>Delete</button>
                                 </div>
                               )}
                             </td>
