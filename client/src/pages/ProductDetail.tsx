@@ -52,6 +52,7 @@ interface BOMMaterial {
   id: number;
   materialId: number;
   materialName: string;
+  materialType?: 'primary' | 'intermediate' | string;
   quantity: number;
   unit: string;
   unitPrice: string;
@@ -973,8 +974,8 @@ export default function ProductDetail() {
           {/* Needs review context */}
           {product.approvalStatus === 'needs_review' && (
             <div className="app-card" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed' }}>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#9a3412', marginBottom: '4px' }}>Costs have changed for this product</div>
-              <div style={{ fontSize: '13px', color: '#9a3412', marginBottom: '8px' }}>Review below and choose how to update the approved price.</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#9a3412', marginBottom: '4px' }}>Ingredient costs have changed for this product</div>
+              <div style={{ fontSize: '13px', color: '#9a3412', marginBottom: '8px' }}>One or more ingredients (including sub-recipes) have changed in cost. Review below and choose how to update the approved price.</div>
               <div style={{ display: 'grid', gap: '6px', fontSize: '14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#7c2d12' }}>Current production cost:</span>
@@ -1006,7 +1007,7 @@ export default function ProductDetail() {
             <div className="app-card" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#9a3412', fontWeight: 600 }}>
                 <AlertTriangle size={12} strokeWidth={2} />
-                This product's cost has changed since the last approval. Review and approve a new price below.
+                This product's cost has changed since the last approval — including any sub-recipe ingredients. Review and approve a new price below.
               </div>
             </div>
           )}
@@ -1029,7 +1030,7 @@ export default function ProductDetail() {
               {product.approvalStatus === 'needs_review' && (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#9a3412', fontWeight: 600, marginBottom: '12px' }}>
                   <AlertTriangle size={12} strokeWidth={2} />
-                  Costs changed. Approved base price may be outdated.
+                  Ingredient costs changed (including sub-recipes). Approved base price may be outdated.
                 </div>
               )}
 

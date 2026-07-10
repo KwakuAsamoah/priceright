@@ -2350,16 +2350,30 @@ async function setNeedsReviewForMaterial(materialId: number): Promise<{ reviewed
   return { reviewedProductIds, productsNowNeedsReviewIds };
 }
 
-async function recalculateIntermediateMaterialCost(intermediateMaterialId: number): Promise<{ recalculated: boolean; unitPrice: number }> {
+async function recalculateIntermediateMaterialCost(intermediateMaterialId: number): Promise<{
+  recalculated: boolean;
+  unitPrice: number;
+  unitPriceChanged: boolean;
+  reviewedProductIds: number[];
+  productsNowNeedsReviewIds: number[];
+}> {
   const rows = await getActiveDb().select().from(materials).where(eq(materials.id, intermediateMaterialId));
   if (rows.length === 0) {
-    return { recalculated: false, unitPrice: 0 };
+    return { recalculated: false, unitPrice: 0, unitPriceChanged: false, reviewedProductIds: [], productsNowNeedsReviewIds: [] };
   }
 
   const intermediate = rows[0];
   if (intermediate.materialType !== 'intermediate') {
-    return { recalculated: false, unitPrice: Number(intermediate.unitPrice || 0) };
+    return {
+      recalculated: false,
+      unitPrice: Number(intermediate.unitPrice || 0),
+      unitPriceChanged: false,
+      reviewedProductIds: [],
+      productsNowNeedsReviewIds: [],
+    };
   }
+
+  const previousUnitPrice = Number(intermediate.unitPrice || 0);
 
   const bomRows = await db
     .select({
@@ -2386,6 +2400,7 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
   const totalBatchCost = roundToTwo(baseCost * overheadMultiplier);
   const calculatedUnitPrice = roundToTwo(totalBatchCost / effectiveOutputQuantity);
   const bulkPrice = roundToTwo(totalBatchCost);
+  const unitPriceChanged = Math.abs(calculatedUnitPrice - previousUnitPrice) >= 0.0001;
 
   await getActiveDb().update(materials)
     .set({
@@ -2398,7 +2413,26 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
     })
     .where(eq(materials.id, intermediateMaterialId));
 
-  return { recalculated: true, unitPrice: calculatedUnitPrice };
+  let reviewedProductIds: number[] = [];
+  let productsNowNeedsReviewIds: number[] = [];
+
+  if (unitPriceChanged) {
+    try {
+      const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
+      reviewedProductIds = reviewSummary.reviewedProductIds;
+      productsNowNeedsReviewIds = reviewSummary.productsNowNeedsReviewIds;
+    } catch (reviewError) {
+      console.error('[materials] Product review failed for intermediate:', intermediateMaterialId, reviewError);
+    }
+  }
+
+  return {
+    recalculated: true,
+    unitPrice: calculatedUnitPrice,
+    unitPriceChanged,
+    reviewedProductIds,
+    productsNowNeedsReviewIds,
+  };
 }
 
 async function cascadeIntermediateCostsFrom(
@@ -2429,16 +2463,11 @@ async function cascadeIntermediateCostsFrom(
 
       intermediateUpdatedIds.push(intermediateId);
 
-      try {
-        const reviewSummary = await setNeedsReviewForMaterial(intermediateId);
-        for (const productId of reviewSummary.reviewedProductIds) {
-          reviewedProductIds.add(productId);
-        }
-        for (const productId of reviewSummary.productsNowNeedsReviewIds) {
-          productsNowNeedsReviewIds.add(productId);
-        }
-      } catch (reviewError) {
-        console.error('[materials] Product review failed for intermediate:', intermediateId, reviewError);
+      for (const productId of recalc.reviewedProductIds) {
+        reviewedProductIds.add(productId);
+      }
+      for (const productId of recalc.productsNowNeedsReviewIds) {
+        productsNowNeedsReviewIds.add(productId);
       }
 
       queue.push(intermediateId);
@@ -2467,20 +2496,8 @@ async function recalculateIntermediateMaterialWithCascade(
     };
   }
 
-  const reviewedProductIds = new Set<number>();
-  const productsNowNeedsReviewIds = new Set<number>();
-
-  try {
-    const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
-    for (const productId of reviewSummary.reviewedProductIds) {
-      reviewedProductIds.add(productId);
-    }
-    for (const productId of reviewSummary.productsNowNeedsReviewIds) {
-      productsNowNeedsReviewIds.add(productId);
-    }
-  } catch (reviewError) {
-    console.error('[materials] Product review failed for intermediate:', intermediateMaterialId, reviewError);
-  }
+  const reviewedProductIds = new Set<number>(recalc.reviewedProductIds);
+  const productsNowNeedsReviewIds = new Set<number>(recalc.productsNowNeedsReviewIds);
 
   const cascadeSummary = await cascadeIntermediateCostsFrom(intermediateMaterialId);
   for (const productId of cascadeSummary.reviewedProductIds) {

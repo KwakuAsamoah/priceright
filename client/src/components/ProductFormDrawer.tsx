@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
+import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
 import { productsApi } from '../api';
 import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
@@ -775,13 +776,9 @@ export default function ProductFormDrawer({
                           transition: 'background-color 0.15s',
                         }}
                       >
-                        <span style={{ fontSize: '16px', fontWeight: '500', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '16px', fontWeight: '500', display: 'inline-flex', alignItems: 'center' }}>
                           {material.name}
-                          {material.materialType === 'intermediate' ? (
-                            <span style={{ fontSize: 12, border: '1px solid #94a3b8', borderRadius: 999, padding: '2px 6px', color: '#475569' }}>
-                              Intermediate
-                            </span>
-                          ) : null}
+                          {isIntermediateMaterial(material.materialType) ? <IntermediateMaterialIndicator inline /> : null}
                         </span>
                         <span style={{ fontSize: '14px', color: '#64748b', marginLeft: '12px', whiteSpace: 'nowrap' }}>
                           {baseCurrency} {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}

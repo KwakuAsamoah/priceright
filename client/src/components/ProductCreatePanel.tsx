@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
+import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
 import { materialsApi, productsApi, settingsApi } from '../api';
 import AppToast from '../components/AppToast';
 import { ActualMarkupInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
@@ -926,7 +927,10 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                               minWidth: 0,
                             }}
                           >
-                            <span style={{ fontSize: '14px', fontWeight: '500', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{material.name}</span>
+                            <span style={{ fontSize: '14px', fontWeight: '500', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center' }}>
+                              {material.name}
+                              {isIntermediateMaterial(material.materialType) ? <IntermediateMaterialIndicator inline /> : null}
+                            </span>
                             <span style={{ fontSize: '13px', color: '#64748b', flexShrink: 0, whiteSpace: 'nowrap' }}>
                               {baseCurrency} {parseFloat(material.unitPrice).toFixed(2)}/{material.unit}
                             </span>

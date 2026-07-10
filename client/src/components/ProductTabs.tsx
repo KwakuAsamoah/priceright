@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, History, RotateCcw, TrendingUp, XCircle } from 'lucide-react';
+import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
 import { activityLogApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
@@ -23,6 +24,7 @@ interface BOMMaterial {
   id: number;
   materialId: number;
   materialName: string;
+  materialType?: 'primary' | 'intermediate' | string;
   quantity: number;
   unit: string;
   unitPrice: string;
@@ -131,6 +133,7 @@ export default function ProductTabs({
   activityViewAllHref,
   onEditProduct,
 }: ProductTabsProps) {
+  const navigate = useNavigate();
   const { baseCurrency } = useBaseCurrency();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const [historyFilter, setHistoryFilter] = useState<'all' | 'approvals'>('all');
@@ -234,9 +237,39 @@ export default function ProductTabs({
                   <tbody>
                     {displayBom.map((item) => {
                       const totalCost = toNumber(item.unitPrice) * item.quantity;
+                      const isIntermediate = isIntermediateMaterial(item.materialType);
                       return (
                         <tr key={item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.materialName}</td>
+                          <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>
+                            {isIntermediate ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/intermediate-materials/${item.materialId}`, { state: { from: `/products/${productId}` } })}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 0,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  padding: 0,
+                                  margin: 0,
+                                  font: 'inherit',
+                                  color: '#0F2847',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  maxWidth: '100%',
+                                }}
+                                title="View sub-recipe details"
+                              >
+                                <span style={{ textDecoration: 'underline', textUnderlineOffset: '2px' }}>{item.materialName}</span>
+                                <IntermediateMaterialIndicator inline />
+                              </button>
+                            ) : (
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                {item.materialName}
+                              </span>
+                            )}
+                          </td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{item.quantity.toFixed(3)}</td>
                           <td style={{ padding: '8px', textAlign: 'left', fontSize: '13px' }}>{item.unit}</td>
                           <td style={{ padding: '8px', textAlign: 'right', fontSize: '13px' }}>{baseCurrency} {toNumber(item.unitPrice).toFixed(2)}</td>
