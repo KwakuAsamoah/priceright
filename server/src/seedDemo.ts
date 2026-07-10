@@ -13,6 +13,7 @@
 
 import Database from 'better-sqlite3';
 import path from 'node:path';
+import { calculateProductionCost, calculateIntermediateCostPerUnit } from './costFormula.js';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,8 +48,12 @@ function computeProductionCostPerUnit(
     const unitPrice = entry.i !== undefined ? intCost(entry.i) : rawUP(entry.r!);
     totalMaterialCost += unitPrice * entry.qty;
   }
-  const overheadCost = totalMaterialCost * (pd.overhead / 100);
-  const totalCost = totalMaterialCost + overheadCost + pd.otherDirect;
+  const { totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+    materialCost: totalMaterialCost,
+    laborCost: 0,
+    overheadPercentage: pd.overhead,
+  });
+  const totalCost = materialsLaborOverheadTotal + pd.otherDirect;
   if (pd.mode === 'batch') {
     return totalCost / Math.max(1, pd.batchYield);
   }
@@ -128,6 +133,7 @@ CREATE TABLE materials (
   price_in_base_currency REAL NOT NULL,
   unit_price REAL NOT NULL,
   overhead_percentage REAL NOT NULL DEFAULT 0,
+  labor_cost REAL NOT NULL DEFAULT 0,
   margin_percentage REAL NOT NULL DEFAULT 0,
   intermediate_cost_mode TEXT NOT NULL DEFAULT 'yield',
   yield_percentage REAL NOT NULL DEFAULT 100,
@@ -163,6 +169,7 @@ CREATE TABLE products (
   category TEXT,
   overhead_percentage REAL NOT NULL,
   profit_margin REAL NOT NULL,
+  labor_cost REAL NOT NULL DEFAULT 0,
   other_direct_costs REAL NOT NULL DEFAULT 0,
   production_mode TEXT DEFAULT 'single',
   batch_yield INTEGER DEFAULT 1,
@@ -320,10 +327,10 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
   const insProd = db.prepare(`
     INSERT INTO products
       (name,sku,description,category,overhead_percentage,profit_margin,
-       other_direct_costs,production_mode,batch_yield,current_selling_price,
+       labor_cost,other_direct_costs,production_mode,batch_yield,current_selling_price,
        approval_status,approved_price,approved_by,approved_at,
        approved_price_expires_at,is_active,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,?)
   `);
   const insBom = db.prepare('INSERT INTO bill_of_materials (product_id,material_id,quantity,created_at) VALUES (?,?,?,?)');
   const insLevel = db.prepare('INSERT INTO price_levels (name,multiplier,adjustment_type,adjustment_percentage,description,is_active,created_at,updated_at) VALUES (?,?,?,?,?,1,?,?)');
@@ -494,7 +501,12 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
         totalInput += qty;
       }
       const outputKg  = totalInput * (def.yieldPct / 100);
-      const calcCost  = outputKg > 0 ? (totalCost * (1 + def.overhead / 100)) / outputKg : 0;
+      const { costPerUnit: calcCost } = calculateIntermediateCostPerUnit({
+        materialCost: totalCost,
+        laborCost: 0,
+        overheadPercentage: def.overhead,
+        outputQuantity: outputKg,
+      });
 
       const intDbId = Number(insMat.run(
         def.name, def.sku, def.desc, 'intermediate', def.category, def.unit,
@@ -637,7 +649,7 @@ export async function seedDemoData(options?: { force?: boolean; dbPath?: string 
       const approvedAt = pd.approved ? now - idx * 86_400 : null;
       const prodId = Number(insProd.run(
         pd.name, pd.sku, pd.desc, pd.cat,
-        pd.overhead, targetMarkup, pd.otherDirect,
+        pd.overhead, targetMarkup, 0, pd.otherDirect,
         pd.mode, pd.batchYield,
         approvedPrice ?? 0,
         pd.approved ? 'approved' : 'pending',

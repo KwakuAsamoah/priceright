@@ -8,6 +8,7 @@ import { seedDemoData } from './seedDemo.js';
 import { migrateActivityLog } from './migrations/add-user-id-to-activity-log.js';
 import { migratePriceLevelCurrency } from './migrations/add-currency-to-price-levels.js';
 import { migratePriceLevelPackSizes } from './migrations/add-price-level-pack-sizes.js';
+import { migrateLaborCost } from './migrations/add-labor-cost.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +78,9 @@ function applyProductColumnMigrations(database: Database.Database) {
 	if (!productColumns.some((column) => column.name === 'rejection_reason')) {
 		database.exec('ALTER TABLE products ADD COLUMN rejection_reason TEXT');
 	}
+	if (!productColumns.some((column) => column.name === 'labor_cost')) {
+		database.exec('ALTER TABLE products ADD COLUMN labor_cost REAL NOT NULL DEFAULT 0');
+	}
 }
 
 function ensureSchemaTables() {
@@ -127,6 +131,7 @@ function ensureSchemaTables() {
 			price_in_base_currency REAL NOT NULL,
 			unit_price REAL NOT NULL,
 			overhead_percentage REAL NOT NULL DEFAULT 0,
+			labor_cost REAL NOT NULL DEFAULT 0,
 			margin_percentage REAL NOT NULL DEFAULT 0,
 			intermediate_cost_mode TEXT NOT NULL DEFAULT 'yield',
 			yield_percentage REAL NOT NULL DEFAULT 100,
@@ -157,6 +162,7 @@ function ensureSchemaTables() {
 			category TEXT,
 			overhead_percentage REAL NOT NULL,
 			profit_margin REAL NOT NULL,
+			labor_cost REAL NOT NULL DEFAULT 0,
 			other_direct_costs REAL NOT NULL DEFAULT 0,
 			production_mode TEXT DEFAULT 'single',
 			batch_yield INTEGER DEFAULT 1,
@@ -471,6 +477,9 @@ function ensureSchemaTables() {
 	if (!materialColumns.some((column) => column.name === 'is_active')) {
 		sqlite.exec('ALTER TABLE materials ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1');
 	}
+	if (!materialColumns.some((column) => column.name === 'labor_cost')) {
+		sqlite.exec('ALTER TABLE materials ADD COLUMN labor_cost REAL NOT NULL DEFAULT 0');
+	}
 
 	sqlite.exec(`
 		CREATE TABLE IF NOT EXISTS intermediate_material_bom (
@@ -505,9 +514,11 @@ applyProductColumnMigrations(demoSqlite);
 migrateActivityLog(sqlite);
 migratePriceLevelCurrency(sqlite);
 migratePriceLevelPackSizes(sqlite);
+migrateLaborCost(sqlite);
 migrateActivityLog(demoSqlite);
 migratePriceLevelCurrency(demoSqlite);
 migratePriceLevelPackSizes(demoSqlite);
+migrateLaborCost(demoSqlite);
 
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;

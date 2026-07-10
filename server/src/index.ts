@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
+import { calculateProductionCost, calculateIntermediateCostPerUnit } from './costFormula.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, priceLevelPackSizes, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
@@ -370,9 +371,13 @@ async function calculateProductionCostForProduct(selectedProduct: typeof product
     totalMaterialCost += Number(item.quantity || 0) * Number(item.unitPrice || 0);
   }
 
+  const { totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+    materialCost: totalMaterialCost,
+    laborCost: Number(selectedProduct.laborCost || 0),
+    overheadPercentage: Number(selectedProduct.overheadPercentage || 0),
+  });
   const otherCosts = Number(selectedProduct.otherDirectCosts || 0);
-  const overheadCost = totalMaterialCost * (Number(selectedProduct.overheadPercentage || 0) / 100);
-  const totalCost = totalMaterialCost + overheadCost + otherCosts;
+  const totalCost = materialsLaborOverheadTotal + otherCosts;
 
   if (selectedProduct.productionMode === 'batch') {
     const safeYield = safeBatchYield(selectedProduct.batchYield);
@@ -1267,6 +1272,7 @@ app.post('/api/materials', async (req, res) => {
       intermediateCostMode,
       yieldPercentage,
       calculatedCostPerUnit,
+      laborCost,
     } = req.body;
     const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
     const baseCurrency = await resolveBaseCurrency();
@@ -1289,6 +1295,7 @@ app.post('/api/materials', async (req, res) => {
     const intermediateCost = Number(calculatedCostPerUnit || 0);
     const normalizedOverhead = Number(overheadPercentage || 0);
     const normalizedMargin = Number(marginPercentage || 0);
+    const normalizedLaborCost = Number(laborCost || 0);
     const normalizedYield = Number(yieldPercentage || 100);
     const normalizedIntermediateCostMode =
       resolvedMaterialType === 'intermediate'
@@ -1320,6 +1327,7 @@ app.post('/api/materials', async (req, res) => {
       priceInBaseCurrency,
       unitPrice,
       overheadPercentage: normalizedOverhead,
+      laborCost: normalizedLaborCost,
       marginPercentage: normalizedMargin,
       intermediateCostMode: normalizedIntermediateCostMode,
       yieldPercentage: normalizedYield,
@@ -1378,6 +1386,7 @@ app.put('/api/materials/:id', async (req, res) => {
       ? purchaseCurrencyIdInput
       : Number(existing.purchaseCurrencyId);
     const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage ?? 0);
+    const laborCost = Number(req.body?.laborCost ?? existing.laborCost ?? 0);
     const marginPercentage = Number(req.body?.marginPercentage ?? existing.marginPercentage ?? 0);
     const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
     const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
@@ -1389,6 +1398,16 @@ app.put('/api/materials/:id', async (req, res) => {
       req.body?.bulkQuantity !== undefined
       || req.body?.bulkPrice !== undefined
       || req.body?.purchaseCurrencyId !== undefined;
+
+    const shouldRecalculateIntermediateCost =
+      materialType === 'intermediate' && (
+        shouldRecalculatePrice
+        || req.body?.laborCost !== undefined
+        || req.body?.overheadPercentage !== undefined
+        || req.body?.yieldPercentage !== undefined
+        || req.body?.intermediateCostMode !== undefined
+        || req.body?.bulkQuantity !== undefined
+      );
     
     const baseCurrency = await resolveBaseCurrency();
     
@@ -1430,6 +1449,7 @@ app.put('/api/materials/:id', async (req, res) => {
       priceInBaseCurrency,
       unitPrice,
       overheadPercentage,
+      laborCost,
       marginPercentage,
       intermediateCostMode: materialType === 'intermediate'
         ? (intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield')
@@ -1451,7 +1471,7 @@ app.put('/api/materials/:id', async (req, res) => {
       } catch (propagateError) {
         console.error('[materials] Failed to cascade intermediate costs after primary update:', materialId, propagateError);
       }
-    } else if (materialType === 'intermediate' && (shouldRecalculatePrice || unitPriceChanged)) {
+    } else if (shouldRecalculateIntermediateCost || (materialType === 'intermediate' && unitPriceChanged)) {
       try {
         await recalculateIntermediateMaterialWithCascade(materialId);
       } catch (recalcError) {
@@ -2208,9 +2228,13 @@ async function calculateProductCostSnapshot(productId: number): Promise<{ materi
     totalMaterialCost += cost;
   }
 
+  const { totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+    materialCost: totalMaterialCost,
+    laborCost: Number(product.laborCost || 0),
+    overheadPercentage: parseFloat(product.overheadPercentage.toString()),
+  });
   const otherCosts = parseFloat(product.otherDirectCosts?.toString() || '0');
-  const overheadCost = totalMaterialCost * (parseFloat(product.overheadPercentage.toString()) / 100);
-  const totalCost = totalMaterialCost + overheadCost + otherCosts;
+  const totalCost = materialsLaborOverheadTotal + otherCosts;
   // Markup formula: optimal price = totalCost × (1 + margin%)
   // The margin% here means profit on cost (markup), not profit on sales.
   // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
@@ -2389,7 +2413,6 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
     baseCost += Number(row.quantity || 0) * Number(row.componentUnitPrice || 0);
   }
 
-  const overheadMultiplier = 1 + (Number(intermediate.overheadPercentage || 0) / 100);
   const safeBulkQuantity = Math.max(0.0001, Number(intermediate.bulkQuantity || 1));
   const intermediateCostMode = intermediate.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield';
   const yieldFraction = Math.max(0.01, Number(intermediate.yieldPercentage || 100) / 100);
@@ -2397,8 +2420,13 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId: numbe
     ? safeBulkQuantity
     : safeBulkQuantity * yieldFraction;
 
-  const totalBatchCost = roundToTwo(baseCost * overheadMultiplier);
-  const calculatedUnitPrice = roundToTwo(totalBatchCost / effectiveOutputQuantity);
+  const { totalBatchCost, costPerUnit } = calculateIntermediateCostPerUnit({
+    materialCost: baseCost,
+    laborCost: Number(intermediate.laborCost || 0),
+    overheadPercentage: Number(intermediate.overheadPercentage || 0),
+    outputQuantity: effectiveOutputQuantity,
+  });
+  const calculatedUnitPrice = roundToTwo(costPerUnit);
   const bulkPrice = roundToTwo(totalBatchCost);
   const unitPriceChanged = Math.abs(calculatedUnitPrice - previousUnitPrice) >= 0.0001;
 
@@ -2765,6 +2793,7 @@ app.get('/api/products', async (req, res) => {
         category: products.category,
         overheadPercentage: products.overheadPercentage,
         profitMargin: products.profitMargin,
+        laborCost: products.laborCost,
         otherDirectCosts: products.otherDirectCosts,
         productionMode: products.productionMode,
         batchYield: products.batchYield,
@@ -2838,7 +2867,7 @@ app.get('/api/products/:id', async (req, res) => {
 
 app.post('/api/products', async (req, res) => {
   try {
-    const { name, sku, description, category, overheadPercentage, profitMargin, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
+    const { name, sku, description, category, overheadPercentage, profitMargin, laborCost, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
     const resolvedProductionMode = productionMode || 'single';
     const result = await getActiveDb().insert(products).values({
       name,
@@ -2847,6 +2876,7 @@ app.post('/api/products', async (req, res) => {
       category: category || null,
       overheadPercentage,
       profitMargin,
+      laborCost: Number(laborCost || 0),
       otherDirectCosts: otherDirectCosts || 0,
       productionMode: resolvedProductionMode,
       batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
@@ -2877,6 +2907,7 @@ app.put('/api/products/:id', async (req, res) => {
     const category = req.body?.category ?? existing.category;
     const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage);
     const profitMargin = Number(req.body?.profitMargin ?? existing.profitMargin);
+    const laborCost = Number(req.body?.laborCost ?? existing.laborCost ?? 0);
     const otherDirectCosts = Number(req.body?.otherDirectCosts ?? existing.otherDirectCosts ?? 0);
     const productionMode = req.body?.productionMode ?? existing.productionMode ?? 'single';
     const rawBatchYield = Number(req.body?.batchYield ?? existing.batchYield ?? 1);
@@ -2917,6 +2948,7 @@ app.put('/api/products/:id', async (req, res) => {
       category: category || null,
       overheadPercentage,
       profitMargin,
+      laborCost,
       otherDirectCosts: otherDirectCosts || 0,
       productionMode: productionMode || 'single',
       batchYield,
@@ -3473,10 +3505,14 @@ app.get('/api/products/:id/calculate', async (req, res) => {
       totalMaterialCost += cost;
     }
     
-    // Calculate overhead and profit
+    const laborCost = parseFloat(product[0].laborCost?.toString() || '0');
+    const { overheadAmount, totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+      materialCost: totalMaterialCost,
+      laborCost,
+      overheadPercentage: parseFloat(product[0].overheadPercentage.toString()),
+    });
     const otherCosts = parseFloat(product[0].otherDirectCosts?.toString() || '0');
-    const overheadCost = totalMaterialCost * (parseFloat(product[0].overheadPercentage.toString()) / 100);
-    const totalCost = totalMaterialCost + overheadCost + otherCosts;
+    const totalCost = materialsLaborOverheadTotal + otherCosts;
     // Markup formula: optimal price = totalCost × (1 + margin%)
     // The margin% here means profit on cost (markup), not profit on sales.
     // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
@@ -3485,7 +3521,8 @@ app.get('/api/products/:id/calculate', async (req, res) => {
     const recommendedPrice = totalCost + profitAmount;
     res.json({
   totalMaterialCost: totalMaterialCost.toFixed(2),
-  overheadCost: overheadCost.toFixed(2),
+  laborCost: laborCost.toFixed(2),
+  overheadCost: overheadAmount.toFixed(2),
   otherDirectCosts: otherCosts.toFixed(2),
   totalCost: totalCost.toFixed(2),
   profitAmount: profitAmount.toFixed(2),
