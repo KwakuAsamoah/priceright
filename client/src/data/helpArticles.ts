@@ -54,23 +54,17 @@ export const helpArticles: HelpArticle[] = [
     section: 'Getting Started',
     title: 'Using the sample data files',
     keywords: ['sample', 'sample data', 'demo files', 'import sample', 'getting started', 'example data', 'try', 'explore'],
-    relatedArticleIds: ['first-setup', 'demo-mode', 'import-templates-overview'],
+    relatedArticleIds: ['first-setup', 'demo-mode', 'importing-materials'],
     content: `
-      <p>PriceRight includes three sample data files designed as a realistic food-manufacturing example. Use them to explore all features with realistic data before entering your own.</p>
+      <p>PriceRight includes sample data designed as a realistic food-manufacturing example. Use it to explore all features before entering your own.</p>
 
-      <p>Go to Settings in the Setup section and find the Sample data section. Download each file and import them in this exact order:</p>
+      <p><strong>Quickest way to explore:</strong> go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Try sample data</strong>. This loads a full demo dataset — materials, intermediate materials, products, and price levels — in one step.</p>
 
-      <ol>
-        <li><strong>Raw materials</strong> — 25 ingredients, oils, grains, and packaging items with realistic prices in your base currency. On the Materials page (Primary tab), click <strong>+ Add → Import from CSV</strong>.</li>
-        <li><strong>Intermediate materials</strong> — 5 in-house processed ingredients such as peanut paste and cocoa powder. On the Materials page (Intermediate tab), click <strong>+ Add → Import from CSV</strong>.</li>
-        <li><strong>Products with ingredients</strong> — 11 finished products including peanut butter, cocoa powder, gari, pepper sauce, and more. Each product comes with a full bill of materials. On the Products page, click <strong>+ Add → Import from CSV</strong>.</li>
-      </ol>
+      <p><strong>Alternatively, import raw materials only:</strong> go to Settings → Sample data, download <strong>Sample raw materials</strong>, then on the Materials page (Primary tab) click <strong>+ Add → Import from CSV</strong>. Create intermediate materials and products manually using the creation panels.</p>
 
-      <p>The order matters. Products reference ingredients by name — if the materials are not imported first, products will be skipped during import.</p>
+      <p>When you are ready to return to your real data after using sample data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Use my real data</strong>. Your real data is preserved and sample data is not deleted — they are separate databases.</p>
 
-      <p>Once imported, you can approve base prices, create price levels, export price lists, and run reports — all with realistic data. When you are ready to return to your real data after using sample data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Use my real data</strong>. Your real data is preserved and sample data is not deleted — they are separate databases.</p>
-
-      <p>The sample data files are always available in Settings under Sample data. You can re-download and re-import them at any time.</p>`,
+      <p>The sample materials file is always available in Settings under Sample data.</p>`,
   },
 
   {
@@ -84,7 +78,7 @@ export const helpArticles: HelpArticle[] = [
       material costs are ready. Follow these steps in order — each one builds
       on the last.</p>
 
-      <p>If you want to explore PriceRight before entering your own data, download the sample data files from Settings under Sample data. Import them in order — raw materials first, then intermediate materials, then products — and the app will be populated with a realistic sample dataset you can use to try every feature.</p>
+      <p>If you want to explore PriceRight before entering your own data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Try sample data</strong> for a full demo dataset. You can also download the sample materials file from Settings → Sample data and import it on the Materials (Primary) tab.</p>
       <ol>
         <li><strong>Set your base currency.</strong> Go to <strong>Settings → Currencies &amp; Rates</strong>.
         Click <strong>Add currency</strong>, enter your local currency code (for example USD, GBP, NGN, KES, EUR, or GHS),
@@ -385,21 +379,16 @@ export const helpArticles: HelpArticle[] = [
 
   {
     id: 'import-templates-overview',
-    title: 'Importing data with templates',
+    title: 'Importing materials with templates',
     section: 'Products and Materials',
-    keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload', 'intermediate'],
-    relatedArticleIds: ['importing-materials', 'sample-data', 'building-product-bom'],
+    keywords: ['import', 'template', 'CSV', 'Excel', 'bulk import', 'upload', 'materials'],
+    relatedArticleIds: ['importing-materials', 'sample-data', 'adding-materials'],
     content: `
-      <p>PriceRight provides Excel templates for importing materials and products in bulk. This is faster than adding items one by one.</p>
+      <p>PriceRight provides an Excel template for importing primary raw materials in bulk. This is faster than adding materials one by one.</p>
 
-      <p><strong>Available templates:</strong></p>
-      <ul>
-        <li><strong>Materials import template</strong> — for primary raw materials. Go to <strong>Materials</strong> (Primary tab), click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
-        <li><strong>Intermediate materials import template</strong> — for in-house processed materials. Go to <strong>Materials</strong> (Intermediate tab), click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
-        <li><strong>Products import template</strong> — for finished products with their full bill of materials. Go to <strong>Products</strong>, click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</li>
-      </ul>
+      <p><strong>Materials import template</strong> — for primary raw materials. Go to <strong>Materials</strong> (Primary tab), click <strong>+ Add → Import from CSV</strong>, then <strong>Download template</strong>.</p>
 
-      <p><strong>How to fill in a template:</strong></p>
+      <p><strong>How to fill in the template:</strong></p>
       <ul>
         <li>Open the template in Excel</li>
         <li>Read the instructions on the first sheet</li>
@@ -410,19 +399,14 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>How to import:</strong></p>
       <ol>
-        <li>Go to the page for the type of data you are importing</li>
+        <li>Go to Materials (Primary tab)</li>
         <li>Click <strong>+ Add → Import from CSV</strong></li>
         <li>Choose your completed file</li>
         <li>Review the preview — rows with errors are highlighted</li>
         <li>Click Import to finish</li>
       </ol>
 
-      <p><strong>Tips:</strong></p>
-      <ul>
-        <li>Import materials before products since products reference materials</li>
-        <li>Material names in the products template must exactly match the names in your materials list</li>
-        <li>Import intermediate materials before products that use them in a bill of materials</li>
-      </ul>`,
+      <p>Products and intermediate materials are created using the manual creation panels — there is no bulk CSV import for those.</p>`,
   },
 
   {

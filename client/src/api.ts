@@ -1,7 +1,6 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 
 import { downloadFile } from './utils/download';
-import { parseImportFileRows } from './utils/importWorkbook';
 
 // When loaded via file:// (Electron), relative /templates/ URLs don't resolve.
 // Use an absolute HTTP URL derived from the API base instead.
@@ -432,20 +431,6 @@ export const materialsApi = {
     });
     return parseResponse(res);
   },
-  importIntermediateMaterials: async (file: File): Promise<{
-    imported: number;
-    skipped: number;
-    errors: Array<{ row: number; name: string; reason: string }>;
-  }> => {
-    const materials = await parseImportFileRows(file);
-
-    const res = await fetch(`${API_BASE}/intermediate-materials/import`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ materials }),
-    });
-    return parseResponse(res);
-  },
 };
 
 // Products API
@@ -561,14 +546,6 @@ export const productsApi = {
       throw new Error(error.error || 'Failed to bulk approve products');
     }
     return res.json();
-  },
-  import: async (rows: any[]) => {
-    const res = await fetch(`${API_BASE}/products/import`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rows),
-    });
-    return parseResponse(res);
   },
   processPriceExpiry: async () => {
     const res = await fetch(`${API_BASE}/products/process-price-expiry`, {

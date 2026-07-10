@@ -3,11 +3,11 @@ import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertCircle, AlertTriangle, ArrowDownToLine, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileText, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CheckCircle, Copy, Download, ExternalLink, Eye, EyeOff, FileText, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, productsApi, settingsApi, currenciesApi, templateUrl } from '../api';
+import { materialsApi, productsApi, settingsApi, currenciesApi } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
@@ -16,17 +16,15 @@ import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
 import { exportInChunks } from '../utils/reportExport';
-import { readImportDataRows } from '../utils/importWorkbook';
 import { useColumnVisibility } from '../hooks/useColumnVisibility';
 import useUndoAction from '../hooks/useUndoAction';
 import type { UndoPreviousState } from '../hooks/useUndoAction';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import ProductCreatePanel from '../components/ProductCreatePanel';
-import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, MarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
+import { ActualGrossMarginInfoTooltip, ActualMarkupInfoTooltip, OptimalGrossMarginInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
   getProductsColumnConfig,
   PRODUCT_COLUMN_KEY_TO_ID,
@@ -340,59 +338,6 @@ function formatListMessage(title: string, lines: string[]) {
   return [title, ...cleanLines.map((line) => `• ${line}`)].join('\n');
 }
 
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      values.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-}
-
-function parseCsvText(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('#'));
-
-  if (lines.length === 0) {
-    return [];
-  }
-
-  const headers = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const parts = parseCsvLine(line);
-    const row: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      row[header] = parts[index] ?? '';
-    });
-    return row;
-  });
-}
-
 export default function Products() {
   const { baseCurrency } = useBaseCurrency();
   const companyName = useCompanyName();
@@ -413,7 +358,6 @@ export default function Products() {
     toggleColumn,
     resetToDefaults: resetColumnDefaults,
   } = useColumnVisibility('products-table-columns', PRODUCTS_COLUMNS);
-  const { downloading, handleDownload } = useTemplateDownload();
 
   function isProductColumnVisible(key: ProductColumnKey) {
     return isColumnIdVisible(PRODUCT_COLUMN_KEY_TO_ID[key]);
@@ -437,7 +381,7 @@ export default function Products() {
     resetColumnDefaults();
   }
 
-  const [selectedStatus, setSelectedStatus] = useState('All');
+  const [selectedStatus] = useState('All');
   const [selectedApprovalStatus, setSelectedApprovalStatus] = useState('All');
   const [activeFilter, setActiveFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [isNeedsReviewBannerDismissed, setIsNeedsReviewBannerDismissed] = useState(false);
@@ -447,14 +391,6 @@ export default function Products() {
 
   const [selectedProducts, setSelectedProducts] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
-
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<any[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
-  const [importSuccessCount, setImportSuccessCount] = useState(0);
-  const [importRuntimeError, setImportRuntimeError] = useState('');
 
   const [showCreatePanel, setShowCreatePanel] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
@@ -476,8 +412,8 @@ export default function Products() {
   const { registerUndo } = useUndoAction();
 
   useEffect(() => {
-    setHasOpenForm(showImportModal);
-  }, [showImportModal, setHasOpenForm]);
+    setHasOpenForm(showCreatePanel || showDrawer);
+  }, [showCreatePanel, showDrawer, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -1060,212 +996,6 @@ export default function Products() {
     }
   }
 
-  async function handleProductFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportFile(file);
-    setImportFailures([]);
-    setImportSuccessCount(0);
-    setImportRuntimeError('');
-
-    const extension = (file.name.split('.').pop() || '').toLowerCase();
-
-    if (extension === 'csv') {
-      const textReader = new FileReader();
-      textReader.onload = (event) => {
-        try {
-          const text = String(event.target?.result || '');
-          const rows = parseCsvText(text);
-          setImportPreview(rows);
-        } catch (error) {
-          console.error('Error reading CSV file:', error);
-          showToastMessage('Error reading CSV file. Please check the format.', 'error');
-          setImportPreview([]);
-        }
-      };
-      textReader.readAsText(file);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const jsonData = readImportDataRows(workbook);
-        setImportPreview(jsonData as any[]);
-      } catch (error) {
-        console.error('Error reading file:', error);
-        showToastMessage('Error reading file. Please check the format.', 'error');
-        setImportPreview([]);
-      }
-    };
-    reader.readAsBinaryString(file);
-  }
-
-  async function handleProductImport() {
-    if (importPreview.length === 0) {
-      showToastMessage('No data to import', 'error');
-      return;
-    }
-    setImportRuntimeError('');
-    setImporting(true);
-    try {
-      const resp = await productsApi.import(importPreview);
-      const failures = (resp.errors || []).map((e: any) => ({
-        rowNumber: e.row,
-        name: e.productName,
-        reason: e.reason,
-        originalRow: {},
-      }));
-      const successCount = resp.imported || 0;
-      setImportFailures(failures);
-      setImportSuccessCount(successCount);
-
-      const failedRows = new Set<number>(failures.map((failure: any) => Number(failure.rowNumber)).filter((row: number) => !Number.isNaN(row)));
-      const successNames = importPreview
-        .map((row, index) => ({
-          rowNumber: index + 1,
-          name: (row['Product Name'] || row['name'] || '').toString().trim(),
-        }))
-        .filter((entry) => !failedRows.has(entry.rowNumber) && entry.name.length > 0)
-        .map((entry) => entry.name);
-
-      const failedDetails = failures
-        .map((failure: any) => {
-          const failedName = (failure?.name || '').toString().trim();
-          const rowLabel = failure?.rowNumber ? `Row ${failure.rowNumber}` : 'Row ?';
-          const reason = (failure?.reason || 'Unknown reason').toString();
-          return `${failedName || rowLabel}: ${reason}`;
-        });
-
-      if (successCount > 0) {
-        setSearchInput('');
-        setDebouncedSearch('');
-        setSelectedStatus('All');
-        setSelectedApprovalStatus('All');
-        await loadData();
-      }
-
-      const successPreview = successNames.slice(0, 5).join(', ');
-      const successSuffix = successNames.length > 5 ? ` +${successNames.length - 5} more` : '';
-      const failedPreview = failedDetails.slice(0, 3).join(' | ');
-      const failedSuffix = failedDetails.length > 3 ? ` +${failedDetails.length - 3} more` : '';
-
-      if (successCount > 0 && failures.length === 0) {
-        showToastMessage(
-          formatListMessage(
-            `Imported ${successCount} product${successCount !== 1 ? 's' : ''}`,
-            [`Products: ${successPreview}${successSuffix}`]
-          ),
-          'success'
-        );
-        return;
-      }
-
-      if (successCount > 0 && failures.length > 0) {
-        showToastMessage(
-          formatListMessage(
-            'Import completed with partial failures',
-            [
-              `Imported: ${successCount}`,
-              `Failed: ${failures.length}`,
-              `Imported products: ${successPreview}${successSuffix}`,
-              `Failure reasons: ${failedPreview}${failedSuffix}`,
-            ]
-          ),
-          'error'
-        );
-        return;
-      }
-
-      if (failures.length > 0) {
-        showToastMessage(
-          formatListMessage('Import failed for all rows', [`Reasons: ${failedPreview}${failedSuffix}`]),
-          'error'
-        );
-        return;
-      }
-
-      showToastMessage('No products were imported', 'error');
-    } catch (err: any) {
-      console.error('Import failed:', err);
-      const errorMessage = err?.message || String(err) || 'Unknown error';
-      setImportRuntimeError(errorMessage);
-      showToastMessage('Import failed: ' + errorMessage, 'error');
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  function downloadProductFailureReport() {
-    if (!importFailures || importFailures.length === 0) return;
-    const headers = [
-      'Row Number',
-      'Product Name',
-      'SKU',
-      'Category',
-      'Production Mode',
-      'Batch Yield',
-      'Overhead %',
-      'Markup %',
-      'Approved base price',
-      'Material Name',
-      'Quantity',
-      'Unit',
-      'Failure Reason',
-    ];
-
-    const rows = importFailures.map((failure) => {
-      const source = failure.originalRow || {};
-      return [
-        failure.rowNumber,
-        source['Product Name'] || source['name'] || '',
-        source['SKU'] || source['sku'] || '',
-        source['Category'] || source['category'] || '',
-        source['Production Mode'] || source['productionMode'] || '',
-        source['Batch Yield'] || source['batchYield'] || '',
-        source['Overhead %'] || source['Overhead'] || source['overhead'] || source['overheadPercentage'] || '',
-        source['Markup %'] || source['Profit on cost %'] || source['Profit Margin %'] || source['Profit'] || source['profitMargin'] || '',
-        source['Approved base price'] || source['currentSellingPrice'] || '',
-        source['Material Name'] || source['materialName'] || '',
-        source['Quantity'] || source['quantity'] || '',
-        source['Unit'] || source['unit'] || '',
-        failure.reason,
-      ];
-    });
-
-    const date = new Date().toISOString().split('T')[0];
-    downloadCsv(`products-import-failures-${date}.csv`, headers, rows);
-  }
-
-  function handleDownloadProductTemplate() {
-    const headers = [
-      'Product Name',
-      'SKU',
-      'Category',
-      'Production Mode',
-      'Batch Yield',
-      'Overhead %',
-      'Markup %',
-      'Approved base price',
-      'Material Name',
-      'Quantity',
-      'Unit',
-      'Description',
-    ];
-
-    const rows = [
-      ['BROWN SUGAR BOTTLE 1.8kg', 'BSB-001', 'Sugar', 'Batch', '6', '25', '20', '45.00', 'Sugar', '10.8', 'Kg', 'Brown sugar bottle 1.8kg'],
-      ['BROWN SUGAR BOTTLE 1.8kg', 'BSB-001', 'Sugar', 'Batch', '6', '25', '20', '45.00', 'Bottle & Cover Brown Sugar', '6', 'Pcs', 'Brown sugar bottle 1.8kg'],
-      ['PALM OIL 500ML', 'PO-001', 'Oils', 'Single', '1', '30', '35', '9.50', 'Raw Palm Oil', '0.52', 'L', 'Palm oil bottle 500ml'],
-      ['PALM OIL 500ML', 'PO-001', 'Oils', 'Single', '1', '30', '35', '9.50', 'PET Bottles 500ml', '1', 'piece', 'Palm oil bottle 500ml'],
-    ];
-
-    const date = new Date().toISOString().split('T')[0];
-    downloadCsv(`products-import-template-${date}.csv`, headers, rows);
-  }
-
   async function handleExportToExcel() {
     if (isExporting) return;
     setIsExporting(true);
@@ -1696,13 +1426,6 @@ export default function Products() {
                 label: 'Add single product',
                 icon: <Plus size={14} strokeWidth={2} />,
                 onSelect: handleAddProduct,
-              },
-              { key: 'divider-add', type: 'divider' as const },
-              {
-                key: 'import-csv',
-                label: 'Import from CSV',
-                icon: <Upload size={14} strokeWidth={2} />,
-                onSelect: () => setShowImportModal(true),
               },
             ]}
           />
@@ -2629,220 +2352,6 @@ export default function Products() {
                 Apply
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showImportModal && (
-        <div
-          className="app-modal-overlay"
-        >
-          <div
-            className="app-modal app-modal-wide"
-            style={{ maxHeight: '90vh', overflowY: 'auto' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              className="btn-close-x"
-              onClick={() => {
-                setShowImportModal(false);
-                setImportFile(null);
-                setImportPreview([]);
-                setImportFailures([]);
-                setImportSuccessCount(0);
-                setImportRuntimeError('');
-              }}
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h2 className="app-modal-title">Import Products</h2>
-
-            {!importFile ? (
-              <div>
-                <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <a
-                    href={templateUrl('PriceRight_Products_Import_Template.xlsx')}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      void handleDownload('PriceRight_Products_Import_Template.xlsx');
-                    }}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      color: '#0f172a',
-                      fontWeight: '600',
-                      fontSize: '16px',
-                      textDecoration: 'none',
-                      cursor: downloading ? 'wait' : 'pointer',
-                      opacity: downloading ? 0.6 : 1,
-                      pointerEvents: downloading ? 'none' : 'auto',
-                    }}
-                  >
-                    <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                    {downloading === 'PriceRight_Products_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
-                  </a>
-                  <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
-                </div>
-                <div style={{ marginBottom: '12px', backgroundColor: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '12px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <AlertTriangle size={18} strokeWidth={2} style={{ color: '#b45309', flexShrink: 0, marginTop: '2px' }} />
-                  <div style={{ fontSize: '15px', color: '#78350f' }}>
-                    <strong>Import materials first.</strong> Product import matches material names to your existing materials. Any product whose material is not found will be skipped.
-                  </div>
-                </div>
-
-                <label
-                  htmlFor="product-file-upload"
-                  style={{
-                    display: 'block',
-                    padding: '40px',
-                    border: '2px dashed #cbd5e1',
-                    borderRadius: '8px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: '#f8fafc',
-                  }}
-                >
-                  <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
-                  <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
-                  <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
-                  <input id="product-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleProductFileUpload} style={{ display: 'none' }} />
-                </label>
-
-                <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                  <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                  <div style={{ fontSize: '15px', color: '#475569' }}>One row per BOM material. Keep product-level fields identical for repeated product rows.</div>
-                  <div style={{ fontSize: '15px', color: '#475569' }}>Include Approved base price when available; leave blank to default to 0.</div>
-                </div>
-
-              </div>
-            ) : (
-              <div>
-                <div style={{ marginBottom: '12px' }}>
-                  <strong>File:</strong> {importFile.name} ({new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} product{new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size !== 1 ? 's' : ''})
-                </div>
-
-                {importing && (
-                  <div style={{ marginBottom: '12px', backgroundColor: 'rgba(22, 163, 74, 0.08)', color: '#0F2847', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
-                    Importing {new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} product{new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size !== 1 ? 's' : ''}. Please wait...
-                  </div>
-                )}
-
-                {importRuntimeError && (
-                  <div style={{ marginBottom: '12px', backgroundColor: '#fef2f2', color: '#991b1b', padding: '10px 12px', borderRadius: '8px', fontWeight: 600 }}>
-                    Import failed: {importRuntimeError}
-                  </div>
-                )}
-                {importPreview.length > 0 && (
-                  <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
-                        <tr>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Product Name</th>
-                          <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
-                          <th style={{ padding: '8px', textAlign: 'right' }}>Overhead %</th>
-                          <th style={{ padding: '8px', textAlign: 'right' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              Markup %
-                              <MarkupInfoTooltip position="bottom" />
-                            </span>
-                          </th>
-                          <th style={{ padding: '8px', textAlign: 'right' }}>Approved base price</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importPreview.slice(0, 10).map((row, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                            <td style={{ padding: '8px' }}>{row['Product Name'] || row['name'] || '-'}</td>
-                            <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Overhead %'] || row['Overhead'] || row['overhead'] || row['overheadPercentage'] || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Markup %'] || row['Profit on cost %'] || row['Profit Margin %'] || row['Profit'] || row['profit'] || row['profitMargin'] || '-'}</td>
-                            <td style={{ padding: '8px', textAlign: 'right' }}>{row['Approved base price'] || row['currentSellingPrice'] || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '12px' }}>
-                  <button
-                    onClick={handleDownloadProductTemplate}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontWeight: '600' }}
-                  >
-                    Download Template
-                  </button>
-                  <button
-                    onClick={() => {
-                      setImportFile(null);
-                      setImportPreview([]);
-                      setImportFailures([]);
-                      setImportSuccessCount(0);
-                      setImportRuntimeError('');
-                    }}
-                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontWeight: '600' }}
-                  >
-                    Choose Different File
-                  </button>
-                  <button
-                    onClick={handleProductImport}
-                    disabled={importing || importPreview.length === 0}
-                    style={{ padding: '8px 12px', borderRadius: '8px', backgroundColor: importing ? '#94a3b8' : '#10b981', color: 'white', fontWeight: '600', border: 'none', cursor: importing ? 'not-allowed' : 'pointer' }}
-                  >
-                    {importing ? 'Importing...' : `Import ${new Set(importPreview.map((r: any) => (r['Product Name'] || r['name'] || '').trim())).size} Products`}
-                  </button>
-                </div>
-
-                {(importSuccessCount > 0 || importFailures.length > 0) && (
-                  <div style={{ marginTop: '16px' }}>
-                    {importSuccessCount > 0 && (
-                      <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
-                        {importSuccessCount} item{importSuccessCount !== 1 ? 's' : ''} imported successfully
-                      </div>
-                    )}
-
-                    {importFailures.length > 0 && (
-                      <div>
-                        <div style={{ backgroundColor: '#fff7ed', color: '#92400e', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
-                          {importFailures.length} item{importFailures.length !== 1 ? 's' : ''} failed to import
-                        </div>
-
-                        <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                            <thead style={{ backgroundColor: '#f8fafc', position: 'sticky', top: 0 }}>
-                              <tr>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Row #</th>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Name</th>
-                                <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Reason</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {importFailures.map((f) => (
-                                <tr key={f.rowNumber} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                  <td style={{ padding: '8px' }}>{f.rowNumber}</td>
-                                  <td style={{ padding: '8px' }}>{f.name || '-'}</td>
-                                  <td style={{ padding: '8px' }}>{f.reason}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                          <button
-                            onClick={downloadProductFailureReport}
-                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', fontWeight: '600' }}
-                          >
-                            Download Failure Report
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}

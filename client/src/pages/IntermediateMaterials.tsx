@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, FileUp, Layers, Plus, Printer, Table, Trash2, Upload, ArrowDownToLine, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, Layers, Plus, Printer, Table, Trash2, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import ActionDropdown from '../components/ActionDropdown';
@@ -10,15 +10,13 @@ import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
-import { materialsApi, currenciesApi, settingsApi, templateUrl, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
+import { materialsApi, currenciesApi, settingsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
-import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
-import { readImportDataRows } from '../utils/importWorkbook';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import {
@@ -112,59 +110,6 @@ function normalizeChoiceValue(selectedValue: string, customValue: string, fallba
     return trimmed;
   }
   return fallback;
-}
-
-function parseCsvLine(line: string) {
-  const values: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && next === '"') {
-        current += '"';
-        i += 1;
-      } else {
-        inQuotes = !inQuotes;
-      }
-      continue;
-    }
-
-    if (char === ',' && !inQuotes) {
-      values.push(current.trim());
-      current = '';
-      continue;
-    }
-
-    current += char;
-  }
-
-  values.push(current.trim());
-  return values;
-}
-
-function parseCsvText(text: string) {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length === 0) {
-    return [];
-  }
-
-  const headers = parseCsvLine(lines[0]);
-  return lines.slice(1).map((line) => {
-    const parts = parseCsvLine(line);
-    const row: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      row[header] = parts[index] ?? '';
-    });
-    return row;
-  });
 }
 
 function escapeCsvCell(value: unknown) {
@@ -341,7 +286,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     'priceright_columns_intermediate_materials',
     DEFAULT_INTERMEDIATE_COLUMNS,
   );
-  const { downloading, handleDownload } = useTemplateDownload();
   const { baseCurrency } = useBaseCurrency();
   const companyName = useCompanyName();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -357,28 +301,15 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [editingQuantity, setEditingQuantity] = useState('');
   const [statusText, setStatusText] = useState<string>('');
   const [saving, setSaving] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importPreview, setImportPreview] = useState<any[]>([]);
-  const [importing, setImporting] = useState(false);
-  const [importFailures, setImportFailures] = useState<Array<{ rowNumber: number; name: string; reason: string; originalRow: any }>>([]);
-  const [importSuccessCount, setImportSuccessCount] = useState(0);
   const [configuredMaterialCategories, setConfiguredMaterialCategories] = useState<string[]>([]);
   const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
-  const [showIntermediateImportModal, setShowIntermediateImportModal] = useState(false);
-  const [intermediateImportFile, setIntermediateImportFile] = useState<File | null>(null);
-  const [intermediateImportResult, setIntermediateImportResult] = useState<{
-    imported: number;
-    skipped: number;
-    errors: Array<{ row: number; name: string; reason: string }>;
-  } | null>(null);
   const { setHasOpenForm } = useFormState();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    setHasOpenForm(isFormOpen || showImportModal || showIntermediateImportModal || showCreatePanel);
-  }, [isFormOpen, showImportModal, showIntermediateImportModal, showCreatePanel, setHasOpenForm]);
+    setHasOpenForm(isFormOpen || showCreatePanel);
+  }, [isFormOpen, showCreatePanel, setHasOpenForm]);
 
   useEffect(() => {
     return () => {
@@ -1033,191 +964,9 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     showToastMessage(`Exported ${targets.length} selected intermediate materials`, 'success');
   }
 
-  function resetImportState() {
-    setImportFile(null);
-    setImportPreview([]);
-    setImportFailures([]);
-    setImportSuccessCount(0);
-  }
-
   async function handleMaterialSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     await saveMaterial();
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImportFile(file);
-    setImportFailures([]);
-    setImportSuccessCount(0);
-
-    const extension = (file.name.split('.').pop() || '').toLowerCase();
-
-    if (extension === 'csv') {
-      const textReader = new FileReader();
-      textReader.onload = (event) => {
-        try {
-          const text = String(event.target?.result || '');
-          const rows = parseCsvText(text);
-          setImportPreview(rows);
-        } catch (error) {
-          console.error('Error reading CSV file:', error);
-          setImportPreview([]);
-          setStatusText('Failed to parse CSV file.');
-        }
-      };
-      textReader.readAsText(file);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = event.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const jsonData = readImportDataRows(workbook);
-        setImportPreview(jsonData as any[]);
-      } catch (error) {
-        console.error('Error reading file:', error);
-        setImportPreview([]);
-        setStatusText('Failed to parse import file.');
-      }
-    };
-    reader.readAsBinaryString(file);
-  }
-
-  async function handleImportIntermediateMaterials() {
-    if (importPreview.length === 0) {
-      setStatusText('No rows available for import.');
-      return;
-    }
-
-    setImporting(true);
-    const failures: Array<{ rowNumber: number; name: string; reason: string; originalRow: any }> = [];
-    let successCount = 0;
-
-    for (let i = 0; i < importPreview.length; i += 1) {
-      const row = importPreview[i];
-      const rowNumber = i + 1;
-      const name = String(row['Material Name'] || row['name'] || '').trim();
-      const sku = String(row['SKU'] || row['sku'] || '').trim();
-      const category = String(row['Category'] || row['category'] || '').trim() || 'Intermediate';
-      const unit = String(row['Unit'] || row['unit'] || '').trim() || 'kg';
-      const bulkQuantity = Number(row['Bulk Quantity'] || row['bulkQuantity'] || 1);
-      const overheadPercentage = Number(row['Overhead %'] || row['overheadPercentage'] || 0);
-      const marginPercentage = Number(row['Margin %'] || row['marginPercentage'] || 0);
-      const yieldPercentage = Number(row['Yield %'] || row['yieldPercentage'] || 100);
-      const description = String(row['Description'] || row['description'] || '').trim();
-
-      if (!name) {
-        failures.push({ rowNumber, name: '', reason: 'Material Name is required', originalRow: row });
-        continue;
-      }
-      if (!Number.isFinite(bulkQuantity) || bulkQuantity <= 0) {
-        failures.push({ rowNumber, name, reason: 'Bulk Quantity must be a positive number', originalRow: row });
-        continue;
-      }
-      if (!Number.isFinite(overheadPercentage) || !Number.isFinite(marginPercentage) || !Number.isFinite(yieldPercentage)) {
-        failures.push({ rowNumber, name, reason: 'Overhead, Margin and Yield must be numeric', originalRow: row });
-        continue;
-      }
-
-      try {
-        await materialsApi.create({
-          name,
-          sku,
-          description,
-          category,
-          unit,
-          bulkQuantity,
-          bulkPrice: 0,
-          purchaseCurrencyId: 0,
-          supplier: '',
-          materialType: 'intermediate',
-          overheadPercentage,
-          marginPercentage,
-          yieldPercentage,
-          calculatedCostPerUnit: 0,
-        });
-
-        successCount += 1;
-      } catch (error: any) {
-        failures.push({
-          rowNumber,
-          name,
-          reason: error?.message || 'Import failed for this row',
-          originalRow: row,
-        });
-      }
-    }
-
-    setImportFailures(failures);
-    setImportSuccessCount(successCount);
-    setImporting(false);
-
-    await loadData();
-    setStatusText(`Imported ${successCount} item${successCount !== 1 ? 's' : ''}${failures.length > 0 ? `, ${failures.length} failed` : ''}.`);
-  }
-
-  function downloadFailureReport() {
-    if (!importFailures || importFailures.length === 0) return;
-
-    const rows = importFailures.map((failure) => {
-      const source = failure.originalRow || {};
-      return [
-        failure.rowNumber,
-        source['Material Name'] || source['name'] || '',
-        source['SKU'] || source['sku'] || '',
-        source['Category'] || source['category'] || '',
-        source['Unit'] || source['unit'] || '',
-        source['Bulk Quantity'] || source['bulkQuantity'] || '',
-        source['Overhead %'] || source['overheadPercentage'] || '',
-        source['Margin %'] || source['marginPercentage'] || '',
-        source['Yield %'] || source['yieldPercentage'] || '',
-        source['Description'] || source['description'] || '',
-        failure.reason,
-      ];
-    });
-
-    const date = new Date().toISOString().split('T')[0];
-    downloadCsv(
-      `intermediate-materials-import-failures-${date}.csv`,
-      ['Row Number', 'Material Name', 'SKU', 'Category', 'Unit', 'Bulk Quantity', 'Overhead %', 'Margin %', 'Yield %', 'Description', 'Failure Reason'],
-      rows
-    );
-  }
-
-  async function handleIntermediateImport() {
-    if (!intermediateImportFile) return;
-
-    setImporting(true);
-    try {
-      const result = await materialsApi.importIntermediateMaterials(intermediateImportFile);
-      setIntermediateImportResult(result);
-      await loadData();
-
-      if (result.skipped === 0) {
-        setShowIntermediateImportModal(false);
-        setIntermediateImportFile(null);
-        showToastMessage(`Imported ${result.imported} intermediate material${result.imported !== 1 ? 's' : ''} successfully`, 'success');
-      } else {
-        showToastMessage(`Import complete: ${result.imported} imported, ${result.skipped} failed.`, 'error');
-      }
-    } catch (error: any) {
-      console.error('Error importing intermediate materials:', error);
-      showToastMessage(error?.message || 'Failed to import intermediate materials', 'error');
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  function handleIntermediateFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIntermediateImportFile(file);
-    setIntermediateImportResult(null);
   }
 
   const availableComponents = components.filter((m) => m.id !== selectedId && m.isActive);
@@ -1340,13 +1089,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 label: 'Add single intermediate',
                 icon: <Plus size={14} strokeWidth={2} />,
                 onSelect: handleAddIntermediate,
-              },
-              { key: 'divider-add', type: 'divider' as const },
-              {
-                key: 'import-csv',
-                label: 'Import from CSV',
-                icon: <Upload size={14} strokeWidth={2} />,
-                onSelect: () => setShowIntermediateImportModal(true),
               },
             ]}
           />
@@ -2094,278 +1836,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             </div>
           </div>
         ) : null}
-
-        {showImportModal ? (
-          <div className="app-modal-overlay">
-            <div className="app-modal app-modal-wide" style={{ maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-              <button className="btn-close-x" onClick={() => { setShowImportModal(false); resetImportState(); }} aria-label="Close">
-                &times;
-              </button>
-              <h2 className="app-modal-title">Import Intermediate Materials</h2>
-
-              {!importFile ? (
-                <div>
-                  <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <a
-                      href={templateUrl('PriceRight_Intermediates_Import_Template.xlsx')}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        void handleDownload('PriceRight_Intermediates_Import_Template.xlsx');
-                      }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        color: '#0f172a',
-                        fontWeight: '600',
-                        fontSize: '16px',
-                        textDecoration: 'none',
-                        cursor: downloading ? 'wait' : 'pointer',
-                        opacity: downloading ? 0.6 : 1,
-                        pointerEvents: downloading ? 'none' : 'auto',
-                      }}
-                    >
-                      <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                      {downloading === 'PriceRight_Intermediates_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
-                    </a>
-                    <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
-                  </div>
-                  <label htmlFor="intermediate-file-upload" style={{ display: 'block', padding: '40px', border: '2px dashed #cbd5e1', borderRadius: '8px', textAlign: 'center', cursor: 'pointer', backgroundColor: '#f8fafc' }}>
-                    <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileUp size={42} strokeWidth={1.8} /></div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>Upload using the standard template</div>
-                    <div style={{ fontSize: '16px', color: '#64748b' }}>Best experience: use the CSV template. Excel files are also accepted.</div>
-                    <input id="intermediate-file-upload" type="file" accept=".csv,.xlsx,.xls" onChange={handleFileUpload} style={{ display: 'none' }} />
-                  </label>
-
-                  <div style={{ marginTop: '12px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px' }}>
-                    <div style={{ fontWeight: 600, marginBottom: '6px' }}>Template requirements</div>
-                    <div style={{ fontSize: '15px', color: '#475569' }}>Required fields: Material Name, Category, Unit, Bulk Quantity, Yield %, Overhead %, Margin %.</div>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}><strong>File:</strong> {importFile.name} ({importPreview.length} rows)</div>
-                  {importPreview.length > 0 ? (
-                    <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: '8px' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                        <thead style={{ backgroundColor: '#f1f5f9', position: 'sticky', top: 0 }}>
-                          <tr>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Material Name</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Category</th>
-                            <th style={{ padding: '8px', textAlign: 'left' }}>Unit</th>
-                            <th style={{ padding: '8px', textAlign: 'right' }}>Yield %</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {importPreview.slice(0, 10).map((row, idx) => (
-                            <tr key={`import-preview-${idx}`} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '8px' }}>{row['Material Name'] || row['name'] || '-'}</td>
-                              <td style={{ padding: '8px' }}>{row['Category'] || row['category'] || '-'}</td>
-                              <td style={{ padding: '8px' }}>{row['Unit'] || row['unit'] || '-'}</td>
-                              <td style={{ padding: '8px', textAlign: 'right' }}>{row['Yield %'] || row['yieldPercentage'] || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : null}
-
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '24px', justifyContent: 'flex-end' }}>
-                    <button type="button" onClick={resetImportState} className="btn btn-secondary">Choose Different File</button>
-                    <button onClick={() => void handleImportIntermediateMaterials()} disabled={importing || importPreview.length === 0} className="btn btn-success">
-                      {importing ? 'Importing...' : `Import ${importPreview.length} Materials`}
-                    </button>
-                  </div>
-
-                  {importSuccessCount > 0 || importFailures.length > 0 ? (
-                    <div style={{ marginTop: '16px' }}>
-                      {importSuccessCount > 0 ? (
-                        <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
-                          {importSuccessCount} item{importSuccessCount !== 1 ? 's' : ''} imported successfully
-                        </div>
-                      ) : null}
-                      {importFailures.length > 0 ? (
-                        <div>
-                          <div style={{ backgroundColor: '#fff7ed', color: '#92400e', padding: '12px', borderRadius: '8px', fontWeight: '600', marginBottom: '8px' }}>
-                            {importFailures.length} item{importFailures.length !== 1 ? 's' : ''} failed to import
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                            <button type="button" onClick={downloadFailureReport} className="btn btn-secondary">Download Failure Report</button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button type="button" onClick={() => { setShowImportModal(false); resetImportState(); }} className="btn btn-secondary">Close</button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Intermediate Materials Import Modal */}
-        {showIntermediateImportModal && (
-          <div className="app-modal-overlay">
-            <div
-              className="app-modal"
-              style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button className="btn-close-x" onClick={() => { setShowIntermediateImportModal(false); setIntermediateImportFile(null); setIntermediateImportResult(null); }} aria-label="Close">
-                &times;
-              </button>
-              <h2 className="app-modal-title">Import Intermediate Materials</h2>
-
-              {!intermediateImportFile ? (
-                <div>
-                  <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <a
-                      href={templateUrl('PriceRight_Intermediates_Import_Template.xlsx')}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        void handleDownload('PriceRight_Intermediates_Import_Template.xlsx');
-                      }}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        color: '#0f172a',
-                        fontWeight: '600',
-                        fontSize: '16px',
-                        textDecoration: 'none',
-                        cursor: downloading ? 'wait' : 'pointer',
-                        opacity: downloading ? 0.6 : 1,
-                        pointerEvents: downloading ? 'none' : 'auto',
-                      }}
-                    >
-                      <ArrowDownToLine size={14} strokeWidth={2} style={{ color: '#64748b' }} />
-                      {downloading === 'PriceRight_Intermediates_Import_Template.xlsx' ? 'Downloading...' : 'Download import template'}
-                    </a>
-                    <div style={{ fontSize: '14px', color: '#64748b' }}>Fill it in and upload below</div>
-                  </div>
-                  <p style={{ fontSize: '16px', color: '#475569', marginBottom: '16px' }}>
-                    Upload a CSV or Excel file to add multiple intermediate materials at once.
-                  </p>
-
-                  <label
-                    htmlFor="intermediate-server-import-upload"
-                    style={{
-                      display: 'block',
-                      padding: '40px',
-                      border: '2px dashed #cbd5e1',
-                      borderRadius: '8px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      backgroundColor: '#f8fafc',
-                    }}
-                  >
-                    <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>
-                      <Upload size={40} strokeWidth={1.8} />
-                    </div>
-                    <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '6px' }}>
-                      Select import file
-                    </div>
-                    <div style={{ fontSize: '15px', color: '#64748b' }}>
-                      Use the import template. CSV and Excel files are accepted.
-                    </div>
-                    <input
-                      id="intermediate-server-import-upload"
-                      type="file"
-                      accept=".csv,.xlsx,.xls"
-                      onChange={handleIntermediateFileUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </label>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ marginBottom: '12px', padding: '12px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
-                    <strong>File:</strong> {intermediateImportFile.name}
-                  </div>
-
-                  {intermediateImportResult && (
-                    <div>
-                      <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '12px', borderRadius: '8px', marginBottom: '12px', fontWeight: '600' }}>
-                        ✓ Imported: {intermediateImportResult.imported}
-                        {intermediateImportResult.skipped > 0 && ` | Skipped: ${intermediateImportResult.skipped}`}
-                      </div>
-
-                      {intermediateImportResult.errors.length > 0 && (
-                        <div style={{ marginBottom: '12px' }}>
-                          <div style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '10px 12px', borderRadius: '8px', marginBottom: '8px', fontWeight: '600' }}>
-                            {intermediateImportResult.errors.length} error{intermediateImportResult.errors.length !== 1 ? 's' : ''}
-                          </div>
-                          <div style={{ border: '1px solid #fecaca', borderRadius: '8px', overflow: 'hidden', maxHeight: '200px', overflowY: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                              <thead style={{ backgroundColor: '#fef2f2' }}>
-                                <tr>
-                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca', whiteSpace: 'nowrap' }}>Row</th>
-                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca' }}>Name</th>
-                                  <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #fecaca' }}>Reason</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {intermediateImportResult.errors.map((err, idx) => (
-                                  <tr key={idx} style={{ borderBottom: '1px solid #fecaca' }}>
-                                    <td style={{ padding: '8px' }}>{err.row}</td>
-                                    <td style={{ padding: '8px' }}>{err.name || '—'}</td>
-                                    <td style={{ padding: '8px', color: '#b91c1c' }}>{err.reason}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '20px', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIntermediateImportFile(null);
-                        setIntermediateImportResult(null);
-                      }}
-                      className="btn btn-secondary"
-                    >
-                      Choose Different File
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleIntermediateImport}
-                      disabled={importing}
-                      style={{
-                        backgroundColor: importing ? '#94a3b8' : '#10b981',
-                        color: 'white',
-                      }}
-                      className="btn"
-                    >
-                      {importing ? 'Importing...' : 'Import'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowIntermediateImportModal(false);
-                    setIntermediateImportFile(null);
-                    setIntermediateImportResult(null);
-                  }}
-                  className="btn btn-secondary"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {deleteTarget && (
