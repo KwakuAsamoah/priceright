@@ -94,7 +94,7 @@ const pageContainerStyle = {
   top: '16px',
   right: '16px',
   bottom: '16px',
-  width: 'max(1280px, 90vw)',
+  width: 'max(1400px, 92vw)',
   height: 'calc(100vh - 32px)',
   background: '#ffffff',
   borderRadius: '12px',
@@ -117,7 +117,7 @@ const leftPanelStyle = {
 };
 
 const rightPanelStyle = {
-  width: '760px',
+  width: '872px',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
@@ -266,7 +266,7 @@ const costSummaryValueStyle = {
 };
 
 const bomColMaterialStyle = {
-  width: '230px',
+  width: '320px',
   textAlign: 'left' as const,
 };
 
@@ -283,22 +283,20 @@ const bomColUnitStyle = {
 };
 
 const bomColUnitPriceStyle = {
-  width: '100px',
+  width: '110px',
   textAlign: 'right' as const,
   whiteSpace: 'nowrap' as const,
 };
 
 const bomColTotalStyle = {
-  width: '100px',
+  width: '110px',
   textAlign: 'right' as const,
   whiteSpace: 'nowrap' as const,
 };
 
 const bomMaterialCellStyle = {
   ...bomColMaterialStyle,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap' as const,
+  wordBreak: 'break-word' as const,
 };
 
 const bomActionCellStyle = {
