@@ -21,8 +21,6 @@ import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-import useTableZoom from '../hooks/useTableZoom';
-import TableZoomControl from '../components/TableZoomControl';
 import { getThresholdMarkupColor } from '../utils/margin';
 import { safeRender } from '../utils/render';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
@@ -353,7 +351,6 @@ export default function Activity() {
   const { baseCurrency } = useBaseCurrency();
   const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
-  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('activityZoomPercent');
   // Tier 2: add role-based access control here
   // For Tier 1 Solo this page is accessible to all users
   const searchParams = new URLSearchParams(window.location.search);
@@ -654,7 +651,6 @@ export default function Activity() {
               >
                 <span>Showing {entries.length} of {total} entries</span>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                  <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
                   <button
                     type="button"
                     title="Help"
@@ -680,7 +676,6 @@ export default function Activity() {
                 </div>
               </div>
 
-              <div style={{ zoom: `${zoomPercent}%` }}>
               {loading ? (
                 <div style={{ padding: '22px 16px', textAlign: 'center', color: '#64748b' }}>Loading activity...</div>
               ) : error ? (
@@ -790,7 +785,6 @@ export default function Activity() {
                   )}
                 </div>
               )}
-              </div>
             </div>
         </>
       </div>

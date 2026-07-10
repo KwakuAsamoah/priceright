@@ -7,15 +7,12 @@ import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import ActionDropdown from '../components/ActionDropdown';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
-import TableDensityToggle from '../components/TableDensityToggle';
 import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
-import TableZoomControl from '../components/TableZoomControl';
 import { materialsApi, currenciesApi, settingsApi, templateUrl, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
-import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
@@ -340,12 +337,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'inactive'>('active');
   const [sortField] = useState<SortField>('name');
   const [sortOrder] = useState<SortOrder>('asc');
-  const [tableDensity, setTableDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [visibleColumns, setVisibleColumns] = usePersistedColumns<IntermediateColumnKey>(
     'priceright_columns_intermediate_materials',
     DEFAULT_INTERMEDIATE_COLUMNS,
   );
-  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
   const { baseCurrency } = useBaseCurrency();
   const companyName = useCompanyName();
@@ -1459,15 +1454,10 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 toggleColumn={handleToggleIntermediateColumn}
                 resetToDefaults={resetIntermediateColumns}
               />
-              <TableDensityToggle
-                density={tableDensity}
-                onToggleDensity={() => setTableDensity((prev) => (prev === 'compact' ? 'comfortable' : 'compact'))}
-              />
-              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>
           </div>
-          <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
-            <table className={`app-table app-table-uniform-numbers ${tableDensity === 'compact' ? 'app-table-compact' : ''}`}>
+          <div className="app-table-wrap app-table-sticky">
+            <table className="app-table app-table-uniform-numbers app-table-compact">
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
                   <th style={{ width: '32px', textAlign: 'center' }}>

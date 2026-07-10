@@ -2211,21 +2211,6 @@ textarea {
   padding-bottom: 7px !important;
 }
 
-.app-table.app-table-ultra-compact th,
-.app-table.app-table-ultra-compact td {
-  padding-top: 6px !important;
-  padding-bottom: 6px !important;
-}
-
-.app-table.app-table-ultra-compact th {
-  letter-spacing: 0.04em;
-}
-
-.app-table.app-table-ultra-compact td {
-  font-size: 13px !important;
-  line-height: 1.15;
-}
-
 .app-table-uniform-numbers th,
 .app-table-uniform-numbers td {
   font-variant-numeric: tabular-nums;
@@ -2565,7 +2550,6 @@ hr {
   .app-modal-overlay,
   button,
   .btn,
-  .app-zoom-control,
   input,
   select,
   .actions-col,

@@ -12,12 +12,10 @@ import AppBadge from '../components/AppBadge';
 import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import MarkupHealthPopover from '../components/MarkupHealthPopover';
-import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { formatExportNumber } from '../utils/exportFormat';
@@ -415,7 +413,6 @@ export default function Products() {
     toggleColumn,
     resetToDefaults: resetColumnDefaults,
   } = useColumnVisibility('products-table-columns', PRODUCTS_COLUMNS);
-  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
 
   function isProductColumnVisible(key: ProductColumnKey) {
@@ -1894,7 +1891,6 @@ export default function Products() {
                 toggleColumn={handleToggleProductColumn}
                 resetToDefaults={resetProductColumns}
               />
-              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>
           </div>
           {filteredProducts.length === 0 ? (
@@ -1927,7 +1923,7 @@ export default function Products() {
               </div>
             )
           ) : (
-            <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
+            <div className="app-table-wrap app-table-sticky">
               <table className="app-table app-table-uniform-numbers app-table-compact">
                 <thead>
                   <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>

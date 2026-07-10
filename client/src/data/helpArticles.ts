@@ -966,7 +966,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Table columns include Product Name, Approval status, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, <strong>Actual Markup %</strong>, and pricing Status (Above/Below/At Optimal).</p>
 
-      <p>Export as PDF or Excel from the report toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there. Use the zoom control to adjust table size.</p>`,
+      <p>Export as PDF or Excel from the report toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -1074,7 +1074,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Filter by entity type (Products, Materials, Price Levels, Exchange Rates), action group (Approvals, Cost changes, Created, Deleted), and date range. Reset to Pending actions appear in the list. Active filters show as removable chips — click <strong>Clear all filters</strong> to reset.</p>
 
-      <p>Use the zoom control in the toolbar to make the table larger or smaller. Results load 50 entries at a time — click <strong>Load more</strong> for older entries.</p>`,
+      <p>Results load 50 entries at a time — click <strong>Load more</strong> for older entries.</p>`,
   },
 
   {
@@ -1210,16 +1210,14 @@ export const helpArticles: HelpArticle[] = [
     id: 'column-selector',
     section: 'Products and Materials',
     title: 'Choosing which columns to show in tables',
-    keywords: ['columns', 'column selector', 'table', 'show hide', 'density', 'compact'],
+    keywords: ['columns', 'column selector', 'table', 'show hide'],
     relatedArticleIds: ['active-inactive-filter', 'export-guide', 'building-product-bom'],
     content: `
       <p>The Products, Materials, and Intermediate Materials tables each have a column selector in the toolbar.</p>
 
       <p>Click <strong>Columns</strong> to show or hide columns with checkboxes. Your choices are saved automatically.</p>
 
-      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Approved Base Price, Actual Markup %, and Approval Status. <strong>Gross Margin %</strong> columns are available but hidden by default — they are labelled "(reference)" because Markup on Cost is the primary metric.</p>
-
-      <p>The density toggle switches between compact and comfortable row spacing.</p>`,
+      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Approved Base Price, Actual Markup %, and Approval Status. <strong>Gross Margin %</strong> columns are available but hidden by default — they are labelled "(reference)" because Markup on Cost is the primary metric.</p>`,
   },
 
   {
@@ -1482,7 +1480,7 @@ export const helpArticles: HelpArticle[] = [
       <p><strong>Products reports:</strong> Product Pricing Overview, Margin Health, Profitability Ranking, Price vs Cost Drift, Optimal vs Actual Gap.</p>
       <p><strong>Materials reports:</strong> Currency Exposure, Materials Cost Analysis, Top Cost Drivers, Price Volatility, Material Price History, Inactive in Active BOMs.</p>
 
-      <p>Active filters appear as removable chips above results. Use the zoom control and export buttons (PDF, Excel, Print) in the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
+      <p>Active filters appear as removable chips above results. Use the export buttons (PDF, Excel, Print) in the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {

@@ -11,9 +11,7 @@ import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppToast from '../components/AppToast';
-import TableZoomControl from '../components/TableZoomControl';
 import useAppToast from '../hooks/useAppToast';
-import useTableZoom from '../hooks/useTableZoom';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
@@ -321,7 +319,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     'priceright_columns_materials',
     DEFAULT_MATERIAL_COLUMNS,
   );
-  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom();
   const { downloading, handleDownload } = useTemplateDownload();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
@@ -1625,7 +1622,6 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                 toggleColumn={handleToggleMaterialColumn}
                 resetToDefaults={resetMaterialColumns}
               />
-              <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
             </div>
           </div>
 
@@ -1643,7 +1639,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
             </div>
           )}
 
-          <div className="app-table-wrap app-table-sticky" style={{ zoom: `${zoomPercent}%` }}>
+          <div className="app-table-wrap app-table-sticky">
             <table className="app-table app-table-uniform-numbers app-table-compact">
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0' }}>

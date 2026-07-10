@@ -22,13 +22,11 @@ import PageHelpButton from '../components/PageHelpButton';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import useAppToast from '../hooks/useAppToast';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
-import TableZoomControl from '../components/TableZoomControl';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
 import { exportInChunks, exportToCsv, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
-import useTableZoom from '../hooks/useTableZoom';
 import { formatCurrency as formatCurrencyAmount } from '../utils/currency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import {
@@ -816,7 +814,6 @@ export default function Reports() {
   const [reportData, setReportData] = useState<ReportResultMap[ReportKey] | null>(null);
   const [expandedCurrencyCodes, setExpandedCurrencyCodes] = useState<Set<string>>(new Set());
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-  const { zoomPercent, increaseZoom, decreaseZoom } = useTableZoom('reportsZoomPercent');
 
   const [pricingCategoryFilter, setPricingCategoryFilter] = useState('All');
   const [pricingStatusFilter, setPricingStatusFilter] = useState<'All' | 'Above Optimal' | 'Below Optimal' | 'At Optimal'>('All');
@@ -2868,7 +2865,6 @@ export default function Reports() {
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
         <MarkupHealthPopover />
-        <TableZoomControl zoomPercent={zoomPercent} decreaseZoom={decreaseZoom} increaseZoom={increaseZoom} />
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportCsv()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Download size={14} />
           Export CSV
@@ -3944,11 +3940,9 @@ export default function Reports() {
           )}
 
           {!isLoading && !error && shouldShowReportBody && (
-            <div style={{ zoom: `${zoomPercent}%` }}>
-              <ErrorBoundary key={selectedReport}>
-                {renderReportBody()}
-              </ErrorBoundary>
-            </div>
+            <ErrorBoundary key={selectedReport}>
+              {renderReportBody()}
+            </ErrorBoundary>
           )}
         </div>
       </div>
