@@ -121,6 +121,7 @@ const rightPanelStyle = {
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
+  alignItems: 'stretch' as const,
   overflow: 'visible',
   minHeight: 0,
   borderLeft: '1px solid #E2E8F0',
@@ -141,47 +142,54 @@ const bodyRowStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const bomSectionStyle = {
-  flexShrink: 0,
-  marginBottom: '12px',
+const bomAlignedBlockStyle = {
   width: '100%',
+  maxWidth: '100%',
   minWidth: 0,
   boxSizing: 'border-box' as const,
+  marginLeft: 0,
+  marginRight: 0,
+} as const;
+
+const bomSectionStyle = {
+  ...bomAlignedBlockStyle,
+  flexShrink: 0,
+  marginBottom: '12px',
 };
 
 const bomSearchWrapperStyle = {
+  ...bomAlignedBlockStyle,
   position: 'relative' as const,
-  width: '100%',
-  minWidth: 0,
-  boxSizing: 'border-box' as const,
 };
 
 const bomTableContainerStyle = {
+  ...bomAlignedBlockStyle,
   flex: 1,
-  width: '100%',
   minHeight: '200px',
-  overflow: 'visible' as const,
+  overflow: 'hidden' as const,
   border: '1px solid #e2e8f0',
   borderRadius: '8px',
-  boxSizing: 'border-box' as const,
   display: 'flex',
   flexDirection: 'column' as const,
+  alignSelf: 'stretch' as const,
 };
 
 const bomTableStyle = {
-  width: '100%',
+  ...bomAlignedBlockStyle,
   tableLayout: 'fixed' as const,
+  borderCollapse: 'collapse' as const,
+  margin: 0,
 };
 
 const costSummaryCardStyle = {
+  ...bomAlignedBlockStyle,
   flexShrink: 0,
-  width: '100%',
   marginTop: '12px',
   padding: '12px',
   background: '#f8fbff',
   border: '1px solid #dbeafe',
   borderRadius: '8px',
-  boxSizing: 'border-box' as const,
+  alignSelf: 'stretch' as const,
 };
 
 const productionModeTabBaseStyle = {
