@@ -1,6 +1,6 @@
 # PriceRight — Project Progress
 
-**Last updated:** 9 July 2026
+**Last updated:** 10 July 2026
 **Current version:** 1.0.38
 **Active branch:** main
 
@@ -80,15 +80,21 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.35 | Jul 2026 | React error #31 fixes, Electron print, export column cleanup, 2dp formatting, error boundaries, Help article print, undo toast fix, price level Excel alignment |
 | v1.0.36 | Jul 2026 | Professional jsPDF exports, company name in PDF headers, export consistency, error boundaries and help article, UI polish, 66 help articles |
 | v1.0.37 | Jul 2026 | Window stability (bounds validation, atomic state write, single instance lock), BOM search/select alignment, content clipping fixes, table font standardisation |
-| v1.0.38 | Jul 2026 | Creation panel layout fixes, BOM alignment, green Production Mode toggle, SKU removal, Intermediate panel polish |
+| v1.0.38 | Jul 2026 | Visual compacting fix (zoom/density removed), creation panel layout and BOM column fixes, window stability |
 
 ---
 
 ## v1.0.38 — Detailed Changes
 
-**Released:** 9 July 2026
+**Released:** 10 July 2026
 
-Creation panel improvements and window stability shipped after v1.0.37.
+Critical stability fix, creation panel improvements, and window stability shipped after v1.0.37.
+
+### Fixed: App visual compacting bug
+- Removed the in-app table zoom feature that caused the app to appear compacted after minimizing and restoring the window
+- Removed the density toggle (compact/comfortable view) feature
+- The app now renders at a consistent visual size at all times
+- Users who want to zoom can use standard Electron zoom with Ctrl+scroll
 
 ### New Product creation panel
 - Right panel width adjusted to fit BOM table comfortably — no more overflow
@@ -97,7 +103,8 @@ Creation panel improvements and window stability shipped after v1.0.37.
 - Production Mode toggle now shows green for active state
 - SKU field removed from creation form — less clutter
 - Description field reduced to 2 rows
-- All columns visible with comfortable breathing room
+- BOM table column widths fixed — material names no longer wrap awkwardly
+- Delete button no longer overflows the panel border
 
 ### New Intermediate Material creation panel
 - Same right panel alignment fixes applied
@@ -585,6 +592,8 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Creation panel right panel width and BOM alignment — 700px panel, aligned search/table/summary (v1.0.38)
 - [x] Product creation — green Production Mode toggle, SKU removed, 2-row Description (v1.0.38)
 - [x] Intermediate creation — search count on type only, Markup label, Completed Output hint, BOM Edit button (v1.0.38)
+- [x] In-app table zoom and density toggle removed — fixes visual compacting after minimize/restore (v1.0.38)
+- [x] BOM table column widths fixed in creation panels — material name wrap and Delete button overflow (v1.0.38)
 
 ### Settings
 - [x] General settings
@@ -644,8 +653,6 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 
 ## Pending — v1.0.39 Polish
 
-- [ ] Activity page — zoom control position alignment
-- [ ] Intermediate Materials — table zoom control
 - [ ] Modal × close buttons — consistent styling and placement
 - [ ] Settings — Save/Update button label consistency
 - [ ] Reports — export toolbar button order standardisation
