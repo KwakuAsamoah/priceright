@@ -751,7 +751,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                             flexShrink: 0,
                           }}
                         >
-                          {currencySymbol || 'GHS'}
+                          {currencySymbol}
                         </span>
                         <input
                           className="app-input"
