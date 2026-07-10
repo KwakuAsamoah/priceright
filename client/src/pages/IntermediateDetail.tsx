@@ -24,7 +24,9 @@ import {
   resolveCompletedOutputFromStored,
   resolveDisplayYieldPercent,
   sumRawInputQuantities,
+  getActualOutputQuantity,
 } from '../utils/intermediateOutput';
+import { calculateIntermediateCostPerUnit } from '../utils/costFormula';
 import { TabErrorBoundary } from '../components/ErrorBoundary';
 
 interface IntermediateDetailLocationState {
@@ -279,30 +281,41 @@ export default function IntermediateDetail() {
       return sum + toNumber(item.quantity) * toNumber(item.unitPrice);
     }, 0);
 
-    const overheadPercentage = toNumber(material.overheadPercentage) / 100;
-    const overheadCost = totalMaterialCost * overheadPercentage;
-    const batchTotalCost = totalMaterialCost + overheadCost;
+    const effectiveOutputQuantity = Math.max(
+      0.0001,
+      getActualOutputQuantity(
+        toNumber(material.bulkQuantity),
+        totalRawInput,
+        toNumber(material.yieldPercentage) || 100,
+      ),
+    );
 
-    const batchQuantity = Math.max(0.0001, toNumber(material.bulkQuantity) || 1);
-    const yieldPercent = Math.max(0.0001, toNumber(material.yieldPercentage) || 100);
-    const effectiveOutputQuantity = material.intermediateCostMode === 'completed_output'
-      ? batchQuantity
-      : batchQuantity * (yieldPercent / 100);
-    const costPerUnit = batchTotalCost / effectiveOutputQuantity;
+    const {
+      overheadAmount: batchOverheadCost,
+      totalBatchCost: batchTotalCost,
+      costPerUnit,
+    } = calculateIntermediateCostPerUnit({
+      materialCost: totalMaterialCost,
+      laborCost: toNumber(material.laborCost),
+      overheadPercentage: toNumber(material.overheadPercentage),
+      outputQuantity: effectiveOutputQuantity,
+    });
+
     const markupRate = toNumber(material.marginPercentage) / 100;
     const markupAmount = costPerUnit * markupRate;
     const optimalPrice = costPerUnit * (1 + markupRate);
 
     return {
       batchMaterialCost: totalMaterialCost,
-      batchOverheadCost: overheadCost,
+      batchLaborCost: toNumber(material.laborCost),
+      batchOverheadCost,
       batchTotalCost,
       effectiveOutputQuantity,
       costPerUnit,
       markupAmount,
       optimalPrice,
     };
-  }, [material, bomItems]);
+  }, [material, bomItems, totalRawInput]);
 
   const configuredMarkupPercent = material ? toNumber(material.marginPercentage) : 0;
   const actualMarkupPercent = liveCost
@@ -773,6 +786,10 @@ export default function IntermediateDetail() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                 <span style={{ color: '#64748b' }}>Material Cost (batch)</span>
                 <span style={{ color: '#0F2847', fontWeight: 600 }}>{formatMoney(liveCost?.batchMaterialCost ?? 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                <span style={{ color: '#64748b' }}>Direct Labor</span>
+                <span style={{ color: '#0F2847', fontWeight: 600 }}>{formatMoney(liveCost?.batchLaborCost ?? 0)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
                 <span style={{ color: '#64748b' }}>Overhead ({toNumber(material.overheadPercentage).toFixed(0)}%)</span>

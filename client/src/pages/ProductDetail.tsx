@@ -18,6 +18,7 @@ import {
   calculateOptimalMarkupPercent,
   getThresholdMarkupColor,
 } from '../utils/margin';
+import { calculateProductionCost } from '../utils/costFormula';
 
 // ─── local types ────────────────────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ interface Product {
   category?: string;
   overheadPercentage: number;
   profitMargin: number;
+  laborCost?: number;
   otherDirectCosts?: number;
   productionMode?: 'single' | 'batch';
   batchYield?: number;
@@ -548,9 +550,18 @@ export default function ProductDetail() {
     : null;
   const approvedMatchesOptimal = approvedPrice != null && Math.abs(approvedPrice - optimalPrice) < 0.01;
   const displayBom = getDisplayBOM(bom, product);
-  const totalMaterialCost = displayBom.reduce((sum, item) => sum + toNum(item.unitPrice) * item.quantity, 0);
-  const overheadCost = totalMaterialCost * (toNum(product.overheadPercentage) / 100);
-  const otherDirectCosts = toNum(product.otherDirectCosts);
+  const batchYield = product.productionMode === 'batch' ? Math.max(1, toNum(product.batchYield) || 1) : 1;
+  const batchMaterialCost = bom.reduce((sum, item) => sum + toNum(item.unitPrice) * item.quantity, 0);
+  const batchLaborCost = toNum(product.laborCost);
+  const { overheadAmount: batchOverheadCost } = calculateProductionCost({
+    materialCost: batchMaterialCost,
+    laborCost: batchLaborCost,
+    overheadPercentage: toNum(product.overheadPercentage),
+  });
+  const totalMaterialCost = batchMaterialCost / batchYield;
+  const laborCostPerUnit = batchLaborCost / batchYield;
+  const overheadCost = batchOverheadCost / batchYield;
+  const otherDirectCosts = toNum(product.otherDirectCosts) / batchYield;
 
   const normalizedExpiryDate = product.approvedPriceExpiresAt
     ? product.approvedPriceExpiresAt.slice(0, 10)
@@ -768,6 +779,10 @@ export default function ProductDetail() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
                 <span className="money-value" style={{ fontWeight: 600 }}>{baseCurrency} {totalMaterialCost.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Direct Labor</span>
+                <span className="money-value" style={{ fontWeight: 600 }}>{baseCurrency} {laborCostPerUnit.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Overhead ({product.overheadPercentage}%)</span>

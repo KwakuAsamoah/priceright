@@ -12,6 +12,7 @@ import {
   sumRawInputQuantities,
   type OutputInputMethod,
 } from '../utils/intermediateOutput';
+import { calculateIntermediateCostPerUnit } from '../utils/costFormula';
 
 interface MaterialFormState {
   name: string;
@@ -22,6 +23,7 @@ interface MaterialFormState {
   intermediateCostMode: 'yield' | 'completed_output';
   bulkQuantity: string;
   overheadPercentage: string;
+  laborCost: string;
   marginPercentage: string;
   yieldPercentage: string;
 }
@@ -44,6 +46,7 @@ const emptyForm: MaterialFormState = {
   intermediateCostMode: 'completed_output',
   bulkQuantity: '0',
   overheadPercentage: '0',
+  laborCost: '0',
   marginPercentage: '0',
   yieldPercentage: '100',
 };
@@ -428,22 +431,30 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
 
   const liveCost = useMemo(() => {
     const batchMaterialCost = tempBomItems.reduce((sum, item) => sum + item.unitCost * item.quantity, 0);
-    const overheadPercentage = Number(form.overheadPercentage || 0) / 100;
-    const batchOverheadCost = batchMaterialCost * overheadPercentage;
-    const batchTotalCost = batchMaterialCost + batchOverheadCost;
+    const laborCost = Number(form.laborCost || 0);
     const actualOutputQuantity = getActualOutputQuantity(
       Number(form.bulkQuantity),
       totalRawInput,
       Number(form.yieldPercentage || 100),
     );
     const effectiveOutputQuantity = Math.max(0, actualOutputQuantity);
-    const costPerUnit = effectiveOutputQuantity > 0 ? batchTotalCost / effectiveOutputQuantity : 0;
+    const {
+      overheadAmount: batchOverheadCost,
+      totalBatchCost: batchTotalCost,
+      costPerUnit,
+    } = calculateIntermediateCostPerUnit({
+      materialCost: batchMaterialCost,
+      laborCost,
+      overheadPercentage: Number(form.overheadPercentage || 0),
+      outputQuantity: effectiveOutputQuantity,
+    });
     const marginPercentage = Number(form.marginPercentage || 0) / 100;
     const profitAmount = costPerUnit * marginPercentage;
     const optimalPrice = costPerUnit + profitAmount;
 
     return {
       batchMaterialCost,
+      batchLaborCost: laborCost,
       batchOverheadCost,
       batchTotalCost,
       effectiveOutputQuantity,
@@ -451,7 +462,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
       profitAmount,
       optimalPrice,
     };
-  }, [tempBomItems, form.overheadPercentage, form.bulkQuantity, form.yieldPercentage, form.marginPercentage, totalRawInput]);
+  }, [tempBomItems, form.overheadPercentage, form.laborCost, form.bulkQuantity, form.yieldPercentage, form.marginPercentage, totalRawInput]);
 
   function formatMoney(amount: number) {
     return `${currencySymbol}${currencySymbol ? ' ' : ''}${amount.toFixed(2)}`;
@@ -582,6 +593,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
         bulkPrice: 0,
         purchaseCurrencyId: 1,
         overheadPercentage: Number(form.overheadPercentage || 0),
+        laborCost: Number(form.laborCost || 0),
         marginPercentage: Number(form.marginPercentage || 0),
         yieldPercentage: outputPayload.yieldPercentage,
         calculatedCostPerUnit: Number(liveCost.costPerUnit || 0),
@@ -720,6 +732,39 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                           <MarkupInfoTooltip />
                         </label>
                         <input className="app-input" type="number" step="0.1" value={form.marginPercentage} onChange={(e) => setForm((prev) => ({ ...prev, marginPercentage: e.target.value }))} style={fieldInputStyle} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={fieldLabelStyle}>Direct Labor Cost</label>
+                      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            padding: '0 10px',
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRight: 'none',
+                            borderRadius: '8px 0 0 8px',
+                            fontSize: '14px',
+                            color: '#64748b',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {currencySymbol || 'GHS'}
+                        </span>
+                        <input
+                          className="app-input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.laborCost}
+                          onChange={(e) => setForm((prev) => ({ ...prev, laborCost: e.target.value }))}
+                          style={{ ...fieldInputStyle, borderRadius: '0 8px 8px 0', flex: 1 }}
+                        />
+                      </div>
+                      <div style={{ marginTop: '4px', color: '#64748b', fontSize: '13px' }}>
+                        The cost of your own time or paid staff time to make one unit or one batch of this product.
                       </div>
                     </div>
                   </div>
@@ -892,6 +937,10 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                     <div style={costSummaryRowStyle}>
                       <span style={{ minWidth: 0 }}>Material Cost (batch)</span>
                       <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.batchMaterialCost)}</span>
+                    </div>
+                    <div style={costSummaryRowStyle}>
+                      <span style={{ minWidth: 0 }}>Direct Labor</span>
+                      <span style={{ ...costSummaryValueStyle, fontWeight: '600' }}>{formatMoney(liveCost.batchLaborCost)}</span>
                     </div>
                     <div style={costSummaryRowStyle}>
                       <span style={{ minWidth: 0 }}>Overhead ({Number(form.overheadPercentage || 0).toFixed(0)}%)</span>

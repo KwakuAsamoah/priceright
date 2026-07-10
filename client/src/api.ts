@@ -53,6 +53,7 @@ export interface MaterialRecord {
   baseCurrencySymbol?: string;
   unitPrice: number | string;
   overheadPercentage?: number | string;
+  laborCost?: number | string;
   marginPercentage?: number | string;
   intermediateCostMode?: 'yield' | 'completed_output';
   yieldPercentage?: number | string;
@@ -79,6 +80,7 @@ export interface ProductRecord {
   category?: string;
   overheadPercentage: number;
   profitMargin: number;
+  laborCost?: number;
   otherDirectCosts?: number;
   productionMode?: 'single' | 'batch';
   batchYield?: number;

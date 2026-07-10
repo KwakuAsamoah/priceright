@@ -7,6 +7,7 @@ import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { MarkupInfoTooltip } from './ProfitTooltips';
+import { calculateProductionCost } from '../utils/costFormula';
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
@@ -17,6 +18,7 @@ type FormSnapshot = {
     description: string;
     category: string;
     overheadPercentage: string;
+    laborCost: string;
     profitMargin: string;
     otherDirectCosts: string;
     productionMode: 'single' | 'batch';
@@ -55,6 +57,7 @@ interface Product {
   category?: string;
   overheadPercentage: number;
   profitMargin: number;
+  laborCost?: number;
   otherDirectCosts?: number;
   productionMode?: 'single' | 'batch';
   batchYield?: number;
@@ -124,6 +127,7 @@ export default function ProductFormDrawer({
     description: '',
     category: '',
     overheadPercentage: defaultOverhead,
+    laborCost: '0',
     profitMargin: defaultProfitMargin,
     otherDirectCosts: '0',
     productionMode: 'single' as 'single' | 'batch',
@@ -215,6 +219,7 @@ export default function ProductFormDrawer({
           description: product.description || '',
           category: hasKnownCategory ? productCategory : productCategory ? '__custom__' : '',
           overheadPercentage: product.overheadPercentage?.toString() || defaultOverhead,
+          laborCost: product.laborCost?.toString() || '0',
           profitMargin: product.profitMargin?.toString() || defaultProfitMargin,
           otherDirectCosts: product.otherDirectCosts?.toString() || '0',
           productionMode: product.productionMode || 'single',
@@ -250,6 +255,7 @@ export default function ProductFormDrawer({
         description: '',
         category: '',
         overheadPercentage: defaultOverhead,
+        laborCost: '0',
         profitMargin: defaultProfitMargin,
         otherDirectCosts: '0',
         productionMode: 'single' as 'single' | 'batch',
@@ -341,6 +347,7 @@ export default function ProductFormDrawer({
       description: '',
       category: '',
       overheadPercentage: defaultOverhead,
+      laborCost: '0',
       profitMargin: defaultProfitMargin,
       otherDirectCosts: '0',
       productionMode: 'single',
@@ -442,25 +449,19 @@ export default function ProductFormDrawer({
   }
 
   function calculateLiveCost() {
-    if (tempBomMaterials.length === 0) {
-      return {
-        materialCost: 0,
-        overheadCost: 0,
-        totalCost: 0,
-        profitAmount: 0,
-        optimalPrice: 0,
-      };
-    }
-
     const totalMaterialCost = tempBomMaterials.reduce((sum, item) => {
       return sum + item.quantity * parseFloat(item.unitPrice);
     }, 0);
 
-    const overheadPercentage = parseFloat(formData.overheadPercentage) / 100;
-    const overheadCost = totalMaterialCost * overheadPercentage;
+    const laborCost = parseFloat(formData.laborCost) || 0;
+    const { overheadAmount, totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+      materialCost: totalMaterialCost,
+      laborCost,
+      overheadPercentage: parseFloat(formData.overheadPercentage) || 0,
+    });
 
     const otherDirectCosts = parseFloat(formData.otherDirectCosts) || 0;
-    const totalCost = totalMaterialCost + overheadCost + otherDirectCosts;
+    const totalCost = materialsLaborOverheadTotal + otherDirectCosts;
 
     const profitMargin = parseFloat(formData.profitMargin) / 100;
     const profitAmount = totalCost * profitMargin;
@@ -470,7 +471,8 @@ export default function ProductFormDrawer({
 
     return {
       materialCost: totalMaterialCost / batchYield,
-      overheadCost: overheadCost / batchYield,
+      laborCost: laborCost / batchYield,
+      overheadCost: overheadAmount / batchYield,
       totalCost: totalCost / batchYield,
       profitAmount: profitAmount / batchYield,
       optimalPrice: totalPrice / batchYield,
@@ -493,6 +495,7 @@ export default function ProductFormDrawer({
         ...formData,
         category: resolvedCategory,
         overheadPercentage: parseFloat(formData.overheadPercentage),
+        laborCost: parseFloat(formData.laborCost) || 0,
         profitMargin: parseFloat(formData.profitMargin),
         otherDirectCosts: parseFloat(formData.otherDirectCosts),
         productionMode: formData.productionMode,
@@ -700,6 +703,38 @@ export default function ProductFormDrawer({
                   <div style={{ marginTop: '6px', color: '#64748b', fontSize: '14px' }}>
                     How much profit to add on top of production cost. E.g. 20 means add 20% on top of cost.
                   </div>
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '15px', fontWeight: '600' }}>Direct Labor Cost</label>
+                <div style={{ display: 'flex', alignItems: 'stretch' }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      padding: '0 10px',
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRight: 'none',
+                      borderRadius: '8px 0 0 8px',
+                      fontSize: '14px',
+                      color: '#64748b',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {baseCurrency}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.laborCost}
+                    onChange={(e) => setFormData({ ...formData, laborCost: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '0 8px 8px 0', border: '1px solid #e2e8f0', flex: 1 }}
+                  />
+                </div>
+                <div style={{ marginTop: '4px', color: '#64748b', fontSize: '13px' }}>
+                  The cost of your own time or paid staff time to make one unit or one batch of this product.
                 </div>
               </div>
               <div>
@@ -914,6 +949,10 @@ export default function ProductFormDrawer({
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Material Cost</span>
                 <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.materialCost.toFixed(2)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Direct Labor</span>
+                <span style={{ fontWeight: '600' }}>{baseCurrency} {liveCost.laborCost.toFixed(2)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Overhead ({formData.overheadPercentage}%)</span>
