@@ -2931,6 +2931,7 @@ app.put('/api/products/:id', async (req, res) => {
     const shouldReevaluateReview =
       req.body?.overheadPercentage !== undefined
       || req.body?.profitMargin !== undefined
+      || req.body?.laborCost !== undefined
       || req.body?.otherDirectCosts !== undefined
       || req.body?.productionMode !== undefined
       || req.body?.batchYield !== undefined

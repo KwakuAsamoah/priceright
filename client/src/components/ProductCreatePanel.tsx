@@ -883,7 +883,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                         />
                       </div>
                       <div style={{ marginTop: '4px', color: '#64748b', fontSize: '13px' }}>
-                        The cost of your own time or paid staff time to make one unit or one batch of this product.
+                        The direct labor cost incurred to produce one unit or one batch of this product.
                       </div>
                     </div>
                     <div>

@@ -432,7 +432,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>After you list your ingredients, tell PriceRight how much finished product the batch actually made — either as an exact amount or as a percentage of what you started with. Either way PriceRight calculates the same accurate cost per unit.</p>
 
-      <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead % and optional Markup %. The finished output question appears on the right, below your recipe.</p>
+      <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead %, <strong>Direct Labor Cost</strong>, and optional Markup %. The finished output question appears on the right, below your recipe.</p>
 
       <p>The calculated unit cost is then available when building finished products — it appears in the same material search alongside primary materials.</p>`,
   },
@@ -482,10 +482,11 @@ export const helpArticles: HelpArticle[] = [
       cover two different production processes at once.</p>
 
       <p><strong>Example:</strong> Roasted Peanut raw material cost is 9.70.
+      Direct labor for the roasting batch is 2.00. Subtotal is 11.70.
       The roasting process has its own overhead of 15% — electricity for the
-      roasting equipment and labour for the roasting team. Overhead adds
-      1.46, giving a unit cost of 11.16. When this goes into a
-      finished product, 11.16 is the input cost and the finished product's
+      roasting equipment — applied to materials plus labor. Overhead adds
+      1.76, giving a batch total of 13.46. Divided by output quantity, the unit
+      cost flows into finished products, and the finished product's
       own overhead applies on top of that.</p>
 
       <p>This is the recommended approach for most intermediate materials
@@ -525,7 +526,7 @@ export const helpArticles: HelpArticle[] = [
       for Approach 2. Enter both for Approach 3.</p>
 
       <h3>How much did the batch produce?</h3>
-      <p>After you've listed your ingredients, tell PriceRight how much finished product the batch actually made — either as an exact amount or as a percentage of what you started with. Either way PriceRight calculates the same accurate cost per unit: total batch cost divided by actual output quantity.</p>`,
+      <p>After you've listed your ingredients, tell PriceRight how much finished product the batch actually made — either as an exact amount or as a percentage of what you started with. PriceRight calculates cost per unit as: (Material cost + Direct labor cost) with overhead applied to that combined subtotal, then divided by actual output quantity.</p>`,
   },
 
   {
@@ -566,7 +567,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Give the product a name and category. Choose <strong>Single Unit</strong> or <strong>Batch</strong> production mode. For batch, enter the Batch Yield — how many finished units one recipe run produces.</p>
 
-      <p>Set Overhead % and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
+      <p>Set Overhead %, <strong>Direct Labor Cost</strong>, and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
 
       <p>After saving, the product status is <strong>Pending</strong>. Click the product row to open its detail page and approve an <strong>Approved base price</strong> before adding it to price levels.</p>
 
@@ -605,7 +606,13 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage'],
     relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom'],
     content: `
-      <p><strong>Overhead</strong> is a percentage added to material costs to cover indirect expenses — electricity, rent, equipment, and production labour.</p>
+      <p><strong>Overhead</strong> is a percentage applied to <strong>material cost plus direct labor cost</strong> to cover indirect expenses — electricity, rent, equipment, and other production overheads. <strong>Direct Labor Cost</strong> is entered separately as a fixed amount for your own time or paid staff time to make the product or batch.</p>
+
+      <p>Production cost is calculated as:</p>
+
+      <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%)
+      </p>
 
       <p>Overhead is set per product on the product form, or pre-filled from <strong>Settings → Pricing Engine → Default Overhead %</strong> when creating new products. Use the overhead calculator on the Pricing Engine tab to work out a sensible default from your monthly figures.</p>
 
@@ -1352,6 +1359,16 @@ export const helpArticles: HelpArticle[] = [
     relatedArticleIds: ['overhead-and-margin', 'markup-health-guide', 'how-approval-works'],
     content: `
       <p>PriceRight uses <strong>Markup on Cost</strong> as its profit metric — the percentage you add on top of what it costs to make a product.</p>
+
+      <p>Production cost starts from your Bill of Materials, plus any <strong>Direct Labor Cost</strong> you enter, with overhead applied to that combined subtotal:</p>
+
+      <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+        Production cost = (Material cost + Direct labor cost) × (1 + Overhead%)
+      </p>
+
+      <p>For intermediate materials, the same batch formula applies, then PriceRight divides by output quantity to get cost per unit.</p>
+
+      <p>Actual markup on cost at the approved price is:</p>
 
       <p style="font-family: monospace; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
         (Approved Price − Production Cost) ÷ Production Cost × 100
