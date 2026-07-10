@@ -117,7 +117,7 @@ const leftPanelStyle = {
 };
 
 const rightPanelStyle = {
-  width: '700px',
+  width: '760px',
   flexShrink: 0,
   display: 'flex',
   flexDirection: 'column' as const,
@@ -166,7 +166,7 @@ const bomTableContainerStyle = {
   ...bomAlignedBlockStyle,
   flex: 1,
   minHeight: '200px',
-  overflow: 'hidden' as const,
+  overflow: 'visible' as const,
   border: '1px solid #e2e8f0',
   borderRadius: '8px',
   display: 'flex',
@@ -232,7 +232,7 @@ const costSummaryValueStyle = {
 };
 
 const bomColMaterialStyle = {
-  width: '220px',
+  width: '230px',
   textAlign: 'left' as const,
 };
 
@@ -268,7 +268,7 @@ const bomMaterialCellStyle = {
 };
 
 const bomActionCellStyle = {
-  width: '130px',
+  width: '150px',
   textAlign: 'center' as const,
   whiteSpace: 'nowrap' as const,
   paddingLeft: '8px',
