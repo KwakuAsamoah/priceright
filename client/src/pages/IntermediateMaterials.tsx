@@ -1078,20 +1078,17 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
               Print
             </button>
           </div>
-          <ActionDropdown
-            label="+ Add"
-            buttonClassName="btn btn-primary btn-sm"
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleAddIntermediate}
             disabled={baseCurrencyMissing}
-            disabledTitle="Set a base currency first in Settings"
-            items={[
-              {
-                key: 'add-single',
-                label: 'Add single intermediate',
-                icon: <Plus size={14} strokeWidth={2} />,
-                onSelect: handleAddIntermediate,
-              },
-            ]}
-          />
+            title={baseCurrencyMissing ? 'Set a base currency first in Settings' : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} strokeWidth={2} />
+            Add Intermediate Material
+          </button>
         </div>
 
         {hasActiveIntermediateFilters ? (

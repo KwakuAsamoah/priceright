@@ -1415,20 +1415,17 @@ export default function Products() {
               Print
             </button>
           </div>
-          <ActionDropdown
-            label="+ Add"
-            buttonClassName="btn btn-primary btn-sm"
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={handleAddProduct}
             disabled={baseCurrencyMissing}
-            disabledTitle="Set a base currency first in Settings"
-            items={[
-              {
-                key: 'add-single',
-                label: 'Add single product',
-                icon: <Plus size={14} strokeWidth={2} />,
-                onSelect: handleAddProduct,
-              },
-            ]}
-          />
+            title={baseCurrencyMissing ? 'Set a base currency first in Settings' : undefined}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Plus size={14} strokeWidth={2} />
+            Add Product
+          </button>
           <button
             type="button"
             className="btn btn-outline btn-sm"
