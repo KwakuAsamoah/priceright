@@ -426,12 +426,13 @@ export const helpArticles: HelpArticle[] = [
       <p>When raw material prices change, an intermediate material's cost updates automatically.
       Every finished product that uses it recalculates too — keeping everything accurate without manual work.</p>
 
-      <p>To create one, go to Materials → Intermediate tab and click <strong>+ Add → Add single intermediate</strong>.
+      <p>To create one, go to Materials → Intermediate tab and click <strong>Add Intermediate Material</strong>.
       A floating overlay panel opens with two panels side by side — form fields on the left, BOM builder on the right.
       You can add BOM items before saving.</p>
 
-      <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead %, optional Markup %, and yield settings.
-      For yield-based costing, enter the <strong>Yield %</strong> — hint text below the field explains usable output (for example 80g from 100g of ingredients).</p>
+      <p>After you list your ingredients, tell PriceRight how much finished product the batch actually made — either as an exact amount or as a percentage of what you started with. Either way PriceRight calculates the same accurate cost per unit.</p>
+
+      <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead % and optional Markup %. The finished output question appears on the right, below your recipe.</p>
 
       <p>The calculated unit cost is then available when building finished products — it appears in the same material search alongside primary materials.</p>`,
   },
@@ -521,7 +522,10 @@ export const helpArticles: HelpArticle[] = [
       <p>In PriceRight, set this when creating or editing an intermediate
       material under the Materials → Intermediate tab. Leave Overhead % at zero
       for Approach 1. Enter your overhead rate and leave Markup % at zero
-      for Approach 2. Enter both for Approach 3.</p>`,
+      for Approach 2. Enter both for Approach 3.</p>
+
+      <h3>How much did the batch produce?</h3>
+      <p>After you've listed your ingredients, tell PriceRight how much finished product the batch actually made — either as an exact amount or as a percentage of what you started with. Either way PriceRight calculates the same accurate cost per unit: total batch cost divided by actual output quantity.</p>`,
   },
 
   {
@@ -1430,7 +1434,7 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>Cost History</strong> — historical cost changes</li>
       </ul>
 
-      <p>The <strong>Cost Summary</strong> card on the right shows yield %, material cost, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
+      <p>The <strong>Cost Summary</strong> card on the right shows batch output, material cost, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
   },
 
   {
@@ -1443,6 +1447,8 @@ export const helpArticles: HelpArticle[] = [
       <p>Products and intermediate materials are created in a floating overlay panel — the list stays visible but dimmed behind it.</p>
 
       <p>Click <strong>+ Add</strong> on the Products or Intermediate Materials page. Two panels appear side by side: the <strong>form</strong> on the left and the <strong>BOM builder</strong> on the right. Cost figures update live as you add materials.</p>
+
+      <p>For intermediate materials, after adding recipe ingredients on the right, answer <strong>How much finished product did this batch make?</strong> — enter an exact amount or a percentage of total raw input. Both give the same cost per unit.</p>
 
       <p>You can add BOM items before saving — no need to save the product first. The <strong>Save</strong> button is always visible at the bottom of the left panel. Click × or outside the panel to cancel without saving.</p>
 

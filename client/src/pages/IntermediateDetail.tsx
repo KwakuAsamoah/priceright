@@ -20,6 +20,11 @@ import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
+import {
+  resolveCompletedOutputFromStored,
+  resolveDisplayYieldPercent,
+  sumRawInputQuantities,
+} from '../utils/intermediateOutput';
 import { TabErrorBoundary } from '../components/ErrorBoundary';
 
 interface IntermediateDetailLocationState {
@@ -244,6 +249,28 @@ export default function IntermediateDetail() {
       active = false;
     };
   }, [materialId]);
+
+  const totalRawInput = useMemo(
+    () => sumRawInputQuantities(bomItems.map((item) => toNumber(item.quantity))),
+    [bomItems],
+  );
+
+  const batchOutputStatement = useMemo(() => {
+    if (!material) return '—';
+    const completedOutput = resolveCompletedOutputFromStored(
+      material.intermediateCostMode,
+      toNumber(material.bulkQuantity),
+      toNumber(material.yieldPercentage) || 100,
+    );
+    const yieldPercent = resolveDisplayYieldPercent(
+      material.intermediateCostMode,
+      toNumber(material.bulkQuantity),
+      toNumber(material.yieldPercentage) || 100,
+      totalRawInput,
+    );
+    const unit = material.unit || '—';
+    return `This batch produced ${completedOutput.toFixed(3)} ${unit} (${yieldPercent.toFixed(1)}% of total raw input).`;
+  }, [material, totalRawInput]);
 
   const liveCost = useMemo(() => {
     if (!material) return null;
@@ -476,10 +503,6 @@ export default function IntermediateDetail() {
     );
   }
 
-  const outputQtyLabel = material.intermediateCostMode === 'completed_output'
-    ? 'Completed Output Qty'
-    : 'Effective Output Qty';
-
   return (
     <div className="app-page">
       {showToast && <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />}
@@ -597,22 +620,16 @@ export default function IntermediateDetail() {
                 { label: 'Category', value: material.category || '—' },
                 { label: 'Unit', value: material.unit || '—' },
                 { label: 'SKU', value: material.sku || '—' },
-                {
-                  label: 'Yield %',
-                  value: material.intermediateCostMode === 'yield'
-                    ? `${toNumber(material.yieldPercentage).toFixed(1)}%`
-                    : '100.0%',
-                },
-                {
-                  label: 'Costing Method',
-                  value: material.intermediateCostMode === 'completed_output' ? 'Completed Output' : 'Yield-Based',
-                },
               ].map((field) => (
                 <div key={field.label}>
                   <div style={{ fontSize: '13px', color: '#64748b' }}>{field.label}</div>
                   <div style={{ color: '#0F2847', fontWeight: 600 }}>{field.value}</div>
                 </div>
               ))}
+              <div style={{ gridColumn: '1 / -1', backgroundColor: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', padding: '12px' }}>
+                <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '4px' }}>Batch output</div>
+                <div style={{ color: '#0F2847', fontWeight: 600 }}>{batchOutputStatement}</div>
+              </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <div style={{ fontSize: '13px', color: '#64748b' }}>Description</div>
                 <div style={{ color: '#0F2847', fontWeight: 600, whiteSpace: 'pre-wrap' }}>{material.description || '—'}</div>
@@ -749,13 +766,8 @@ export default function IntermediateDetail() {
           <div className="app-card">
             <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '12px' }}>Cost Summary</div>
             <div style={{ display: 'grid', gap: '10px', fontSize: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', alignItems: 'center' }}>
-                <span style={{ color: '#64748b', fontWeight: 600 }}>Yield %</span>
-                <span style={{ color: '#0F2847', fontWeight: 700, fontSize: '16px' }}>
-                  {material.intermediateCostMode === 'yield'
-                    ? `${toNumber(material.yieldPercentage).toFixed(1)}%`
-                    : '100.0%'}
-                </span>
+              <div style={{ backgroundColor: '#f8fbff', border: '1px solid #dbeafe', borderRadius: '8px', padding: '12px', color: '#0F2847', fontWeight: 600 }}>
+                {batchOutputStatement}
               </div>
               <div style={{ borderTop: '1px solid #e2e8f0', margin: '2px 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
@@ -771,7 +783,7 @@ export default function IntermediateDetail() {
                 <span style={{ color: '#0F2847', fontWeight: 700 }}>{formatMoney(liveCost?.batchTotalCost ?? 0)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                <span style={{ color: '#64748b' }}>{outputQtyLabel}</span>
+                <span style={{ color: '#64748b' }}>Actual Output Qty</span>
                 <span style={{ color: '#0F2847', fontWeight: 600 }}>
                   {liveCost?.effectiveOutputQuantity.toFixed(3)} {material.unit || '—'}
                 </span>

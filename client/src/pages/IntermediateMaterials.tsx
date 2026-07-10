@@ -5,6 +5,15 @@ import { useFormState } from '../context/FormStateContext';
 import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, Layers, Plus, Printer, Table, Trash2, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
+import IntermediateOutputSection from '../components/IntermediateOutputSection';
+import {
+  buildOutputSavePayload,
+  getActualOutputQuantity,
+  inferOutputInputMethod,
+  resolveCompletedOutputFromStored,
+  sumRawInputQuantities,
+  type OutputInputMethod,
+} from '../utils/intermediateOutput';
 import ActionDropdown from '../components/ActionDropdown';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import AppBadge from '../components/AppBadge';
@@ -181,15 +190,6 @@ function commitMathExpression(rawValue: string, onResolved: (value: string) => v
   return rawValue;
 }
 
-function toSafePositiveNumber(rawValue: string, fallback: number) {
-  const resolved = evaluateMathExpression(rawValue) ?? rawValue;
-  const numericValue = Number(resolved);
-  if (!Number.isFinite(numericValue) || numericValue <= 0) {
-    return fallback;
-  }
-  return numericValue;
-}
-
 interface IntermediateMaterialsProps {
   refreshKey?: number;
   isActive?: boolean;
@@ -297,6 +297,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const [componentSearch, setComponentSearch] = useState('');
   const [componentMaterialId, setComponentMaterialId] = useState<number>(0);
   const [componentQuantity, setComponentQuantity] = useState<string>('1');
+  const [outputInputMethod, setOutputInputMethod] = useState<OutputInputMethod>('exact');
   const [editingBomId, setEditingBomId] = useState<number | null>(null);
   const [editingQuantity, setEditingQuantity] = useState('');
   const [statusText, setStatusText] = useState<string>('');
@@ -542,14 +543,21 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     const knownCategory = materialCategories.includes(String(material.category || ''));
     setMaterialCustomCategoryValue(knownCategory ? '' : String(material.category || ''));
     setSelectedId(material.id);
+    const costMode = material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield';
+    const completedOutput = resolveCompletedOutputFromStored(
+      costMode,
+      Number(material.bulkQuantity || 0),
+      Number(material.yieldPercentage || 100),
+    );
+    setOutputInputMethod(inferOutputInputMethod(costMode));
     setForm({
       name: String(material.name || ''),
       sku: String(material.sku || ''),
       description: String(material.description || ''),
       category: knownCategory ? String(material.category || '') : '__custom__',
       unit: String(material.unit || 'kg'),
-      intermediateCostMode: material.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield',
-      bulkQuantity: String(material.bulkQuantity || '1'),
+      intermediateCostMode: costMode,
+      bulkQuantity: String(completedOutput > 0 ? completedOutput : material.bulkQuantity || '1'),
       overheadPercentage: String(material.overheadPercentage || '0'),
       marginPercentage: String(material.marginPercentage || '0'),
       yieldPercentage: String(material.yieldPercentage || '100'),
@@ -603,6 +611,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setComponentSearch('');
     setComponentMaterialId(0);
     setComponentQuantity('1');
+    setOutputInputMethod('exact');
     setStatusText('');
   }
 
@@ -634,22 +643,25 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     try {
       const resolvedCategory = resolveCategoryForSave();
       const costSnapshot = calculateIntermediateLiveCost();
-      const resolvedBulkQuantity = toSafePositiveNumber(form.bulkQuantity, 1);
-      if (String(resolvedBulkQuantity) !== form.bulkQuantity) {
-        setForm((prev) => ({ ...prev, bulkQuantity: String(resolvedBulkQuantity) }));
-      }
+      const totalRawInput = sumRawInputQuantities(bomItems.map((item) => Number(item.quantity || 0)));
+      const outputPayload = buildOutputSavePayload(
+        outputInputMethod,
+        totalRawInput,
+        Number(form.bulkQuantity),
+        Number(form.yieldPercentage || 100),
+      );
 
       const payload = {
         ...form,
         category: resolvedCategory,
         materialType: 'intermediate' as const,
-        intermediateCostMode: form.intermediateCostMode,
-        bulkQuantity: resolvedBulkQuantity,
+        intermediateCostMode: outputPayload.intermediateCostMode,
+        bulkQuantity: outputPayload.bulkQuantity,
         bulkPrice: Number(selectedMaterial.bulkPrice || 0),
         purchaseCurrencyId: Number(selectedMaterial.purchaseCurrencyId || 1),
         overheadPercentage: Number(form.overheadPercentage || 0),
         marginPercentage: Number(form.marginPercentage || 0),
-        yieldPercentage: form.intermediateCostMode === 'completed_output' ? 100 : Number(form.yieldPercentage || 100),
+        yieldPercentage: outputPayload.yieldPercentage,
         calculatedCostPerUnit: costSnapshot.costPerUnit,
         supplier: '',
       };
@@ -985,6 +997,11 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     });
   }, [availableComponents, componentSearch]);
 
+  const totalRawInput = useMemo(
+    () => sumRawInputQuantities(bomItems.map((item) => Number(item.quantity || 0))),
+    [bomItems],
+  );
+
   function calculateIntermediateLiveCost() {
     const totalMaterialCost = bomItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
 
@@ -992,11 +1009,12 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     const overheadCost = totalMaterialCost * overheadPercentage;
     const batchTotalCost = totalMaterialCost + overheadCost;
 
-    const batchQuantity = Math.max(0.0001, Number(form.bulkQuantity || 1));
-    const yieldPercent = Math.max(0.0001, Number(form.yieldPercentage || 100));
-    const effectiveOutputQuantity = form.intermediateCostMode === 'completed_output'
-      ? batchQuantity
-      : batchQuantity * (yieldPercent / 100);
+    const actualOutputQuantity = getActualOutputQuantity(
+      Number(form.bulkQuantity),
+      totalRawInput,
+      Number(form.yieldPercentage || 100),
+    );
+    const effectiveOutputQuantity = Math.max(0.0001, actualOutputQuantity);
     const costPerUnit = batchTotalCost / effectiveOutputQuantity;
 
     const marginPercentage = Number(form.marginPercentage || 0) / 100;
@@ -1007,7 +1025,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
       batchMaterialCost: totalMaterialCost,
       batchOverheadCost: overheadCost,
       batchTotalCost,
-      batchQuantity,
       effectiveOutputQuantity,
       costPerUnit,
       profitAmount,
@@ -1468,21 +1485,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       style={fieldInputStyle}
                     />
                   </div>
-                  <div>
-                    <label style={fieldLabelStyle}>Yield % *</label>
-                    <input
-                      className="app-input"
-                      type="number"
-                      step="0.1"
-                      required
-                      value={form.yieldPercentage}
-                      onChange={(e) => setForm((prev) => ({ ...prev, yieldPercentage: e.target.value }))}
-                      style={fieldInputStyle}
-                    />
-                    <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px' }}>
-                      Enter the usable output as a percentage. For example if 100g of ingredients yields 80g of finished material enter 80.
-                    </div>
-                  </div>
                 </div>
 
                 <div style={{ borderTop: '1px solid #e2e8f0', marginTop: '16px', paddingTop: '12px' }}>
@@ -1564,64 +1566,6 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         value={form.description}
                         onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                         style={{ ...fieldInputStyle, minHeight: '60px', resize: 'vertical' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={fieldLabelStyle}>Costing Method</label>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <div className="app-choice-tabs" role="tablist" aria-label="Costing method">
-                          <button
-                            className={`app-choice-tab ${form.intermediateCostMode === 'completed_output' ? 'is-active' : ''}`}
-                            type="button"
-                            role="tab"
-                            aria-selected={form.intermediateCostMode === 'completed_output'}
-                            onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'completed_output', yieldPercentage: '100' }))}
-                          >
-                            Completed output
-                          </button>
-                          <button
-                            className={`app-choice-tab ${form.intermediateCostMode === 'yield' ? 'is-active' : ''}`}
-                            type="button"
-                            role="tab"
-                            aria-selected={form.intermediateCostMode === 'yield'}
-                            onClick={() => setForm((prev) => ({ ...prev, intermediateCostMode: 'yield' }))}
-                          >
-                            Yield-based
-                          </button>
-                        </div>
-                      </div>
-                      <div style={{ marginTop: '6px', fontSize: '14px', color: '#64748b' }}>
-                        {form.intermediateCostMode === 'completed_output'
-                          ? 'Enter final completed quantity directly. Unit cost = total batch cost / completed output quantity.'
-                          : 'Enter batch quantity and process yield %. Unit cost is adjusted by expected loss.'}
-                      </div>
-                    </div>
-                    <div>
-                      <label style={fieldLabelStyle}>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Quantity *' : 'Batch Quantity *'}</label>
-                      <input
-                        className="app-input"
-                        type="text"
-                        inputMode="decimal"
-                        required
-                        value={form.bulkQuantity}
-                        onChange={(e) => setForm((prev) => ({ ...prev, bulkQuantity: e.target.value }))}
-                        onBlur={() => {
-                          commitMathExpression(form.bulkQuantity, (value) => {
-                            setForm((prev) => ({ ...prev, bulkQuantity: value }));
-                          });
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const resolved = commitMathExpression(form.bulkQuantity, (value) => {
-                              setForm((prev) => ({ ...prev, bulkQuantity: value }));
-                            });
-                            if (resolved !== form.bulkQuantity) {
-                              (e.currentTarget as HTMLInputElement).blur();
-                            }
-                          }
-                        }}
-                        style={fieldInputStyle}
                       />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -1771,6 +1715,24 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                   </table>
                 </div>
               </div>
+
+              <IntermediateOutputSection
+                unit={form.unit}
+                totalRawInput={totalRawInput}
+                outputInputMethod={outputInputMethod}
+                onOutputInputMethodChange={setOutputInputMethod}
+                completedOutput={form.bulkQuantity}
+                yieldPercentage={form.yieldPercentage}
+                onSyncValues={(completedOutput, yieldPercentage, intermediateCostMode) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    bulkQuantity: completedOutput,
+                    yieldPercentage,
+                    intermediateCostMode,
+                  }));
+                }}
+              />
+
               <div style={{ ...formSectionStyle, marginBottom: 0, backgroundColor: '#f8fbff', borderColor: '#dbeafe' }}>
                 <h3 className="app-form-section-title">Cost Summary (per unit)</h3>
                 <div style={{ fontSize: '15px', color: '#475569', marginBottom: '12px' }}>
@@ -1790,7 +1752,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     <span style={{ fontWeight: '700' }}>{formatMoney(liveCost.batchTotalCost)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-                    <span>{form.intermediateCostMode === 'completed_output' ? 'Completed Output Qty' : 'Effective Output Qty'}</span>
+                    <span>Actual Output Qty</span>
                     <span style={{ fontWeight: '600' }}>{liveCost.effectiveOutputQuantity.toFixed(3)} {form.unit || '-'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
