@@ -92,7 +92,7 @@ export const helpArticles: HelpArticle[] = [
 
         <li><strong>Build your products.</strong> Go to Products. Create each product and
         add its Bill of Materials — which materials go into it and how much of each.
-        Set the overhead percentage and Markup %. PriceRight calculates the
+        Set the Overhead %, Direct Labor Cost, and Markup % (Products also have an optional Other Direct Costs field for one-off costs like packaging or certification). PriceRight calculates the
         optimal price automatically.</li>
 
         <li><strong>Approve prices.</strong> Still on Products, click on the product name
@@ -423,6 +423,8 @@ export const helpArticles: HelpArticle[] = [
       the Materials page. Once created they appear as selectable components when
       building product BOMs.</p>
 
+      <p>When an Intermediate Material is used inside a Product's Bill of Materials, it shows a sub-recipe badge — click it to preview its own materials and cost without leaving the Product page.</p>
+
       <p>When raw material prices change, an intermediate material's cost updates automatically.
       Every finished product that uses it recalculates too — keeping everything accurate without manual work.</p>
 
@@ -561,13 +563,15 @@ export const helpArticles: HelpArticle[] = [
     relatedArticleIds: ['batch-vs-single', 'creation-panels', 'how-approval-works'],
     content: `
       <p>To create a product, go to <strong>Products</strong> and click
-      <strong>+ Add → Add single product</strong>. A floating overlay panel opens over the list — the table stays visible but dimmed behind it.</p>
+      <strong>Add Product</strong> — this opens the creation panel directly. A floating overlay panel opens over the list — the table stays visible but dimmed behind it.</p>
 
-      <p>The panel has two sections side by side: the <strong>product form</strong> on the left and the <strong>BOM builder</strong> on the right. As you add materials, production cost and optimal price update live on the left.</p>
+      <p>The panel has two sections side by side: the <strong>product form</strong> on the left and the <strong>BOM builder</strong> on the right. The Cost Summary on the right updates live as you add materials — the left panel is for product details and pricing fields only. The creation form does not include a SKU field.</p>
 
       <p>Give the product a name and category. Choose <strong>Single Unit</strong> or <strong>Batch</strong> production mode. For batch, enter the Batch Yield — how many finished units one recipe run produces.</p>
 
-      <p>Set Overhead %, <strong>Direct Labor Cost</strong>, optional <strong>Other Direct Costs</strong>, and Markup %. Then search for materials on the right and enter quantities per batch or per unit. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
+      <p>Set Overhead %, <strong>Direct Labor Cost</strong>, optional <strong>Other Direct Costs</strong>, and Markup %. Type in the search box to find a material — click a result to add it immediately. Set the quantity directly in the table row. Use the Edit button on any BOM row to make changes later. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
+
+      <p>If a BOM line uses an Intermediate Material — a sub-recipe made from other materials — you'll see a small sub-recipe badge next to its name. Click it to expand an inline preview of that Intermediate's own materials and cost, without leaving the page. Click <strong>View full details →</strong> inside the preview to open the Intermediate's own detail page.</p>
 
       <p>After saving, the product status is <strong>Pending</strong>. Click the product row to open its detail page and approve an <strong>Approved base price</strong> before adding it to price levels.</p>
 
@@ -603,7 +607,7 @@ export const helpArticles: HelpArticle[] = [
     id: 'overhead-and-margin',
     section: 'Products and Materials',
     title: 'Understanding overhead and markup on cost',
-    keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage'],
+    keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage', 'direct labor', 'labor cost', 'other direct costs'],
     relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom'],
     content: `
       <p><strong>Overhead</strong> is a percentage applied to <strong>material cost plus direct labor cost</strong> to cover indirect expenses — electricity, rent, equipment, and other production overheads. <strong>Direct Labor Cost</strong> is entered separately as a fixed amount for your own time or paid staff time to make the product or batch.</p>
@@ -648,7 +652,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>Approval is the step where you set the product's official
       <strong>Approved base price</strong>. PriceRight calculates an <strong>Optimal price</strong>
-      from your production cost, overhead, and markup — but the price is not official until you approve it.</p>
+      as production cost × (1 + Markup%). Production cost already includes materials, Direct Labor, overhead, and — for Products — Other Direct Costs. The price is not official until you approve it.</p>
 
       <p><strong>On the product detail page:</strong></p>
       <ol>
@@ -681,11 +685,10 @@ export const helpArticles: HelpArticle[] = [
       changes and explain final decisions clearly.</p>
 
       <p><strong>1) Production cost</strong> is what it costs to make one unit.
-      It comes from the Bill of materials and updates when material prices or
-      exchange rates change.</p>
+      It's calculated as materials plus Direct Labor Cost, with Overhead % applied to that combined subtotal, plus (for Products) any Other Direct Costs added on top. It updates automatically whenever material prices, exchange rates, labor cost, or other direct costs change.</p>
 
       <p><strong>2) Optimal price</strong> is what the system recommends you charge.
-      It covers production cost, overhead, and target markup.</p>
+      It covers production cost and your target markup.</p>
 
       <p><strong>3) Approved base price</strong> is the price you commit to after
       review. It can match the optimal price or differ when you set a custom value
@@ -743,8 +746,9 @@ export const helpArticles: HelpArticle[] = [
       <p>A product moves to <strong>Needs review</strong> when:</p>
       <ul>
         <li>a material unit cost changes,</li>
-        <li>an exchange-rate update changes converted material costs, or</li>
-        <li>an approved price passes its expiry date.</li>
+        <li>an exchange-rate update changes converted material costs,</li>
+        <li>an approved price passes its expiry date, or</li>
+        <li>a cost input that affects the optimal price is edited on the product itself — including Direct Labor Cost, Other Direct Costs, Overhead %, or Markup %.</li>
       </ul>
 
       <p>On the Products page, these rows are highlighted with an amber left border,
@@ -1357,7 +1361,7 @@ export const helpArticles: HelpArticle[] = [
     id: 'how-priceright-calculates-profit',
     section: 'Getting Started',
     title: 'How PriceRight calculates profit',
-    keywords: ['markup', 'profit', 'gross margin', 'markup on cost', 'calculation', 'percentage'],
+    keywords: ['markup', 'profit', 'gross margin', 'markup on cost', 'calculation', 'percentage', 'direct labor', 'labor cost', 'other direct costs'],
     relatedArticleIds: ['overhead-and-margin', 'markup-health-guide', 'how-approval-works'],
     content: `
       <p>PriceRight uses <strong>Markup on Cost</strong> as its profit metric — the percentage you add on top of what it costs to make a product.</p>
@@ -1455,7 +1459,7 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>Cost History</strong> — historical cost changes</li>
       </ul>
 
-      <p>The <strong>Cost Summary</strong> card on the right shows batch output, material cost, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
+      <p>The <strong>Cost Summary</strong> card on the right shows batch output, material cost, Direct Labor, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
   },
 
   {
@@ -1467,7 +1471,9 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>Products and intermediate materials are created in a floating overlay panel — the list stays visible but dimmed behind it.</p>
 
-      <p>Click <strong>+ Add</strong> on the Products or Intermediate Materials page. Two panels appear side by side: the <strong>form</strong> on the left and the <strong>BOM builder</strong> on the right. Cost figures update live as you add materials.</p>
+      <p>Click <strong>+ Add</strong> on the Products or Intermediate Materials page. Two panels appear side by side: the <strong>form</strong> on the left and the <strong>BOM builder</strong> on the right. Type to search for a material, click a result to add it immediately, and set the quantity directly in the table row. Use the Edit button on any BOM row to change it later. This works identically for both Products and Intermediate Materials.</p>
+
+      <p>The Cost Summary sits alongside the BOM table on the right. The Product creation form does not include a SKU field.</p>
 
       <p>For intermediate materials, after adding recipe ingredients on the right, answer <strong>How much finished product did this batch make?</strong> — enter an exact amount or a percentage of total raw input. Both give the same cost per unit.</p>
 
