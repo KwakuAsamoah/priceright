@@ -350,6 +350,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   const [configuredMaterialCategories, setConfiguredMaterialCategories] = useState<string[]>([]);
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [currencySymbol, setCurrencySymbol] = useState('');
+  const [baseCurrencyId, setBaseCurrencyId] = useState<number | null>(null);
 
   const [componentSearch, setComponentSearch] = useState('');
   const [componentDropdownOpen, setComponentDropdownOpen] = useState(false);
@@ -382,16 +383,21 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
         const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
         const materialCategoriesSetting = safeSettings.find((entry: any) => entry.settingKey === 'materialCategories');
         const baseCurrencySetting = safeSettings.find((entry: any) => entry.settingKey === 'baseCurrency');
-        const baseCurrencyId = Number(baseCurrencySetting?.settingValue || 0);
-        const baseCurrency = safeCurrencies.find((currency: any) => Number(currency?.id) === baseCurrencyId);
+        const baseCode = String(baseCurrencySetting?.settingValue || '').trim().toUpperCase();
+        const baseCurrency =
+          safeCurrencies.find(
+            (currency: any) => String(currency?.code || '').trim().toUpperCase() === baseCode,
+          ) || safeCurrencies[0];
 
         setConfiguredMaterialCategories(parseConfiguredList(materialCategoriesSetting?.settingValue));
         setComponents(safeComponents);
-        setCurrencySymbol(String(baseCurrency?.symbol || safeCurrencies[0]?.symbol || safeComponents[0]?.baseCurrencySymbol || ''));
+        setBaseCurrencyId(baseCurrency ? Number(baseCurrency.id) : null);
+        setCurrencySymbol(String(baseCurrency?.symbol || safeComponents[0]?.baseCurrencySymbol || ''));
       } catch (error) {
         console.error('Error loading intermediate create data:', error);
         setConfiguredMaterialCategories([]);
         setComponents([]);
+        setBaseCurrencyId(null);
       } finally {
         setLoading(false);
       }
@@ -574,6 +580,11 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   async function saveMaterial() {
     if (!validateForm()) return;
 
+    if (!baseCurrencyId) {
+      showToastMessage('No base currency configured. Set a base currency in Settings first.', 'error');
+      return;
+    }
+
     setSaving(true);
     try {
       const resolvedCategory = resolveCategoryForSave();
@@ -591,7 +602,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
         intermediateCostMode: outputPayload.intermediateCostMode,
         bulkQuantity: outputPayload.bulkQuantity,
         bulkPrice: 0,
-        purchaseCurrencyId: 1,
+        purchaseCurrencyId: baseCurrencyId,
         overheadPercentage: Number(form.overheadPercentage || 0),
         laborCost: Number(form.laborCost || 0),
         marginPercentage: Number(form.marginPercentage || 0),

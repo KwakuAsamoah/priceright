@@ -1627,6 +1627,8 @@ export default function Products() {
                   className="btn btn-primary"
                   style={{ marginTop: '16px' }}
                   onClick={handleAddProduct}
+                  disabled={baseCurrencyMissing}
+                  title={baseCurrencyMissing ? 'Set a base currency first in Settings' : undefined}
                 >
                   + Add your first product
                 </button>

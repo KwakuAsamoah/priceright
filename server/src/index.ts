@@ -248,7 +248,7 @@ async function resolveBaseCurrency(): Promise<{ id: number; code: string; symbol
 
   const availableCurrencies = await getActiveDb().select().from(currencies);
   if (availableCurrencies.length === 0) {
-    return { id: 0, code: 'GHS', symbol: 'GHS' };
+    throw new Error('No base currency configured');
   }
 
   const normalizedCurrencies = availableCurrencies.map((currency) => ({
@@ -1355,6 +1355,9 @@ app.post('/api/materials', async (req, res) => {
     res.json(result[0]);
   } catch (error) {
     console.error(error);
+    if (error instanceof Error && error.message === 'No base currency configured') {
+      return res.status(400).json({ error: 'No base currency configured' });
+    }
     res.status(500).json({ error: 'Failed to create material' });
   }
 });
@@ -1524,6 +1527,9 @@ app.put('/api/materials/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating material:', error);
+    if (error instanceof Error && error.message === 'No base currency configured') {
+      return res.status(400).json({ error: 'No base currency configured' });
+    }
     res.status(500).json({ error: 'Failed to update material' });
   }
 });

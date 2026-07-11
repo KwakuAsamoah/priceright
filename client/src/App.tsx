@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { Link, Navigate, Outlet, useLocation, useNavigate, useBlocker, useParams, RouterProvider } from 'react-router-dom';
 import { createHashRouter } from 'react-router';
-import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, Settings as SettingsIcon, Tag, AlertTriangle } from 'lucide-react';
+import { BarChart2, ClipboardList, HelpCircle, LayoutDashboard, Layers, Package, Power, Settings as SettingsIcon, Tag } from 'lucide-react';
 import { FormStateProvider, useFormState } from './context/FormStateContext';
 import { BaseCurrencyContext } from './context/BaseCurrencyContext';
 import Dashboard from './pages/Dashboard';
@@ -21,6 +21,7 @@ import UndoBanner from './components/UndoBanner';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UndoActionProvider } from './hooks/useUndoAction';
 import { WelcomeModal } from './components/WelcomeModal';
+import { BaseCurrencyGateModal } from './components/BaseCurrencyGateModal';
 import { OnboardingBar } from './components/OnboardingBar';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import DemoModeBanner from './components/DemoModeBanner';
@@ -35,6 +36,7 @@ import { NotificationBell } from './components/NotificationBell';
 import { NotificationProvider } from './context/NotificationContext';
 import { MaterialCostSyncProvider } from './context/MaterialCostSyncContext';
 import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
+import { clearCurrencyCache } from './utils/currency';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -305,7 +307,6 @@ function enableSpreadsheetStyleNumberInputs() {
 
 function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const skipPIN = import.meta.env.VITE_SKIP_PIN === 'true';
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeChecked, setWelcomeChecked] = useState(false);
@@ -599,21 +600,7 @@ function AppLayout({ children }: { children: ReactNode }) {
           <UpdateModal />
           <TrialBanner />
           <BackupReminderBanner />
-          {baseCurrencyMissing && (
-            <div style={{ backgroundColor: '#DC2626', color: 'white', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: '14px', fontWeight: 600 }}>
-                No base currency set.{' '}Cost calculations will not work correctly until you set a base currency.
-              </span>
-              <button
-                onClick={() => navigate('/settings?section=currencies')}
-                style={{ background: 'white', color: '#DC2626', border: 'none', borderRadius: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-              >
-                Set base currency →
-              </button>
-            </div>
-          )}
-          <OnboardingBar />
+          {!baseCurrencyMissing && <OnboardingBar />}
           {children}
         </main>
           <UndoBanner />
@@ -637,7 +624,15 @@ function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      {showWelcome && welcomeChecked && !location.pathname.startsWith('/help') && (
+      {baseCurrencyMissing && (
+        <BaseCurrencyGateModal
+          onComplete={() => {
+            clearCurrencyCache();
+            setBaseCurrencyMissing(false);
+          }}
+        />
+      )}
+      {showWelcome && welcomeChecked && !baseCurrencyMissing && !location.pathname.startsWith('/help') && (
         <WelcomeModal onDismiss={() => setShowWelcome(false)} />
       )}
     </>

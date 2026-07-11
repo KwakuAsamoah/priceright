@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
+import { calculateProductionCost, calculateIntermediateCostPerUnit } from './costFormula.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, priceLevelPackSizes, customers, specialPricing, priceLists, priceListItems, activityLog } from './schema.js';
 import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 const app = express();
@@ -197,7 +198,7 @@ async function resolveBaseCurrency() {
         .toUpperCase();
     const availableCurrencies = await getActiveDb().select().from(currencies);
     if (availableCurrencies.length === 0) {
-        return { id: 0, code: 'GHS', symbol: 'GHS' };
+        throw new Error('No base currency configured');
     }
     const normalizedCurrencies = availableCurrencies.map((currency) => ({
         ...currency,
@@ -292,9 +293,13 @@ async function calculateProductionCostForProduct(selectedProduct, productId) {
     for (const item of productionCostResponse) {
         totalMaterialCost += Number(item.quantity || 0) * Number(item.unitPrice || 0);
     }
+    const { totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+        materialCost: totalMaterialCost,
+        laborCost: Number(selectedProduct.laborCost || 0),
+        overheadPercentage: Number(selectedProduct.overheadPercentage || 0),
+    });
     const otherCosts = Number(selectedProduct.otherDirectCosts || 0);
-    const overheadCost = totalMaterialCost * (Number(selectedProduct.overheadPercentage || 0) / 100);
-    const totalCost = totalMaterialCost + overheadCost + otherCosts;
+    const totalCost = materialsLaborOverheadTotal + otherCosts;
     if (selectedProduct.productionMode === 'batch') {
         const safeYield = safeBatchYield(selectedProduct.batchYield);
         return totalCost / safeYield;
@@ -1065,7 +1070,7 @@ app.get('/api/materials', async (req, res) => {
 });
 app.post('/api/materials', async (req, res) => {
     try {
-        const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier, materialType, overheadPercentage, marginPercentage, intermediateCostMode, yieldPercentage, calculatedCostPerUnit, } = req.body;
+        const { name, sku, description, category, unit, bulkQuantity, bulkPrice, purchaseCurrencyId, supplier, materialType, overheadPercentage, marginPercentage, intermediateCostMode, yieldPercentage, calculatedCostPerUnit, laborCost, } = req.body;
         const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
         const baseCurrency = await resolveBaseCurrency();
         // Get exchange rate
@@ -1085,6 +1090,7 @@ app.post('/api/materials', async (req, res) => {
         const intermediateCost = Number(calculatedCostPerUnit || 0);
         const normalizedOverhead = Number(overheadPercentage || 0);
         const normalizedMargin = Number(marginPercentage || 0);
+        const normalizedLaborCost = Number(laborCost || 0);
         const normalizedYield = Number(yieldPercentage || 100);
         const normalizedIntermediateCostMode = resolvedMaterialType === 'intermediate'
             ? (intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield')
@@ -1113,6 +1119,7 @@ app.post('/api/materials', async (req, res) => {
             priceInBaseCurrency,
             unitPrice,
             overheadPercentage: normalizedOverhead,
+            laborCost: normalizedLaborCost,
             marginPercentage: normalizedMargin,
             intermediateCostMode: normalizedIntermediateCostMode,
             yieldPercentage: normalizedYield,
@@ -1138,6 +1145,9 @@ app.post('/api/materials', async (req, res) => {
     }
     catch (error) {
         console.error(error);
+        if (error instanceof Error && error.message === 'No base currency configured') {
+            return res.status(400).json({ error: 'No base currency configured' });
+        }
         res.status(500).json({ error: 'Failed to create material' });
     }
 });
@@ -1166,6 +1176,7 @@ app.put('/api/materials/:id', async (req, res) => {
             ? purchaseCurrencyIdInput
             : Number(existing.purchaseCurrencyId);
         const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage ?? 0);
+        const laborCost = Number(req.body?.laborCost ?? existing.laborCost ?? 0);
         const marginPercentage = Number(req.body?.marginPercentage ?? existing.marginPercentage ?? 0);
         const intermediateCostMode = req.body?.intermediateCostMode ?? existing.intermediateCostMode ?? 'yield';
         const yieldPercentage = Number(req.body?.yieldPercentage ?? existing.yieldPercentage ?? 100);
@@ -1175,6 +1186,12 @@ app.put('/api/materials/:id', async (req, res) => {
         const shouldRecalculatePrice = req.body?.bulkQuantity !== undefined
             || req.body?.bulkPrice !== undefined
             || req.body?.purchaseCurrencyId !== undefined;
+        const shouldRecalculateIntermediateCost = materialType === 'intermediate' && (shouldRecalculatePrice
+            || req.body?.laborCost !== undefined
+            || req.body?.overheadPercentage !== undefined
+            || req.body?.yieldPercentage !== undefined
+            || req.body?.intermediateCostMode !== undefined
+            || req.body?.bulkQuantity !== undefined);
         const baseCurrency = await resolveBaseCurrency();
         // Get exchange rate
         const resolvedPurchaseCurrencyId = materialType === 'intermediate' ? baseCurrency.id : purchaseCurrencyId;
@@ -1212,6 +1229,7 @@ app.put('/api/materials/:id', async (req, res) => {
             priceInBaseCurrency,
             unitPrice,
             overheadPercentage,
+            laborCost,
             marginPercentage,
             intermediateCostMode: materialType === 'intermediate'
                 ? (intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield')
@@ -1233,7 +1251,7 @@ app.put('/api/materials/:id', async (req, res) => {
                 console.error('[materials] Failed to cascade intermediate costs after primary update:', materialId, propagateError);
             }
         }
-        else if (materialType === 'intermediate' && (shouldRecalculatePrice || unitPriceChanged)) {
+        else if (shouldRecalculateIntermediateCost || (materialType === 'intermediate' && unitPriceChanged)) {
             try {
                 await recalculateIntermediateMaterialWithCascade(materialId);
             }
@@ -1283,6 +1301,9 @@ app.put('/api/materials/:id', async (req, res) => {
     }
     catch (error) {
         console.error('Error updating material:', error);
+        if (error instanceof Error && error.message === 'No base currency configured') {
+            return res.status(400).json({ error: 'No base currency configured' });
+        }
         res.status(500).json({ error: 'Failed to update material' });
     }
 });
@@ -1835,171 +1856,6 @@ app.post('/api/materials/import', async (req, res) => {
         return res.status(500).json({ error: 'Failed to import materials' });
     }
 });
-// Intermediate Materials Import Endpoint
-// Supports grouped BOM rows: one row per component, repeat intermediate fields on each row.
-// Old single-row format (Intermediate Name, Category, Unit, Notes) is also accepted.
-app.post('/api/intermediate-materials/import', async (req, res) => {
-    try {
-        const payload = req.body;
-        const rows = Array.isArray(payload?.materials) ? payload.materials : null;
-        if (!rows) {
-            return res.status(400).json({ error: 'Request body must include a materials array' });
-        }
-        // Get base currency
-        const baseCurrencySetting = await getActiveDb().select().from(settings).where(eq(settings.settingKey, 'baseCurrency'));
-        const baseCurrencyCode = (baseCurrencySetting[0]?.settingValue || 'GHS').trim().toUpperCase();
-        const allCurrencies = await db.select({ id: currencies.id, code: currencies.code }).from(currencies);
-        const baseCurrency = allCurrencies.find((c) => c.code === baseCurrencyCode);
-        const defaultCurrencyId = baseCurrency?.id || 1;
-        // Get existing intermediate materials by name (case-insensitive) for duplicate check
-        const existingIntermediates = await db
-            .select({ id: materials.id, name: materials.name })
-            .from(materials)
-            .where(eq(materials.materialType, 'intermediate'));
-        const existingByName = new Map(existingIntermediates.map((m) => [String(m.name || '').trim().toLowerCase(), m]));
-        // Read all raw materials (for BOM component validation)
-        const allRawMaterials = await db
-            .select({ id: materials.id, name: materials.name })
-            .from(materials)
-            .where(eq(materials.materialType, 'primary'));
-        const rawMaterialByName = new Map(allRawMaterials.map((m) => [String(m.name || '').trim().toLowerCase(), m]));
-        const getField = (row, keys) => {
-            for (const k of keys) {
-                const v = row[k];
-                if (v !== undefined && v !== null && String(v).trim() !== '')
-                    return String(v).trim();
-            }
-            return '';
-        };
-        // Group rows by intermediate name (preserving order)
-        const groups = new Map();
-        for (let i = 0; i < rows.length; i++) {
-            const raw = rows[i] || {};
-            const rawName = getField(raw, ['Intermediate Name', 'name']);
-            if (!rawName)
-                continue;
-            const key = rawName.trim();
-            if (!groups.has(key))
-                groups.set(key, []);
-            groups.get(key).push({ row: raw, rowNumber: i + 1 });
-        }
-        const errors = [];
-        let imported = 0;
-        let skipped = 0;
-        for (const [intermediateName, entries] of groups.entries()) {
-            const first = entries[0].row;
-            const firstRowNumber = entries[0].rowNumber;
-            // Read intermediate-level fields from the first row of the group
-            const category = getField(first, ['Category', 'category']);
-            const unit = getField(first, ['Unit', 'unit']) || 'Kg';
-            const notes = getField(first, ['Notes', 'Description', 'notes', 'description']);
-            const overheadPct = parseFloat(getField(first, ['Overhead %', 'Overhead', 'overhead']) || '0');
-            const yieldPct = parseFloat(getField(first, ['Yield %', 'Yield', 'yield']) || '100');
-            const marginPct = parseFloat(getField(first, ['Margin %', 'Margin', 'margin']) || '0');
-            const bulkQty = parseFloat(getField(first, ['Bulk Quantity', 'Batch Size', 'bulkQuantity']) || '1');
-            // Duplicate check
-            if (existingByName.has(intermediateName.toLowerCase())) {
-                errors.push({ row: firstRowNumber, name: intermediateName, reason: 'Intermediate material with this name already exists' });
-                skipped += 1;
-                continue;
-            }
-            // Validate numeric fields
-            if (isNaN(overheadPct) || overheadPct < 0) {
-                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Overhead %: "${getField(first, ['Overhead %'])}"` });
-                skipped += 1;
-                continue;
-            }
-            if (isNaN(yieldPct) || yieldPct <= 0 || yieldPct > 100) {
-                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Yield % (must be 1–100): "${getField(first, ['Yield %'])}"` });
-                skipped += 1;
-                continue;
-            }
-            if (isNaN(bulkQty) || bulkQty <= 0) {
-                errors.push({ row: firstRowNumber, name: intermediateName, reason: `Invalid Bulk Quantity: "${getField(first, ['Bulk Quantity'])}"` });
-                skipped += 1;
-                continue;
-            }
-            // Collect and validate BOM rows
-            const validatedBom = [];
-            let bomFailed = false;
-            for (const entry of entries) {
-                const componentName = getField(entry.row, ['Component Name', 'Component', 'Material Name', 'componentName']);
-                if (!componentName)
-                    continue; // rows without a component name are just header-repeats
-                const qtyStr = getField(entry.row, ['Component Quantity', 'Quantity', 'quantity', 'componentQuantity']);
-                const qty = parseFloat(qtyStr || '0');
-                if (isNaN(qty) || qty <= 0) {
-                    errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Invalid Component Quantity for "${componentName}": "${qtyStr}"` });
-                    bomFailed = true;
-                    break;
-                }
-                const foundMat = rawMaterialByName.get(componentName.toLowerCase());
-                if (!foundMat) {
-                    errors.push({ row: entry.rowNumber, name: intermediateName, reason: `Component material "${componentName}" not found — import raw materials first` });
-                    bomFailed = true;
-                    break;
-                }
-                validatedBom.push({ materialId: foundMat.id, quantity: qty });
-            }
-            if (bomFailed) {
-                skipped += 1;
-                continue;
-            }
-            try {
-                const created = await getActiveDb()
-                    .insert(materials)
-                    .values({
-                    name: intermediateName,
-                    sku: null,
-                    description: notes || null,
-                    materialType: 'intermediate',
-                    category: category || '',
-                    unit,
-                    bulkQuantity: bulkQty,
-                    bulkPrice: 0,
-                    purchaseCurrencyId: defaultCurrencyId,
-                    priceInPurchaseCurrency: 0,
-                    priceInBaseCurrency: 0,
-                    unitPrice: 0,
-                    overheadPercentage: overheadPct,
-                    marginPercentage: marginPct,
-                    yieldPercentage: yieldPct,
-                    calculatedCostPerUnit: 0,
-                    supplier: '',
-                    isActive: true,
-                })
-                    .returning();
-                const intermediateId = created[0].id;
-                existingByName.set(intermediateName.toLowerCase(), { id: intermediateId, name: intermediateName });
-                for (const bom of validatedBom) {
-                    await getActiveDb().insert(intermediateMaterialBom).values({
-                        intermediateMaterialId: intermediateId,
-                        componentMaterialId: bom.materialId,
-                        quantity: bom.quantity,
-                    });
-                }
-                // Recalculate cost from BOM after insert
-                try {
-                    await recalculateIntermediateMaterialWithCascade(intermediateId);
-                }
-                catch (calcErr) {
-                    console.error('[import] Cost recalc failed for', intermediateName, calcErr);
-                    // Do not fail the import — row still counts as imported
-                }
-                imported += 1;
-            }
-            catch (error) {
-                errors.push({ row: firstRowNumber, name: intermediateName, reason: error?.message || 'Failed to create intermediate material' });
-                skipped += 1;
-            }
-        }
-        return res.json({ imported, skipped, errors });
-    }
-    catch (error) {
-        console.error('Error importing intermediate materials:', error);
-        return res.status(500).json({ error: 'Failed to import intermediate materials' });
-    }
-});
 app.delete('/api/intermediate-materials/bulk', async (req, res) => {
     try {
         const { ids } = req.body;
@@ -2041,9 +1897,13 @@ async function calculateProductCostSnapshot(productId) {
         const cost = parseFloat(item.quantity.toString()) * parseFloat(item.unitPrice?.toString() || '0');
         totalMaterialCost += cost;
     }
+    const { totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+        materialCost: totalMaterialCost,
+        laborCost: Number(product.laborCost || 0),
+        overheadPercentage: parseFloat(product.overheadPercentage.toString()),
+    });
     const otherCosts = parseFloat(product.otherDirectCosts?.toString() || '0');
-    const overheadCost = totalMaterialCost * (parseFloat(product.overheadPercentage.toString()) / 100);
-    const totalCost = totalMaterialCost + overheadCost + otherCosts;
+    const totalCost = materialsLaborOverheadTotal + otherCosts;
     // Markup formula: optimal price = totalCost × (1 + margin%)
     // The margin% here means profit on cost (markup), not profit on sales.
     // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
@@ -2151,12 +2011,19 @@ async function setNeedsReviewForMaterial(materialId) {
 async function recalculateIntermediateMaterialCost(intermediateMaterialId) {
     const rows = await getActiveDb().select().from(materials).where(eq(materials.id, intermediateMaterialId));
     if (rows.length === 0) {
-        return { recalculated: false, unitPrice: 0 };
+        return { recalculated: false, unitPrice: 0, unitPriceChanged: false, reviewedProductIds: [], productsNowNeedsReviewIds: [] };
     }
     const intermediate = rows[0];
     if (intermediate.materialType !== 'intermediate') {
-        return { recalculated: false, unitPrice: Number(intermediate.unitPrice || 0) };
+        return {
+            recalculated: false,
+            unitPrice: Number(intermediate.unitPrice || 0),
+            unitPriceChanged: false,
+            reviewedProductIds: [],
+            productsNowNeedsReviewIds: [],
+        };
     }
+    const previousUnitPrice = Number(intermediate.unitPrice || 0);
     const bomRows = await db
         .select({
         quantity: intermediateMaterialBom.quantity,
@@ -2169,16 +2036,21 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId) {
     for (const row of bomRows) {
         baseCost += Number(row.quantity || 0) * Number(row.componentUnitPrice || 0);
     }
-    const overheadMultiplier = 1 + (Number(intermediate.overheadPercentage || 0) / 100);
     const safeBulkQuantity = Math.max(0.0001, Number(intermediate.bulkQuantity || 1));
     const intermediateCostMode = intermediate.intermediateCostMode === 'completed_output' ? 'completed_output' : 'yield';
     const yieldFraction = Math.max(0.01, Number(intermediate.yieldPercentage || 100) / 100);
     const effectiveOutputQuantity = intermediateCostMode === 'completed_output'
         ? safeBulkQuantity
         : safeBulkQuantity * yieldFraction;
-    const totalBatchCost = roundToTwo(baseCost * overheadMultiplier);
-    const calculatedUnitPrice = roundToTwo(totalBatchCost / effectiveOutputQuantity);
+    const { totalBatchCost, costPerUnit } = calculateIntermediateCostPerUnit({
+        materialCost: baseCost,
+        laborCost: Number(intermediate.laborCost || 0),
+        overheadPercentage: Number(intermediate.overheadPercentage || 0),
+        outputQuantity: effectiveOutputQuantity,
+    });
+    const calculatedUnitPrice = roundToTwo(costPerUnit);
     const bulkPrice = roundToTwo(totalBatchCost);
+    const unitPriceChanged = Math.abs(calculatedUnitPrice - previousUnitPrice) >= 0.0001;
     await getActiveDb().update(materials)
         .set({
         unitPrice: calculatedUnitPrice,
@@ -2189,7 +2061,25 @@ async function recalculateIntermediateMaterialCost(intermediateMaterialId) {
         updatedAt: new Date(),
     })
         .where(eq(materials.id, intermediateMaterialId));
-    return { recalculated: true, unitPrice: calculatedUnitPrice };
+    let reviewedProductIds = [];
+    let productsNowNeedsReviewIds = [];
+    if (unitPriceChanged) {
+        try {
+            const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
+            reviewedProductIds = reviewSummary.reviewedProductIds;
+            productsNowNeedsReviewIds = reviewSummary.productsNowNeedsReviewIds;
+        }
+        catch (reviewError) {
+            console.error('[materials] Product review failed for intermediate:', intermediateMaterialId, reviewError);
+        }
+    }
+    return {
+        recalculated: true,
+        unitPrice: calculatedUnitPrice,
+        unitPriceChanged,
+        reviewedProductIds,
+        productsNowNeedsReviewIds,
+    };
 }
 async function cascadeIntermediateCostsFrom(rootComponentMaterialId) {
     const reviewedProductIds = new Set();
@@ -2212,17 +2102,11 @@ async function cascadeIntermediateCostsFrom(rootComponentMaterialId) {
             if (!recalc.recalculated)
                 continue;
             intermediateUpdatedIds.push(intermediateId);
-            try {
-                const reviewSummary = await setNeedsReviewForMaterial(intermediateId);
-                for (const productId of reviewSummary.reviewedProductIds) {
-                    reviewedProductIds.add(productId);
-                }
-                for (const productId of reviewSummary.productsNowNeedsReviewIds) {
-                    productsNowNeedsReviewIds.add(productId);
-                }
+            for (const productId of recalc.reviewedProductIds) {
+                reviewedProductIds.add(productId);
             }
-            catch (reviewError) {
-                console.error('[materials] Product review failed for intermediate:', intermediateId, reviewError);
+            for (const productId of recalc.productsNowNeedsReviewIds) {
+                productsNowNeedsReviewIds.add(productId);
             }
             queue.push(intermediateId);
         }
@@ -2245,20 +2129,8 @@ async function recalculateIntermediateMaterialWithCascade(intermediateMaterialId
             productsNowNeedsReviewIds: [],
         };
     }
-    const reviewedProductIds = new Set();
-    const productsNowNeedsReviewIds = new Set();
-    try {
-        const reviewSummary = await setNeedsReviewForMaterial(intermediateMaterialId);
-        for (const productId of reviewSummary.reviewedProductIds) {
-            reviewedProductIds.add(productId);
-        }
-        for (const productId of reviewSummary.productsNowNeedsReviewIds) {
-            productsNowNeedsReviewIds.add(productId);
-        }
-    }
-    catch (reviewError) {
-        console.error('[materials] Product review failed for intermediate:', intermediateMaterialId, reviewError);
-    }
+    const reviewedProductIds = new Set(recalc.reviewedProductIds);
+    const productsNowNeedsReviewIds = new Set(recalc.productsNowNeedsReviewIds);
     const cascadeSummary = await cascadeIntermediateCostsFrom(intermediateMaterialId);
     for (const productId of cascadeSummary.reviewedProductIds) {
         reviewedProductIds.add(productId);
@@ -2490,6 +2362,7 @@ app.get('/api/products', async (req, res) => {
             category: products.category,
             overheadPercentage: products.overheadPercentage,
             profitMargin: products.profitMargin,
+            laborCost: products.laborCost,
             otherDirectCosts: products.otherDirectCosts,
             productionMode: products.productionMode,
             batchYield: products.batchYield,
@@ -2558,7 +2431,7 @@ app.get('/api/products/:id', async (req, res) => {
 });
 app.post('/api/products', async (req, res) => {
     try {
-        const { name, sku, description, category, overheadPercentage, profitMargin, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
+        const { name, sku, description, category, overheadPercentage, profitMargin, laborCost, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
         const resolvedProductionMode = productionMode || 'single';
         const result = await getActiveDb().insert(products).values({
             name,
@@ -2567,6 +2440,7 @@ app.post('/api/products', async (req, res) => {
             category: category || null,
             overheadPercentage,
             profitMargin,
+            laborCost: Number(laborCost || 0),
             otherDirectCosts: otherDirectCosts || 0,
             productionMode: resolvedProductionMode,
             batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
@@ -2595,6 +2469,7 @@ app.put('/api/products/:id', async (req, res) => {
         const category = req.body?.category ?? existing.category;
         const overheadPercentage = Number(req.body?.overheadPercentage ?? existing.overheadPercentage);
         const profitMargin = Number(req.body?.profitMargin ?? existing.profitMargin);
+        const laborCost = Number(req.body?.laborCost ?? existing.laborCost ?? 0);
         const otherDirectCosts = Number(req.body?.otherDirectCosts ?? existing.otherDirectCosts ?? 0);
         const productionMode = req.body?.productionMode ?? existing.productionMode ?? 'single';
         const rawBatchYield = Number(req.body?.batchYield ?? existing.batchYield ?? 1);
@@ -2613,6 +2488,7 @@ app.put('/api/products/:id', async (req, res) => {
         const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
         const shouldReevaluateReview = req.body?.overheadPercentage !== undefined
             || req.body?.profitMargin !== undefined
+            || req.body?.laborCost !== undefined
             || req.body?.otherDirectCosts !== undefined
             || req.body?.productionMode !== undefined
             || req.body?.batchYield !== undefined
@@ -2629,6 +2505,7 @@ app.put('/api/products/:id', async (req, res) => {
             category: category || null,
             overheadPercentage,
             profitMargin,
+            laborCost,
             otherDirectCosts: otherDirectCosts || 0,
             productionMode: productionMode || 'single',
             batchYield,
@@ -3112,10 +2989,14 @@ app.get('/api/products/:id/calculate', async (req, res) => {
             const cost = parseFloat(item.quantity.toString()) * parseFloat(item.unitPrice?.toString() || '0');
             totalMaterialCost += cost;
         }
-        // Calculate overhead and profit
+        const laborCost = parseFloat(product[0].laborCost?.toString() || '0');
+        const { overheadAmount, totalCost: materialsLaborOverheadTotal } = calculateProductionCost({
+            materialCost: totalMaterialCost,
+            laborCost,
+            overheadPercentage: parseFloat(product[0].overheadPercentage.toString()),
+        });
         const otherCosts = parseFloat(product[0].otherDirectCosts?.toString() || '0');
-        const overheadCost = totalMaterialCost * (parseFloat(product[0].overheadPercentage.toString()) / 100);
-        const totalCost = totalMaterialCost + overheadCost + otherCosts;
+        const totalCost = materialsLaborOverheadTotal + otherCosts;
         // Markup formula: optimal price = totalCost × (1 + margin%)
         // The margin% here means profit on cost (markup), not profit on sales.
         // Example: cost GHS 2.41, markup 20% -> optimal = GHS 2.89
@@ -3124,7 +3005,8 @@ app.get('/api/products/:id/calculate', async (req, res) => {
         const recommendedPrice = totalCost + profitAmount;
         res.json({
             totalMaterialCost: totalMaterialCost.toFixed(2),
-            overheadCost: overheadCost.toFixed(2),
+            laborCost: laborCost.toFixed(2),
+            overheadCost: overheadAmount.toFixed(2),
             otherDirectCosts: otherCosts.toFixed(2),
             totalCost: totalCost.toFixed(2),
             profitAmount: profitAmount.toFixed(2),
@@ -4327,178 +4209,6 @@ app.listen(PORT, () => {
         .catch((error) => {
         console.error('Failed startup price expiry processing:', error);
     });
-});
-// Import products (grouped rows: one row per BOM material)
-app.post('/api/products/import', async (req, res) => {
-    try {
-        const rows = req.body;
-        if (!Array.isArray(rows))
-            return res.status(400).json({ error: 'Expected an array of rows' });
-        // Helper to read fields case-insensitively
-        const getField = (row, keys) => {
-            for (const k of keys) {
-                if (row[k] !== undefined && row[k] !== null && row[k] !== '')
-                    return String(row[k]).toString();
-            }
-            // Try case-insensitive match
-            const lowerKeys = Object.keys(row || {}).reduce((acc, cur) => { acc[cur.toLowerCase()] = row[cur]; return acc; }, {});
-            for (const k of keys) {
-                const v = lowerKeys[k.toLowerCase()];
-                if (v !== undefined && v !== null && v !== '')
-                    return String(v).toString();
-            }
-            return '';
-        };
-        // Group rows by product name
-        const groups = {};
-        for (let i = 0; i < rows.length; i++) {
-            const raw = rows[i];
-            const rowNumber = i + 1;
-            const productName = getField(raw, ['Product Name', 'name', 'ProductName']);
-            if (!productName) {
-                groups[`__INVALID__`] = groups[`__INVALID__`] || [];
-                groups[`__INVALID__`].push({ row: raw, rowNumber });
-                continue;
-            }
-            const key = productName.trim();
-            groups[key] = groups[key] || [];
-            groups[key].push({ row: raw, rowNumber });
-        }
-        const errors = [];
-        let imported = 0;
-        let skipped = 0;
-        // Load all existing products for duplicate name check
-        const existingProducts = await getActiveDb().select().from(products);
-        const existingProductNames = new Set(existingProducts.map((p) => String(p.name).toLowerCase()));
-        for (const [productName, entries] of Object.entries(groups)) {
-            if (productName === '__INVALID__') {
-                for (const e of entries) {
-                    errors.push({ productName: '', row: e.rowNumber, reason: 'Missing required field: Product Name' });
-                    skipped += 1;
-                }
-                continue;
-            }
-            // Take product details from first row
-            const first = entries[0].row;
-            const sku = getField(first, ['SKU', 'sku']);
-            const category = getField(first, ['Category', 'category']);
-            const productionModeRaw = getField(first, ['Production Mode', 'productionMode', 'ProductionMode']);
-            const batchYieldRaw = getField(first, ['Batch Yield', 'batchYield', 'BatchYield', 'Batch Size', 'batchSize']);
-            const overheadRaw = getField(first, ['Overhead %', 'Overhead', 'overhead', 'Overhead%']);
-            const profitRaw = getField(first, ['Profit on Cost %', 'Profit on cost %', 'Profit Margin %', 'Profit', 'profitMargin', 'Profit Margin%']);
-            const currentSellingPriceRaw = getField(first, ['Current Selling Price', 'currentSellingPrice', 'Selling Price', 'Current Price']);
-            // Validate product-level fields
-            const productionMode = productionModeRaw ? String(productionModeRaw).toLowerCase() : 'single';
-            if (!['single', 'batch'].includes(productionMode)) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Production Mode: ${productionModeRaw}` });
-                skipped += 1;
-                continue;
-            }
-            const batchYield = productionMode === 'batch' ? parseInt(batchYieldRaw || '0') : 1;
-            if (productionMode === 'batch' && (!batchYield || isNaN(batchYield) || batchYield <= 0)) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: 'Missing or invalid Batch Yield for batch product' });
-                skipped += 1;
-                continue;
-            }
-            const overhead = parseFloat(overheadRaw || '0');
-            const profitMargin = parseFloat(profitRaw || '0');
-            const currentSellingPrice = currentSellingPriceRaw ? parseFloat(currentSellingPriceRaw) : 0;
-            if (isNaN(overhead)) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Overhead %: ${overheadRaw}` });
-                skipped += 1;
-                continue;
-            }
-            if (isNaN(profitMargin) || profitMargin < 0 || profitMargin > 99) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Profit on Cost %: ${profitRaw}` });
-                skipped += 1;
-                continue;
-            }
-            if (isNaN(currentSellingPrice) || currentSellingPrice < 0) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Invalid Current Selling Price: ${currentSellingPriceRaw}` });
-                skipped += 1;
-                continue;
-            }
-            // Duplicate product name check (case-insensitive)
-            const lowerName = productName.toLowerCase();
-            if (existingProductNames.has(lowerName)) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Product '${productName}' already exists and was skipped.` });
-                skipped += 1;
-                continue;
-            }
-            // Validate all materials BEFORE creating product (if any missing, skip entire product)
-            const materialValidationErrors = [];
-            for (const e of entries) {
-                const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
-                const qtyRaw = getField(e.row, ['Quantity', 'quantity', 'Material Quantity', 'materialQuantity']);
-                const qty = parseFloat(qtyRaw || '0');
-                if (!matName) {
-                    materialValidationErrors.push({ rowNumber: e.rowNumber, matName: '' });
-                    continue;
-                }
-                if (isNaN(qty) || qty <= 0) {
-                    materialValidationErrors.push({ rowNumber: e.rowNumber, matName });
-                    continue;
-                }
-                // Find material by name (case-insensitive)
-                const mats = await getActiveDb().select().from(materials).where(sql `lower(${materials.name}) = ${matName.toLowerCase()}`);
-                if (!mats || mats.length === 0) {
-                    materialValidationErrors.push({ rowNumber: e.rowNumber, matName });
-                }
-            }
-            // If any material validation failed, skip entire product
-            if (materialValidationErrors.length > 0) {
-                const firstError = materialValidationErrors[0];
-                const reason = firstError.matName === ''
-                    ? 'BOM line is missing a material name'
-                    : `Material '${firstError.matName}' not found. Import materials and intermediates first.`;
-                errors.push({ productName, row: entries[0].rowNumber, reason });
-                skipped += 1;
-                continue;
-            }
-            // Create product
-            try {
-                const created = await getActiveDb().insert(products).values({
-                    name: productName,
-                    sku: sku || null,
-                    description: first['Description'] || first['description'] || null,
-                    category: category || null,
-                    overheadPercentage: overhead,
-                    profitMargin: profitMargin,
-                    productionMode: productionMode,
-                    batchYield: batchYield || 1,
-                    currentSellingPrice,
-                    approvalStatus: 'pending',
-                    isActive: true,
-                }).returning();
-                const productId = created[0].id;
-                // For each BOM row, find material and add to BOM
-                for (const e of entries) {
-                    const matName = getField(e.row, ['Material Name', 'Material', 'materialName', 'MaterialName']);
-                    const qtyRaw = getField(e.row, ['Quantity', 'quantity', 'Material Quantity', 'materialQuantity']);
-                    const qty = parseFloat(qtyRaw || '0');
-                    // Material already validated above, so just insert
-                    const mats = await getActiveDb().select().from(materials).where(sql `lower(${materials.name}) = ${matName.toLowerCase()}`);
-                    if (mats && mats.length > 0) {
-                        await getActiveDb().insert(billOfMaterials).values({
-                            productId,
-                            materialId: mats[0].id,
-                            quantity: qty,
-                        });
-                    }
-                }
-                imported += 1;
-            }
-            catch (err) {
-                errors.push({ productName, row: entries[0].rowNumber, reason: `Failed to create product: ${err?.message || String(err)}` });
-                skipped += 1;
-            }
-        }
-        res.json({ imported, skipped, errors });
-    }
-    catch (error) {
-        console.error('Error importing products:', error);
-        res.status(500).json({ error: 'Failed to import products' });
-    }
 });
 app.get('/api/materials/:id/bom', async (req, res) => {
     try {

@@ -1337,6 +1337,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                     style={{ marginTop: '16px' }}
                     type="button"
                     onClick={handleAddIntermediate}
+                    disabled={baseCurrencyMissing}
+                    title={baseCurrencyMissing ? 'Set a base currency first in Settings' : undefined}
                   >
                     Create your first intermediate material
                   </button>
