@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 10 July 2026
-**Current version:** 1.0.39
+**Last updated:** 11 July 2026
+**Current version:** 1.0.40
 **Active branch:** main
 
 ---
@@ -82,6 +82,42 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.37 | Jul 2026 | Window stability (bounds validation, atomic state write, single instance lock), BOM search/select alignment, content clipping fixes, table font standardisation |
 | v1.0.38 | Jul 2026 | Visual compacting fix (zoom/density removed), creation panel layout and BOM column fixes — see v1.0.39 note below |
 | v1.0.39 | Jul 2026 | Corrected release — fixes v1.0.38 version conflict; confirms zoom removal and all v1.0.38 fixes in one build |
+| v1.0.40 | Jul 2026 | Direct Labor Cost, Other Direct Costs UI, unified intermediate costing, sub-recipe BOM preview, needs_review for labor, help article updates |
+
+---
+
+## v1.0.40 — Detailed Changes
+
+**Released:** 11 July 2026
+
+Direct Labor Cost, simplified Intermediate recipe costing, Other Direct Costs UI, BOM improvements, and help documentation updates shipped after v1.0.39.
+
+### New: Direct Labor Cost
+- Products and Intermediate Materials now have a Direct Labor Cost field, distinct from Overhead
+- Overhead is calculated on Materials plus Direct Labor combined
+- Editing Direct Labor Cost on an approved product correctly triggers Needs review
+
+### New: Other Direct Costs (Products)
+- One-off product-specific costs (packaging, certification, per-batch consumables) added after overhead
+- Input field on Product creation panel and edit drawer (previously display-only on detail when non-zero)
+
+### Simplified: Intermediate Material recipe costing
+- Replaced Completed Output vs Yield-based toggle with a single question: how much finished product did this batch make
+- Exact quantity or percentage — kept in sync automatically
+
+### Improved: Bill of Materials
+- Unified search-and-select flow for Products and Intermediate Materials
+- Edit button on every BOM row in both places
+- Sub-recipe badge for Intermediate Materials nested in Product BOMs — inline expand preview with View full details →
+- Nested Intermediate cost changes correctly flag products for review
+- Creation panel layout fixes (names, actions, alignment)
+
+### Fixed / removed (carry-forward confirmation)
+- **Zoom/density toggle feature removed entirely — do not reintroduce without addressing the original minimize/restore visual bug it caused**
+- **Bulk CSV import removed for Products and Intermediate Materials — Materials (raw/primary) only going forward, unless revisited**
+- Add button on Products and Intermediate Materials opens creation form with a single click
+- Random window resizing between sessions fixed earlier; still in effect
+- Help articles updated for BOM flow, Direct Labor / Other Direct Costs, sub-recipe badge, Add button, and needs_review triggers
 
 ---
 
@@ -631,7 +667,11 @@ Comprehensive quality and consistency update covering Groups 1 through 18.
 - [x] Creation panel right panel width and BOM alignment — 700px panel, aligned search/table/summary (v1.0.38)
 - [x] Product creation — green Production Mode toggle, SKU removed, 2-row Description (v1.0.38)
 - [x] Intermediate creation — search count on type only, Markup label, Completed Output hint, BOM Edit button (v1.0.38)
-- [x] In-app table zoom and density toggle removed — fixes visual compacting after minimize/restore (v1.0.38, confirmed in v1.0.39)
+- [x] In-app table zoom and density toggle removed — fixes visual compacting after minimize/restore (v1.0.38, confirmed in v1.0.39; do not reintroduce without fixing the original bug)
+- [x] Direct Labor Cost on Products and Intermediate Materials; overhead on materials+labor; needs_review on labor edit (v1.0.40)
+- [x] Other Direct Costs input on Product create/edit panels (v1.0.40)
+- [x] Unified Intermediate output question (exact qty or %); sub-recipe badge + inline preview in Product BOM (v1.0.40)
+- [x] Bulk CSV import Products/Intermediates removed — Primary Materials only (v1.0.40)
 - [x] BOM table column widths fixed in creation panels — material name wrap and Delete button overflow (v1.0.38)
 
 ### Settings
