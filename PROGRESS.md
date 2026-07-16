@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 16 July 2026
-**Current version:** 1.0.42
+**Current version:** 1.0.43
 **Active branch:** main
 
 ---
@@ -85,6 +85,20 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.40 | Jul 2026 | Direct Labor Cost, Other Direct Costs UI, unified intermediate costing, sub-recipe BOM preview, needs_review for labor, help article updates |
 | v1.0.41 | Jul 2026 | Unskippable base currency gate, currency/empty-state bug fixes, dynamic Help currency, costing guide article, UI polish |
 | v1.0.42 | Jul 2026 | Export toolbar consolidation — CSV/Excel/PDF under single Export menu; Print stays standalone |
+| v1.0.43 | Jul 2026 | Backup reminder and Setup Guide onboarding fixes from real-world testing |
+
+---
+
+## v1.0.43 — Detailed Changes
+
+**Released:** 16 July 2026
+
+### Onboarding fixes from real-world testing
+
+- Fixed: the backup reminder no longer appears on a fresh install with no data — it now only shows once you actually have products or materials saved
+- The backup reminder now gently disappears on its own after a few seconds instead of staying on screen, and won't nag you more than once every couple of days
+- Added a one-click 'Back up now' action directly on the reminder
+- Fixed: 'Download Setup Guide' now properly downloads a PDF file instead of opening a print dialog
 
 ---
 
