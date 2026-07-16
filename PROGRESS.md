@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 11 July 2026
-**Current version:** 1.0.40
+**Last updated:** 16 July 2026
+**Current version:** 1.0.41
 **Active branch:** main
 
 ---
@@ -83,6 +83,34 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.38 | Jul 2026 | Visual compacting fix (zoom/density removed), creation panel layout and BOM column fixes — see v1.0.39 note below |
 | v1.0.39 | Jul 2026 | Corrected release — fixes v1.0.38 version conflict; confirms zoom removal and all v1.0.38 fixes in one build |
 | v1.0.40 | Jul 2026 | Direct Labor Cost, Other Direct Costs UI, unified intermediate costing, sub-recipe BOM preview, needs_review for labor, help article updates |
+| v1.0.41 | Jul 2026 | Unskippable base currency gate, currency/empty-state bug fixes, dynamic Help currency, costing guide article, UI polish |
+
+---
+
+## v1.0.41 — Detailed Changes
+
+**Released:** 16 July 2026
+
+Base currency safeguard on first launch, bug fixes it surfaced, Help documentation improvements, and small UI polish.
+
+### New: unskippable base currency setup
+- App requires a base currency before use — closes gaps that let a currency-less state slip through
+- Fixed: Intermediate Materials saved with hardcoded, potentially incorrect currency ID
+- Fixed: Add buttons on Products and Intermediate Materials reachable before currency was set
+- Server fails clearly instead of silently guessing currency when none is configured
+
+### Help documentation
+- Help articles display amounts in the user's configured base currency (not a fixed code)
+- New article: *Simple or detailed costing: which should you use?* — labor vs flat overhead guidance
+
+### Polish
+- Missing close button on product delete confirmation modal
+- Discard confirmation when closing new Intermediate Material create panel
+- Consistent Save Intermediate / Save Product button labeling
+- Reports page header layout aligned with Products (MarkupHealthPopover beside help)
+
+### Infrastructure note
+- Northflank licence server migration in progress — database addon created, backup schedule and app service deployment still pending
 
 ---
 
