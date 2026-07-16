@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 16 July 2026
-**Current version:** 1.0.41
+**Current version:** 1.0.42
 **Active branch:** main
 
 ---
@@ -84,6 +84,20 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.39 | Jul 2026 | Corrected release — fixes v1.0.38 version conflict; confirms zoom removal and all v1.0.38 fixes in one build |
 | v1.0.40 | Jul 2026 | Direct Labor Cost, Other Direct Costs UI, unified intermediate costing, sub-recipe BOM preview, needs_review for labor, help article updates |
 | v1.0.41 | Jul 2026 | Unskippable base currency gate, currency/empty-state bug fixes, dynamic Help currency, costing guide article, UI polish |
+| v1.0.42 | Jul 2026 | Export toolbar consolidation — CSV/Excel/PDF under single Export menu; Print stays standalone |
+
+---
+
+## v1.0.42 — Detailed Changes
+
+**Released:** 16 July 2026
+
+### Cleaner export toolbar
+
+- Export buttons (CSV, Excel, PDF) are now grouped into a single Export menu on Products, Materials, Intermediate Materials, and Reports — reducing toolbar clutter
+- Print remains its own one-click button on every page, unchanged
+- Price Levels keeps its Export Selected to Excel action separate from the format picker, since it does something different (exports only your checked rows)
+- No changes to what any export actually contains — same data, same formatting, just fewer buttons to scan
 
 ---
 
