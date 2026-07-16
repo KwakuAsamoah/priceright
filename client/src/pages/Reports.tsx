@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import AppBadge from '../components/AppBadge';
 import AppToast from '../components/AppToast';
+import ActionDropdown from '../components/ActionDropdown';
 import PageHelpButton from '../components/PageHelpButton';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import useAppToast from '../hooks/useAppToast';
@@ -2864,18 +2865,41 @@ export default function Reports() {
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportCsv()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <Download size={14} />
-          Export CSV
-        </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportExcel()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
-          {isExporting ? 'Exporting...' : 'Export Excel'}
-        </button>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportPDF()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-          <FileText size={14} />
-          Export PDF
-        </button>
+        <ActionDropdown
+          label={isExporting ? 'Exporting...' : 'Export'}
+          buttonClassName="btn btn-outline btn-sm"
+          buttonIcon={isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
+          disabled={exportDisabled}
+          items={[
+            {
+              key: 'export-csv',
+              label: 'CSV',
+              onSelect: () => {
+                void handleExportCsv();
+              },
+              icon: <Download size={14} />,
+              disabled: exportDisabled,
+            },
+            {
+              key: 'export-excel',
+              label: 'Excel',
+              onSelect: () => {
+                void handleExportExcel();
+              },
+              icon: <Table size={14} />,
+              disabled: exportDisabled,
+            },
+            {
+              key: 'export-pdf',
+              label: 'PDF',
+              onSelect: () => {
+                void handleExportPDF();
+              },
+              icon: <FileText size={14} />,
+              disabled: exportDisabled,
+            },
+          ]}
+        />
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void handlePrintReport()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Printer size={14} />
           Print

@@ -1058,33 +1058,33 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
           </select>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={handleExportFilteredMaterialsCsv}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Download size={14} />
-              Export CSV
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={handleExportFilteredMaterialsExcel}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Table size={14} />
-              Export Excel
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => void handleExportIntermediatePdf()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileText size={14} />
-              Export PDF
-            </button>
+            <ActionDropdown
+              label="Export"
+              buttonClassName="btn btn-outline btn-sm"
+              buttonIcon={<Download size={14} />}
+              items={[
+                {
+                  key: 'export-csv',
+                  label: 'CSV',
+                  onSelect: handleExportFilteredMaterialsCsv,
+                  icon: <Download size={14} />,
+                },
+                {
+                  key: 'export-excel',
+                  label: 'Excel',
+                  onSelect: handleExportFilteredMaterialsExcel,
+                  icon: <Table size={14} />,
+                },
+                {
+                  key: 'export-pdf',
+                  label: 'PDF',
+                  onSelect: () => {
+                    void handleExportIntermediatePdf();
+                  },
+                  icon: <FileText size={14} />,
+                },
+              ]}
+            />
             <button
               type="button"
               className="btn btn-outline btn-sm"

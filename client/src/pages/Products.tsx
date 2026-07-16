@@ -1377,34 +1377,37 @@ export default function Products() {
           </select>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={handleExportFilteredProductsCsv}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Download size={14} />
-              Export CSV
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => void handleExportToExcel()}
+            <ActionDropdown
+              label={isExporting ? 'Exporting...' : 'Export'}
+              buttonClassName="btn btn-outline btn-sm"
+              buttonIcon={isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Download size={14} />}
               disabled={isExporting}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              {isExporting ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Table size={14} />}
-              {isExporting ? 'Exporting...' : 'Export Excel'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => void handleExportProductsPdf()}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              <FileText size={14} />
-              Export PDF
-            </button>
+              items={[
+                {
+                  key: 'export-csv',
+                  label: 'CSV',
+                  onSelect: handleExportFilteredProductsCsv,
+                  icon: <Download size={14} />,
+                },
+                {
+                  key: 'export-excel',
+                  label: 'Excel',
+                  onSelect: () => {
+                    void handleExportToExcel();
+                  },
+                  icon: <Table size={14} />,
+                  disabled: isExporting,
+                },
+                {
+                  key: 'export-pdf',
+                  label: 'PDF',
+                  onSelect: () => {
+                    void handleExportProductsPdf();
+                  },
+                  icon: <FileText size={14} />,
+                },
+              ]}
+            />
             <button
               type="button"
               className="btn btn-outline btn-sm"

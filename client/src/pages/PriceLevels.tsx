@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { createPortal } from 'react-dom';
 import PageHelpButton from '../components/PageHelpButton';
-import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
+import { AlertTriangle, Check, CheckCheck, ChevronDown, ChevronRight, Download, FileText, Package, Pencil, Plus, Printer, Table, Tag, Trash2, X, XCircle, Clock3, CheckCircle2, Copy } from 'lucide-react';
 import {
   activityLogApi,
   currenciesApi,
@@ -1918,41 +1918,40 @@ export default function PriceLevels() {
                             : undefined;
                         return (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                onClick={exportAllApprovedToPdf}
-                                disabled={exportDisabled}
-                                title={exportDisabledTitle}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                              >
-                                <FileText size={14} />
-                                Export PDF
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-sm"
-                                onClick={openExportSelectedModal}
-                                disabled={exportDisabled}
-                                title={exportDisabledTitle || 'Export selected products to Excel'}
-                                aria-label="Export selected products to Excel"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                              >
-                                <ChevronDown size={14} />
-                                Export Selected to Excel
-                              </button>
-                            </div>
+                            <ActionDropdown
+                              label="Export"
+                              buttonClassName="btn btn-outline btn-sm"
+                              buttonIcon={<Download size={14} />}
+                              disabled={exportDisabled}
+                              disabledTitle={exportDisabledTitle}
+                              items={[
+                                {
+                                  key: 'export-excel',
+                                  label: 'Excel',
+                                  onSelect: exportAllApprovedToExcel,
+                                  icon: <Table size={14} />,
+                                  disabled: exportDisabled,
+                                },
+                                {
+                                  key: 'export-pdf',
+                                  label: 'PDF',
+                                  onSelect: exportAllApprovedToPdf,
+                                  icon: <FileText size={14} />,
+                                  disabled: exportDisabled,
+                                },
+                              ]}
+                            />
                             <button
                               type="button"
                               className="btn btn-outline btn-sm"
-                              onClick={exportAllApprovedToExcel}
+                              onClick={openExportSelectedModal}
                               disabled={exportDisabled}
-                              title={exportDisabledTitle}
+                              title={exportDisabledTitle || 'Export selected products to Excel'}
+                              aria-label="Export selected products to Excel"
                               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
-                              <Table size={14} />
-                              Export Excel
+                              <ChevronDown size={14} />
+                              Export Selected to Excel
                             </button>
                             <button
                               type="button"
