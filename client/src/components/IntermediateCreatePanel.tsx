@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
 import AppToast from '../components/AppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
@@ -87,6 +88,35 @@ const pageOverlayStyle = {
 interface IntermediateCreatePanelProps {
   onClose: () => void;
   onSaved: () => void;
+}
+
+type CreateDiscardAction = 'close' | 'navigate';
+
+type IntermediateCreateSnapshot = {
+  form: MaterialFormState;
+  materialCustomCategoryValue: string;
+  outputInputMethod: OutputInputMethod;
+  bom: Array<{ componentMaterialId: number; quantity: number }>;
+};
+
+function captureCreateSnapshot(
+  form: MaterialFormState,
+  materialCustomCategoryValue: string,
+  outputInputMethod: OutputInputMethod,
+  bom: TempBomItem[],
+): IntermediateCreateSnapshot {
+  return {
+    form: { ...form },
+    materialCustomCategoryValue,
+    outputInputMethod,
+    bom: bom
+      .map((item) => ({ componentMaterialId: item.componentMaterialId, quantity: item.quantity }))
+      .sort((a, b) => a.componentMaterialId - b.componentMaterialId || a.quantity - b.quantity),
+  };
+}
+
+function createSnapshotsEqual(a: IntermediateCreateSnapshot, b: IntermediateCreateSnapshot): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 const pageContainerStyle = {
@@ -345,6 +375,10 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [snapshotReady, setSnapshotReady] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [pendingDiscardAction, setPendingDiscardAction] = useState<CreateDiscardAction | null>(null);
+  const initialSnapshotRef = useRef<IntermediateCreateSnapshot | null>(null);
   const [form, setForm] = useState<MaterialFormState>(emptyForm);
   const [materialCustomCategoryValue, setMaterialCustomCategoryValue] = useState('');
   const [configuredMaterialCategories, setConfiguredMaterialCategories] = useState<string[]>([]);
@@ -361,6 +395,73 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   const [editingQuantity, setEditingQuantity] = useState('');
   const [closeButtonHovered, setCloseButtonHovered] = useState(false);
   const [outputInputMethod, setOutputInputMethod] = useState<OutputInputMethod>('exact');
+
+  const captureCurrentSnapshot = useCallback(
+    () => captureCreateSnapshot(form, materialCustomCategoryValue, outputInputMethod, tempBomItems),
+    [form, materialCustomCategoryValue, outputInputMethod, tempBomItems],
+  );
+
+  const isDirty = useMemo(() => {
+    if (!snapshotReady || !initialSnapshotRef.current) return false;
+    return !createSnapshotsEqual(initialSnapshotRef.current, captureCurrentSnapshot());
+  }, [snapshotReady, captureCurrentSnapshot]);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      isDirty && currentLocation.pathname !== nextLocation.pathname,
+  );
+
+  useEffect(() => {
+    if (isDirty && blocker.state === 'blocked' && !showDiscardModal) {
+      setPendingDiscardAction('navigate');
+      setShowDiscardModal(true);
+    }
+  }, [blocker.state, isDirty, showDiscardModal]);
+
+  useEffect(() => {
+    if (loading || snapshotReady) return;
+
+    initialSnapshotRef.current = captureCreateSnapshot(
+      form,
+      materialCustomCategoryValue,
+      outputInputMethod,
+      tempBomItems,
+    );
+    setSnapshotReady(true);
+  }, [loading, snapshotReady, form, materialCustomCategoryValue, outputInputMethod, tempBomItems]);
+
+  function requestClose() {
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    setPendingDiscardAction('close');
+    setShowDiscardModal(true);
+  }
+
+  function cancelDiscard() {
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+    if (blocker.state === 'blocked') {
+      blocker.reset();
+    }
+  }
+
+  function confirmDiscard() {
+    const action = pendingDiscardAction;
+    setShowDiscardModal(false);
+    setPendingDiscardAction(null);
+
+    if (action === 'navigate') {
+      if (blocker.state === 'blocked') {
+        blocker.proceed();
+      }
+      onClose();
+      return;
+    }
+
+    onClose();
+  }
 
   useEffect(() => {
     setHasOpenForm(true);
@@ -631,7 +732,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
   return (
     <>
       <AppToast open={showToast} message={toastMessage} type={toastType} onClose={closeToast} />
-      <div style={pageOverlayStyle} onClick={onClose} aria-hidden="true" />
+      <div style={pageOverlayStyle} onClick={requestClose} aria-hidden="true" />
       <div style={pageContainerStyle} onClick={(e) => e.stopPropagation()}>
         <div style={panelHeaderStyle}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -641,7 +742,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Close"
             onMouseEnter={() => setCloseButtonHovered(true)}
             onMouseLeave={() => setCloseButtonHovered(false)}
@@ -789,7 +890,7 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
                     onClick={() => void saveMaterial()}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : 'Create Intermediate'}
+                    {saving ? 'Saving...' : 'Save Intermediate'}
                   </button>
                 </div>
               </div>
@@ -983,6 +1084,30 @@ export default function IntermediateCreatePanel({ onClose, onSaved }: Intermedia
           </div>
         )}
       </div>
+      {showDiscardModal && (
+        <div className="app-modal-overlay" onClick={cancelDiscard}>
+          <div className="app-modal" style={{ maxWidth: '520px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={cancelDiscard} aria-label="Close">&times;</button>
+            <h2 className="app-modal-title">Discard new intermediate?</h2>
+            <p style={{ marginTop: '12px', color: '#475569' }}>
+              You have started creating an intermediate. If you close now your details will be lost.
+            </p>
+            <div className="app-modal-actions" style={{ marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-secondary" type="button" onClick={cancelDiscard} autoFocus>
+                Keep editing
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={confirmDiscard}
+                style={{ marginLeft: '12px', color: '#dc2626', borderColor: '#fecaca' }}
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

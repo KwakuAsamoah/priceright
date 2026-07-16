@@ -2864,7 +2864,6 @@ export default function Reports() {
 
     return (
       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0, flexWrap: 'wrap', alignItems: 'center' }}>
-        <MarkupHealthPopover />
         <button type="button" className="btn btn-outline btn-sm" onClick={() => void handleExportCsv()} disabled={exportDisabled} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Download size={14} />
           Export CSV
@@ -3847,7 +3846,10 @@ export default function Reports() {
           </button>
         </div>
         </div>
-        <PageHelpButton context="reports" />
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <MarkupHealthPopover />
+          <PageHelpButton context="reports" />
+        </div>
       </div>
 
       <div ref={pageContentRef} className="app-page-content app-page-content--data">

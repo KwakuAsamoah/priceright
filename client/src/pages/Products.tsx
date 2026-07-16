@@ -2030,31 +2030,9 @@ export default function Products() {
       )}
 
       {deleteTarget && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '10px',
-              padding: '24px',
-              maxWidth: '420px',
-              width: '90%',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="app-modal-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="app-modal" style={{ maxWidth: '420px' }} onClick={(e) => e.stopPropagation()}>
+            <button className="btn-close-x" onClick={() => setDeleteTarget(null)} aria-label="Close">&times;</button>
             <div style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px', color: '#0F2847' }}>Delete {deleteTarget.name}?</div>
             <div style={{ fontSize: '16px', color: '#64748b', marginBottom: '20px' }}>
               This will also delete its BOM. This cannot be undone.
