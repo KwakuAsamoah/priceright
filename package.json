@@ -1,6 +1,6 @@
 {
   "name": "priceright",
-  "version": "1.0.41",
+  "version": "1.0.42",
   "private": true,
   "main": "electron/main.js",
   "scripts": {
