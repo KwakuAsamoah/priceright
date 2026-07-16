@@ -81,7 +81,7 @@ export const helpArticles: HelpArticle[] = [
       <p>If you want to explore PriceRight before entering your own data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Try sample data</strong> for a full demo dataset. You can also download the sample materials file from Settings → Sample data and import it on the Materials (Primary) tab.</p>
       <ol>
         <li><strong>Set your base currency.</strong> Go to <strong>Settings → Currencies &amp; Rates</strong>.
-        Click <strong>Add currency</strong>, enter your local currency code (for example USD, GBP, NGN, KES, EUR, or GHS),
+        Click <strong>Add currency</strong>, enter your local currency code (for example USD, GBP, NGN, KES, or EUR),
         and mark it as the base currency. Every cost and price in PriceRight is calculated in this currency.
         You cannot change it easily later, so set it correctly first.</li>
 
@@ -324,7 +324,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>To set up a currency, go to <strong>Settings</strong> and open the
       <strong>Currencies &amp; Rates</strong> tab. Add the currency code and current
-      rate. For example, if your base currency is GHS and USD rate is 15.50, then 1 USD = 15.50 GHS. Adjust the numbers to match your own currencies.</p>
+      rate. For example, if your base currency is {{CURRENCY}} and the USD rate is 15.50, then 1 USD = 15.50 {{CURRENCY}}. Adjust the numbers to match your own currencies.</p>
 
       <p>When you add or edit a material, select the purchase currency from the
       dropdown. PriceRight stores both the original foreign currency price and
@@ -560,7 +560,7 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Building a product with a BOM',
     keywords: ['product', 'BOM', 'bill of materials', 'create product', 'recipe'],
-    relatedArticleIds: ['batch-vs-single', 'creation-panels', 'how-approval-works'],
+    relatedArticleIds: ['batch-vs-single', 'creation-panels', 'how-approval-works', 'costing-approach-guide'],
     content: `
       <p>To create a product, go to <strong>Products</strong> and click
       <strong>Add Product</strong> — this opens the creation panel directly. A floating overlay panel opens over the list — the table stays visible but dimmed behind it.</p>
@@ -570,6 +570,8 @@ export const helpArticles: HelpArticle[] = [
       <p>Give the product a name and category. Choose <strong>Single Unit</strong> or <strong>Batch</strong> production mode. For batch, enter the Batch Yield — how many finished units one recipe run produces.</p>
 
       <p>Set Overhead %, <strong>Direct Labor Cost</strong>, optional <strong>Other Direct Costs</strong>, and Markup %. Type in the search box to find a material — click a result to add it immediately. Set the quantity directly in the table row. Use the Edit button on any BOM row to make changes later. Click <strong>Save</strong> at the bottom of the left panel when done.</p>
+
+      <p>Not sure how much detail to use? Read <strong>Simple or detailed costing: which should you use?</strong> for guidance.</p>
 
       <p>If a BOM line uses an Intermediate Material — a sub-recipe made from other materials — you'll see a small sub-recipe badge next to its name. Click it to expand an inline preview of that Intermediate's own materials and cost, without leaving the page. Click <strong>View full details →</strong> inside the preview to open the Intermediate's own detail page.</p>
 
@@ -608,9 +610,11 @@ export const helpArticles: HelpArticle[] = [
     section: 'Products and Materials',
     title: 'Understanding overhead and markup on cost',
     keywords: ['overhead', 'margin', 'markup', 'markup on cost', 'cost', 'percentage', 'direct labor', 'labor cost', 'other direct costs'],
-    relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom'],
+    relatedArticleIds: ['how-priceright-calculates-profit', 'markup-health-guide', 'building-product-bom', 'costing-approach-guide'],
     content: `
       <p><strong>Overhead</strong> is a percentage applied to <strong>material cost plus direct labor cost</strong> to cover indirect expenses — electricity, rent, equipment, and other production overheads. <strong>Direct Labor Cost</strong> is entered separately as a fixed amount for your own time or paid staff time to make the product or batch.</p>
+
+      <p>Not sure how much detail to use? Read <strong>Simple or detailed costing: which should you use?</strong> for guidance.</p>
 
       <p>Production cost is calculated as:</p>
 
@@ -639,6 +643,46 @@ export const helpArticles: HelpArticle[] = [
       <p>Products are colour-coded by markup health using your <strong>Healthy Markup Threshold</strong> in Settings: <strong>Healthy</strong> (green) at or above the threshold, <strong>Low</strong> (amber) between half and full threshold, <strong>Critical</strong> (red) below half.</p>
 
       <p><strong>Gross Margin %</strong> is available as an optional reference column on the Products table (labelled "reference") for accounting comparisons — but Markup on Cost is the primary metric throughout PriceRight.</p>`,
+  },
+
+  {
+    id: 'costing-approach-guide',
+    section: 'Products and Materials',
+    title: 'Simple or detailed costing: which should you use?',
+    keywords: ['costing approach', 'simple pricing', 'detailed costing', 'labor cost', 'overhead percentage', 'best practice', 'how much detail', 'should I track labor'],
+    relatedArticleIds: ['overhead-and-margin', 'building-product-bom', 'how-priceright-calculates-profit'],
+    content: `
+      <p>PriceRight gives you separate fields for Materials, Direct Labor Cost, Overhead %, Other Direct Costs, and Markup — but you don't have to use all of them. Direct Labor Cost and Other Direct Costs default to zero, and Overhead % can be set to whatever fits your operation. There's no single correct way to fill these in. What matters is choosing an approach that matches how your production actually works, and applying it consistently so your prices reflect true cost.</p>
+
+      <h3>Approach 1: one flat overhead percentage</h3>
+      <p>Leave Direct Labor Cost at 0 and roll labor, rent, and other running costs into a single Overhead % applied to Materials. This suits production runs where hands-on time is fairly consistent across your product range, so one blended rate reasonably reflects each product.</p>
+      <ul>
+        <li><strong>Materials:</strong> {{CURRENCY}} 8.00</li>
+        <li><strong>Overhead (30%, covering labor and other running costs):</strong> {{CURRENCY}} 2.40</li>
+        <li><strong>Total cost:</strong> {{CURRENCY}} 10.40</li>
+        <li><strong>Markup (100%):</strong> Price {{CURRENCY}} 20.80</li>
+      </ul>
+
+      <h3>Approach 2: labor tracked separately</h3>
+      <p>Enter actual production time × your labor rate as Direct Labor Cost, and apply a smaller Overhead % to Materials + Labor combined — a typical range is 15–25%. This suits production where hands-on time varies meaningfully between products, and gives you an accurate view of which products are genuinely worth producing.</p>
+      <ul>
+        <li><strong>Materials:</strong> {{CURRENCY}} 8.00</li>
+        <li><strong>Direct Labor (15 minutes at {{CURRENCY}} 20/hour):</strong> {{CURRENCY}} 5.00</li>
+        <li><strong>Overhead (20% of Materials + Labor):</strong> {{CURRENCY}} 2.60</li>
+        <li><strong>Total cost:</strong> {{CURRENCY}} 15.60</li>
+        <li><strong>Markup (100%):</strong> Price {{CURRENCY}} 31.20</li>
+      </ul>
+
+      <p>Notice the two approaches don't land on the same price. Approach 1 priced this product at {{CURRENCY}} 20.80, using only Materials plus a flat 30% estimate. Approach 2 shows the product actually costs {{CURRENCY}} 31.20 once 15 minutes of production time is properly accounted for. If a flat overhead percentage doesn't reflect the real time a product takes, it can quietly understate labor cost without this being visible anywhere in the numbers.</p>
+
+      <h3>The one rule that matters most</h3>
+      <p>Whichever approach you use, don't leave both Direct Labor Cost and Overhead % effectively covering nothing — pricing from Materials alone almost always understates true cost. If you use a flat overhead percentage, it's worth periodically checking it against Approach 2 for a product with notably longer production time. If the two numbers are far apart, your overhead percentage likely needs adjusting.</p>
+
+      <h3>Where Other Direct Costs fits in</h3>
+      <p>Other Direct Costs (Products only) is for costs specific to a single product — special packaging, a certification fee — that don't belong in your general overhead rate because they'd distort it for every other product. Leave it at 0 unless a specific product carries a cost like this.</p>
+
+      <h3>What about Intermediate Materials?</h3>
+      <p>The same choice applies. An intermediate that requires significant hands-on production time benefits from tracking Direct Labor Cost separately. A quick, low-effort intermediate can typically have its labor folded into Overhead % instead.</p>`,
   },
 
   // ── PRICING AND APPROVALS ──────────────────────────────────────────────────
@@ -1382,7 +1426,7 @@ export const helpArticles: HelpArticle[] = [
         (Approved Price − Production Cost) ÷ Production Cost × 100
       </p>
 
-      <p>Example: production cost GHS 10.00, approved price GHS 14.00 → 40% markup on cost.</p>
+      <p>Example: production cost {{CURRENCY}} 10.00, approved price {{CURRENCY}} 14.00 → 40% markup on cost.</p>
 
       <p>Manufacturers usually think in markup on cost — "I add 30% on top of my costs." <strong>Gross margin</strong> is different: it divides profit by the selling price, not the cost. PriceRight shows Gross Margin % as an optional reference column on the Products table for accounting purposes.</p>
 

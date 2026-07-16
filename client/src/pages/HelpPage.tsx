@@ -12,9 +12,18 @@ import {
   type HelpCategory,
 } from '../data/helpConstants';
 import { helpArticles, type HelpArticle } from '../data/helpArticles';
+import { settingsApi } from '../api';
+
+/** Same display token as formatCurrency / ProductCreatePanel: currency code (e.g. "USD"). */
+const CURRENCY_PLACEHOLDER = /\{\{CURRENCY\}\}/g;
+const CURRENCY_FALLBACK = 'your base currency';
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function substituteCurrency(html: string, currencyLabel: string): string {
+  return html.replace(CURRENCY_PLACEHOLDER, currencyLabel);
 }
 
 function articlePreview(content: string, maxLength = 100): string {
@@ -56,6 +65,8 @@ export default function HelpPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const companyName = useCompanyName();
   const [isPrinting, setIsPrinting] = useState(false);
+  /** Currency code from settings.baseCurrency — never fall back to a hardcoded code like GHS. */
+  const [currencyLabel, setCurrencyLabel] = useState(CURRENCY_FALLBACK);
 
   const articleId = searchParams.get('article');
   const categoryParam = searchParams.get('category');
@@ -69,6 +80,33 @@ export default function HelpPage() {
 
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBaseCurrency() {
+      try {
+        // Same settings key as getBaseCurrency() / IntermediateCreatePanel — without GHS default.
+        const settings = await settingsApi.getAll();
+        const setting = Array.isArray(settings)
+          ? settings.find(
+              (entry: { settingKey: string; settingValue: string }) => entry.settingKey === 'baseCurrency',
+            )
+          : undefined;
+        const code = String(setting?.settingValue || '').trim();
+        if (!cancelled) {
+          setCurrencyLabel(code || CURRENCY_FALLBACK);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrencyLabel(CURRENCY_FALLBACK);
+        }
+      }
+    }
+    void loadBaseCurrency();
+    return () => {
+      cancelled = true;
+    };
+  }, [articleId, categoryParam, searchQueryParam]);
 
   useEffect(() => {
     if (!contextParam || articleId || categoryParam || searchQueryParam) return;
@@ -244,13 +282,18 @@ export default function HelpPage() {
     openHome();
   };
 
+  const renderedArticleContent = useMemo(() => {
+    if (!selectedArticle) return '';
+    return substituteCurrency(selectedArticle.content, currencyLabel);
+  }, [selectedArticle, currencyLabel]);
+
   async function handlePrintArticle() {
     if (!selectedArticle || isPrinting) return;
     setIsPrinting(true);
     try {
       await generateArticlePDF({
         title: selectedArticle.title,
-        content: selectedArticle.content,
+        content: substituteCurrency(selectedArticle.content, currencyLabel),
         companyName,
         filename: `${selectedArticle.id}.pdf`,
       });
@@ -388,7 +431,9 @@ export default function HelpPage() {
                     onClick={() => openArticle(article.id, { q: searchQueryParam })}
                   >
                     <div className="help-centre__article-card-title">{article.title}</div>
-                    <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
+                    <div className="help-centre__article-card-preview">
+                      {articlePreview(substituteCurrency(article.content, currencyLabel))}
+                    </div>
                     <div className="help-centre__article-card-meta">
                       <span className="help-centre__badge">{article.section}</span>
                     </div>
@@ -414,7 +459,9 @@ export default function HelpPage() {
                     onClick={() => openArticle(article.id, { category: selectedCategory })}
                   >
                     <div className="help-centre__article-card-title">{article.title}</div>
-                    <div className="help-centre__article-card-preview">{articlePreview(article.content)}</div>
+                    <div className="help-centre__article-card-preview">
+                      {articlePreview(substituteCurrency(article.content, currencyLabel))}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -478,7 +525,7 @@ export default function HelpPage() {
               </div>
               <div
                 className="help-article-body help-centre__article-body help-centre__article-content"
-                dangerouslySetInnerHTML={{ __html: selectedArticle.content }}
+                dangerouslySetInnerHTML={{ __html: renderedArticleContent }}
               />
 
               {relatedArticles.length > 0 && (
