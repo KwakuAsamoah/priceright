@@ -84,7 +84,7 @@ interface ProductPricing extends Product {
 
 const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Needs Review'];
 
-type InlineEditField = 'name' | 'priceExpires' | 'sellingPrice';
+type InlineEditField = 'priceExpires' | 'sellingPrice';
 
 type InlineEditState = {
   productId: number;
@@ -595,9 +595,7 @@ export default function Products() {
 
   function startInlineEdit(product: ProductPricing, field: InlineEditField) {
     let draftValue = '';
-    if (field === 'name') {
-      draftValue = product.name;
-    } else if (field === 'priceExpires') {
+    if (field === 'priceExpires') {
       draftValue = formatExpiryInputValue(product.approvedPriceExpiresAt);
     } else {
       draftValue = product.approvedPrice != null && Number(product.approvedPrice) > 0
@@ -605,34 +603,6 @@ export default function Products() {
         : '';
     }
     setInlineEdit({ productId: product.id, field, draftValue });
-  }
-
-  async function saveInlineProductName(product: ProductPricing) {
-    if (!inlineEdit || inlineEdit.productId !== product.id || inlineEdit.field !== 'name') return;
-
-    const nextName = inlineEdit.draftValue.trim();
-    if (!nextName) {
-      showToastMessage('Product name cannot be empty', 'error');
-      return;
-    }
-    if (nextName === product.name) {
-      cancelInlineEdit();
-      return;
-    }
-
-    setInlineSavingId(product.id);
-    try {
-      await productsApi.update(product.id, { name: nextName });
-      setProducts((prev) => prev.map((entry) => (
-        entry.id === product.id ? { ...entry, name: nextName } : entry
-      )));
-      cancelInlineEdit();
-      showToastMessage('Product name updated', 'success');
-    } catch (error: any) {
-      showToastMessage(error?.message || 'Failed to update product name', 'error');
-    } finally {
-      setInlineSavingId(null);
-    }
   }
 
   async function saveInlineValidUntil(product: ProductPricing) {
@@ -752,9 +722,7 @@ export default function Products() {
     if (event.key === 'Enter') {
       event.preventDefault();
       event.stopPropagation();
-      if (field === 'name') {
-        void saveInlineProductName(product);
-      } else if (field === 'priceExpires') {
+      if (field === 'priceExpires') {
         void saveInlineValidUntil(product);
       } else {
         void attemptSaveApprovedBasePrice(product);
@@ -1987,52 +1955,23 @@ export default function Products() {
                             />
                           </td>
                           <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                              {inlineEdit?.productId === product.id && inlineEdit.field === 'name' ? (
-                                <input
-                                  type="text"
-                                  value={inlineEdit.draftValue}
-                                  onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
-                                  onBlur={() => { void saveInlineProductName(product); }}
-                                  onKeyDown={(e) => handleInlineEditKeyDown(e, product, 'name')}
-                                  autoFocus
-                                  disabled={inlineSavingId === product.id}
-                                  style={inlineEditInputStyle}
-                                />
-                              ) : (
-                                <>
-                                  <span
-                                    title={`SKU: ${product.sku || '-'}`}
-                                    onClick={() => startInlineEdit(product, 'name')}
-                                    style={{
-                                      fontWeight: 600,
-                                      fontSize: '14px',
-                                      color: hoveredRowId === product.id ? '#16A34A' : (product.isActive ? undefined : '#aaaaaa'),
-                                      textDecoration: hoveredRowId === product.id ? 'underline' : 'none',
-                                      cursor: 'text',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      minWidth: 0,
-                                      flex: 1,
-                                    }}
-                                  >
-                                    {product.name}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => startInlineEdit(product, 'name')}
-                                    aria-label={`Edit name for ${product.name}`}
-                                    style={{ padding: '2px 4px', flexShrink: 0 }}
-                                  >
-                                    <Pencil size={13} />
-                                  </button>
-                                </>
-                              )}
-                              {inlineSavingId === product.id && inlineEdit?.field === 'name' ? (
-                                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" />
-                              ) : null}
+                              <span
+                                title={`SKU: ${product.sku || '-'}`}
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: '14px',
+                                  color: hoveredRowId === product.id ? '#16A34A' : (product.isActive ? undefined : '#aaaaaa'),
+                                  textDecoration: hoveredRowId === product.id ? 'underline' : 'none',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  minWidth: 0,
+                                  flex: 1,
+                                }}
+                              >
+                                {product.name}
+                              </span>
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
                           </td>
