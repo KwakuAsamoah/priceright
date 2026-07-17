@@ -8,7 +8,8 @@ export const MATERIALS_COLUMNS: ColumnConfig[] = [
   { id: 'category', label: 'Category', locked: false, defaultVisible: true },
   { id: 'unit', label: 'Unit', locked: false, defaultVisible: true },
   { id: 'unitCost', label: 'Unit Cost', locked: false, defaultVisible: true },
-  { id: 'bulkPricing', label: 'Bulk', locked: false, defaultVisible: true },
+  { id: 'bulkQuantity', label: 'Bulk Qty', locked: false, defaultVisible: true },
+  { id: 'bulkPricing', label: 'Bulk Price', locked: false, defaultVisible: true },
   { id: 'status', label: 'Status', locked: true, defaultVisible: true },
   { id: 'actions', label: 'Actions', locked: true, defaultVisible: true },
 ];
@@ -18,6 +19,7 @@ export type MaterialColumnKey =
   | 'category'
   | 'unit'
   | 'unitCost'
+  | 'bulkQuantity'
   | 'bulkPricing'
   | 'status'
   | 'actions';
@@ -26,6 +28,7 @@ export const MATERIAL_TOGGLEABLE_KEYS: MaterialColumnKey[] = [
   'category',
   'unit',
   'unitCost',
+  'bulkQuantity',
   'bulkPricing',
 ];
 

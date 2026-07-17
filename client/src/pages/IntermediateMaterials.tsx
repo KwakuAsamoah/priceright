@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
-import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, Layers, Plus, Printer, Table, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Copy, Download, Eye, EyeOff, FileText, Layers, Loader2, Plus, Printer, Table, Trash2, X } from 'lucide-react';
 import OverflowMenu from '../components/OverflowMenu';
 import IntermediateCreatePanel from '../components/IntermediateCreatePanel';
 import IntermediateOutputSection from '../components/IntermediateOutputSection';
@@ -131,6 +131,23 @@ function normalizeChoiceValue(selectedValue: string, customValue: string, fallba
   }
   return fallback;
 }
+
+type IntermediateInlineEditField = 'unit' | 'yield' | 'overhead';
+
+type IntermediateInlineEditState = {
+  materialId: number;
+  field: IntermediateInlineEditField;
+  draftValue: string;
+} | null;
+
+const inlineEditInputStyle = {
+  width: '100%',
+  padding: '4px 8px',
+  borderRadius: '6px',
+  border: '1px solid #cbd5e1',
+  fontSize: '14px',
+  boxSizing: 'border-box' as const,
+};
 
 function escapeCsvCell(value: unknown) {
   const text = String(value ?? '');
@@ -279,7 +296,7 @@ function buildIntermediatePdfOptions(
 }
 
 export default function IntermediateMaterials({ refreshKey = 0, isActive = true }: IntermediateMaterialsProps) {
-  const { version: materialCostVersion } = useMaterialCostSync();
+  const { version: materialCostVersion, notifyMaterialCostsChanged } = useMaterialCostSync();
   const [materials, setMaterials] = useState<MaterialRecord[]>([]);
   const [components, setComponents] = useState<MaterialRecord[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -301,6 +318,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   const companyName = useCompanyName();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+  const [inlineEdit, setInlineEdit] = useState<IntermediateInlineEditState>(null);
+  const [inlineSavingId, setInlineSavingId] = useState<number | null>(null);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialRecord | null>(null);
@@ -624,6 +643,173 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
     setComponentQuantity('1');
     setOutputInputMethod('exact');
     setStatusText('');
+  }
+
+  function cancelInlineEdit() {
+    setInlineEdit(null);
+  }
+
+  function startInlineEdit(material: MaterialRecord, field: IntermediateInlineEditField) {
+    if (field === 'unit') {
+      setInlineEdit({
+        materialId: material.id,
+        field,
+        draftValue: String(material.unit || ''),
+      });
+      return;
+    }
+    if (field === 'yield') {
+      setInlineEdit({
+        materialId: material.id,
+        field,
+        draftValue: String(material.yieldPercentage ?? '100'),
+      });
+      return;
+    }
+    setInlineEdit({
+      materialId: material.id,
+      field: 'overhead',
+      draftValue: String(material.overheadPercentage ?? '0'),
+    });
+  }
+
+  function applyIntermediateUpdate(materialId: number, updated: Partial<MaterialRecord> & Record<string, unknown>) {
+    setMaterials((prev) => prev.map((entry) => (
+      entry.id === materialId
+        ? {
+            ...entry,
+            ...updated,
+            unit: updated.unit != null ? String(updated.unit) : entry.unit,
+            yieldPercentage: updated.yieldPercentage != null ? String(updated.yieldPercentage) : entry.yieldPercentage,
+            overheadPercentage: updated.overheadPercentage != null ? String(updated.overheadPercentage) : entry.overheadPercentage,
+            unitPrice: updated.unitPrice != null ? String(updated.unitPrice) : entry.unitPrice,
+            calculatedCostPerUnit: updated.calculatedCostPerUnit != null
+              ? String(updated.calculatedCostPerUnit)
+              : entry.calculatedCostPerUnit,
+          }
+        : entry
+    )));
+  }
+
+  async function saveInlineUnit(material: MaterialRecord) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'unit') return;
+
+    const nextUnit = inlineEdit.draftValue.trim();
+    if (!nextUnit) {
+      showToastMessage('Unit cannot be empty', 'error');
+      return;
+    }
+    if (nextUnit === material.unit) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, { unit: nextUnit, materialType: 'intermediate' });
+      applyIntermediateUpdate(material.id, updated);
+      cancelInlineEdit();
+      showToastMessage('Unit updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update unit', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineYield(material: MaterialRecord) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'yield') return;
+
+    const parsed = parseFloat(inlineEdit.draftValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      showToastMessage('Enter a valid yield percentage greater than 0', 'error');
+      return;
+    }
+
+    const current = Number(material.yieldPercentage || 0);
+    if (Number.isFinite(current) && Math.abs(current - parsed) < 0.05) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, {
+        yieldPercentage: parsed,
+        materialType: 'intermediate',
+      });
+      applyIntermediateUpdate(material.id, updated);
+      notifyMaterialCostsChanged();
+      cancelInlineEdit();
+      showToastMessage('Yield % updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update yield %', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineOverhead(material: MaterialRecord) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'overhead') return;
+
+    const parsed = parseFloat(inlineEdit.draftValue);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      showToastMessage('Enter a valid non-negative overhead percentage', 'error');
+      return;
+    }
+
+    const current = Number(material.overheadPercentage || 0);
+    if (Number.isFinite(current) && Math.abs(current - parsed) < 0.05) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, {
+        overheadPercentage: parsed,
+        materialType: 'intermediate',
+      });
+      applyIntermediateUpdate(material.id, updated);
+      notifyMaterialCostsChanged();
+      cancelInlineEdit();
+      showToastMessage('Overhead % updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update overhead %', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  function attemptSaveInlineEdit(material: MaterialRecord) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id) return;
+    if (inlineEdit.field === 'unit') {
+      void saveInlineUnit(material);
+    } else if (inlineEdit.field === 'yield') {
+      void saveInlineYield(material);
+    } else {
+      void saveInlineOverhead(material);
+    }
+  }
+
+  function handleInlineEditKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    material: MaterialRecord,
+    field: IntermediateInlineEditField,
+  ) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelInlineEdit();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (inlineEdit?.field !== field) return;
+      attemptSaveInlineEdit(material);
+    }
   }
 
   function buildMaterialUpdatePayload(material: MaterialRecord, overrides?: Partial<MaterialRecord>) {
@@ -1295,9 +1481,106 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       </div>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>{material.sku || 'No SKU'}</div>
                     </td>
-                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
-                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.yieldPercentage || 0).toFixed(1)}</td>}
-                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '8px 14px', textAlign: 'right' }}>{Number(material.overheadPercentage || 0).toFixed(1)}%</td>}
+                    {isIntermediateColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'unit' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="text"
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => { void saveInlineUnit(material); }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'unit')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={{ ...inlineEditInputStyle, minWidth: '80px' }}
+                          />
+                          {inlineSavingId === material.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'unit')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            textAlign: 'left',
+                            width: '100%',
+                          }}
+                        >
+                          {material.unit}
+                        </button>
+                      )}
+                    </td>}
+                    {isIntermediateColumnVisible('yield') && <td style={{ padding: '8px 14px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'yield' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                          <input
+                            type="number"
+                            min={0.01}
+                            step="0.1"
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => { void saveInlineYield(material); }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'yield')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={{ ...inlineEditInputStyle, width: '80px', textAlign: 'right' }}
+                          />
+                          {inlineSavingId === material.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'yield')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            width: '100%',
+                            textAlign: 'right',
+                          }}
+                        >
+                          {Number(material.yieldPercentage || 0).toFixed(1)}
+                        </button>
+                      )}
+                    </td>}
+                    {isIntermediateColumnVisible('overhead') && <td style={{ padding: '8px 14px', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'overhead' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => { void saveInlineOverhead(material); }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'overhead')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={{ ...inlineEditInputStyle, width: '80px', textAlign: 'right' }}
+                          />
+                          {inlineSavingId === material.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'overhead')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            width: '100%',
+                            textAlign: 'right',
+                          }}
+                        >
+                          {Number(material.overheadPercentage || 0).toFixed(1)}%
+                        </button>
+                      )}
+                    </td>}
                     {isIntermediateColumnVisible('unitCost') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>
                       {material.baseCurrencySymbol}{Number(material.unitPrice || material.calculatedCostPerUnit || 0).toFixed(2)}
                     </td>}

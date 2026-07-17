@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFormState } from '../context/FormStateContext';
 import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, Download, Eye, EyeOff, FileText, FileUp, Loader2, Pencil, Plus, Printer, Table, Tags, Trash2, Upload, X } from 'lucide-react';
@@ -133,6 +133,38 @@ function normalizeChoiceValue(selectedValue: string, customValue: string, fallba
     return trimmed;
   }
   return fallback;
+}
+
+type MaterialInlineEditField = 'category' | 'unit' | 'bulkQuantity' | 'bulkPrice';
+
+type MaterialInlineEditState = {
+  materialId: number;
+  field: MaterialInlineEditField;
+  draftValue: string;
+  draftCustomValue: string;
+} | null;
+
+const inlineEditInputStyle = {
+  width: '100%',
+  padding: '4px 8px',
+  borderRadius: '6px',
+  border: '1px solid #cbd5e1',
+  fontSize: '14px',
+  boxSizing: 'border-box' as const,
+};
+
+function getChoiceDraftValues(
+  currentValue: string,
+  options: string[],
+): { draftValue: string; draftCustomValue: string } {
+  const trimmed = (currentValue || '').trim();
+  if (!trimmed) {
+    return { draftValue: '', draftCustomValue: '' };
+  }
+  if (options.includes(trimmed)) {
+    return { draftValue: trimmed, draftCustomValue: '' };
+  }
+  return { draftValue: '__custom__', draftCustomValue: trimmed };
 }
 
 function buildDuplicateName(baseName: string, existingNames: Set<string>) {
@@ -340,6 +372,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [selectedMaterialUsage, setSelectedMaterialUsage] = useState<MaterialUsage | null>(null);
   const [loadingMaterialUsage, setLoadingMaterialUsage] = useState(false);
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+  const [inlineEdit, setInlineEdit] = useState<MaterialInlineEditState>(null);
+  const [inlineSavingId, setInlineSavingId] = useState<number | null>(null);
   const [showPrevNextHint, setShowPrevNextHint] = useState(false);
   
   // New state for bulk actions
@@ -430,6 +464,207 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       showToastMessage('Unable to load materials. Please try again.', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  function cancelInlineEdit() {
+    setInlineEdit(null);
+  }
+
+  function startInlineEdit(material: Material, field: MaterialInlineEditField) {
+    if (field === 'category') {
+      const { draftValue, draftCustomValue } = getChoiceDraftValues(material.category, materialCategories);
+      setInlineEdit({ materialId: material.id, field, draftValue, draftCustomValue });
+      return;
+    }
+    if (field === 'unit') {
+      const { draftValue, draftCustomValue } = getChoiceDraftValues(material.unit, materialUnits);
+      setInlineEdit({ materialId: material.id, field, draftValue, draftCustomValue });
+      return;
+    }
+    if (field === 'bulkQuantity') {
+      setInlineEdit({
+        materialId: material.id,
+        field,
+        draftValue: material.bulkQuantity || '',
+        draftCustomValue: '',
+      });
+      return;
+    }
+    setInlineEdit({
+      materialId: material.id,
+      field: 'bulkPrice',
+      draftValue: material.bulkPrice || '',
+      draftCustomValue: '',
+    });
+  }
+
+  function applyMaterialUpdate(materialId: number, updated: Partial<Material> & Record<string, unknown>) {
+    setMaterials((prev) => prev.map((entry) => (
+      entry.id === materialId
+        ? {
+            ...entry,
+            ...updated,
+            bulkQuantity: updated.bulkQuantity != null ? String(updated.bulkQuantity) : entry.bulkQuantity,
+            bulkPrice: updated.bulkPrice != null ? String(updated.bulkPrice) : entry.bulkPrice,
+            unitPrice: updated.unitPrice != null ? String(updated.unitPrice) : entry.unitPrice,
+          }
+        : entry
+    )));
+  }
+
+  async function saveInlineCategory(material: Material) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'category') return;
+
+    const nextCategory = normalizeChoiceValue(inlineEdit.draftValue, inlineEdit.draftCustomValue);
+    if (!nextCategory) {
+      showToastMessage('Please select or enter a category', 'error');
+      return;
+    }
+    if (nextCategory === material.category) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, { category: nextCategory });
+      applyMaterialUpdate(material.id, updated);
+      cancelInlineEdit();
+      showToastMessage('Category updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update category', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineUnit(material: Material) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'unit') return;
+
+    const nextUnit = normalizeChoiceValue(inlineEdit.draftValue, inlineEdit.draftCustomValue, 'kg');
+    if (!nextUnit) {
+      showToastMessage('Please select or enter a unit', 'error');
+      return;
+    }
+    if (nextUnit === material.unit) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, { unit: nextUnit });
+      applyMaterialUpdate(material.id, updated);
+      cancelInlineEdit();
+      showToastMessage('Unit updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update unit', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineBulkQuantity(material: Material) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'bulkQuantity') return;
+
+    const parsed = parseFloat(inlineEdit.draftValue);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      showToastMessage('Enter a valid bulk quantity greater than 0', 'error');
+      return;
+    }
+
+    const current = parseFloat(material.bulkQuantity);
+    if (Number.isFinite(current) && Math.abs(current - parsed) < 0.0005) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, { bulkQuantity: parsed });
+      applyMaterialUpdate(material.id, updated);
+      notifyMaterialCostsChanged();
+      cancelInlineEdit();
+      const intermediatesUpdated = Number(updated?.intermediateMaterialsUpdated || 0);
+      showToastMessage(
+        intermediatesUpdated > 0
+          ? `Bulk quantity updated. ${intermediatesUpdated} intermediate material${intermediatesUpdated === 1 ? '' : 's'} recalculated.`
+          : 'Bulk quantity updated',
+        'success',
+      );
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update bulk quantity', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineBulkPrice(material: Material) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id || inlineEdit.field !== 'bulkPrice') return;
+
+    const parsed = parseFloat(inlineEdit.draftValue);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      showToastMessage('Enter a valid non-negative bulk price', 'error');
+      return;
+    }
+
+    const current = parseFloat(material.bulkPrice);
+    if (Number.isFinite(current) && Math.abs(current - parsed) < 0.005) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(material.id);
+    try {
+      const updated = await materialsApi.update(material.id, { bulkPrice: parsed });
+      applyMaterialUpdate(material.id, updated);
+      notifyMaterialCostsChanged();
+      cancelInlineEdit();
+      const intermediatesUpdated = Number(updated?.intermediateMaterialsUpdated || 0);
+      showToastMessage(
+        intermediatesUpdated > 0
+          ? `Bulk price updated. ${intermediatesUpdated} intermediate material${intermediatesUpdated === 1 ? '' : 's'} recalculated.`
+          : 'Bulk price updated',
+        'success',
+      );
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update bulk price', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  function attemptSaveInlineEdit(material: Material) {
+    if (!inlineEdit || inlineEdit.materialId !== material.id) return;
+    if (inlineEdit.field === 'category') {
+      void saveInlineCategory(material);
+    } else if (inlineEdit.field === 'unit') {
+      void saveInlineUnit(material);
+    } else if (inlineEdit.field === 'bulkQuantity') {
+      void saveInlineBulkQuantity(material);
+    } else {
+      void saveInlineBulkPrice(material);
+    }
+  }
+
+  function handleInlineEditKeyDown(
+    event: KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+    material: Material,
+    field: MaterialInlineEditField,
+  ) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelInlineEdit();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (inlineEdit?.field !== field) return;
+      attemptSaveInlineEdit(material);
     }
   }
 
@@ -1668,7 +1903,14 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                     setSortField('unitPrice');
                     setSortOrder((prev) => (sortField === 'unitPrice' && prev === 'asc' ? 'desc' : 'asc'));
                   }} style={{ textAlign: 'right', fontWeight: '700', width: '96px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Unit Cost</th>}
-                  {isMaterialColumnVisible('bulkPricing') && <th style={{ textAlign: 'right', fontWeight: '700', width: '104px', whiteSpace: 'nowrap' }}>Bulk</th>}
+                  {isMaterialColumnVisible('bulkQuantity') && <th onClick={() => {
+                    setSortField('bulkQuantity');
+                    setSortOrder((prev) => (sortField === 'bulkQuantity' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ textAlign: 'right', fontWeight: '700', width: '92px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Bulk Qty</th>}
+                  {isMaterialColumnVisible('bulkPricing') && <th onClick={() => {
+                    setSortField('bulkPrice');
+                    setSortOrder((prev) => (sortField === 'bulkPrice' && prev === 'asc' ? 'desc' : 'asc'));
+                  }} style={{ textAlign: 'right', fontWeight: '700', width: '104px', whiteSpace: 'nowrap', cursor: 'pointer' }}>Bulk Price</th>}
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '84px', whiteSpace: 'nowrap' }}>Status</th>
                   <th style={{ textAlign: 'center', fontWeight: '700', width: '130px', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
@@ -1719,21 +1961,186 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
                         {material.name}
                       </div>
                     </td>
-                    {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span style={{ fontSize: '13px', color: '#475569' }}>{material.category}</span>
+                    {isMaterialColumnVisible('category') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'category' ? (
+                        <div style={{ display: 'grid', gap: '6px', minWidth: '120px' }}>
+                          <select
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => {
+                              if (inlineEdit.draftValue !== '__custom__') {
+                                void saveInlineCategory(material);
+                              }
+                            }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'category')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={inlineEditInputStyle}
+                          >
+                            <option value="" disabled>Select category</option>
+                            {materialCategories.map((cat) => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                            <option value="__custom__">+ Add new category...</option>
+                          </select>
+                          {inlineEdit.draftValue === '__custom__' ? (
+                            <input
+                              type="text"
+                              value={inlineEdit.draftCustomValue}
+                              onChange={(e) => setInlineEdit({ ...inlineEdit, draftCustomValue: e.target.value })}
+                              onBlur={() => { void saveInlineCategory(material); }}
+                              onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'category')}
+                              disabled={inlineSavingId === material.id}
+                              placeholder="Enter new category"
+                              style={inlineEditInputStyle}
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'category')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            textAlign: 'left',
+                            width: '100%',
+                          }}
+                        >
+                          <span style={{ fontSize: '13px', color: '#475569' }}>{material.category || '—'}</span>
+                        </button>
+                      )}
                     </td>}
-                    {isMaterialColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>{material.unit}</td>}
+                    {isMaterialColumnVisible('unit') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'unit' ? (
+                        <div style={{ display: 'grid', gap: '6px', minWidth: '100px' }}>
+                          <select
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => {
+                              if (inlineEdit.draftValue !== '__custom__') {
+                                void saveInlineUnit(material);
+                              }
+                            }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'unit')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={inlineEditInputStyle}
+                          >
+                            <option value="" disabled>Select unit</option>
+                            {materialUnits.map((unit) => (
+                              <option key={unit} value={unit}>{unit}</option>
+                            ))}
+                            <option value="__custom__">+ Add new unit...</option>
+                          </select>
+                          {inlineEdit.draftValue === '__custom__' ? (
+                            <input
+                              type="text"
+                              value={inlineEdit.draftCustomValue}
+                              onChange={(e) => setInlineEdit({ ...inlineEdit, draftCustomValue: e.target.value })}
+                              onBlur={() => { void saveInlineUnit(material); }}
+                              onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'unit')}
+                              disabled={inlineSavingId === material.id}
+                              placeholder="Enter new unit"
+                              style={inlineEditInputStyle}
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'unit')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            textAlign: 'left',
+                            width: '100%',
+                          }}
+                        >
+                          {material.unit}
+                        </button>
+                      )}
+                    </td>}
                     {isMaterialColumnVisible('unitCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <div className="money-value" style={{ fontWeight: '600', fontSize: '14px' }}>
                         {material.baseCurrencySymbol}
                         {parseFloat(material.unitPrice).toFixed(2)}
                       </div>
                     </td>}
-                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                      <div className="money-value" style={{ fontSize: '14px', fontWeight: '600' }} title={`for ${parseFloat(material.bulkQuantity).toFixed(2)} ${material.unit}`}>
-                        {material.purchaseCurrencySymbol}
-                        {parseFloat(material.bulkPrice).toFixed(2)}
-                      </div>
+                    {isMaterialColumnVisible('bulkQuantity') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'bulkQuantity' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                          <input
+                            type="number"
+                            min={0.01}
+                            step="0.01"
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => { void saveInlineBulkQuantity(material); }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'bulkQuantity')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={{ ...inlineEditInputStyle, width: '90px', textAlign: 'right' }}
+                          />
+                          {inlineSavingId === material.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'bulkQuantity')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            width: '100%',
+                            textAlign: 'right',
+                          }}
+                        >
+                          {parseFloat(material.bulkQuantity).toFixed(2)} {material.unit}
+                        </button>
+                      )}
+                    </td>}
+                    {isMaterialColumnVisible('bulkPricing') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>
+                      {inlineEdit?.materialId === material.id && inlineEdit.field === 'bulkPrice' ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            value={inlineEdit.draftValue}
+                            onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                            onBlur={() => { void saveInlineBulkPrice(material); }}
+                            onKeyDown={(e) => handleInlineEditKeyDown(e, material, 'bulkPrice')}
+                            autoFocus
+                            disabled={inlineSavingId === material.id}
+                            style={{ ...inlineEditInputStyle, width: '100px', textAlign: 'right' }}
+                          />
+                          {inlineSavingId === material.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startInlineEdit(material, 'bulkPrice')}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            cursor: 'text',
+                            width: '100%',
+                            textAlign: 'right',
+                          }}
+                        >
+                          <span className="money-value" style={{ fontSize: '14px', fontWeight: '600' }}>
+                            {material.purchaseCurrencySymbol}
+                            {parseFloat(material.bulkPrice).toFixed(2)}
+                          </span>
+                        </button>
+                      )}
                     </td>}
                     <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                       <AppBadge variant={material.isActive ? 'success' : 'inactive'} size="sm">
