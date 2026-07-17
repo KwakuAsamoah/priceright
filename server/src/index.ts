@@ -2367,6 +2367,49 @@ async function setNeedsReviewForMaterial(materialId: number): Promise<{ reviewed
   return { reviewedProductIds, productsNowNeedsReviewIds };
 }
 
+async function hasApprovedPriceLevelReference(productId: number): Promise<boolean> {
+  const rows = await getActiveDb()
+    .select({ id: priceLevelItems.id })
+    .from(priceLevelItems)
+    .where(and(
+      eq(priceLevelItems.productId, productId),
+      eq(priceLevelItems.status, 'approved'),
+    ))
+    .limit(1);
+
+  return rows.length > 0;
+}
+
+async function getStaleApprovedCustomPriceLevelItems(productId: number): Promise<Array<{
+  priceLevelId: number;
+  priceLevelName: string;
+  customPrice: number | null;
+}>> {
+  if (!(await hasApprovedPriceLevelReference(productId))) {
+    return [];
+  }
+
+  return getActiveDb()
+    .select({
+      priceLevelId: priceLevelItems.priceLevelId,
+      priceLevelName: priceLevels.name,
+      customPrice: priceLevelItems.customPrice,
+    })
+    .from(priceLevelItems)
+    .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
+    .where(
+      and(
+        eq(priceLevelItems.productId, productId),
+        or(
+          eq(priceLevelItems.overrideType, 'fixed_amount_add'),
+          eq(priceLevelItems.overrideType, 'fixed_amount_deduct'),
+          eq(priceLevelItems.overrideType, 'custom_price'),
+        ),
+        eq(priceLevelItems.status, 'approved'),
+      ),
+    );
+}
+
 async function recalculateIntermediateMaterialCost(intermediateMaterialId: number): Promise<{
   recalculated: boolean;
   unitPrice: number;
@@ -2858,6 +2901,26 @@ app.get('/api/products/:id', async (req, res) => {
   }
 });
 
+app.get('/api/products/:id/has-approved-price-level', async (req, res) => {
+  try {
+    const productId = parseInt(req.params.id);
+    if (!Number.isInteger(productId)) {
+      return res.status(400).json({ error: 'Invalid product id' });
+    }
+
+    const existingRows = await getActiveDb().select({ id: products.id }).from(products).where(eq(products.id, productId));
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const hasApprovedReference = await hasApprovedPriceLevelReference(productId);
+    res.json({ hasApprovedReference });
+  } catch (error) {
+    console.error('Error checking approved price level reference:', error);
+    res.status(500).json({ error: 'Failed to check approved price level reference' });
+  }
+});
+
 app.post('/api/products', async (req, res) => {
   try {
     const { name, sku, description, category, overheadPercentage, profitMargin, laborCost, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
@@ -3078,25 +3141,7 @@ app.post('/api/products/:id/approve', async (req, res) => {
     // Post-approval: stale fixed amount check — wrapped so a failure does not cause a 500
     let staleCustomPrices: Array<{ priceLevelId: number; priceLevelName: string; customPrice: number; newApprovedBasePrice: number }> = [];
     try {
-      const staleCustomPriceItems = await getActiveDb()
-        .select({
-          priceLevelId: priceLevelItems.priceLevelId,
-          priceLevelName: priceLevels.name,
-          customPrice: priceLevelItems.customPrice,
-        })
-        .from(priceLevelItems)
-        .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
-        .where(
-          and(
-            eq(priceLevelItems.productId, productId),
-            or(
-              eq(priceLevelItems.overrideType, 'fixed_amount_add'),
-              eq(priceLevelItems.overrideType, 'fixed_amount_deduct'),
-              eq(priceLevelItems.overrideType, 'custom_price'),
-            ),
-            eq(priceLevelItems.status, 'approved'),
-          )
-        );
+      const staleCustomPriceItems = await getStaleApprovedCustomPriceLevelItems(productId);
       staleCustomPrices = staleCustomPriceItems
         .filter((si) => si.customPrice != null)
         .map((si) => ({
