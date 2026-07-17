@@ -256,7 +256,7 @@ function buildProductPdfRows(products: ProductPricing[], currencyCode: string): 
       productionCost: formatExportNumber(Number(product.totalCost || 0)),
       currency: currencyCode,
       optimalPrice: formatExportNumber(Number(product.optimalPrice || 0)),
-      approvedBasePrice: product.approvalStatus === 'approved' && product.approvedPrice != null
+      approvedBasePrice: product.approvedPrice != null && Number(product.approvedPrice) > 0
         ? formatExportNumber(Number(product.approvedPrice))
         : '—',
       actualMarkupPercent: formatProductExportPercent(actualMarkup),
@@ -312,7 +312,7 @@ function buildProductExportValues(product: ProductPricing, baseCurrency: string)
     formatExportNumber(Number(product.totalCost || 0)),
     baseCurrency,
     formatExportNumber(Number(product.optimalPrice || 0)),
-    product.approvalStatus === 'approved' && product.approvedPrice != null
+    product.approvedPrice != null && Number(product.approvedPrice) > 0
       ? formatExportNumber(Number(product.approvedPrice))
       : '—',
     formatProductExportPercent(actualMarkup),
@@ -1948,8 +1948,7 @@ export default function Products() {
                   {filteredProducts.map((product, idx) => {
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
 
-                    const hasApprovedBasePrice = product.approvalStatus === 'approved'
-                      && product.approvedPrice != null
+                    const hasApprovedBasePrice = product.approvedPrice != null
                       && Number(product.approvedPrice) > 0;
                     const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
                     const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
