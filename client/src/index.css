@@ -2349,6 +2349,10 @@ textarea {
   width: min(600px, 100%);
 }
 
+.app-drawer-panel--bom {
+  width: min(920px, 100%);
+}
+
 .app-drawer-panel__scroll {
   flex: 1;
   overflow-y: auto;

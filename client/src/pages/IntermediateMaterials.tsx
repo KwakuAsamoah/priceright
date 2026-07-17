@@ -29,6 +29,17 @@ import { formatExportNumber } from '../utils/exportFormat';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import {
+  bomActionButtonStyle,
+  bomActionButtonsStyle,
+  bomActionCellStyle,
+  bomColMaterialStyle,
+  bomColQuantityStyle,
+  bomColTotalStyle,
+  bomColUnitPriceStyle,
+  bomMaterialCellStyle,
+  bomTableStyle,
+} from '../styles/bomTableStyles';
+import {
   INTERMEDIATE_LOCKED_KEYS,
   INTERMEDIATE_MATERIALS_COLUMNS,
   INTERMEDIATE_TOGGLEABLE_KEYS,
@@ -1363,7 +1374,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
         {isFormOpen && selectedMaterial ? (
           <div className="app-drawer-overlay">
             <div
-              className="app-drawer-panel"
+              className="app-drawer-panel app-drawer-panel--bom"
               onClick={(e) => e.stopPropagation()}
             >
               <button className="btn-close-x" type="button" onClick={closeMaterialForm} aria-label="Close">
@@ -1651,14 +1662,14 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 </div>
 
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-                  <table className="app-table app-table-compact" style={{ width: '100%' }}>
+                  <table className="app-table app-table-compact" style={bomTableStyle}>
                     <thead>
                       <tr>
-                        <th style={{ width: '36%', textAlign: 'left' }}>Material</th>
-                        <th style={{ textAlign: 'right' }}>Quantity</th>
-                        <th style={{ textAlign: 'right' }}>Unit Price</th>
-                        <th style={{ textAlign: 'right' }}>Total</th>
-                        <th style={{ textAlign: 'center' }}>Action</th>
+                        <th style={bomColMaterialStyle}>Material</th>
+                        <th style={bomColQuantityStyle}>Quantity</th>
+                        <th style={bomColUnitPriceStyle}>Unit Price</th>
+                        <th style={bomColTotalStyle}>Total</th>
+                        <th style={bomActionCellStyle}>Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1668,8 +1679,8 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
 
                         return (
                           <tr key={item.id}>
-                            <td style={{ textAlign: 'left' }}>{item.componentMaterialName}</td>
-                            <td style={{ textAlign: 'right' }}>
+                            <td style={bomMaterialCellStyle}>{item.componentMaterialName}</td>
+                            <td style={bomColQuantityStyle}>
                               {isEditing ? (
                                 <input
                                   className="app-input"
@@ -1692,19 +1703,19 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                                 <span>{Number(item.quantity || 0).toFixed(3)} {item.unit}</span>
                               )}
                             </td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(Number(item.unitPrice || 0))}</td>
-                            <td style={{ textAlign: 'right' }}>{formatMoney(rowTotal)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                            <td style={bomColUnitPriceStyle}>{formatMoney(Number(item.unitPrice || 0))}</td>
+                            <td style={{ ...bomColTotalStyle, fontWeight: '600' }}>{formatMoney(rowTotal)}</td>
+                            <td style={bomActionCellStyle}>
+                              <div style={bomActionButtonsStyle}>
                                 {isEditing ? (
                                   <>
-                                    <button className="btn btn-secondary btn-sm" type="button" onClick={() => void saveBomEdit(item)}>Save</button>
-                                    <button className="btn btn-outline btn-sm" type="button" onClick={cancelBomEdit}>Cancel</button>
+                                    <button className="btn btn-secondary btn-sm" type="button" style={bomActionButtonStyle} onClick={() => void saveBomEdit(item)}>Save</button>
+                                    <button className="btn btn-outline btn-sm" type="button" style={bomActionButtonStyle} onClick={cancelBomEdit}>Cancel</button>
                                   </>
                                 ) : (
-                                  <button className="btn btn-secondary btn-sm" type="button" onClick={() => startBomEdit(item)}>Edit</button>
+                                  <button className="btn btn-secondary btn-sm" type="button" style={bomActionButtonStyle} onClick={() => startBomEdit(item)}>Edit</button>
                                 )}
-                                <button className="btn btn-danger btn-sm" type="button" onClick={() => void deleteBomItem(item)}>Delete</button>
+                                <button className="btn btn-danger btn-sm" type="button" style={bomActionButtonStyle} onClick={() => void deleteBomItem(item)}>Delete</button>
                               </div>
                             </td>
                           </tr>

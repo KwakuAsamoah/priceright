@@ -8,6 +8,18 @@ import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { MarkupInfoTooltip } from './ProfitTooltips';
 import { calculateProductionCost } from '../utils/costFormula';
+import {
+  bomActionButtonStyle,
+  bomActionButtonsStyle,
+  bomActionCellStyle,
+  bomColMaterialStyle,
+  bomColQuantityStyle,
+  bomColTotalStyle,
+  bomColUnitPriceStyle,
+  bomColUnitStyle,
+  bomMaterialCellStyle,
+  bomTableStyle,
+} from '../styles/bomTableStyles';
 
 const PREV_NEXT_HINT_KEY = 'priceright_prevnext_hint_dismissed';
 
@@ -881,15 +893,15 @@ export default function ProductFormDrawer({
 
             {tempBomMaterials.length > 0 ? (
               <div style={{ overflow: 'visible', minWidth: 0 }}>
-              <table className="app-table app-table-compact" style={{ width: '100%', minWidth: 0 }}>
+              <table className="app-table app-table-compact" style={bomTableStyle}>
                 <thead style={{ backgroundColor: '#f1f5f9' }}>
                   <tr>
-                    <th style={{ textAlign: 'left' }}>Material</th>
-                    <th style={{ textAlign: 'right' }}>Quantity</th>
-                    <th style={{ textAlign: 'left' }}>Unit</th>
-                    <th style={{ textAlign: 'right' }}>Unit Price</th>
-                    <th style={{ textAlign: 'right' }}>Total</th>
-                    <th style={{ textAlign: 'center' }}>Actions</th>
+                    <th style={bomColMaterialStyle}>Material</th>
+                    <th style={bomColQuantityStyle}>Quantity</th>
+                    <th style={bomColUnitStyle}>Unit</th>
+                    <th style={bomColUnitPriceStyle}>Unit Price</th>
+                    <th style={bomColTotalStyle}>Total</th>
+                    <th style={bomActionCellStyle}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -897,8 +909,8 @@ export default function ProductFormDrawer({
                     const totalCost = item.quantity * parseFloat(item.unitPrice);
                     return (
                       <tr key={item.id}>
-                        <td style={{ textAlign: 'left' }}>{item.materialName}</td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={bomMaterialCellStyle}>{item.materialName}</td>
+                        <td style={bomColQuantityStyle}>
                           {editingBomId === item.id ? (
                             <input
                               type="number"
@@ -919,20 +931,21 @@ export default function ProductFormDrawer({
                             />
                           )}
                         </td>
-                        <td style={{ textAlign: 'left' }}>{item.unit}</td>
-                        <td style={{ textAlign: 'right' }}>
+                        <td style={bomColUnitStyle}>{item.unit}</td>
+                        <td style={bomColUnitPriceStyle}>
                           {baseCurrency} {parseFloat(item.unitPrice).toFixed(2)}
                         </td>
-                        <td style={{ textAlign: 'right', fontWeight: '600' }}>
+                        <td style={{ ...bomColTotalStyle, fontWeight: '600' }}>
                           {baseCurrency} {totalCost.toFixed(2)}
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={bomActionCellStyle}>
                           {editingBomId === item.id ? (
-                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <div style={bomActionButtonsStyle}>
                               <button
                                 type="button"
                                 onClick={() => handleSaveBomEdit(item.id)}
                                 className="btn btn-success btn-sm"
+                                style={bomActionButtonStyle}
                               >
                                 Save
                               </button>
@@ -940,16 +953,18 @@ export default function ProductFormDrawer({
                                 type="button"
                                 onClick={handleCancelBomEdit}
                                 className="btn btn-ghost btn-sm"
+                                style={bomActionButtonStyle}
                               >
                                 Cancel
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <div style={bomActionButtonsStyle}>
                               <button
                                 type="button"
                                 onClick={() => handleEditBomItem(item.id, item.quantity.toString())}
                                 className="btn btn-secondary btn-sm"
+                                style={bomActionButtonStyle}
                               >
                                 Edit
                               </button>
@@ -957,6 +972,7 @@ export default function ProductFormDrawer({
                                 type="button"
                                 onClick={() => handleRemoveMaterialFromTemp(item.id)}
                                 className="btn btn-danger btn-sm"
+                                style={bomActionButtonStyle}
                               >
                                 Delete
                               </button>
@@ -1027,7 +1043,7 @@ export default function ProductFormDrawer({
       ) : (
       <div className="app-drawer-overlay">
       <div
-        className="app-drawer-panel app-drawer-panel--narrow"
+        className="app-drawer-panel app-drawer-panel--bom"
         onClick={(e) => e.stopPropagation()}
       >
         <button
