@@ -30,7 +30,7 @@ export const DEMO_DATABASE_FILE_PATH = path.resolve(dbRootDir, 'demo.db');
 export const DEMO_MODE_FILE_PATH = path.resolve(dbRootDir, 'demo-mode.json');
 
 let sqlite = new Database(DATABASE_FILE_PATH);
-const demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
+let demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
 
 sqlite.pragma('foreign_keys = ON');
 demoSqlite.pragma('foreign_keys = ON');
@@ -524,6 +524,25 @@ export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });
 
+type DrizzleSqliteInstance = typeof liveDb & {
+	$client: Database.Database;
+	session: { client: Database.Database };
+};
+
+function patchDrizzleConnection(drizzleInstance: typeof liveDb, connection: Database.Database): void {
+	const instance = drizzleInstance as unknown as DrizzleSqliteInstance;
+	instance.session.client = connection;
+	instance.$client = connection;
+}
+
+function isConnectionOpen(connection: Database.Database): boolean {
+	try {
+		return connection.open;
+	} catch {
+		return false;
+	}
+}
+
 export function closeLiveDb(): void {
 	try {
 		sqlite.close();
@@ -536,12 +555,55 @@ export function reopenLiveDb(): void {
 	try {
 		sqlite = new Database(DATABASE_FILE_PATH);
 		sqlite.pragma('foreign_keys = ON');
-		// Patch the internal session's client so existing Drizzle instance uses the new connection
-		(db as any).session.client = sqlite;
+		patchDrizzleConnection(liveDb, sqlite);
 	} catch (err) {
 		console.error('[db] Error reopening liveDb:', err);
 		throw err;
 	}
+}
+
+export function closeDemoDb(): void {
+	try {
+		demoSqlite.close();
+	} catch (err) {
+		console.error('[db] Error closing demoDb:', err);
+	}
+}
+
+export function reopenDemoDb(): void {
+	try {
+		demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
+		demoSqlite.pragma('foreign_keys = ON');
+		patchDrizzleConnection(demoDb, demoSqlite);
+	} catch (err) {
+		console.error('[db] Error reopening demoDb:', err);
+		throw err;
+	}
+}
+
+export function getSqliteClient(): Database.Database | null {
+	const activeDb = getActiveDb();
+	const client = (activeDb as unknown as DrizzleSqliteInstance).$client ?? null;
+	if (!client) {
+		return null;
+	}
+	if (isConnectionOpen(client)) {
+		return client;
+	}
+
+	console.warn('[db] SQLite connection was closed; reopening automatically');
+	try {
+		if (readDemoModeState()) {
+			reopenDemoDb();
+		} else {
+			reopenLiveDb();
+		}
+	} catch (err) {
+		console.error('[db] Failed to auto-reopen SQLite connection:', err);
+		return null;
+	}
+
+	return (getActiveDb() as unknown as DrizzleSqliteInstance).$client ?? null;
 }
 
 // Seed demo data on startup; seedDemoData skips automatically when data already exists.

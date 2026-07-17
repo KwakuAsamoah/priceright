@@ -5,7 +5,7 @@ import cors from 'cors';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getActiveDb, liveDb, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
+import { getActiveDb, liveDb, getSqliteClient, DATABASE_FILE_PATH, DEMO_DATABASE_FILE_PATH, readDemoModeState, writeDemoModeState, closeLiveDb, reopenLiveDb } from './db.js';
 import { seedDemoData } from './seedDemo.js';
 import { calculateProductionCost, calculateIntermediateCostPerUnit } from './costFormula.js';
 import { currencies, exchangeRates, settings, materials, products, billOfMaterials, intermediateMaterialBom, materialPriceHistory, priceLevels, priceLevelItems, priceLevelPackSizes, customers, specialPricing, priceLists, priceListItems, activityLog, type PriceLevelItem, type ActivityLogEntry } from './schema.js';
@@ -2263,19 +2263,6 @@ async function calculateProductCostSnapshot(productId: number): Promise<{ materi
   };
 }
 
-function getSqliteClient() {
-  const typedDb = db as unknown as {
-    $client?: {
-      prepare: (query: string) => {
-        all: () => Array<{ name: string }>;
-        run: (...values: unknown[]) => unknown;
-      };
-    };
-  };
-
-  return typedDb.$client ?? null;
-}
-
 let productComputedColumnsCache: { materialCostColumn: string | null; optimalPriceColumn: string | null } | null = null;
 
 function resolveComputedProductColumns() {
@@ -2289,7 +2276,7 @@ function resolveComputedProductColumns() {
     return productComputedColumnsCache;
   }
 
-  const columns = sqliteClient.prepare("SELECT name FROM pragma_table_info('products')").all();
+  const columns = sqliteClient.prepare("SELECT name FROM pragma_table_info('products')").all() as Array<{ name: string }>;
   const columnNames = new Set(columns.map((column) => column.name));
 
   productComputedColumnsCache = {

@@ -25,7 +25,7 @@ export const DATABASE_FILE_PATH = path.resolve(dbRootDir, 'priceright.db');
 export const DEMO_DATABASE_FILE_PATH = path.resolve(dbRootDir, 'demo.db');
 export const DEMO_MODE_FILE_PATH = path.resolve(dbRootDir, 'demo-mode.json');
 let sqlite = new Database(DATABASE_FILE_PATH);
-const demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
+let demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
 sqlite.pragma('foreign_keys = ON');
 demoSqlite.pragma('foreign_keys = ON');
 function ensureDemoModeFile() {
@@ -481,6 +481,19 @@ migrateLaborCost(demoSqlite);
 export const db = drizzle(sqlite, { schema });
 export const liveDb = db;
 export const demoDb = drizzle(demoSqlite, { schema });
+function patchDrizzleConnection(drizzleInstance, connection) {
+    const instance = drizzleInstance;
+    instance.session.client = connection;
+    instance.$client = connection;
+}
+function isConnectionOpen(connection) {
+    try {
+        return connection.open;
+    }
+    catch {
+        return false;
+    }
+}
 export function closeLiveDb() {
     try {
         sqlite.close();
@@ -493,13 +506,55 @@ export function reopenLiveDb() {
     try {
         sqlite = new Database(DATABASE_FILE_PATH);
         sqlite.pragma('foreign_keys = ON');
-        // Patch the internal session's client so existing Drizzle instance uses the new connection
-        db.session.client = sqlite;
+        patchDrizzleConnection(liveDb, sqlite);
     }
     catch (err) {
         console.error('[db] Error reopening liveDb:', err);
         throw err;
     }
+}
+export function closeDemoDb() {
+    try {
+        demoSqlite.close();
+    }
+    catch (err) {
+        console.error('[db] Error closing demoDb:', err);
+    }
+}
+export function reopenDemoDb() {
+    try {
+        demoSqlite = new Database(DEMO_DATABASE_FILE_PATH);
+        demoSqlite.pragma('foreign_keys = ON');
+        patchDrizzleConnection(demoDb, demoSqlite);
+    }
+    catch (err) {
+        console.error('[db] Error reopening demoDb:', err);
+        throw err;
+    }
+}
+export function getSqliteClient() {
+    const activeDb = getActiveDb();
+    const client = activeDb.$client ?? null;
+    if (!client) {
+        return null;
+    }
+    if (isConnectionOpen(client)) {
+        return client;
+    }
+    console.warn('[db] SQLite connection was closed; reopening automatically');
+    try {
+        if (readDemoModeState()) {
+            reopenDemoDb();
+        }
+        else {
+            reopenLiveDb();
+        }
+    }
+    catch (err) {
+        console.error('[db] Failed to auto-reopen SQLite connection:', err);
+        return null;
+    }
+    return getActiveDb().$client ?? null;
 }
 // Seed demo data on startup; seedDemoData skips automatically when data already exists.
 // Pass DEMO_DATABASE_FILE_PATH so the seed writes to the same file the app reads from.
