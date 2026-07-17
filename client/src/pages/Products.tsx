@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useFormState } from '../context/FormStateContext';
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -83,6 +83,36 @@ interface ProductPricing extends Product {
 }
 
 const APPROVAL_STATUS_OPTIONS = ['All', 'Pending', 'Approved', 'Needs Review'];
+
+type InlineEditField = 'name' | 'priceExpires' | 'sellingPrice';
+
+type InlineEditState = {
+  productId: number;
+  field: InlineEditField;
+  draftValue: string;
+} | null;
+
+type PendingApprovedPriceConfirm = {
+  productId: number;
+  productName: string;
+  approvedPrice: number;
+} | null;
+
+function formatExpiryInputValue(value?: string | null): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.includes('T') ? trimmed.slice(0, 10) : trimmed.slice(0, 10);
+}
+
+const inlineEditInputStyle = {
+  width: '100%',
+  padding: '4px 8px',
+  borderRadius: '6px',
+  border: '1px solid #cbd5e1',
+  fontSize: '14px',
+  boxSizing: 'border-box' as const,
+};
 
 function toNumber(value: string | number | undefined) {
   if (value === undefined) return 0;
@@ -424,6 +454,10 @@ export default function Products() {
   const [isApprovingAll, setIsApprovingAll] = useState(false);
   const [showApproveAllEligibleModal, setShowApproveAllEligibleModal] = useState(false);
   const [approveAllEligibleIds, setApproveAllEligibleIds] = useState<number[]>([]);
+  const [inlineEdit, setInlineEdit] = useState<InlineEditState>(null);
+  const [inlineSavingId, setInlineSavingId] = useState<number | null>(null);
+  const [pendingApprovedPriceConfirm, setPendingApprovedPriceConfirm] = useState<PendingApprovedPriceConfirm>(null);
+  const [isConfirmingApprovedPrice, setIsConfirmingApprovedPrice] = useState(false);
 
   const productCategories = useMemo(() => {
     const observed = products
@@ -552,6 +586,179 @@ export default function Products() {
       setMaterials([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function cancelInlineEdit() {
+    setInlineEdit(null);
+  }
+
+  function startInlineEdit(product: ProductPricing, field: InlineEditField) {
+    let draftValue = '';
+    if (field === 'name') {
+      draftValue = product.name;
+    } else if (field === 'priceExpires') {
+      draftValue = formatExpiryInputValue(product.approvedPriceExpiresAt);
+    } else {
+      draftValue = product.approvedPrice != null && Number(product.approvedPrice) > 0
+        ? Number(product.approvedPrice).toFixed(2)
+        : '';
+    }
+    setInlineEdit({ productId: product.id, field, draftValue });
+  }
+
+  async function saveInlineProductName(product: ProductPricing) {
+    if (!inlineEdit || inlineEdit.productId !== product.id || inlineEdit.field !== 'name') return;
+
+    const nextName = inlineEdit.draftValue.trim();
+    if (!nextName) {
+      showToastMessage('Product name cannot be empty', 'error');
+      return;
+    }
+    if (nextName === product.name) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(product.id);
+    try {
+      await productsApi.update(product.id, { name: nextName });
+      setProducts((prev) => prev.map((entry) => (
+        entry.id === product.id ? { ...entry, name: nextName } : entry
+      )));
+      cancelInlineEdit();
+      showToastMessage('Product name updated', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update product name', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function saveInlineValidUntil(product: ProductPricing) {
+    if (!inlineEdit || inlineEdit.productId !== product.id || inlineEdit.field !== 'priceExpires') return;
+
+    const nextDate = inlineEdit.draftValue.trim();
+    const currentDate = formatExpiryInputValue(product.approvedPriceExpiresAt);
+    if (nextDate === currentDate) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(product.id);
+    try {
+      const updated = await productsApi.update(product.id, {
+        approvedPriceExpiresAt: nextDate || null,
+      });
+      setProducts((prev) => prev.map((entry) => (
+        entry.id === product.id
+          ? {
+              ...entry,
+              approvedPriceExpiresAt: updated.approvedPriceExpiresAt ?? (nextDate || null),
+              priceExpiryNotifiedAt: updated.priceExpiryNotifiedAt ?? null,
+            }
+          : entry
+      )));
+      cancelInlineEdit();
+      showToastMessage(nextDate ? 'Valid until date updated' : 'Valid until date cleared', 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update valid until date', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function commitApprovedBasePrice(product: ProductPricing, approvedPrice: number) {
+    setInlineSavingId(product.id);
+    try {
+      await productsApi.approve(product.id, { approvedPrice });
+      await loadData();
+      cancelInlineEdit();
+      showToastMessage(`Approved base price updated to ${baseCurrency} ${approvedPrice.toFixed(2)}`, 'success');
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to update approved base price', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function attemptSaveApprovedBasePrice(product: ProductPricing) {
+    if (!inlineEdit || inlineEdit.productId !== product.id || inlineEdit.field !== 'sellingPrice') return;
+
+    const parsed = parseFloat(inlineEdit.draftValue);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      showToastMessage('Enter a valid non-negative price', 'error');
+      return;
+    }
+
+    const currentPrice = product.approvedPrice != null ? Number(product.approvedPrice) : null;
+    if (currentPrice != null && Math.abs(currentPrice - parsed) < 0.005) {
+      cancelInlineEdit();
+      return;
+    }
+
+    setInlineSavingId(product.id);
+    try {
+      const { hasApprovedReference } = await productsApi.hasApprovedPriceLevel(product.id);
+      if (hasApprovedReference) {
+        setPendingApprovedPriceConfirm({
+          productId: product.id,
+          productName: product.name,
+          approvedPrice: parsed,
+        });
+        cancelInlineEdit();
+        return;
+      }
+
+      await commitApprovedBasePrice(product, parsed);
+    } catch (error: any) {
+      showToastMessage(error?.message || 'Failed to check price level reference', 'error');
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  async function confirmPendingApprovedBasePrice() {
+    if (!pendingApprovedPriceConfirm) return;
+
+    const target = products.find((entry) => entry.id === pendingApprovedPriceConfirm.productId);
+    if (!target) {
+      setPendingApprovedPriceConfirm(null);
+      showToastMessage('Product not found', 'error');
+      return;
+    }
+
+    setIsConfirmingApprovedPrice(true);
+    try {
+      await commitApprovedBasePrice(target, pendingApprovedPriceConfirm.approvedPrice);
+      setPendingApprovedPriceConfirm(null);
+    } finally {
+      setIsConfirmingApprovedPrice(false);
+    }
+  }
+
+  function handleInlineEditKeyDown(
+    event: KeyboardEvent<HTMLInputElement>,
+    product: ProductPricing,
+    field: InlineEditField,
+  ) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      cancelInlineEdit();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.stopPropagation();
+      if (field === 'name') {
+        void saveInlineProductName(product);
+      } else if (field === 'priceExpires') {
+        void saveInlineValidUntil(product);
+      } else {
+        void attemptSaveApprovedBasePrice(product);
+      }
     }
   }
 
@@ -1781,24 +1988,52 @@ export default function Products() {
                             />
                           </td>
                           <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
+                          <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                              <span
-                                title={`SKU: ${product.sku || '-'}`}
-                                onClick={(e) => { e.stopPropagation(); openProductDetail(product.id); }}
-                                style={{
-                                  fontWeight: 600,
-                                  fontSize: '14px',
-                                  color: hoveredRowId === product.id ? '#16A34A' : (product.isActive ? undefined : '#aaaaaa'),
-                                  textDecoration: hoveredRowId === product.id ? 'underline' : 'none',
-                                  cursor: 'pointer',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  minWidth: 0,
-                                }}
-                              >
-                                {product.name}
-                              </span>
+                              {inlineEdit?.productId === product.id && inlineEdit.field === 'name' ? (
+                                <input
+                                  type="text"
+                                  value={inlineEdit.draftValue}
+                                  onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                                  onBlur={() => { void saveInlineProductName(product); }}
+                                  onKeyDown={(e) => handleInlineEditKeyDown(e, product, 'name')}
+                                  autoFocus
+                                  disabled={inlineSavingId === product.id}
+                                  style={inlineEditInputStyle}
+                                />
+                              ) : (
+                                <>
+                                  <span
+                                    title={`SKU: ${product.sku || '-'}`}
+                                    onClick={() => startInlineEdit(product, 'name')}
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: '14px',
+                                      color: hoveredRowId === product.id ? '#16A34A' : (product.isActive ? undefined : '#aaaaaa'),
+                                      textDecoration: hoveredRowId === product.id ? 'underline' : 'none',
+                                      cursor: 'text',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      minWidth: 0,
+                                      flex: 1,
+                                    }}
+                                  >
+                                    {product.name}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-sm"
+                                    onClick={() => startInlineEdit(product, 'name')}
+                                    aria-label={`Edit name for ${product.name}`}
+                                    style={{ padding: '2px 4px', flexShrink: 0 }}
+                                  >
+                                    <Pencil size={13} />
+                                  </button>
+                                </>
+                              )}
+                              {inlineSavingId === product.id && inlineEdit?.field === 'name' ? (
+                                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" />
+                              ) : null}
                               {product.approvalStatus === 'needs_review' && <AppBadge variant="warning" size="sm">Review</AppBadge>}
                             </div>
                           </td>
@@ -1808,40 +2043,100 @@ export default function Products() {
                           {isProductColumnVisible('optimalPrice') && <td style={{ padding: '8px 14px', fontWeight: '700', color: product.isActive ? '#16a34a' : '#aaaaaa', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <span className="money-value">{product.optimalPrice.toFixed(2)}</span>
                           </td>}
-                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '8px 14px', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                            {product.approvedPriceExpiresAt ? (
-                              (() => {
-                                const expiryDate = new Date(product.approvedPriceExpiresAt);
-                                const today = new Date();
-                                const daysUntilExpiryLocal = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                                const isExpired = daysUntilExpiryLocal < 0;
-                                const isExpiringSoon = daysUntilExpiryLocal >= 0 && daysUntilExpiryLocal <= 30;
-                                const cellColor = isExpired ? '#dc2626' : isExpiringSoon ? '#d97706' : '#374151';
-                                return (
-                                  <span style={{ color: cellColor, fontWeight: isExpired || isExpiringSoon ? 700 : 500 }}>
-                                    {expiryDate.toLocaleDateString('en-GB', {
-                                      day: '2-digit',
-                                      month: 'short',
-                                      year: 'numeric',
-                                    })}
-                                  </span>
-                                );
-                              })()
+                          {isProductColumnVisible('priceExpires') && <td style={{ padding: '8px 14px', textAlign: 'left', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                            {inlineEdit?.productId === product.id && inlineEdit.field === 'priceExpires' ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <input
+                                  type="date"
+                                  value={inlineEdit.draftValue}
+                                  onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                                  onBlur={() => { void saveInlineValidUntil(product); }}
+                                  onKeyDown={(e) => handleInlineEditKeyDown(e, product, 'priceExpires')}
+                                  autoFocus
+                                  disabled={inlineSavingId === product.id}
+                                  style={{ ...inlineEditInputStyle, minWidth: '140px' }}
+                                />
+                                {inlineSavingId === product.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                              </div>
                             ) : (
-                              <span style={{ color: '#94a3b8' }}>—</span>
+                              <button
+                                type="button"
+                                onClick={() => startInlineEdit(product, 'priceExpires')}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  padding: 0,
+                                  cursor: 'text',
+                                  textAlign: 'left',
+                                  width: '100%',
+                                }}
+                              >
+                                {product.approvedPriceExpiresAt ? (
+                                  (() => {
+                                    const expiryDate = new Date(product.approvedPriceExpiresAt);
+                                    const today = new Date();
+                                    const daysUntilExpiryLocal = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                    const isExpired = daysUntilExpiryLocal < 0;
+                                    const isExpiringSoon = daysUntilExpiryLocal >= 0 && daysUntilExpiryLocal <= 30;
+                                    const cellColor = isExpired ? '#dc2626' : isExpiringSoon ? '#d97706' : '#374151';
+                                    return (
+                                      <span style={{ color: cellColor, fontWeight: isExpired || isExpiringSoon ? 700 : 500 }}>
+                                        {expiryDate.toLocaleDateString('en-GB', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric',
+                                        })}
+                                      </span>
+                                    );
+                                  })()
+                                ) : (
+                                  <span style={{ color: '#94a3b8' }}>—</span>
+                                )}
+                              </button>
                             )}
                           </td>}
-                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {hasApprovedBasePrice ? (
-                              <span
-                                className="money-value"
-                                style={{ fontWeight: 700, color: sellingMismatch ? '#c62828' : undefined }}
-                                title={sellingMismatch ? 'Approved base price differs from approved value' : undefined}
-                              >
-                                {Number(product.approvedPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
-                              </span>
+                          {isProductColumnVisible('sellingPrice') && <td style={{ padding: '8px 14px', textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                            {inlineEdit?.productId === product.id && inlineEdit.field === 'sellingPrice' ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', width: '100%' }}>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={inlineEdit.draftValue}
+                                  onChange={(e) => setInlineEdit({ ...inlineEdit, draftValue: e.target.value })}
+                                  onBlur={() => { void attemptSaveApprovedBasePrice(product); }}
+                                  onKeyDown={(e) => handleInlineEditKeyDown(e, product, 'sellingPrice')}
+                                  autoFocus
+                                  disabled={inlineSavingId === product.id}
+                                  style={{ ...inlineEditInputStyle, width: '110px', textAlign: 'right' }}
+                                />
+                                {inlineSavingId === product.id ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true" /> : null}
+                              </div>
                             ) : (
-                              <span style={{ fontSize: '14px', color: '#94a3b8' }}>—</span>
+                              <button
+                                type="button"
+                                onClick={() => startInlineEdit(product, 'sellingPrice')}
+                                style={{
+                                  border: 'none',
+                                  background: 'transparent',
+                                  padding: 0,
+                                  cursor: 'text',
+                                  width: '100%',
+                                  textAlign: 'right',
+                                }}
+                              >
+                                {hasApprovedBasePrice ? (
+                                  <span
+                                    className="money-value"
+                                    style={{ fontWeight: 700, color: sellingMismatch ? '#c62828' : undefined }}
+                                    title={sellingMismatch ? 'Approved base price differs from approved value' : undefined}
+                                  >
+                                    {Number(product.approvedPrice).toFixed(2)}{sellingMismatch ? ' ⚠' : ''}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: '14px', color: '#94a3b8' }}>—</span>
+                                )}
+                              </button>
                             )}
                           </td>}
                           {isProductColumnVisible('profitOnCost') && <td style={{ padding: '8px 14px', whiteSpace: 'nowrap', textAlign: 'right' }}>
@@ -1999,6 +2294,40 @@ export default function Products() {
           }}
         />
       ) : null}
+
+      {pendingApprovedPriceConfirm && (
+        <div className="app-modal-overlay" onClick={() => { if (!isConfirmingApprovedPrice) setPendingApprovedPriceConfirm(null); }}>
+          <div className="app-modal" style={{ maxWidth: '480px' }} onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn-close-x"
+              onClick={() => { if (!isConfirmingApprovedPrice) setPendingApprovedPriceConfirm(null); }}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h2 className="app-modal-title">This product has approved prices in one or more price lists.</h2>
+            <p style={{ color: '#64748b', marginBottom: '20px', fontSize: '16px' }}>
+              Changing the approved base price to {baseCurrency} {pendingApprovedPriceConfirm.approvedPrice.toFixed(2)} will re-approve this product at the new price. Continue?
+            </p>
+            <div className="app-modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPendingApprovedPriceConfirm(null)}
+                disabled={isConfirmingApprovedPrice}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => { void confirmPendingApprovedBasePrice(); }}
+                disabled={isConfirmingApprovedPrice}
+              >
+                {isConfirmingApprovedPrice ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {inactiveTarget && (
         <div className="app-modal-overlay" onClick={() => setInactiveTarget(null)}>

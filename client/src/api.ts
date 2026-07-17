@@ -460,7 +460,19 @@ export const productsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to update product');
+    }
     return res.json();
+  },
+  hasApprovedPriceLevel: async (productId: number) => {
+    const res = await fetch(`${API_BASE}/products/${productId}/has-approved-price-level`);
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to check approved price level reference');
+    }
+    return res.json() as Promise<{ hasApprovedReference: boolean }>;
   },
   delete: async (id: number) => {
     const res = await fetch(`${API_BASE}/products/${id}`, {

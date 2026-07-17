@@ -2522,6 +2522,16 @@ app.put('/api/products/:id', async (req, res) => {
             approvedPrice = currentSellingPrice;
         }
         const isActive = typeof req.body?.isActive === 'boolean' ? req.body.isActive : Boolean(existing.isActive);
+        const hasApprovedPriceExpiresAtInput = Object.prototype.hasOwnProperty.call(req.body || {}, 'approvedPriceExpiresAt');
+        let approvedPriceExpiresAt = existing.approvedPriceExpiresAt;
+        let priceExpiryNotifiedAt = existing.priceExpiryNotifiedAt;
+        if (hasApprovedPriceExpiresAtInput) {
+            if (req.body.approvedPriceExpiresAt !== null && req.body.approvedPriceExpiresAt !== '' && normalizePriceExpiryDate(req.body.approvedPriceExpiresAt) === null) {
+                return res.status(400).json({ error: 'approvedPriceExpiresAt must be an ISO date string (YYYY-MM-DD) or null' });
+            }
+            approvedPriceExpiresAt = normalizePriceExpiryDate(req.body.approvedPriceExpiresAt);
+            priceExpiryNotifiedAt = null;
+        }
         const shouldReevaluateReview = req.body?.overheadPercentage !== undefined
             || req.body?.profitMargin !== undefined
             || req.body?.laborCost !== undefined
@@ -2547,6 +2557,8 @@ app.put('/api/products/:id', async (req, res) => {
             batchYield,
             currentSellingPrice: currentSellingPrice || 0,
             approvedPrice,
+            approvedPriceExpiresAt,
+            priceExpiryNotifiedAt,
             isActive,
             updatedAt: new Date(),
         }).where(eq(products.id, productId));
