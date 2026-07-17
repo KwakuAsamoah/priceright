@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 16 July 2026
-**Current version:** 1.0.43
+**Last updated:** 17 July 2026
+**Current version:** 1.0.44
 **Active branch:** main
 
 ---
@@ -86,6 +86,29 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.41 | Jul 2026 | Unskippable base currency gate, currency/empty-state bug fixes, dynamic Help currency, costing guide article, UI polish |
 | v1.0.42 | Jul 2026 | Export toolbar consolidation — CSV/Excel/PDF under single Export menu; Print stays standalone |
 | v1.0.43 | Jul 2026 | Backup reminder and Setup Guide onboarding fixes from real-world testing |
+| v1.0.44 | Jul 2026 | Database connection fix after backup restore; inline table editing; wider BOM edit drawers |
+
+---
+
+## v1.0.44 — Detailed Changes
+
+**Released:** 17 July 2026
+
+**This release fixes a real database connection bug present in v1.0.43 — any user on v1.0.43 who restores a backup and then edits a product's BOM should update to v1.0.44.**
+
+### Important fix — please update
+
+**Fixed: database connection error after restoring a backup**
+- If you restored a backup and then tried to add a material to a product's BOM, you may have seen a 'database connection is not open' error. This is now fixed — restoring a backup and continuing to work afterward now works reliably in the same session.
+
+**New: quick inline editing**
+- Products table: edit Approved Base Price and Valid Until directly in the table, no need to open the full edit screen for a quick change
+- Changing an already-approved price now clearly asks for confirmation before re-approving, so nothing changes by accident
+- Materials table: edit Category, Unit, and Bulk pricing directly in the table
+- Intermediate Materials table: edit Unit, Yield %, and Overhead % directly in the table
+
+**Fixed: cramped Bill of Materials in edit screens**
+- The product and intermediate material edit screens are now wider, so ingredient names and pricing are no longer squeezed and hard to read
 
 ---
 
