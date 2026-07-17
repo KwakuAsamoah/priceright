@@ -5,6 +5,7 @@ export type { ColumnConfig };
 /** Matches the Products table column order in Products.tsx (as of v1.0.27). */
 export const PRODUCTS_COLUMNS: ColumnConfig[] = [
   { id: 'checkbox', label: '', locked: true, defaultVisible: true },
+  { id: 'rowNumber', label: '#', locked: true, defaultVisible: true },
   { id: 'product', label: 'Product', locked: true, defaultVisible: true },
   { id: 'productionCost', label: 'Production Cost', locked: false, defaultVisible: true },
   { id: 'optimalPrice', label: 'Optimal Price', locked: false, defaultVisible: true },

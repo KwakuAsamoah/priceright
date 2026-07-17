@@ -2082,6 +2082,7 @@ export default function PriceLevels() {
                           <th style={{ width: '34px', textAlign: 'center' }}>
                             <input type="checkbox" checked={allRowsSelected} onChange={(e) => toggleSelectAllRows(e.target.checked)} />
                           </th>
+                          <th style={{ textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
                           <th style={{ textAlign: 'left' }}>Product name</th>
                           <th style={{ textAlign: 'right', whiteSpace: 'normal', minWidth: '80px' }}>
                             Approved base<br/>({baseCurrency})
@@ -2107,7 +2108,7 @@ export default function PriceLevels() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedLevelItems.flatMap((item) => {
+                        {selectedLevelItems.flatMap((item, itemIdx) => {
                           const isSelected = selectedRows.has(item.productId);
                           const packs = item.packSizes || [];
                           const displayRows: Array<PriceLevelPackSize | null> = packs.length > 0 ? packs : [null];
@@ -2155,6 +2156,11 @@ export default function PriceLevels() {
                                       checked={isSelected}
                                       onChange={(e) => toggleRowSelection(item.productId, e.target.checked)}
                                     />
+                                  </td>
+                                )}
+                                {isFirstRow && (
+                                  <td rowSpan={rowSpan} style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>
+                                    {itemIdx + 1}
                                   </td>
                                 )}
                                 <td style={isFirstRow ? { textAlign: 'left' } : { color: 'rgba(0,0,0,0.3)', textAlign: 'left' }}>

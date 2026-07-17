@@ -3,6 +3,7 @@ import type { ColumnConfig } from './columnConfig';
 /** Matches the Intermediate Materials table column order in IntermediateMaterials.tsx. */
 export const INTERMEDIATE_MATERIALS_COLUMNS: ColumnConfig[] = [
   { id: 'checkbox', label: '', locked: true, defaultVisible: true },
+  { id: 'rowNumber', label: '#', locked: true, defaultVisible: true },
   { id: 'material', label: 'Material', locked: true, defaultVisible: true },
   { id: 'unit', label: 'Unit', locked: false, defaultVisible: true },
   { id: 'yield', label: 'Yield %', locked: false, defaultVisible: true },

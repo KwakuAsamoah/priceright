@@ -1661,9 +1661,10 @@ export default function Products() {
                         }}
                         onChange={handleSelectAll}
                         style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
-                      />
-                    </th>
-                    <th style={{ fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>
+                    />
+                  </th>
+                  <th style={{ textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
+                  <th style={{ fontWeight: '700', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>Product</th>
                     {isProductColumnVisible('materialCost') && <th style={{ fontWeight: '700', width: '82px', textAlign: 'right', whiteSpace: 'normal' }}>Production Cost</th>}
                     {isProductColumnVisible('optimalPrice') && (
                       <th style={{ fontWeight: '700', width: '88px', textAlign: 'right', whiteSpace: 'nowrap' }} title="The approved base price PriceRight recommends based on your material costs, overhead, and target margin. Updates automatically when costs change.">Optimal</th>
@@ -1737,7 +1738,7 @@ export default function Products() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((product) => {
+                  {filteredProducts.map((product, idx) => {
                     const approvalBadge = getApprovalBadge(product.approvalStatus);
 
                     const hasApprovedBasePrice = product.approvalStatus === 'approved'
@@ -1779,6 +1780,7 @@ export default function Products() {
                               style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                             />
                           </td>
+                          <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                           <td style={{ padding: '8px 14px', width: '200px', minWidth: '200px', whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                               <span

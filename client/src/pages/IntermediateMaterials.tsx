@@ -86,7 +86,7 @@ type SortField = 'name' | 'category' | 'unitPrice';
 type SortOrder = 'asc' | 'desc';
 
 const DEFAULT_INTERMEDIATE_COLUMNS: IntermediateColumnKey[] = INTERMEDIATE_MATERIALS_COLUMNS
-  .filter((column) => column.id !== 'checkbox')
+  .filter((column) => column.id !== 'checkbox' && column.id !== 'rowNumber')
   .map((column) => column.id as IntermediateColumnKey);
 
 function parseConfiguredList(rawValue: unknown): string[] {
@@ -470,7 +470,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   function isIntermediateColumnIdVisible(id: string) {
-    if (id === 'checkbox') return true;
+    if (id === 'checkbox' || id === 'rowNumber') return true;
     return isIntermediateColumnVisible(id as IntermediateColumnKey);
   }
 
@@ -1229,6 +1229,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                       style={{ cursor: 'pointer', width: '16px', height: '16px', display: 'inline-block' }}
                     />
                   </th>
+                  <th style={{ textAlign: 'center', fontWeight: '700', width: '40px', whiteSpace: 'nowrap' }}>#</th>
                   <th style={{ textAlign: 'left', fontWeight: '700', width: '220px', minWidth: '220px', whiteSpace: 'nowrap' }}>Material</th>
                   {isIntermediateColumnVisible('unit') && <th style={{ textAlign: 'left', fontWeight: '700', width: '68px', whiteSpace: 'nowrap' }}>Unit</th>}
                   {isIntermediateColumnVisible('yield') && <th style={{ textAlign: 'right', fontWeight: '700', width: '88px', whiteSpace: 'nowrap' }}>Yield %</th>}
@@ -1239,7 +1240,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                 </tr>
               </thead>
               <tbody>
-                {filteredMaterials.map((material) => (
+                {filteredMaterials.map((material, idx) => (
                   <tr
                     key={material.id}
                     style={{
@@ -1261,6 +1262,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
                         style={{ cursor: 'pointer', width: '16px', height: '16px' }}
                       />
                     </td>
+                    <td style={{ padding: '8px 14px', width: '40px', textAlign: 'center', fontWeight: 600 }}>{idx + 1}</td>
                     <td style={{ padding: '8px 14px', minWidth: '220px' }}>
                       <div
                         onClick={(e) => {
