@@ -1330,6 +1330,76 @@ app.put('/api/materials/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to update material' });
     }
 });
+async function getMaterialInUseDeleteError(materialId, materialName) {
+    const usageRows = await db
+        .select({
+        productId: products.id,
+        productName: products.name,
+    })
+        .from(billOfMaterials)
+        .innerJoin(products, eq(billOfMaterials.productId, products.id))
+        .where(eq(billOfMaterials.materialId, materialId));
+    if (usageRows.length > 0) {
+        const uniqueProductNames = Array.from(new Set(usageRows.map((row) => String(row.productName || '').trim()).filter(Boolean)));
+        return {
+            error: `Cannot delete material - used in ${uniqueProductNames.length} products: ${uniqueProductNames.join(', ')}`,
+            code: 'MATERIAL_IN_USE',
+            details: {
+                materialId,
+                materialName,
+                productCount: uniqueProductNames.length,
+                products: uniqueProductNames,
+            },
+        };
+    }
+    const intermediateUsageRows = await db
+        .select({ id: intermediateMaterialBom.id })
+        .from(intermediateMaterialBom)
+        .where(and(eq(intermediateMaterialBom.componentMaterialId, materialId), sql `${intermediateMaterialBom.intermediateMaterialId} <> ${materialId}`));
+    if (intermediateUsageRows.length > 0) {
+        return {
+            error: 'Cannot delete material - used in intermediate material BOM',
+            code: 'MATERIAL_IN_USE',
+            details: {
+                materialId,
+                materialName,
+            },
+        };
+    }
+    return null;
+}
+async function getProductPriceLevelDeleteError(productId) {
+    const productRows = await getActiveDb()
+        .select({ id: products.id, name: products.name })
+        .from(products)
+        .where(eq(products.id, productId));
+    if (productRows.length === 0) {
+        return {
+            error: 'Product not found',
+            code: 'PRODUCT_IN_USE',
+            details: { productId },
+        };
+    }
+    const priceLevelRows = await getActiveDb()
+        .select({ priceLevelName: priceLevels.name })
+        .from(priceLevelItems)
+        .innerJoin(priceLevels, eq(priceLevelItems.priceLevelId, priceLevels.id))
+        .where(and(eq(priceLevelItems.productId, productId), eq(priceLevelItems.status, 'approved')));
+    if (priceLevelRows.length === 0) {
+        return null;
+    }
+    const uniquePriceLevelNames = Array.from(new Set(priceLevelRows.map((row) => String(row.priceLevelName || '').trim()).filter(Boolean)));
+    return {
+        error: `Cannot delete product - used in ${uniquePriceLevelNames.length} approved price level${uniquePriceLevelNames.length === 1 ? '' : 's'}: ${uniquePriceLevelNames.join(', ')}`,
+        code: 'PRODUCT_IN_USE',
+        details: {
+            productId,
+            productName: productRows[0].name,
+            priceLevelCount: uniquePriceLevelNames.length,
+            priceLevels: uniquePriceLevelNames,
+        },
+    };
+}
 app.delete('/api/materials/bulk', async (req, res) => {
     try {
         const { ids } = req.body;
@@ -1402,36 +1472,9 @@ app.delete('/api/materials/:id', async (req, res) => {
         if (materialRows.length === 0) {
             return res.status(404).json({ error: 'Material not found' });
         }
-        const usageRows = await db
-            .select({
-            productId: products.id,
-            productName: products.name,
-        })
-            .from(billOfMaterials)
-            .innerJoin(products, eq(billOfMaterials.productId, products.id))
-            .where(eq(billOfMaterials.materialId, materialId));
-        if (usageRows.length > 0) {
-            const uniqueProductNames = Array.from(new Set(usageRows.map((row) => String(row.productName || '').trim()).filter(Boolean)));
-            return res.status(400).json({
-                error: `Cannot delete material - used in ${uniqueProductNames.length} products: ${uniqueProductNames.join(', ')}`,
-                code: 'MATERIAL_IN_USE',
-                details: {
-                    materialId,
-                    materialName: materialRows[0].name,
-                    productCount: uniqueProductNames.length,
-                    products: uniqueProductNames,
-                },
-            });
-        }
-        const intermediateUsageRows = await db
-            .select({ id: intermediateMaterialBom.id })
-            .from(intermediateMaterialBom)
-            .where(and(eq(intermediateMaterialBom.componentMaterialId, materialId), sql `${intermediateMaterialBom.intermediateMaterialId} <> ${materialId}`));
-        if (intermediateUsageRows.length > 0) {
-            return res.status(400).json({
-                error: 'Cannot delete material - used in intermediate material BOM',
-                code: 'MATERIAL_IN_USE',
-            });
+        const inUseError = await getMaterialInUseDeleteError(materialId, materialRows[0].name);
+        if (inUseError) {
+            return res.status(400).json(inUseError);
         }
         await getActiveDb().delete(materials).where(eq(materials.id, materialId));
         res.json({ success: true });
@@ -1944,13 +1987,62 @@ app.delete('/api/intermediate-materials/bulk', async (req, res) => {
         if (!Array.isArray(ids) || ids.length === 0) {
             return res.status(400).json({ error: 'No IDs provided' });
         }
-        await getActiveDb()
-            .delete(materials)
-            .where(and(inArray(materials.id, ids), eq(materials.materialType, 'intermediate')));
-        return res.json({ deleted: ids.length });
+        const materialIds = ids.filter((id) => Number.isInteger(id));
+        if (materialIds.length === 0) {
+            return res.status(400).json({ error: 'No valid material IDs provided' });
+        }
+        const blocked = [];
+        for (const materialId of materialIds) {
+            const materialRows = await db
+                .select({ id: materials.id, name: materials.name })
+                .from(materials)
+                .where(and(eq(materials.id, materialId), eq(materials.materialType, 'intermediate')));
+            if (materialRows.length === 0) {
+                continue;
+            }
+            const inUseError = await getMaterialInUseDeleteError(materialId, materialRows[0].name);
+            if (inUseError) {
+                blocked.push({
+                    materialId,
+                    materialName: materialRows[0].name,
+                    ...inUseError,
+                });
+            }
+        }
+        if (blocked.length > 0) {
+            if (blocked.length === 1) {
+                const only = blocked[0];
+                return res.status(400).json({
+                    error: only.error,
+                    code: only.code,
+                    details: only.details,
+                });
+            }
+            return res.status(400).json({
+                error: blocked.map((item) => `${item.materialName}: ${item.error}`).join('; '),
+                code: 'MATERIAL_IN_USE',
+                details: {
+                    blocked: blocked.map(({ materialId, materialName, error, details }) => ({
+                        materialId,
+                        materialName,
+                        error,
+                        ...details,
+                    })),
+                },
+            });
+        }
+        await getActiveDb().transaction(async (tx) => {
+            for (const materialId of materialIds) {
+                await tx
+                    .delete(materials)
+                    .where(and(eq(materials.id, materialId), eq(materials.materialType, 'intermediate')));
+            }
+        });
+        return res.json({ deleted: materialIds.length });
     }
-    catch {
-        return res.status(500).json({ error: 'Failed to delete' });
+    catch (error) {
+        console.error('Bulk delete intermediate materials failed:', error);
+        return res.status(500).json({ error: 'Failed to delete intermediate materials' });
     }
 });
 // ============================================
@@ -3031,6 +3123,51 @@ app.delete('/api/products/bulk', async (req, res) => {
         if (normalizedIds.length === 0) {
             return res.status(400).json({ error: 'No valid product IDs provided' });
         }
+        const blocked = [];
+        for (const productId of normalizedIds) {
+            const blockError = await getProductPriceLevelDeleteError(productId);
+            if (blockError) {
+                if (blockError.details?.productName) {
+                    blocked.push({
+                        productId,
+                        productName: String(blockError.details.productName),
+                        ...blockError,
+                    });
+                }
+                else if (blockError.error === 'Product not found') {
+                    continue;
+                }
+                else {
+                    blocked.push({
+                        productId,
+                        productName: `Product #${productId}`,
+                        ...blockError,
+                    });
+                }
+            }
+        }
+        if (blocked.length > 0) {
+            if (blocked.length === 1) {
+                const only = blocked[0];
+                return res.status(400).json({
+                    error: only.error,
+                    code: only.code,
+                    details: only.details,
+                });
+            }
+            return res.status(400).json({
+                error: blocked.map((item) => `${item.productName}: ${item.error}`).join('; '),
+                code: 'PRODUCT_IN_USE',
+                details: {
+                    blocked: blocked.map(({ productId, productName, error, details }) => ({
+                        productId,
+                        productName,
+                        error,
+                        ...details,
+                    })),
+                },
+            });
+        }
         await getActiveDb().transaction(async (tx) => {
             for (const productId of normalizedIds) {
                 await tx.delete(products).where(eq(products.id, productId));
@@ -3052,6 +3189,14 @@ app.delete('/api/products/bulk', async (req, res) => {
 app.delete('/api/products/:id', async (req, res) => {
     try {
         const productId = parseInt(req.params.id);
+        if (!Number.isInteger(productId)) {
+            return res.status(400).json({ error: 'Invalid product id' });
+        }
+        const blockError = await getProductPriceLevelDeleteError(productId);
+        if (blockError) {
+            const status = blockError.error === 'Product not found' ? 404 : 400;
+            return res.status(status).json(blockError);
+        }
         await getActiveDb().delete(products).where(eq(products.id, productId));
         res.json({ success: true });
     }
