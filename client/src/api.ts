@@ -17,6 +17,60 @@ export async function downloadTemplate(filename: string): Promise<void> {
   await downloadFile(templateUrl(filename), filename);
 }
 
+export const API_CONNECTION_FAILURE_CODE = 'CONNECTION_FAILURE';
+
+export const API_CONNECTION_FAILURE_MESSAGE =
+  "Can't connect to PriceRight's local service. Please try again, or restart the app if this continues.";
+
+export class ApiConnectionError extends Error {
+  readonly code = API_CONNECTION_FAILURE_CODE;
+
+  constructor(message: string = API_CONNECTION_FAILURE_MESSAGE) {
+    super(message);
+    this.name = 'ApiConnectionError';
+  }
+}
+
+function isNetworkFailure(error: unknown): boolean {
+  if (error instanceof ApiConnectionError) {
+    return true;
+  }
+  if (error instanceof TypeError) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('failed to fetch')
+      || message.includes('networkerror')
+      || message.includes('network request failed')
+      || message.includes('load failed')
+    );
+  }
+  return false;
+}
+
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (error) {
+    if (isNetworkFailure(error)) {
+      throw new ApiConnectionError();
+    }
+    throw error;
+  }
+}
+
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof ApiConnectionError) {
+    return error.message;
+  }
+  if (error instanceof Error && (error as Error & { code?: string }).code === API_CONNECTION_FAILURE_CODE) {
+    return error.message;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 async function parseResponse(res: Response) {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -208,7 +262,7 @@ export const activityLogApi = {
 
     const queryString = query.toString();
     const url = `${API_BASE}/activity${queryString ? `?${queryString}` : ''}`;
-    const res = await fetch(url);
+    const res = await apiFetch(url);
     return parseResponse(res);
   },
 };
@@ -216,15 +270,15 @@ export const activityLogApi = {
 // Settings API
 export const settingsApi = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE}/settings`);
+    const res = await apiFetch(`${API_BASE}/settings`);
     return parseResponse(res);
   },
   getByKey: async (key: string) => {
-    const res = await fetch(`${API_BASE}/settings/${key}`);
+    const res = await apiFetch(`${API_BASE}/settings/${key}`);
     return res.json();
   },
   save: async (data: { settingKey: string; settingValue: string }) => {
-    const res = await fetch(`${API_BASE}/settings`, {
+    const res = await apiFetch(`${API_BASE}/settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -235,11 +289,11 @@ export const settingsApi = {
 
 export const pinApi = {
   getStatus: async (): Promise<PinStatusResponse> => {
-    const res = await fetch(`${API_BASE}/pin/status`);
+    const res = await apiFetch(`${API_BASE}/pin/status`);
     return parseResponse(res);
   },
   set: async (pin: string, currentPin?: string): Promise<PinSetResponse> => {
-    const res = await fetch(`${API_BASE}/pin/set`, {
+    const res = await apiFetch(`${API_BASE}/pin/set`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pin, currentPin }),
@@ -247,7 +301,7 @@ export const pinApi = {
     return parseResponse(res);
   },
   verify: async (pin: string): Promise<PinVerifyResponse> => {
-    const res = await fetch(`${API_BASE}/pin/verify`, {
+    const res = await apiFetch(`${API_BASE}/pin/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pin }),
@@ -255,7 +309,7 @@ export const pinApi = {
     return parseResponse(res);
   },
   reset: async (): Promise<PinResetResponse> => {
-    const res = await fetch(`${API_BASE}/pin/reset`, {
+    const res = await apiFetch(`${API_BASE}/pin/reset`, {
       method: 'POST',
     });
     return parseResponse(res);
@@ -265,11 +319,11 @@ export const pinApi = {
 // Currencies API
 export const currenciesApi = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE}/currencies`);
+    const res = await apiFetch(`${API_BASE}/currencies`);
     return parseResponse(res);
   },
   create: async (data: { code: string; name: string; symbol: string }) => {
-    const res = await fetch(`${API_BASE}/currencies`, {
+    const res = await apiFetch(`${API_BASE}/currencies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -277,7 +331,7 @@ export const currenciesApi = {
     return res.json();
   },
   update: async (id: number, data: { code: string; name: string; symbol: string }) => {
-    const res = await fetch(`${API_BASE}/currencies/${id}`, {
+    const res = await apiFetch(`${API_BASE}/currencies/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -285,13 +339,13 @@ export const currenciesApi = {
     return res.json();
   },
   toggle: async (id: number) => {
-    const res = await fetch(`${API_BASE}/currencies/${id}/toggle`, {
+    const res = await apiFetch(`${API_BASE}/currencies/${id}/toggle`, {
       method: 'PUT',
     });
     return res.json();
   },
   delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/currencies/${id}`, {
+    const res = await apiFetch(`${API_BASE}/currencies/${id}`, {
       method: 'DELETE',
     });
     return res.json();
@@ -301,11 +355,11 @@ export const currenciesApi = {
 // Exchange Rates API
 export const exchangeRatesApi = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE}/exchange-rates`);
+    const res = await apiFetch(`${API_BASE}/exchange-rates`);
     return res.json();
   },
   create: async (data: { currencyId: number; rateToBase: number; source?: string }) => {
-    const res = await fetch(`${API_BASE}/exchange-rates`, {
+    const res = await apiFetch(`${API_BASE}/exchange-rates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -313,7 +367,7 @@ export const exchangeRatesApi = {
     return res.json();
   },
   update: async (currencyId: number, data: { rateToBase: number }) => {
-    const res = await fetch(`${API_BASE}/exchange-rates/${currencyId}`, {
+    const res = await apiFetch(`${API_BASE}/exchange-rates/${currencyId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -321,7 +375,7 @@ export const exchangeRatesApi = {
     return res.json();
   },
   recalculateMaterials: async (id: number) => {
-    const response = await fetch(`${API_BASE}/exchange-rates/${id}/recalculate-materials`, {
+    const response = await apiFetch(`${API_BASE}/exchange-rates/${id}/recalculate-materials`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -340,11 +394,11 @@ export const materialsApi = {
       params.set('type', type);
     }
     const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${API_BASE}/materials${query}`);
+    const res = await apiFetch(`${API_BASE}/materials${query}`);
     return parseResponse(res);
   },
   create: async (data: any) => {
-    const res = await fetch(`${API_BASE}/materials`, {
+    const res = await apiFetch(`${API_BASE}/materials`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -352,7 +406,7 @@ export const materialsApi = {
     return parseResponse(res);
   },
   update: async (id: number, data: any) => {
-    const res = await fetch(`${API_BASE}/materials/${id}`, {
+    const res = await apiFetch(`${API_BASE}/materials/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -360,13 +414,13 @@ export const materialsApi = {
     return parseResponse(res);
   },
   delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/materials/${id}`, {
+    const res = await apiFetch(`${API_BASE}/materials/${id}`, {
       method: 'DELETE',
     });
     return parseResponse(res);
   },
   bulkDelete: async (ids: number[]) => {
-    const res = await fetch(`${API_BASE}/materials/bulk`, {
+    const res = await apiFetch(`${API_BASE}/materials/bulk`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
@@ -374,7 +428,7 @@ export const materialsApi = {
     return parseResponse(res);
   },
   bulkDeleteIntermediates: async (ids: number[]) => {
-    const res = await fetch(`${API_BASE}/intermediate-materials/bulk`, {
+    const res = await apiFetch(`${API_BASE}/intermediate-materials/bulk`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids }),
@@ -382,11 +436,11 @@ export const materialsApi = {
     return parseResponse(res);
   },
   getPriceHistory: async (id: number) => {
-    const res = await fetch(`${API_BASE}/materials/${id}/price-history`);
+    const res = await apiFetch(`${API_BASE}/materials/${id}/price-history`);
     return res.json();
   },
   checkUsage: async (materialIds: number[]) => {
-    const res = await fetch(`${API_BASE}/materials/check-usage`, {
+    const res = await apiFetch(`${API_BASE}/materials/check-usage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ materialIds }),
@@ -394,11 +448,11 @@ export const materialsApi = {
     return res.json();
   },
   getIntermediateBom: async (materialId: number) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/bom`);
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/bom`);
     return parseResponse(res);
   },
   addIntermediateBomItem: async (materialId: number, data: { componentMaterialId: number; quantity: number }) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/bom`, {
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/bom`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -406,7 +460,7 @@ export const materialsApi = {
     return parseResponse(res);
   },
   updateIntermediateBomItem: async (materialId: number, bomId: number, data: { quantity: number }) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -414,27 +468,27 @@ export const materialsApi = {
     return parseResponse(res);
   },
   deleteIntermediateBomItem: async (materialId: number, bomId: number) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/bom/${bomId}`, {
       method: 'DELETE',
     });
     return parseResponse(res);
   },
   recalculateIntermediateCost: async (materialId: number) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/recalculate-cost`, {
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/recalculate-cost`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     return parseResponse(res);
   },
   cascadeIntermediateCosts: async (materialId: number) => {
-    const res = await fetch(`${API_BASE}/materials/${materialId}/cascade-intermediate-costs`, {
+    const res = await apiFetch(`${API_BASE}/materials/${materialId}/cascade-intermediate-costs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
     return parseResponse(res);
   },
   importMaterials: async (materials: ImportMaterialRow[]): Promise<ImportResult> => {
-    const res = await fetch(`${API_BASE}/materials/import`, {
+    const res = await apiFetch(`${API_BASE}/materials/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ materials }),
@@ -447,15 +501,15 @@ export const materialsApi = {
 export const productsApi = {
   getAll: async (status?: EntityStatusFilter) => {
     const query = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
-    const res = await fetch(`${API_BASE}/products${query}`);
+    const res = await apiFetch(`${API_BASE}/products${query}`);
     return parseResponse(res);
   },
   getById: async (id: number) => {
-    const res = await fetch(`${API_BASE}/products/${id}`);
+    const res = await apiFetch(`${API_BASE}/products/${id}`);
     return res.json();
   },
   create: async (data: any) => {
-    const res = await fetch(`${API_BASE}/products`, {
+    const res = await apiFetch(`${API_BASE}/products`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -467,7 +521,7 @@ export const productsApi = {
     return res.json();
   },
   update: async (id: number, data: any) => {
-    const res = await fetch(`${API_BASE}/products/${id}`, {
+    const res = await apiFetch(`${API_BASE}/products/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -479,7 +533,7 @@ export const productsApi = {
     return res.json();
   },
   hasApprovedPriceLevel: async (productId: number) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/has-approved-price-level`);
+    const res = await apiFetch(`${API_BASE}/products/${productId}/has-approved-price-level`);
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
       throw new Error(error.error || 'Failed to check approved price level reference');
@@ -487,7 +541,7 @@ export const productsApi = {
     return res.json() as Promise<{ hasApprovedReference: boolean }>;
   },
   delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/products/${id}`, {
+    const res = await apiFetch(`${API_BASE}/products/${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) {
@@ -497,7 +551,7 @@ export const productsApi = {
     return res.json();
   },
   bulkDelete: async (productIds: number[]) => {
-    const res = await fetch(`${API_BASE}/products/bulk`, {
+    const res = await apiFetch(`${API_BASE}/products/bulk`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productIds }),
@@ -509,11 +563,11 @@ export const productsApi = {
     return res.json();
   },
   getBOM: async (productId: number) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/bom`);
+    const res = await apiFetch(`${API_BASE}/products/${productId}/bom`);
     return res.json();
   },
   addMaterialToBOM: async (productId: number, data: { materialId: number; quantity: number }) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/bom`, {
+    const res = await apiFetch(`${API_BASE}/products/${productId}/bom`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -521,17 +575,17 @@ export const productsApi = {
     return res.json();
   },
   removeMaterialFromBOM: async (productId: number, bomId: number) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/bom/${bomId}`, {
+    const res = await apiFetch(`${API_BASE}/products/${productId}/bom/${bomId}`, {
       method: 'DELETE',
     });
     return res.json();
   },
   calculateCost: async (productId: number) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/calculate`);
+    const res = await apiFetch(`${API_BASE}/products/${productId}/calculate`);
     return res.json();
   },
   approve: async (productId: number, data: { approvedPrice?: number; reason?: string; priceExpiryDate?: string | null }) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/approve`, {
+    const res = await apiFetch(`${API_BASE}/products/${productId}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -543,7 +597,7 @@ export const productsApi = {
     return res.json();
   },
   resetToPending: async (productId: number, data?: { reason?: string }) => {
-    const res = await fetch(`${API_BASE}/products/${productId}/reset-to-pending`, {
+    const res = await apiFetch(`${API_BASE}/products/${productId}/reset-to-pending`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data || {}),
@@ -555,7 +609,7 @@ export const productsApi = {
     return res.json();
   },
   bulkResetToPending: async (productIds: number[], reason?: string) => {
-    const res = await fetch(`${API_BASE}/products/bulk-reset-to-pending`, {
+    const res = await apiFetch(`${API_BASE}/products/bulk-reset-to-pending`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productIds, reason }),
@@ -574,7 +628,7 @@ export const productsApi = {
       priceExpiryDate?: string | null;
     }
   ) => {
-    const res = await fetch(`${API_BASE}/products/bulk-approve`, {
+    const res = await apiFetch(`${API_BASE}/products/bulk-approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ productIds, ...options }),
@@ -586,7 +640,7 @@ export const productsApi = {
     return res.json();
   },
   processPriceExpiry: async () => {
-    const res = await fetch(`${API_BASE}/products/process-price-expiry`, {
+    const res = await apiFetch(`${API_BASE}/products/process-price-expiry`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });
@@ -598,11 +652,11 @@ export const productsApi = {
 // Price Level Rules API
 export const priceLevelRulesApi = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE}/price-level-rules`);
+    const res = await apiFetch(`${API_BASE}/price-level-rules`);
     return res.json();
   },
   create: async (data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string; currencyId?: number | null }) => {
-    const res = await fetch(`${API_BASE}/price-level-rules`, {
+    const res = await apiFetch(`${API_BASE}/price-level-rules`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -610,7 +664,7 @@ export const priceLevelRulesApi = {
     return res.json();
   },
   update: async (id: number, data: { name: string; adjustmentType: 'discount' | 'markup'; adjustmentPercentage: number; description?: string; isActive?: boolean; currencyId?: number | null }) => {
-    const res = await fetch(`${API_BASE}/price-level-rules/${id}`, {
+    const res = await apiFetch(`${API_BASE}/price-level-rules/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -618,7 +672,7 @@ export const priceLevelRulesApi = {
     return res.json();
   },
   delete: async (id: number) => {
-    const res = await fetch(`${API_BASE}/price-level-rules/${id}`, {
+    const res = await apiFetch(`${API_BASE}/price-level-rules/${id}`, {
       method: 'DELETE',
     });
     return res.json();
@@ -627,7 +681,7 @@ export const priceLevelRulesApi = {
 
 export const priceLevelItemsApi = {
   getAll: async (priceLevelId: number): Promise<PriceLevelItemResponse[]> => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items`);
+    const res = await apiFetch(`${API_BASE}/price-levels/${priceLevelId}/items`);
     return parseResponse(res);
   },
   upsert: async (
@@ -640,7 +694,7 @@ export const priceLevelItemsApi = {
       justification?: string;
     }
   ): Promise<PriceLevelItemResponse> => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items`, {
+    const res = await apiFetch(`${API_BASE}/price-levels/${priceLevelId}/items`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -648,13 +702,13 @@ export const priceLevelItemsApi = {
     return parseResponse(res);
   },
   delete: async (priceLevelId: number, productId: number) => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}`, {
+    const res = await apiFetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}`, {
       method: 'DELETE',
     });
     return parseResponse(res);
   },
   approve: async (priceLevelId: number, productId: number, approvedBy?: string): Promise<PriceLevelItemResponse> => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}/approve`, {
+    const res = await apiFetch(`${API_BASE}/price-levels/${priceLevelId}/items/${productId}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
@@ -662,7 +716,7 @@ export const priceLevelItemsApi = {
     return parseResponse(res);
   },
   bulkApprove: async (priceLevelId: number, approvedBy?: string): Promise<{ approved: number }> => {
-    const res = await fetch(`${API_BASE}/price-levels/${priceLevelId}/items/bulk-approve`, {
+    const res = await apiFetch(`${API_BASE}/price-levels/${priceLevelId}/items/bulk-approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy }),
@@ -673,11 +727,11 @@ export const priceLevelItemsApi = {
 
 export const packSizesApi = {
   getForItem: async (itemId: number): Promise<Array<{ id: number; packQuantity: number }>> => {
-    const res = await fetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`);
+    const res = await apiFetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`);
     return parseResponse(res);
   },
   add: async (itemId: number, packQuantity: number): Promise<{ id: number; packQuantity: number }> => {
-    const res = await fetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`, {
+    const res = await apiFetch(`${API_BASE}/price-level-items/${itemId}/pack-sizes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ packQuantity }),
@@ -685,7 +739,7 @@ export const packSizesApi = {
     return parseResponse(res);
   },
   delete: async (packSizeId: number): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_BASE}/price-level-pack-sizes/${packSizeId}`, {
+    const res = await apiFetch(`${API_BASE}/price-level-pack-sizes/${packSizeId}`, {
       method: 'DELETE',
     });
     return parseResponse(res);
@@ -695,11 +749,11 @@ export const packSizesApi = {
 // Reports API
 export const reportsApi = {
   getTopCostDrivers: async () => {
-    const res = await fetch(`${API_BASE}/reports/top-cost-drivers`);
+    const res = await apiFetch(`${API_BASE}/reports/top-cost-drivers`);
     return parseResponse(res);
   },
   getPriceVolatility: async (period: '30' | '90' | '180' | '365') => {
-    const res = await fetch(`${API_BASE}/reports/price-volatility?period=${encodeURIComponent(period)}`);
+    const res = await apiFetch(`${API_BASE}/reports/price-volatility?period=${encodeURIComponent(period)}`);
     return parseResponse(res);
   },
 };
@@ -707,7 +761,7 @@ export const reportsApi = {
 // Backup API
 export const backupApi = {
   getStatus: async () => {
-    const res = await fetch(`${API_BASE}/backup/status`);
+    const res = await apiFetch(`${API_BASE}/backup/status`);
     if (!res.ok) {
       throw new Error('Failed to get backup status');
     }
@@ -718,7 +772,7 @@ export const backupApi = {
 // Price Lists API
 export const priceListsApi = {
   getAll: async () => {
-    const res = await fetch(`${API_BASE}/price-lists`);
+    const res = await apiFetch(`${API_BASE}/price-lists`);
     if (!res.ok) {
       throw new Error('Failed to fetch price lists');
     }
@@ -728,11 +782,11 @@ export const priceListsApi = {
 
 export const demoModeApi = {
   get: async (): Promise<DemoModeState> => {
-    const res = await fetch(`${API_BASE}/demo-mode`);
+    const res = await apiFetch(`${API_BASE}/demo-mode`);
     return parseResponse(res);
   },
   set: async (demoMode: boolean): Promise<DemoModeState> => {
-    const res = await fetch(`${API_BASE}/demo-mode`, {
+    const res = await apiFetch(`${API_BASE}/demo-mode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ demoMode }),
@@ -740,7 +794,7 @@ export const demoModeApi = {
     return parseResponse(res);
   },
   reset: async (): Promise<DemoResetResponse> => {
-    const res = await fetch(`${API_BASE}/demo/reset`, {
+    const res = await apiFetch(`${API_BASE}/demo/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });

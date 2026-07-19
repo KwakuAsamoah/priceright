@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
 import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
-import { materialsApi, productsApi, settingsApi } from '../api';
+import { getApiErrorMessage, materialsApi, productsApi, settingsApi } from '../api';
 import AppToast from '../components/AppToast';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useAppToast from '../hooks/useAppToast';
@@ -681,7 +681,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
       onSaved();
     } catch (error) {
       console.error('Error saving product:', error);
-      showToastMessage('Failed to save product', 'error');
+      showToastMessage(getApiErrorMessage(error, 'Failed to save product'), 'error');
     } finally {
       setSaving(false);
     }

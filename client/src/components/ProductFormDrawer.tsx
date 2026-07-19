@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker } from 'react-router-dom';
 import { X } from 'lucide-react';
 import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
-import { productsApi } from '../api';
+import { getApiErrorMessage, productsApi } from '../api';
 import AppToast from './AppToast';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
@@ -550,7 +550,7 @@ export default function ProductFormDrawer({
       await onSaved();
     } catch (error) {
       console.error('Error saving product:', error);
-      showToastMessage('Failed to save product', 'error');
+      showToastMessage(getApiErrorMessage(error, 'Failed to save product'), 'error');
     } finally {
       setSaving(false);
     }

@@ -24,7 +24,16 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import useAppToast from '../hooks/useAppToast';
 import useLatestRequest from '../hooks/useLatestRequest';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
-import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
+import {
+  activityLogApi,
+  currenciesApi,
+  exchangeRatesApi,
+  materialsApi,
+  priceListsApi,
+  productsApi,
+  reportsApi,
+  type ActivityEntry,
+} from '../api';
 import { exportInChunks, exportToCsv, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
@@ -260,13 +269,38 @@ type ApprovalHistoryComputedRow = {
   category: string;
   currentStatus: string;
   approvedPrice: number | null;
-  optimalPrice: number;
-  productionCost: number;
+  optimalPrice: number | null;
+  productionCost: number | null;
   actualMarkupPercent: number | null;
   approvedOn: string | number | null;
   approvedBy: string;
   isActive: boolean;
 };
+
+async function fetchAllActivityEntries(params: {
+  entityType?: string;
+  action?: string;
+  from?: number;
+  to?: number;
+}): Promise<ActivityEntry[]> {
+  const limit = 200;
+  let offset = 0;
+  let total = Infinity;
+  const entries: ActivityEntry[] = [];
+
+  while (offset < total) {
+    const response = await activityLogApi.getAll({ ...params, limit, offset });
+    const batch = response.entries || [];
+    entries.push(...batch);
+    total = response.total ?? entries.length;
+    if (batch.length === 0) {
+      break;
+    }
+    offset += limit;
+  }
+
+  return entries;
+}
 
 type CurrencyExposureComputedRow = {
   currencyName: string;
@@ -1185,7 +1219,6 @@ export default function Reports() {
       }
 
       if (selectedReport === 'approval-history') {
-        const products = (await productsApi.getAll('all')) as ProductRow[];
         const fromDate = parseDate(approvalFromDate);
         const toDate = parseDate(approvalToDate);
 
@@ -1193,37 +1226,50 @@ export default function Reports() {
           toDate.setHours(23, 59, 59, 999);
         }
 
-        const rows = products
-          .map((product) => {
-            const approvedPrice = product.approvedPrice ?? null;
-            const productionCost = toNumber(product.productionCost);
-            const actualMarkupPercent = approvedPrice != null && productionCost > 0
-              ? calculateActualMarkupPercent(toNumber(approvedPrice), productionCost)
-              : null;
+        const [approvalEntries, products] = await Promise.all([
+          fetchAllActivityEntries({
+            entityType: 'product',
+            action: 'product.approved',
+            from: fromDate ? fromDate.getTime() : undefined,
+            to: toDate ? toDate.getTime() : undefined,
+          }),
+          productsApi.getAll('all') as Promise<ProductRow[]>,
+        ]);
+
+        const productById = new Map(products.map((product) => [product.id, product]));
+
+        const rows = approvalEntries
+          .map((entry) => {
+            const details = entry.details || {};
+            const approvedPrice = typeof details.newPrice === 'number' ? details.newPrice : null;
+            const productionCost = typeof details.productionCost === 'number' ? details.productionCost : null;
+            const markupPercent = typeof details.markupPercent === 'number' ? details.markupPercent : null;
+            const marginPercent = typeof details.margin === 'number'
+              ? details.margin
+              : (typeof details.grossMargin === 'number' ? details.grossMargin : null);
+            const actualMarkupPercent = markupPercent ?? marginPercent ?? (
+              approvedPrice != null && productionCost != null && productionCost > 0
+                ? calculateActualMarkupPercent(approvedPrice, productionCost)
+                : null
+            );
+
+            const product = entry.entityId != null ? productById.get(entry.entityId) : undefined;
 
             return {
-              productName: product.name,
-              category: product.category || 'Uncategorised',
-              currentStatus: product.approvalStatus || 'pending',
+              productName: product?.name || entry.entityName || 'Unknown product',
+              category: product?.category || 'Uncategorised',
+              currentStatus: product?.approvalStatus || 'pending',
               approvedPrice,
-              optimalPrice: toNumber(product.optimalPrice),
+              optimalPrice: product ? toNumber(product.optimalPrice) : null,
               productionCost,
               actualMarkupPercent,
-              approvedOn: product.approvedAt || null,
-              approvedBy: product.approvedBy || '—',
-              isActive: Boolean(product.isActive),
+              approvedOn: entry.createdAt ?? null,
+              approvedBy: entry.performedBy || product?.approvedBy || '—',
+              isActive: product ? Boolean(product.isActive) : false,
             };
           })
           .filter((row) => (approvalStatusFilter === 'All' ? true : row.currentStatus === approvalStatusFilter))
           .filter((row) => (approvalCategoryFilter === 'All' ? true : row.category === approvalCategoryFilter))
-          .filter((row) => {
-            if (!fromDate && !toDate) return true;
-            const approvedDate = parseDate(row.approvedOn);
-            if (!approvedDate) return true;
-            const afterFrom = fromDate ? approvedDate >= fromDate : true;
-            const beforeTo = toDate ? approvedDate <= toDate : true;
-            return afterFrom && beforeTo;
-          })
           .sort((a, b) => {
             const aTime = parseDate(a.approvedOn)?.getTime() ?? -1;
             const bTime = parseDate(b.approvedOn)?.getTime() ?? -1;
@@ -1786,10 +1832,8 @@ export default function Reports() {
         category: row.category,
         currentStatus: row.currentStatus,
         approvedPrice: row.approvedPrice === null ? '' : row.approvedPrice.toFixed(2),
-        currentOptimalPrice: row.optimalPrice.toFixed(2),
-        actualMarkupPercent: row.approvedPrice != null && row.productionCost > 0
-          ? roundExportMarkupPercent(toNumber(row.approvedPrice), row.productionCost) ?? ''
-          : '',
+        currentOptimalPrice: row.optimalPrice == null ? '' : row.optimalPrice.toFixed(2),
+        actualMarkupPercent: row.actualMarkupPercent == null ? '' : Number(row.actualMarkupPercent.toFixed(1)),
         approvedOn: formatApprovalExportDate(row.approvedOn),
         approvedBy: row.approvedBy,
         active: row.isActive ? 'Yes' : 'No',
@@ -3122,7 +3166,7 @@ export default function Reports() {
       return (
         <div id="reporting-centre-print-area">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
-            <StatCard label="Total Products" value={String(data.rows.length)} />
+            <StatCard label="Total Approvals" value={String(data.rows.length)} />
             <StatCard label="Approved" value={String(approved)} tone="success" />
             <StatCard label="Pending" value={String(pending)} tone="default" />
             <StatCard label="Needs Review" value={String(needsReview)} tone="warning" />
@@ -3150,7 +3194,7 @@ export default function Reports() {
                     <td style={{ textAlign: 'left' }}>{row.category}</td>
                     <td style={{ textAlign: 'left' }}><AppBadge variant={statusBadgeVariant(row.currentStatus)} size="sm">{row.currentStatus}</AppBadge></td>
                     <td style={{ textAlign: 'right' }}>{row.approvedPrice === null ? '—' : formatCurrency(row.approvedPrice)}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(row.optimalPrice)}</td>
+                    <td style={{ textAlign: 'right' }}>{row.optimalPrice == null ? '—' : formatCurrency(row.optimalPrice)}</td>
                     <td style={{ textAlign: 'right' }}>{row.actualMarkupPercent == null ? '—' : formatPct(row.actualMarkupPercent)}</td>
                     <td style={{ textAlign: 'left' }}>{parseDate(row.approvedOn)?.toLocaleString() || '—'}</td>
                     <td style={{ textAlign: 'left' }}>{row.approvedBy}</td>
@@ -3163,7 +3207,7 @@ export default function Reports() {
           {renderPaginationControls(data.rows.length)}
 
           <div style={{ marginTop: '8px', color: '#64748b', fontSize: '13px', fontStyle: 'italic' }}>
-            † Optimal price shown is current calculated value. Historical optimal price at time of approval is not stored.
+            † Approved base price, production cost, and markup % come from the recorded approval snapshot. Optimal price and current status are shown as today&apos;s values. Historical optimal price at approval time is not stored. Approvals logged before activity history was introduced may not appear.
           </div>
         </div>
       );
