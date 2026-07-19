@@ -99,7 +99,8 @@ export const helpArticles: HelpArticle[] = [
         to open the product detail page, then use the pricing panel on the right to
         approve the price. After approval, the product receives an
         <strong>Approved base price</strong>. Until a product is approved it will not
-        appear in price levels.</li>
+        appear in price levels. Once approved, you can quickly adjust the approved price
+        and valid-until date later directly from the Products table.</li>
 
         <li><strong>Set up price levels.</strong> Go to Price Levels in the Setup
         section. Create levels for your customer types — for example Wholesale,
@@ -282,7 +283,12 @@ export const helpArticles: HelpArticle[] = [
       costs recalculate instantly.</p>
 
       <p>For the category field, you can type a new category or select an existing
-      one. Keep categories consistent so your filters work properly.</p>`,
+      one. Keep categories consistent so your filters work properly.</p>
+
+      <p><strong>Category</strong>, <strong>Unit</strong>, <strong>Bulk Quantity</strong>,
+      and <strong>Bulk Price</strong> can also be edited directly in the Materials table
+      by clicking the cell — no need to open the Edit form for quick changes. Material
+      names are not editable this way; use the Edit form to rename a material.</p>`,
   },
 
   {
@@ -308,7 +314,11 @@ export const helpArticles: HelpArticle[] = [
       <p>Use the unit that makes sense for how you measure the material in your
       recipes. If your recipe uses grams but you buy in kilograms, it is usually
       easier to work in one unit throughout — for example enter Kg as the unit
-      and use decimal quantities in your recipe (0.5 for 500g).</p>`,
+      and use decimal quantities in your recipe (0.5 for 500g).</p>
+
+      <p>You can also update <strong>Bulk Quantity</strong>, <strong>Bulk Price</strong>,
+      and <strong>Unit</strong> directly in the Materials table by clicking the cell —
+      no need to open the Edit form for quick changes.</p>`,
   },
 
   {
@@ -436,7 +446,11 @@ export const helpArticles: HelpArticle[] = [
 
       <p>On the left panel, the <strong>Cost Settings</strong> section holds overhead %, <strong>Direct Labor Cost</strong>, and optional Markup %. The finished output question appears on the right, below your recipe.</p>
 
-      <p>The calculated unit cost is then available when building finished products — it appears in the same material search alongside primary materials.</p>`,
+      <p>The calculated unit cost is then available when building finished products — it appears in the same material search alongside primary materials.</p>
+
+      <p><strong>Unit</strong>, <strong>Yield %</strong>, and <strong>Overhead %</strong>
+      can be edited directly in the Intermediate Materials table by clicking the cell.
+      Material names are not editable this way; use the Edit form to rename.</p>`,
   },
 
   {
@@ -642,6 +656,12 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Products are colour-coded by markup health using your <strong>Healthy Markup Threshold</strong> in Settings: <strong>Healthy</strong> (green) at or above the threshold, <strong>Low</strong> (amber) between half and full threshold, <strong>Critical</strong> (red) below half.</p>
 
+      <p><strong>Optimal Markup %</strong> and <strong>Optimal Gross Margin % (reference)</strong>
+      on the Products table show your stored target Markup % setting for that product —
+      exactly what you entered, not a recalculated number. <strong>Actual Markup %</strong>
+      is different — it is calculated from the approved price you have actually set, and
+      can differ from your target if you approved a custom price.</p>
+
       <p><strong>Gross Margin %</strong> is available as an optional reference column on the Products table (labelled "reference") for accounting comparisons — but Markup on Cost is the primary metric throughout PriceRight.</p>`,
   },
 
@@ -710,6 +730,13 @@ export const helpArticles: HelpArticle[] = [
         </li>
         <li><strong>Reset to pending</strong> — a low-prominence link below the form on approved or needs-review products. Clears the approved price and returns the product to pending status.</li>
       </ol>
+
+      <p><strong>On the Products table:</strong> you can also click directly on the
+      <strong>Approved Base Price</strong> or <strong>Valid Until</strong> cell to edit
+      without opening the product detail page. Press <strong>Enter</strong> or click away
+      to save. If you change the <strong>Approved Base Price</strong> on a product that
+      has an approved price level referencing it, a confirmation dialog appears first —
+      since this re-approves the product at the new price.</p>
 
       <p>After approval, status becomes <strong>Approved</strong> and that price is used in price levels and exports.</p>
 
@@ -811,6 +838,11 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>Approve Custom</strong> to approve a specific amount you enter in the <strong>Custom Price</strong> field.</li>
       </ol>
 
+      <p>You can adjust <strong>Approved Base Price</strong> and <strong>Valid Until</strong>
+      directly from the Products table for a quick fix. Choosing between
+      <strong>Approve Optimal Price</strong>, <strong>Keep current price</strong>, or
+      <strong>Approve Custom</strong> still happens on the product detail page.</p>
+
       <p>When you approve a new base price, rule-based prices in
       <strong>Price levels</strong> recalculate automatically. If a level has custom
       prices set before the latest base approval, stale custom-price alerts appear
@@ -829,6 +861,14 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>Setting an expiry date:</strong> When approving a price, optionally set a
       <strong>valid until</strong> date in the approval form. Leave it blank for a price that never expires.</p>
+
+      <p>You can also set or clear the <strong>Valid Until</strong> date directly from the
+      Products table by clicking the <strong>Valid Until</strong> cell (when that column
+      is visible), without going through the full approval flow. This is useful for
+      updating or extending an expiry date on an already-approved product. It is separate
+      from the re-approval workflow below — when a price has already expired, the product
+      still moves to <strong>Needs review</strong> and must be re-approved from the
+      product detail page.</p>
 
       <p><strong>Where expiry dates appear:</strong> on the Products list (Valid until column), on the product detail pricing panel, and on the Dashboard Approval Workload card.</p>
 
@@ -1262,7 +1302,16 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Click <strong>Columns</strong> to show or hide columns with checkboxes. Your choices are saved automatically.</p>
 
-      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Approved Base Price, Actual Markup %, and Approval Status. <strong>Gross Margin %</strong> columns are available but hidden by default — they are labelled "(reference)" because Markup on Cost is the primary metric.</p>`,
+      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Optimal Markup %, Approved Base Price, Actual Markup %, and Approval Status. <strong>Valid Until</strong> and <strong>Optimal Gross Margin % (reference)</strong> are available but hidden by default. <strong>Gross Margin %</strong> reference columns are labelled "(reference)" because Markup on Cost is the primary metric.</p>
+
+      <p>Several columns can be edited directly in the table by clicking the cell — press Enter or click away to save:</p>
+      <ul>
+        <li><strong>Products</strong> — Approved Base Price, Valid Until</li>
+        <li><strong>Materials</strong> — Category, Unit, Bulk Quantity, Bulk Price</li>
+        <li><strong>Intermediate Materials</strong> — Unit, Yield %, Overhead %</li>
+      </ul>
+
+      <p>Names are not editable inline on any table — use the Edit form for renames and full edits.</p>`,
   },
 
   {
@@ -1486,7 +1535,11 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>Price History</strong> — historical unit cost changes over time</li>
       </ul>
 
-      <p>Quick actions include Edit, Duplicate, Delete, and View in table. Use <strong>Previous</strong> and <strong>Next</strong> to move between materials in your current filtered list.</p>`,
+      <p>Quick actions include Edit, Duplicate, Delete, and View in table. Use <strong>Previous</strong> and <strong>Next</strong> to move between materials in your current filtered list.</p>
+
+      <p><strong>Category</strong>, <strong>Unit</strong>, and bulk pricing fields can
+      also be edited faster directly from the Materials table by clicking the cell —
+      without opening this detail page.</p>`,
   },
 
   {
@@ -1503,7 +1556,11 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>Cost History</strong> — historical cost changes</li>
       </ul>
 
-      <p>The <strong>Cost Summary</strong> card on the right shows batch output, material cost, Direct Labor, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>`,
+      <p>The <strong>Cost Summary</strong> card on the right shows batch output, material cost, Direct Labor, overhead, cost per unit, markup, and optimal price. Previous/Next navigation moves through your filtered intermediate list.</p>
+
+      <p><strong>Unit</strong>, <strong>Yield %</strong>, and <strong>Overhead %</strong>
+      can also be edited directly from the Intermediate Materials table by clicking the
+      cell — without opening this detail page.</p>`,
   },
 
   {
