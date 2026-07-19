@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 19 July 2026
-**Current version:** 1.0.45
+**Current version:** 1.0.46
 **Active branch:** main
 
 ---
@@ -88,6 +88,36 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.43 | Jul 2026 | Backup reminder and Setup Guide onboarding fixes from real-world testing |
 | v1.0.44 | Jul 2026 | Database connection fix after backup restore; inline table editing; wider BOM edit drawers |
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
+| v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
+
+---
+
+## v1.0.46 — Detailed Changes
+
+**Released:** 19 July 2026
+
+**This release closes a comprehensive pre-launch safety audit covering database transaction integrity, delete-cascade protection, historical data accuracy, connection error handling, and auto-update reliability.**
+
+### Major reliability and data-safety improvements
+
+**Fixed: potential data corruption on interruption**
+- Creating a product with materials, or running a bulk action (approve, reset, delete), is now fully protected — if the app is interrupted partway through (power loss, crash, forced close), the entire action is safely undone rather than leaving incomplete records behind.
+
+**Fixed: deleting items could silently break other records**
+- Bulk-deleting an intermediate material that's used inside a product's recipe, or deleting a product still referenced in an approved price list, is now correctly blocked with a clear explanation — previously this could silently leave other records broken with no warning.
+- Error messages when a delete is blocked are now specific and helpful (e.g. naming which products or price lists are affected) instead of a generic failure message.
+
+**Fixed: Approval History report could show outdated-looking numbers**
+- This report now correctly shows the markup and price exactly as they were at the moment you approved them, rather than recalculating with today's costs — matching what the History tab already correctly showed.
+
+**Fixed: confusing errors when PriceRight's local service is unreachable**
+- If PriceRight's background service can't be reached, you'll now see a clear message explaining this, instead of a generic 'failed to save' error.
+
+**Fixed: app update could get stuck**
+- If a background update fails to download, PriceRight now clearly tells you and continues working normally on your current version, instead of appearing to download forever.
+
+**UI consistency fixes**
+- Fixed several places where the currently selected tab or option wasn't visually clear (Reports sub-pages, approval history filters, and a few others).
 
 ---
 
