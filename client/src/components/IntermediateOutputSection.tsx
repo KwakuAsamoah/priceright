@@ -4,30 +4,6 @@ import {
   type OutputInputMethod,
 } from '../utils/intermediateOutput';
 
-const OUTPUT_TAB_ACTIVE_STYLE = {
-  borderRadius: '999px',
-  padding: '6px 12px',
-  fontSize: '13px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap' as const,
-  backgroundColor: '#16A34A',
-  color: '#ffffff',
-  border: '1.5px solid #16A34A',
-  fontWeight: 600,
-};
-
-const OUTPUT_TAB_INACTIVE_STYLE = {
-  borderRadius: '999px',
-  padding: '6px 12px',
-  fontSize: '13px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap' as const,
-  backgroundColor: '#F1F5F9',
-  color: '#475569',
-  border: '1.5px solid #E2E8F0',
-  fontWeight: 400,
-};
-
 const fieldLabelStyle = {
   display: 'block',
   marginBottom: '6px',
@@ -102,7 +78,7 @@ export default function IntermediateOutputSection({
           type="button"
           role="tab"
           aria-selected={outputInputMethod === 'exact'}
-          style={outputInputMethod === 'exact' ? OUTPUT_TAB_ACTIVE_STYLE : OUTPUT_TAB_INACTIVE_STYLE}
+          className={`app-pill-tab app-pill-tab--medium${outputInputMethod === 'exact' ? ' is-active' : ''}`}
           onClick={() => onOutputInputMethodChange('exact')}
         >
           Exact amount
@@ -111,7 +87,7 @@ export default function IntermediateOutputSection({
           type="button"
           role="tab"
           aria-selected={outputInputMethod === 'percentage'}
-          style={outputInputMethod === 'percentage' ? OUTPUT_TAB_ACTIVE_STYLE : OUTPUT_TAB_INACTIVE_STYLE}
+          className={`app-pill-tab app-pill-tab--medium${outputInputMethod === 'percentage' ? ' is-active' : ''}`}
           onClick={() => onOutputInputMethodChange('percentage')}
         >
           Percentage of input

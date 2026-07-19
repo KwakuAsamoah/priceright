@@ -428,33 +428,15 @@ export default function ProductTabs({
             <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
               <button
                 type="button"
+                className={`app-pill-tab app-pill-tab--compact${historyFilter === 'all' ? ' is-active' : ''}`}
                 onClick={() => setHistoryFilter('all')}
-                style={{
-                  background: historyFilter === 'all' ? '#0F2847' : '#F1F5F9',
-                  color: historyFilter === 'all' ? '#ffffff' : '#64748b',
-                  fontSize: '12px',
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
               >
                 All
               </button>
               <button
                 type="button"
+                className={`app-pill-tab app-pill-tab--compact${historyFilter === 'approvals' ? ' is-active' : ''}`}
                 onClick={() => setHistoryFilter('approvals')}
-                style={{
-                  background: historyFilter === 'approvals' ? '#0F2847' : '#F1F5F9',
-                  color: historyFilter === 'approvals' ? '#ffffff' : '#64748b',
-                  fontSize: '12px',
-                  padding: '4px 10px',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                }}
               >
                 Approvals only
               </button>

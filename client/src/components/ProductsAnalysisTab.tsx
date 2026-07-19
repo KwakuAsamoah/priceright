@@ -314,19 +314,16 @@ export default function ProductsAnalysisTab({
               <button
                 key={card.key}
                 type="button"
+                className={`app-pill-tab${active ? ' is-active' : ''}`}
                 onClick={() => setSelectedBand((prev) => (prev === card.key ? null : card.key))}
                 style={{
                   width: '100%',
                   minWidth: 0,
                   padding: '16px',
                   borderRadius: '10px',
-                  border: `1px solid ${active ? card.color : card.border}`,
-                  backgroundColor: card.background,
                   textAlign: 'left',
-                  cursor: 'pointer',
                   display: 'grid',
                   gap: '4px',
-                  boxShadow: active ? `0 0 0 1px ${card.color} inset` : 'none',
                 }}
                 title={`Filter by ${card.label.toLowerCase()}`}
               >
@@ -351,14 +348,13 @@ export default function ProductsAnalysisTab({
               <button
                 key={item.key}
                 type="button"
+                className={`app-pill-tab${isSelected ? ' is-active' : ''}`}
                 onClick={() => setSelectedBand((prev) => (prev === item.key ? null : item.key))}
                 style={{
-                  border: `1px solid ${isSelected ? item.color : '#e5e7eb'}`,
                   borderRadius: '8px',
                   padding: '8px 10px',
-                  background: '#ffffff',
-                  cursor: 'pointer',
                   textAlign: 'left',
+                  width: '100%',
                 }}
                 title={`Filter by ${item.band}`}
               >

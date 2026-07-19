@@ -233,6 +233,46 @@ textarea {
   box-shadow: none;
 }
 
+.app-pill-tab,
+.app-page .app-pill-tab {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #475569;
+  background: #F1F5F9;
+  border: 1.5px solid #E2E8F0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+
+.app-pill-tab:hover:not(.is-active),
+.app-page .app-pill-tab:hover:not(.is-active) {
+  color: #16A34A;
+  background: rgba(22, 163, 74, 0.03);
+}
+
+.app-pill-tab.is-active,
+.app-page .app-pill-tab.is-active {
+  color: #16A34A;
+  font-weight: 700;
+  background: rgba(22, 163, 74, 0.05);
+  border: 1.5px solid #16A34A;
+  box-shadow: none;
+}
+
+.app-pill-tab--compact {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.app-pill-tab--medium {
+  font-size: 13px;
+  padding: 6px 12px;
+}
+
 .app-choice-tabs {
   display: inline-flex;
   align-items: stretch;
@@ -1688,7 +1728,7 @@ textarea {
 
 /* ── Base button reset — applied to action buttons, not tabs ── */
 .btn,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab) {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab) {
   font-family: inherit;
   border-radius: 8px !important;
   padding: 7px 14px !important;
@@ -1707,19 +1747,19 @@ textarea {
 
 /* Default appearance — buttons without a colour variant (tabs excluded) */
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x),
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab) {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab) {
   border: none !important;
   background: #F1F5F9 !important;
   color: #0F2847 !important;
 }
 
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):hover,
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):hover {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):hover {
   background: #E2E8F0 !important;
 }
 
 .btn:disabled,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):disabled {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }

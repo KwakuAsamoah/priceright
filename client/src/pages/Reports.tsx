@@ -530,28 +530,6 @@ const REPORTS_WITH_CUSTOM_EMPTY_BODY = new Set<ReportKey>([
 
 const ROWS_PER_PAGE = 15;
 
-const REPORT_PILL_STYLE: CSSProperties = {
-  borderRadius: '999px',
-  padding: '8px 14px',
-  fontSize: '14px',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-};
-
-const REPORT_PILL_ACTIVE_STYLE: CSSProperties = {
-  backgroundColor: '#16A34A',
-  color: '#ffffff',
-  border: '1.5px solid #16A34A',
-  fontWeight: 600,
-};
-
-const REPORT_PILL_INACTIVE_STYLE: CSSProperties = {
-  backgroundColor: '#F1F5F9',
-  color: '#475569',
-  border: '1.5px solid #E2E8F0',
-  fontWeight: 400,
-};
-
 const REPORT_SELECTOR_STICKY_STYLE: CSSProperties = {
   position: 'sticky',
   top: 0,
@@ -3907,11 +3885,8 @@ export default function Reports() {
                 <button
                   key={reportKey}
                   type="button"
+                  className={`app-pill-tab${isActive ? ' is-active' : ''}`}
                   onClick={() => selectReport(reportKey)}
-                  style={{
-                    ...REPORT_PILL_STYLE,
-                    ...(isActive ? REPORT_PILL_ACTIVE_STYLE : REPORT_PILL_INACTIVE_STYLE),
-                  }}
                 >
                   {report.pillLabel}
                 </button>
