@@ -1229,7 +1229,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     if (!usageData || usageData.canDelete.length === 0) return;
 
     try {
-      await Promise.all(usageData.canDelete.map((id) => materialsApi.delete(id)));
+      await materialsApi.bulkDelete(usageData.canDelete);
       setShowDeleteModal(false);
       setUsageData(null);
       setSelectedMaterials(new Set());

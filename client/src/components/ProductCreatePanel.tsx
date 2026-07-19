@@ -670,17 +670,13 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
         productionMode: formData.productionMode,
         batchYield: parseFloat(formData.batchYield),
         currentSellingPrice: parseFloat(formData.currentSellingPrice) || 0,
-      };
-
-      const result = await productsApi.create(productData);
-      const productId = result.id;
-
-      for (const material of tempBomMaterials) {
-        await productsApi.addMaterialToBOM(productId, {
+        bomItems: tempBomMaterials.map((material) => ({
           materialId: material.materialId,
           quantity: material.quantity,
-        });
-      }
+        })),
+      };
+
+      await productsApi.create(productData);
 
       showToastMessage('Product created successfully', 'success');
       onSaved();

@@ -728,7 +728,8 @@ export default function Products() {
       const duplicatedName = buildDuplicateName(product.name, existingNames);
       const duplicatedSku = product.sku ? `${product.sku}-COPY` : '';
 
-      const created = await productsApi.create({
+      const sourceBom = await productsApi.getBOM(product.id);
+      await productsApi.create({
         name: duplicatedName,
         sku: duplicatedSku,
         description: product.description || '',
@@ -739,18 +740,11 @@ export default function Products() {
         productionMode: product.productionMode || 'single',
         batchYield: Number(product.batchYield || 1),
         currentSellingPrice: Number(product.currentSellingPrice || 0),
+        bomItems: (sourceBom || []).map((item: { materialId: number; quantity: number | string }) => ({
+          materialId: item.materialId,
+          quantity: Number(item.quantity || 0),
+        })),
       });
-
-      const newProductId = Number(created?.id || 0);
-      if (newProductId > 0) {
-        const sourceBom = await productsApi.getBOM(product.id);
-        for (const item of sourceBom || []) {
-          await productsApi.addMaterialToBOM(newProductId, {
-            materialId: item.materialId,
-            quantity: Number(item.quantity || 0),
-          });
-        }
-      }
 
       await loadData();
       showToastMessage(`Duplicated product: ${duplicatedName}`, 'success');
@@ -847,65 +841,19 @@ export default function Products() {
     const ids = Array.from(selectedProducts);
     if (ids.length === 0) return;
 
-    const productNameById = new Map(products.map((product) => [product.id, product.name]));
-
-    const outcomes = await Promise.all(
-      ids.map(async (id) => {
-        const name = productNameById.get(id) || `Product #${id}`;
-        try {
-          await productsApi.delete(id);
-          return { id, name, ok: true as const, error: '' };
-        } catch (error: any) {
-          return { id, name, ok: false as const, error: error?.message || 'Failed to delete product' };
-        }
-      })
-    );
-
-    const deletedIds = outcomes.filter((item) => item.ok).map((item) => item.id);
-    const deletedNames = outcomes.filter((item) => item.ok).map((item) => item.name);
-    const failed = outcomes.filter((item) => !item.ok);
-    const failedDetails = failed.map((item) => `${item.name}: ${item.error}`);
-
-    setSelectedProducts(new Set(failed.map((item) => item.id)));
-    setShowBulkDeleteModal(false);
-    await loadData();
-
-    const deletedPreview = deletedNames.slice(0, 5).join(', ');
-    const deletedSuffix = deletedNames.length > 5 ? ` +${deletedNames.length - 5} more` : '';
-    const failedPreview = failedDetails.slice(0, 3).join(' | ');
-    const failedSuffix = failedDetails.length > 3 ? ` +${failedDetails.length - 3} more` : '';
-
-    if (deletedIds.length > 0 && failed.length === 0) {
+    try {
+      await productsApi.bulkDelete(ids);
+      setSelectedProducts(new Set());
+      setShowBulkDeleteModal(false);
+      await loadData();
       showToastMessage(
-        formatListMessage(
-          `Deleted ${deletedIds.length} product${deletedIds.length !== 1 ? 's' : ''}`,
-          [`Products: ${deletedPreview}${deletedSuffix}`]
-        ),
+        `Deleted ${ids.length} product${ids.length !== 1 ? 's' : ''}`,
         'success'
       );
-      return;
+    } catch (error: any) {
+      console.error('Error bulk deleting products:', error);
+      showToastMessage(error?.message || 'Failed to delete selected products', 'error');
     }
-
-    if (deletedIds.length > 0 && failed.length > 0) {
-      showToastMessage(
-        formatListMessage(
-          `Bulk delete completed with partial failures`,
-          [
-            `Deleted: ${deletedIds.length}`,
-            `Failed: ${failed.length}`,
-            `Deleted products: ${deletedPreview}${deletedSuffix}`,
-            `Failure reasons: ${failedPreview}${failedSuffix}`,
-          ]
-        ),
-        'error'
-      );
-      return;
-    }
-
-    const fullFailureMessage = failedDetails.length > 0
-      ? formatListMessage('Could not delete selected products', [`Reasons: ${failedPreview}${failedSuffix}`])
-      : 'Failed to delete selected products';
-    showToastMessage(fullFailureMessage, 'error');
   }
 
   async function handleBulkCategoryChange() {

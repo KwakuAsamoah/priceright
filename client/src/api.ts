@@ -365,6 +365,14 @@ export const materialsApi = {
     });
     return parseResponse(res);
   },
+  bulkDelete: async (ids: number[]) => {
+    const res = await fetch(`${API_BASE}/materials/bulk`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    });
+    return parseResponse(res);
+  },
   bulkDeleteIntermediates: async (ids: number[]) => {
     const res = await fetch(`${API_BASE}/intermediate-materials/bulk`, {
       method: 'DELETE',
@@ -452,6 +460,10 @@ export const productsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to create product');
+    }
     return res.json();
   },
   update: async (id: number, data: any) => {
@@ -481,6 +493,18 @@ export const productsApi = {
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
       throw new Error(error.error || 'Failed to delete product');
+    }
+    return res.json();
+  },
+  bulkDelete: async (productIds: number[]) => {
+    const res = await fetch(`${API_BASE}/products/bulk`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productIds }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.error || 'Failed to bulk delete products');
     }
     return res.json();
   },

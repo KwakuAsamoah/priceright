@@ -52,9 +52,9 @@ async function getCurrentUserName() {
         return 'Admin';
     }
 }
-async function logActivity(params) {
-    try {
-        await getActiveDb().insert(activityLog).values({
+async function logActivity(params, tx) {
+    const writeLog = async (dbClient) => {
+        await dbClient.insert(activityLog).values({
             entityType: params.entityType,
             entityId: params.entityId ?? null,
             entityName: params.entityName ?? null,
@@ -65,11 +65,34 @@ async function logActivity(params) {
             userName: 'Admin',
             createdAt: new Date(),
         });
+    };
+    if (tx) {
+        await writeLog(tx);
+        return;
+    }
+    try {
+        await writeLog(getActiveDb());
     }
     catch (err) {
         // Never let logging failure break the main operation
         console.error('[activity_log] Failed to write log entry:', err);
     }
+}
+function normalizeBomItemsPayload(raw) {
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+    return raw.map((item, index) => {
+        const materialId = Number(item?.materialId);
+        const quantity = Number(item?.quantity);
+        if (!Number.isInteger(materialId) || materialId <= 0) {
+            throw new Error(`Invalid bomItems[${index}].materialId`);
+        }
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            throw new Error(`Invalid bomItems[${index}].quantity`);
+        }
+        return { materialId, quantity };
+    });
 }
 let lastBackupTime = null;
 let backupIntervalHandle = null;
@@ -1307,6 +1330,65 @@ app.put('/api/materials/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to update material' });
     }
 });
+app.delete('/api/materials/bulk', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No IDs provided' });
+        }
+        const materialIds = ids.filter((id) => Number.isInteger(id));
+        if (materialIds.length === 0) {
+            return res.status(400).json({ error: 'No valid material IDs provided' });
+        }
+        for (const materialId of materialIds) {
+            const usageRows = await db
+                .select({
+                productId: products.id,
+                productName: products.name,
+            })
+                .from(billOfMaterials)
+                .innerJoin(products, eq(billOfMaterials.productId, products.id))
+                .where(eq(billOfMaterials.materialId, materialId));
+            if (usageRows.length > 0) {
+                const materialRows = await db
+                    .select({ name: materials.name })
+                    .from(materials)
+                    .where(eq(materials.id, materialId));
+                const uniqueProductNames = Array.from(new Set(usageRows.map((row) => String(row.productName || '').trim()).filter(Boolean)));
+                return res.status(400).json({
+                    error: `Cannot delete material - used in ${uniqueProductNames.length} products: ${uniqueProductNames.join(', ')}`,
+                    code: 'MATERIAL_IN_USE',
+                    details: {
+                        materialId,
+                        materialName: materialRows[0]?.name ?? `Material #${materialId}`,
+                        productCount: uniqueProductNames.length,
+                        products: uniqueProductNames,
+                    },
+                });
+            }
+            const intermediateUsageRows = await db
+                .select({ id: intermediateMaterialBom.id })
+                .from(intermediateMaterialBom)
+                .where(and(eq(intermediateMaterialBom.componentMaterialId, materialId), sql `${intermediateMaterialBom.intermediateMaterialId} <> ${materialId}`));
+            if (intermediateUsageRows.length > 0) {
+                return res.status(400).json({
+                    error: 'Cannot delete material - used in intermediate material BOM',
+                    code: 'MATERIAL_IN_USE',
+                });
+            }
+        }
+        await getActiveDb().transaction(async (tx) => {
+            for (const materialId of materialIds) {
+                await tx.delete(materials).where(eq(materials.id, materialId));
+            }
+        });
+        res.json({ deleted: materialIds.length });
+    }
+    catch (error) {
+        console.error('Bulk delete materials failed:', error);
+        res.status(500).json({ error: 'Failed to bulk delete materials' });
+    }
+});
 app.delete('/api/materials/:id', async (req, res) => {
     try {
         const materialId = parseInt(req.params.id);
@@ -2467,24 +2549,41 @@ app.get('/api/products/:id/has-approved-price-level', async (req, res) => {
 });
 app.post('/api/products', async (req, res) => {
     try {
-        const { name, sku, description, category, overheadPercentage, profitMargin, laborCost, otherDirectCosts, productionMode, batchYield, currentSellingPrice } = req.body;
+        const { name, sku, description, category, overheadPercentage, profitMargin, laborCost, otherDirectCosts, productionMode, batchYield, currentSellingPrice, bomItems, } = req.body;
         const resolvedProductionMode = productionMode || 'single';
-        const result = await getActiveDb().insert(products).values({
-            name,
-            sku: sku || null,
-            description: description || null,
-            category: category || null,
-            overheadPercentage,
-            profitMargin,
-            laborCost: Number(laborCost || 0),
-            otherDirectCosts: otherDirectCosts || 0,
-            productionMode: resolvedProductionMode,
-            batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
-            currentSellingPrice: currentSellingPrice || 0,
-        }).returning();
-        res.json(result[0]);
+        const normalizedBomItems = normalizeBomItemsPayload(bomItems);
+        const activeDb = getActiveDb();
+        const createdProduct = await activeDb.transaction(async (tx) => {
+            const result = await tx.insert(products).values({
+                name,
+                sku: sku || null,
+                description: description || null,
+                category: category || null,
+                overheadPercentage,
+                profitMargin,
+                laborCost: Number(laborCost || 0),
+                otherDirectCosts: otherDirectCosts || 0,
+                productionMode: resolvedProductionMode,
+                batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
+                currentSellingPrice: currentSellingPrice || 0,
+            }).returning();
+            const productId = result[0].id;
+            if (normalizedBomItems.length > 0) {
+                await tx.insert(billOfMaterials).values(normalizedBomItems.map((item) => ({
+                    productId,
+                    materialId: item.materialId,
+                    quantity: item.quantity,
+                })));
+            }
+            return result[0];
+        });
+        res.json(createdProduct);
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message.startsWith('Invalid bomItems')) {
+            return res.status(400).json({ error: message });
+        }
         res.status(500).json({ error: 'Failed to create product' });
     }
 });
@@ -2791,6 +2890,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         let skipped = 0;
         const skippedProducts = [];
         const performedBy = await getCurrentUserName();
+        const approvalWork = [];
         for (const productId of productIds) {
             const bomItems = await db
                 .select({ id: billOfMaterials.id })
@@ -2822,18 +2922,6 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                 skipped += 1;
                 continue;
             }
-            const updatePayload = {
-                approvalStatus: 'approved',
-                approvedPrice: priceToApprove,
-                currentSellingPrice: priceToApprove,
-                approvedBy: 'user',
-                approvedAt: new Date(),
-                approvedPriceExpiresAt: hasPriceExpiryDateInput || hasExpiryDaysInput ? resolvedExpiryDate : current.approvedPriceExpiresAt,
-                priceExpiryNotifiedAt: null,
-                needsReviewReason: null,
-                updatedAt: new Date(),
-            };
-            await getActiveDb().update(products).set(updatePayload).where(eq(products.id, productId));
             const productionCost = await calculateProductionCostForProduct(current, productId);
             const totalCost = productionCost;
             const markupPercent = totalCost > 0
@@ -2842,24 +2930,49 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             const grossMargin = priceToApprove > 0
                 ? Math.round(((priceToApprove - totalCost) / priceToApprove) * 100 * 100) / 100
                 : 0;
-            await logActivity({
-                entityType: 'product',
-                entityId: productId,
-                entityName: current.name,
-                action: 'product.approved',
-                details: {
-                    oldPrice: current.approvedPrice == null ? null : Number(current.approvedPrice),
-                    newPrice: priceToApprove,
-                    productionCost: roundToTwo(productionCost),
-                    markupPercent,
-                    // Kept for backward compatibility — markupPercent is the primary metric
-                    grossMargin,
-                    margin: grossMargin,
-                },
-                performedBy,
+            approvalWork.push({
+                productId,
+                current,
+                priceToApprove,
+                productionCost,
+                markupPercent,
+                grossMargin,
             });
-            approved += 1;
         }
+        await getActiveDb().transaction(async (tx) => {
+            for (const item of approvalWork) {
+                const updatePayload = {
+                    approvalStatus: 'approved',
+                    approvedPrice: item.priceToApprove,
+                    currentSellingPrice: item.priceToApprove,
+                    approvedBy: 'user',
+                    approvedAt: new Date(),
+                    approvedPriceExpiresAt: hasPriceExpiryDateInput || hasExpiryDaysInput
+                        ? resolvedExpiryDate
+                        : item.current.approvedPriceExpiresAt,
+                    priceExpiryNotifiedAt: null,
+                    needsReviewReason: null,
+                    updatedAt: new Date(),
+                };
+                await tx.update(products).set(updatePayload).where(eq(products.id, item.productId));
+                await logActivity({
+                    entityType: 'product',
+                    entityId: item.productId,
+                    entityName: item.current.name,
+                    action: 'product.approved',
+                    details: {
+                        oldPrice: item.current.approvedPrice == null ? null : Number(item.current.approvedPrice),
+                        newPrice: item.priceToApprove,
+                        productionCost: roundToTwo(item.productionCost),
+                        markupPercent: item.markupPercent,
+                        grossMargin: item.grossMargin,
+                        margin: item.grossMargin,
+                    },
+                    performedBy,
+                }, tx);
+            }
+        });
+        approved = approvalWork.length;
         res.json({
             approved,
             skipped,
@@ -2879,7 +2992,7 @@ app.post('/api/products/bulk-reset-to-pending', async (req, res) => {
         if (!Array.isArray(productIds) || productIds.length === 0) {
             return res.status(400).json({ error: 'No products provided' });
         }
-        let reset = 0;
+        const idsToReset = [];
         for (const productId of productIds) {
             if (!Number.isInteger(productId)) {
                 continue;
@@ -2888,20 +3001,52 @@ app.post('/api/products/bulk-reset-to-pending', async (req, res) => {
             if (currentRows.length === 0) {
                 continue;
             }
-            await getActiveDb().update(products).set({
-                approvalStatus: 'pending',
-                approvedPrice: null,
-                approvedBy: null,
-                approvedAt: null,
-                updatedAt: new Date(),
-            }).where(eq(products.id, productId));
-            reset += 1;
+            idsToReset.push(productId);
         }
-        res.json({ reset });
+        await getActiveDb().transaction(async (tx) => {
+            for (const productId of idsToReset) {
+                await tx.update(products).set({
+                    approvalStatus: 'pending',
+                    approvedPrice: null,
+                    approvedBy: null,
+                    approvedAt: null,
+                    updatedAt: new Date(),
+                }).where(eq(products.id, productId));
+            }
+        });
+        res.json({ reset: idsToReset.length });
     }
     catch (error) {
         console.error('Bulk reset to pending failed:', error);
         res.status(500).json({ error: 'Failed to bulk reset products to pending' });
+    }
+});
+app.delete('/api/products/bulk', async (req, res) => {
+    try {
+        const { productIds } = req.body;
+        if (!Array.isArray(productIds) || productIds.length === 0) {
+            return res.status(400).json({ error: 'No products provided' });
+        }
+        const normalizedIds = productIds.filter((id) => Number.isInteger(id));
+        if (normalizedIds.length === 0) {
+            return res.status(400).json({ error: 'No valid product IDs provided' });
+        }
+        await getActiveDb().transaction(async (tx) => {
+            for (const productId of normalizedIds) {
+                await tx.delete(products).where(eq(products.id, productId));
+            }
+        });
+        res.json({ deleted: normalizedIds.length });
+    }
+    catch (error) {
+        const message = String(error?.message || '');
+        if (message.toLowerCase().includes('foreign key constraint failed')) {
+            return res.status(409).json({
+                error: 'Cannot delete one or more products because they are used in price lists. Remove them from those lists first.',
+            });
+        }
+        console.error('Bulk delete products failed:', error);
+        res.status(500).json({ error: 'Failed to bulk delete products' });
     }
 });
 app.delete('/api/products/:id', async (req, res) => {

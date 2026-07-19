@@ -522,7 +522,13 @@ export default function ProductFormDrawer({
         await productsApi.update(product.id, productData);
         productId = product.id;
       } else {
-        const result = await productsApi.create(productData);
+        const result = await productsApi.create({
+          ...productData,
+          bomItems: tempBomMaterials.map((material) => ({
+            materialId: material.materialId,
+            quantity: material.quantity,
+          })),
+        });
         productId = result.id;
       }
 
@@ -531,13 +537,13 @@ export default function ProductFormDrawer({
         for (const item of existingBom) {
           await productsApi.removeMaterialFromBOM(productId, item.id);
         }
-      }
 
-      for (const material of tempBomMaterials) {
-        await productsApi.addMaterialToBOM(productId, {
-          materialId: material.materialId,
-          quantity: material.quantity,
-        });
+        for (const material of tempBomMaterials) {
+          await productsApi.addMaterialToBOM(productId, {
+            materialId: material.materialId,
+            quantity: material.quantity,
+          });
+        }
       }
 
       resetForm();
