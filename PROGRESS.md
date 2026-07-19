@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 19 July 2026
-**Current version:** 1.0.46
+**Current version:** 1.0.47
 **Active branch:** main
 
 ---
@@ -89,6 +89,21 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.44 | Jul 2026 | Database connection fix after backup restore; inline table editing; wider BOM edit drawers |
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
+| v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+
+---
+
+## v1.0.47 — Detailed Changes
+
+**Released:** 19 July 2026
+
+**Fixed: needs-review banner is now actionable**
+- Clicking the 'products need review' banner on the Products page now clears any filters that were hiding those products and shows you exactly which ones need attention, instead of leaving you unable to find them.
+
+**Redesigned: PIN unlock screen**
+- A fresh look with a numeric keypad for quick entry, matching how you'd unlock a phone
+- You can still type your PIN on the keyboard if you prefer — just start typing, no need to click anything first
+- Clear visual feedback if you enter the wrong PIN
 
 ---
 
