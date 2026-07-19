@@ -1112,7 +1112,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       showToastMessage('Material deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting material:', error);
-      showToastMessage('Failed to delete material', 'error');
+      showToastMessage(error instanceof Error ? error.message : 'Failed to delete material', 'error');
     }
   }
 
