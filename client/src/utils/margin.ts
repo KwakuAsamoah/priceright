@@ -23,6 +23,35 @@ export function calculateActualGrossMarginPercent(approvedPrice: number, totalCo
   return ((approvedPrice - totalCost) / approvedPrice) * 100;
 }
 
+/** Stored markup-on-cost % (user input), e.g. products.profitMargin */
+export function getStoredProfitMarginPercent(
+  profitMargin: number | null | undefined,
+): number | null {
+  if (profitMargin == null) {
+    return null;
+  }
+  const value = Number(profitMargin);
+  if (!Number.isFinite(value)) {
+    return null;
+  }
+  return value;
+}
+
+/** Gross margin % implied by markup-on-cost input: m / (100 + m) × 100 */
+export function getOptimalGrossMarginFromMarkupPercent(
+  markupOnCostPercent: number | null | undefined,
+): number | null {
+  const markup = getStoredProfitMarginPercent(markupOnCostPercent);
+  if (markup == null) {
+    return null;
+  }
+  const denominator = 100 + markup;
+  if (denominator <= 0) {
+    return null;
+  }
+  return (markup / denominator) * 100;
+}
+
 /** Markup on Cost at optimal price: (optimalPrice - cost) / cost × 100 */
 export function calculateOptimalMarkupPercent(
   optimalPrice: number | null | undefined,

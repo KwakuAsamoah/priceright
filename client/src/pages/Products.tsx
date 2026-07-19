@@ -31,7 +31,12 @@ import {
   PRODUCTS_COLUMNS,
   type ProductColumnKey,
 } from '../config/productsColumns';
-import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
+import {
+  calculateActualMarkupPercent,
+  getOptimalGrossMarginFromMarkupPercent,
+  getStoredProfitMarginPercent,
+  getThresholdMarkupColor,
+} from '../utils/margin';
 
 interface Product {
   id: number;
@@ -181,28 +186,6 @@ function calculatePricingAnalysis(product: ProductPricing) {
   };
 }
 
-function calculateOptimalProfitOnCost(product: ProductPricing): number | null {
-  const optimalPrice = Number(product.optimalPrice || 0);
-  const productionCost = Number(product.totalCost || 0);
-
-  if (optimalPrice <= 0 || productionCost <= 0) {
-    return null;
-  }
-
-  return ((optimalPrice - productionCost) / productionCost) * 100;
-}
-
-function calculateOptimalProfitOnSales(product: ProductPricing): number | null {
-  const optimalPrice = Number(product.optimalPrice || 0);
-  const productionCost = Number(product.totalCost || 0);
-
-  if (optimalPrice <= 0 || productionCost <= 0) {
-    return null;
-  }
-
-  return ((optimalPrice - productionCost) / optimalPrice) * 100;
-}
-
 function calculateActualProfitOnCost(product: ProductPricing): number | null {
   if (product.approvalStatus !== 'approved' || product.approvedPrice == null) {
     return null;
@@ -247,7 +230,7 @@ const PRODUCT_PDF_COLUMNS = [
 
 function buildProductPdfRows(products: ProductPricing[], currencyCode: string): Record<string, unknown>[] {
   return products.map((product) => {
-    const optimalMarkup = calculateOptimalProfitOnCost(product);
+    const optimalMarkup = getStoredProfitMarginPercent(product.profitMargin);
     const actualMarkup = calculateActualProfitOnCost(product);
 
     return {
@@ -301,8 +284,8 @@ function formatProductExportPercent(value: number | null): string {
 }
 
 function buildProductExportValues(product: ProductPricing, baseCurrency: string): Array<string | number> {
-  const optimalMarkup = calculateOptimalProfitOnCost(product);
-  const optimalGross = calculateOptimalProfitOnSales(product);
+  const optimalMarkup = getStoredProfitMarginPercent(product.profitMargin);
+  const optimalGross = getOptimalGrossMarginFromMarkupPercent(product.profitMargin);
   const actualMarkup = calculateActualProfitOnCost(product);
   const actualGross = calculateActualProfitOnSales(product);
 
@@ -1918,8 +1901,8 @@ export default function Products() {
 
                     const hasApprovedBasePrice = product.approvedPrice != null
                       && Number(product.approvedPrice) > 0;
-                    const optimalProfitOnCost = calculateOptimalProfitOnCost(product);
-                    const optimalProfitOnSales = calculateOptimalProfitOnSales(product);
+                    const optimalProfitOnCost = getStoredProfitMarginPercent(product.profitMargin);
+                    const optimalProfitOnSales = getOptimalGrossMarginFromMarkupPercent(product.profitMargin);
                     const actualProfitOnCost = calculateActualProfitOnCost(product);
                     const actualProfitOnSales = calculateActualProfitOnSales(product);
                     const sellingMismatch = !!product.priceMismatch;

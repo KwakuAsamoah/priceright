@@ -15,7 +15,7 @@ import PageHelpButton from '../components/PageHelpButton';
 import { ActualMarkupInfoTooltip, OptimalMarkupInfoTooltip } from '../components/ProfitTooltips';
 import {
   calculateActualMarkupPercent,
-  calculateOptimalMarkupPercent,
+  getStoredProfitMarginPercent,
   getThresholdMarkupColor,
 } from '../utils/margin';
 import { calculateProductionCost } from '../utils/costFormula';
@@ -541,7 +541,7 @@ export default function ProductDetail() {
   const showApprovalForm = needsPriceAction || showPriceForm;
   const showReadOnlyApprovedSummary = product.approvalStatus === 'approved' && !showPriceForm;
   const profitOnCostAmount = productionCost * (toNum(product.profitMargin) / 100);
-  const optimalMarkupPercent = calculateOptimalMarkupPercent(optimalPrice, productionCost);
+  const optimalMarkupPercent = getStoredProfitMarginPercent(product.profitMargin);
   const approvedPrice = product.approvalStatus === 'approved' && product.approvedPrice != null
     ? toNum(product.approvedPrice)
     : null;
