@@ -21,6 +21,7 @@ import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import { materialsApi, currenciesApi, settingsApi, type MaterialRecord, type IntermediateBomItemRecord } from '../api';
 import useAppToast from '../hooks/useAppToast';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
@@ -349,6 +350,7 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }, [setHasOpenForm]);
 
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { beginRequest, isLatestRequest } = useLatestRequest();
 
   function toggleSelectAll(checked: boolean) {
     if (checked) {
@@ -545,12 +547,14 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }, [selectedId]);
 
   async function loadData() {
+    const requestId = beginRequest('intermediate-loadData');
     const [intermediateData, componentData, settingsData, currenciesData] = await Promise.all([
       materialsApi.getAll('all', 'intermediate'),
       materialsApi.getAll('active', 'all'),
       settingsApi.getAll(),
       currenciesApi.getAll(),
     ]);
+    if (!isLatestRequest('intermediate-loadData', requestId)) return;
 
     const safeIntermediate = Array.isArray(intermediateData) ? intermediateData : [];
     const safeComponents = Array.isArray(componentData) ? componentData : [];
@@ -565,7 +569,9 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
   }
 
   async function loadBom(materialId: number) {
+    const requestId = beginRequest('intermediate-loadBom');
     const rows = await materialsApi.getIntermediateBom(materialId);
+    if (!isLatestRequest('intermediate-loadBom', requestId)) return;
     setBomItems(Array.isArray(rows) ? rows : []);
   }
 

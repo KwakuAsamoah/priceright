@@ -12,6 +12,7 @@ import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
 import AppToast from '../components/AppToast';
 import useAppToast from '../hooks/useAppToast';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { useTemplateDownload } from '../hooks/useTemplateDownload';
 import usePersistedColumns from '../hooks/usePersistedColumns';
 import useUndoAction from '../hooks/useUndoAction';
@@ -386,6 +387,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   const [usageData, setUsageData] = useState<UsageCheckResult | null>(null);
   const [loadingUsageCheck, setLoadingUsageCheck] = useState(false);
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { beginRequest, isLatestRequest } = useLatestRequest();
   const { setHasOpenForm } = useFormState();
   useUndoAction();
 
@@ -431,6 +433,7 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   }, [exchangeRateNotice]);
 
   async function loadData(statusFilter: 'all' | 'active' | 'inactive' = selectedStatus) {
+    const requestId = beginRequest('materials-loadData');
     try {
       const [materialsData, currenciesData, settingsData, exchangeRatesData] = await Promise.all([
         materialsApi.getAll(statusFilter, materialType),
@@ -438,6 +441,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         settingsApi.getAll(),
         exchangeRatesApi.getAll(),
       ]);
+      if (!isLatestRequest('materials-loadData', requestId)) return;
+
       const safeMaterials = Array.isArray(materialsData) ? materialsData : [];
       const safeCurrencies = Array.isArray(currenciesData) ? currenciesData : [];
       const safeExchangeRates = Array.isArray(exchangeRatesData) ? exchangeRatesData : [];
@@ -458,11 +463,13 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
         setFormData((prev) => ({ ...prev, purchaseCurrencyId: safeCurrencies[0].id }));
       }
     } catch (error) {
+      if (!isLatestRequest('materials-loadData', requestId)) return;
       console.error('Error loading data:', error);
       setMaterials([]);
       setCurrencies([]);
       showToastMessage('Unable to load materials. Please try again.', 'error');
     } finally {
+      if (!isLatestRequest('materials-loadData', requestId)) return;
       setLoading(false);
     }
   }
@@ -1053,14 +1060,18 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     setSelectedMaterialForHistory(material);
     setShowPriceHistory(true);
     setLoadingHistory(true);
-    
+    const requestId = beginRequest('materials-priceHistory');
+
     try {
       const history = await materialsApi.getPriceHistory(material.id);
+      if (!isLatestRequest('materials-priceHistory', requestId)) return;
       setPriceHistory(history);
     } catch (error) {
+      if (!isLatestRequest('materials-priceHistory', requestId)) return;
       console.error('Error loading price history:', error);
       showToastMessage('Failed to load price history', 'error');
     } finally {
+      if (!isLatestRequest('materials-priceHistory', requestId)) return;
       setLoadingHistory(false);
     }
   }
@@ -1070,16 +1081,20 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
     setSelectedMaterialUsage(null);
     setShowUsageModal(true);
     setLoadingMaterialUsage(true);
+    const requestId = beginRequest('materials-usage');
 
     try {
       const result = await materialsApi.checkUsage([material.id]);
+      if (!isLatestRequest('materials-usage', requestId)) return;
       const usageList = Array.isArray(result?.inUse) ? result.inUse : [];
       const usageRecord = usageList.find((entry: MaterialUsage) => entry.materialId === material.id) || null;
       setSelectedMaterialUsage(usageRecord);
     } catch (error) {
+      if (!isLatestRequest('materials-usage', requestId)) return;
       console.error('Error loading material usage:', error);
       showToastMessage('Failed to load material usage', 'error');
     } finally {
+      if (!isLatestRequest('materials-usage', requestId)) return;
       setLoadingMaterialUsage(false);
     }
   }

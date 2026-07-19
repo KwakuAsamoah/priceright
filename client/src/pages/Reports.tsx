@@ -22,6 +22,7 @@ import ActionDropdown from '../components/ActionDropdown';
 import PageHelpButton from '../components/PageHelpButton';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import useAppToast from '../hooks/useAppToast';
+import useLatestRequest from '../hooks/useLatestRequest';
 import ProductsAnalysisTab from '../components/ProductsAnalysisTab';
 import { currenciesApi, exchangeRatesApi, materialsApi, priceListsApi, productsApi, reportsApi } from '../api';
 import { exportInChunks, exportToCsv, exportToExcelWorkbookAsync, type ColumnDef, type ReportCell, type ReportRow } from '../utils/reportExport';
@@ -628,7 +629,10 @@ function formatSignedNumber(value: number): string {
   return value < 0 ? `(${absValue})` : absValue;
 }
 
-function formatPct(value: number): string {
+function formatPct(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) {
+    return '—';
+  }
   return `${value.toFixed(1)}%`;
 }
 
@@ -800,6 +804,7 @@ export default function Reports() {
   const companyName = useCompanyName();
   const lowMarkupThreshold = useLowMarkupThreshold();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { beginRequest, isLatestRequest } = useLatestRequest();
   const formatCurrency = (value: number) => {
     const absValue = Math.abs(value);
     const text = formatCurrencyAmount(absValue, baseCurrency);
@@ -1032,8 +1037,17 @@ export default function Reports() {
   async function generateReport() {
     if (!selectedReport) return;
 
-    setIsLoading(true);
-    setError(null);
+    const requestId = beginRequest('generateReport');
+    const applyIfLatest = (apply: () => void) => {
+      if (isLatestRequest('generateReport', requestId)) {
+        apply();
+      }
+    };
+
+    applyIfLatest(() => {
+      setIsLoading(true);
+      setError(null);
+    });
 
     try {
       if (selectedReport === 'pricing-status') {
@@ -1086,7 +1100,7 @@ export default function Reports() {
           return a.variance - b.variance;
         });
 
-        setReportData({ rows: filtered });
+        applyIfLatest(() => setReportData({ rows: filtered }));
       }
 
       if (selectedReport === 'markup-analysis') {
@@ -1148,14 +1162,14 @@ export default function Reports() {
           return b.actualMarkupPercent - a.actualMarkupPercent;
         });
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows: filtered,
           totalAnalysed,
           aboveTargetCount,
           belowTargetCount,
           averageMarkup,
           threshold,
-        });
+        }));
       }
 
       if (selectedReport === 'price-list-summary') {
@@ -1189,7 +1203,7 @@ export default function Reports() {
         const activeCount = rows.filter((row) => row.status === 'active').length;
         const expiredCount = rows.filter((row) => row.daysUntilExpiry !== null && row.daysUntilExpiry < 0).length;
 
-        setReportData({ rows, activeCount, expiringSoonCount, expiredCount });
+        applyIfLatest(() => setReportData({ rows, activeCount, expiringSoonCount, expiredCount }));
       }
 
       if (selectedReport === 'approval-history') {
@@ -1238,7 +1252,7 @@ export default function Reports() {
             return bTime - aTime;
           });
 
-        setReportData({ rows });
+        applyIfLatest(() => setReportData({ rows }));
       }
 
       if (selectedReport === 'currency-exposure') {
@@ -1299,7 +1313,7 @@ export default function Reports() {
         const rows = Array.from(byCurrency.values())
           .sort((a, b) => b.materialsCount - a.materialsCount);
 
-        setReportData({ rows, totalMaterials: materials.length });
+        applyIfLatest(() => setReportData({ rows, totalMaterials: materials.length }));
       }
 
       if (selectedReport === 'materials-cost-analysis') {
@@ -1331,29 +1345,29 @@ export default function Reports() {
           return toNumber(material.unitPrice) > toNumber(best.unitPrice) ? material : best;
         }, null);
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows,
           totalActiveMaterials: materials.length,
           averageUnitCost: materials.length > 0 ? totalUnitCost / materials.length : 0,
           mostExpensiveName: mostExpensive?.name || '—',
           mostExpensiveCost: mostExpensive ? toNumber(mostExpensive.unitPrice) : 0,
           categoryCount: categories.length,
-        });
+        }));
       }
 
       if (selectedReport === 'top-cost-drivers') {
         const data = await reportsApi.getTopCostDrivers();
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows: data.rows,
           totalMaterialsInBoms: data.totalMaterialsInBoms,
           totalWeightedCost: data.totalWeightedCost,
           mostImpactfulMaterial: data.mostImpactfulMaterial,
-        });
+        }));
       }
 
       if (selectedReport === 'price-volatility') {
         const data = await reportsApi.getPriceVolatility(priceVolatilityPeriod);
-        setReportData(data);
+        applyIfLatest(() => setReportData(data));
       }
 
       if (selectedReport === 'material-price-history') {
@@ -1368,7 +1382,7 @@ export default function Reports() {
           : null;
 
         if (!selectedMaterial) {
-          setReportData({
+          applyIfLatest(() => setReportData({
             materialId: null,
             materialName: '',
             materialOptions,
@@ -1377,7 +1391,7 @@ export default function Reports() {
             firstRecordedCost: null,
             priceChangeCount: 0,
             costTrend: 'stable',
-          });
+          }));
         } else {
           const history = (await materialsApi.getPriceHistory(selectedMaterial.id)) as MaterialPriceHistoryApiEntry[];
           const historyDesc = Array.isArray(history)
@@ -1411,7 +1425,7 @@ export default function Reports() {
           if (firstRecordedCost != null && currentCost > firstRecordedCost + 0.01) costTrend = 'up';
           else if (firstRecordedCost != null && currentCost < firstRecordedCost - 0.01) costTrend = 'down';
 
-          setReportData({
+          applyIfLatest(() => setReportData({
             materialId: selectedMaterial.id,
             materialName: selectedMaterial.name,
             materialOptions,
@@ -1420,7 +1434,7 @@ export default function Reports() {
             firstRecordedCost,
             priceChangeCount,
             costTrend,
-          });
+          }));
         }
       }
 
@@ -1464,12 +1478,12 @@ export default function Reports() {
           if (usesInactive) affectedProductIds.add(product.id);
         }
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows,
           totalInactiveMaterials: inactiveMaterials.length,
           inactiveAffectingProducts: rows.length,
           productsAffected: affectedProductIds.size,
-        });
+        }));
       }
 
       if (selectedReport === 'margin-health') {
@@ -1478,7 +1492,7 @@ export default function Reports() {
           .filter((product) => product.isActive !== false)
           .map(mapProductForAnalysisTab);
 
-        setReportData({ products: mappedProducts });
+        applyIfLatest(() => setReportData({ products: mappedProducts }));
       }
 
       if (selectedReport === 'product-pricing-overview') {
@@ -1538,7 +1552,7 @@ export default function Reports() {
             return aMarkup - bMarkup;
           });
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows: filteredRows,
           totalActiveProducts: activeProducts.length,
           approvedCount,
@@ -1548,7 +1562,7 @@ export default function Reports() {
           lowMarkupCount,
           criticalMarkupCount,
           notPricedCount,
-        });
+        }));
       }
 
       if (selectedReport === 'profitability-ranking') {
@@ -1578,7 +1592,7 @@ export default function Reports() {
           return b.actualMarkupPercent - a.actualMarkupPercent;
         });
 
-        setReportData({ rows, rankedCount: rows.length });
+        applyIfLatest(() => setReportData({ rows, rankedCount: rows.length }));
       }
 
       if (selectedReport === 'price-vs-cost-drift') {
@@ -1608,10 +1622,10 @@ export default function Reports() {
           .filter((row) => (driftFilter === 'Negative only' ? row.markupDrift < 0 : true))
           .sort((a, b) => a.markupDrift - b.markupDrift);
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows: filteredRows,
           affectedCount: allRows.filter((row) => row.markupDrift < 0).length,
-        });
+        }));
       }
 
       if (selectedReport === 'optimal-vs-actual-gap') {
@@ -1650,22 +1664,28 @@ export default function Reports() {
           })
           .sort((a, b) => a.gapPercent - b.gapPercent);
 
-        setReportData({
+        applyIfLatest(() => setReportData({
           rows: filteredRows,
           aboveCount,
           belowCount,
           atOptimalCount,
-        });
+        }));
       }
 
-      setGeneratedAt(new Date());
+      applyIfLatest(() => {
+        setGeneratedAt(new Date());
+      });
     } catch {
-      setError('Unable to load report data. Please try again.');
-      setReportData(null);
-      setGeneratedAt(null);
-      showToastMessage('Unable to load report data. Please try again.', 'error');
+      applyIfLatest(() => {
+        setError('Unable to load report data. Please try again.');
+        setReportData(null);
+        setGeneratedAt(null);
+        showToastMessage('Unable to load report data. Please try again.', 'error');
+      });
     } finally {
-      setIsLoading(false);
+      applyIfLatest(() => {
+        setIsLoading(false);
+      });
     }
   }
 
@@ -2990,7 +3010,8 @@ export default function Reports() {
     if (selectedReport === 'markup-analysis') {
       const data = reportData as ReportResultMap['markup-analysis'];
       const paginatedRows = paginateRows(data.rows, currentPage);
-      const threshold = data.threshold;
+      const threshold = Number.isFinite(data.threshold) ? data.threshold : markupAnalysisThreshold;
+      const averageMarkup = Number.isFinite(data.averageMarkup) ? data.averageMarkup : null;
       const halfThreshold = threshold / 2;
       const aboveTargetPct = data.totalAnalysed > 0 ? (data.aboveTargetCount / data.totalAnalysed) * 100 : 0;
 
@@ -3002,13 +3023,13 @@ export default function Reports() {
             <StatCard label="Below Target" value={String(data.belowTargetCount)} tone="danger" />
             <StatCard
               label="Average Markup"
-              value={formatPct(data.averageMarkup)}
-              tone={data.averageMarkup >= threshold ? 'success' : data.averageMarkup >= halfThreshold ? 'warning' : 'danger'}
+              value={formatPct(averageMarkup)}
+              tone={averageMarkup != null && averageMarkup >= threshold ? 'success' : averageMarkup != null && averageMarkup >= halfThreshold ? 'warning' : 'danger'}
             />
             <StatCard
               label="Distribution"
               value={`${aboveTargetPct.toFixed(0)}% above target`}
-              secondary={`Target: ${threshold.toFixed(1)}% markup`}
+              secondary={`Target: ${Number.isFinite(threshold) ? threshold.toFixed(1) : '—'}% markup`}
             />
           </div>
 
@@ -3976,7 +3997,11 @@ export default function Reports() {
   );
 }
 
-function ThresholdMarkupBar({ value, threshold }: { value: number; threshold: number }) {
+function ThresholdMarkupBar({ value, threshold }: { value: number | null | undefined; threshold: number }) {
+  if (value == null || !Number.isFinite(value) || !Number.isFinite(threshold)) {
+    return <span style={{ color: '#94a3b8' }}>—</span>;
+  }
+
   const color = getThresholdMarkupColor(value, threshold);
   const scaleMax = Math.min(threshold * 2, 100);
   const widthPercent = scaleMax > 0 ? Math.min(100, Math.max(0, (value / scaleMax) * 100)) : 0;

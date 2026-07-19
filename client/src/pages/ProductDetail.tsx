@@ -7,6 +7,7 @@ import AppButton from '../components/AppButton';
 import ProductTabs from '../components/ProductTabs';
 import ProductFormDrawer from '../components/ProductFormDrawer';
 import useAppToast from '../hooks/useAppToast';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
 import AppToast from '../components/AppToast';
@@ -162,6 +163,7 @@ export default function ProductDetail() {
   const [productOrder, setProductOrder] = useState<ProductNavItem[]>([]);
 
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { beginRequest, isLatestRequest } = useLatestRequest();
 
   async function loadData() {
     if (!Number.isFinite(productId) || productId <= 0) {
@@ -170,6 +172,7 @@ export default function ProductDetail() {
       return;
     }
 
+    const requestId = beginRequest('product-detail-loadData');
     setLoading(true);
     setError(null);
     try {
@@ -181,6 +184,8 @@ export default function ProductDetail() {
         })(),
       ]);
 
+      if (!isLatestRequest('product-detail-loadData', requestId)) return;
+
       if (productData?.error) {
         setError(productData.error);
         return;
@@ -189,8 +194,10 @@ export default function ProductDetail() {
       setProduct(productData);
       setBom(bomData || []);
     } catch {
+      if (!isLatestRequest('product-detail-loadData', requestId)) return;
       setError('Failed to load product data');
     } finally {
+      if (!isLatestRequest('product-detail-loadData', requestId)) return;
       setLoading(false);
     }
   }

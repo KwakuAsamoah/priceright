@@ -21,6 +21,7 @@ import { activityLogApi, settingsApi, type ActivityEntry } from '../api';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import useCompanyName from '../hooks/useCompanyName';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { getThresholdMarkupColor } from '../utils/margin';
 import { safeRender } from '../utils/render';
 import { generateTablePDF, printTable } from '../utils/exportPrint';
@@ -373,6 +374,7 @@ export default function Activity() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { beginRequest, isLatestRequest } = useLatestRequest();
 
   async function handleExportActivityPdf() {
     if (entries.length === 0) {
@@ -438,6 +440,7 @@ export default function Activity() {
   }, []);
 
   const fetchEntries = useCallback(async (nextOffset: number, append: boolean) => {
+    const requestId = beginRequest('activity-fetchEntries');
     const isAppend = append && nextOffset > 0;
     if (isAppend) {
       setLoadingMore(true);
@@ -458,6 +461,8 @@ export default function Activity() {
         to: toEpoch,
       });
 
+      if (!isLatestRequest('activity-fetchEntries', requestId)) return;
+
       const incoming = Array.isArray(response.entries) ? response.entries : [];
       const filteredIncoming = incoming
         .filter((entry) => matchesEntityFilter(entry, entityType))
@@ -467,15 +472,17 @@ export default function Activity() {
       setTotal(Number(response.total || 0));
       setOffset(nextOffset);
     } catch (fetchError: any) {
+      if (!isLatestRequest('activity-fetchEntries', requestId)) return;
       setError(fetchError?.message || 'Failed to fetch activity log.');
       if (!append) {
         setEntries([]);
       }
     } finally {
+      if (!isLatestRequest('activity-fetchEntries', requestId)) return;
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [entityType, actionGroup, fromDate, toDate]);
+  }, [entityType, actionGroup, fromDate, toDate, beginRequest, isLatestRequest]);
 
   useEffect(() => {
     void fetchEntries(0, false);

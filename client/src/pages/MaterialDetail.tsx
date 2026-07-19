@@ -22,6 +22,7 @@ import AppButton from '../components/AppButton';
 import AppToast from '../components/AppToast';
 import PageHelpButton from '../components/PageHelpButton';
 import useAppToast from '../hooks/useAppToast';
+import useLatestRequest from '../hooks/useLatestRequest';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import { TabErrorBoundary } from '../components/ErrorBoundary';
@@ -237,6 +238,7 @@ export default function MaterialDetail() {
   const materialId = Number(id);
   const { notifyMaterialCostsChanged } = useMaterialCostSync();
   const { showToast, toastMessage, toastType, showToastMessage, closeToast } = useAppToast();
+  const { beginRequest, isLatestRequest } = useLatestRequest();
 
   const [material, setMaterial] = useState<MaterialRecord | null>(null);
   const [materialOrder, setMaterialOrder] = useState<number[]>(locationState?.materialIds || []);
@@ -294,26 +296,34 @@ export default function MaterialDetail() {
   }
 
   async function loadUsage(targetId: number) {
+    const requestId = beginRequest('material-detail-usage');
     setUsageLoading(true);
     try {
       const result = await materialsApi.checkUsage([targetId]);
+      if (!isLatestRequest('material-detail-usage', requestId)) return;
       const usageList = Array.isArray(result?.inUse) ? result.inUse as MaterialUsageRecord[] : [];
       setUsageRecord(usageList.find((entry) => entry.materialId === targetId) || null);
     } catch {
+      if (!isLatestRequest('material-detail-usage', requestId)) return;
       setUsageRecord(null);
     } finally {
+      if (!isLatestRequest('material-detail-usage', requestId)) return;
       setUsageLoading(false);
     }
   }
 
   async function loadHistory(targetId: number) {
+    const requestId = beginRequest('material-detail-history');
     setHistoryLoading(true);
     try {
       const history = await materialsApi.getPriceHistory(targetId);
+      if (!isLatestRequest('material-detail-history', requestId)) return;
       setPriceHistory(Array.isArray(history) ? history : []);
     } catch {
+      if (!isLatestRequest('material-detail-history', requestId)) return;
       setPriceHistory([]);
     } finally {
+      if (!isLatestRequest('material-detail-history', requestId)) return;
       setHistoryLoading(false);
     }
   }
@@ -325,6 +335,7 @@ export default function MaterialDetail() {
       return;
     }
 
+    const requestId = beginRequest('material-detail-pageData');
     setLoading(true);
     setError(null);
 
@@ -333,6 +344,8 @@ export default function MaterialDetail() {
         loadMaterialById(materialId),
         loadSupportingData(),
       ]);
+
+      if (!isLatestRequest('material-detail-pageData', requestId)) return;
 
       if (!foundMaterial) {
         setMaterial(null);
@@ -344,6 +357,7 @@ export default function MaterialDetail() {
 
       if (materialOrder.length === 0) {
         const allMaterials = await materialsApi.getAll('active', 'primary');
+        if (!isLatestRequest('material-detail-pageData', requestId)) return;
         const ids = (Array.isArray(allMaterials) ? allMaterials : [])
           .map((entry) => Number(entry.id))
           .filter((entryId) => Number.isFinite(entryId) && entryId > 0);
@@ -352,9 +366,11 @@ export default function MaterialDetail() {
 
       await Promise.all([loadUsage(materialId), loadHistory(materialId)]);
     } catch {
+      if (!isLatestRequest('material-detail-pageData', requestId)) return;
       setError('Failed to load material data');
       setMaterial(null);
     } finally {
+      if (!isLatestRequest('material-detail-pageData', requestId)) return;
       setLoading(false);
     }
   }
