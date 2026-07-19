@@ -511,8 +511,10 @@ export default function ProductDetail() {
       <div className="app-page">
         <div className="app-page-header">
           <button
+            type="button"
+            className="app-text-link-button"
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', cursor: 'pointer' }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
@@ -527,8 +529,10 @@ export default function ProductDetail() {
       <div className="app-page">
         <div className="app-page-header">
           <button
+            type="button"
+            className="app-text-link-button"
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', cursor: 'pointer' }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>
@@ -591,8 +595,10 @@ export default function ProductDetail() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
           <button
+            type="button"
+            className="app-text-link-button"
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', cursor: 'pointer', flexShrink: 0 }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Products
           </button>

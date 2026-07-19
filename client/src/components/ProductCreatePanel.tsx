@@ -4,10 +4,9 @@ import { X } from 'lucide-react';
 import IntermediateMaterialIndicator, { isIntermediateMaterial } from './IntermediateMaterialIndicator';
 import { materialsApi, productsApi, settingsApi } from '../api';
 import AppToast from '../components/AppToast';
-import { ActualMarkupInfoTooltip, MarkupInfoTooltip } from '../components/ProfitTooltips';
+import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
-import { calculateActualMarkupPercent } from '../utils/margin';
 import { calculateProductionCost } from '../utils/costFormula';
 
 interface Material {
@@ -633,7 +632,7 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
   }
 
   const liveCost = calculateLiveCost();
-  const actualMarkupPercent = calculateActualMarkupPercent(liveCost.optimalPrice, liveCost.totalCost);
+  const targetMarkupPercent = parseFloat(formData.profitMargin);
 
   function validateForm() {
     const errors: Record<string, string> = {};
@@ -1107,11 +1106,11 @@ export default function ProductCreatePanel({ onClose, onSaved }: ProductCreatePa
                     </div>
                     <div style={costSummaryRowStyle}>
                       <span style={{ color: '#64748b', display: 'inline-flex', alignItems: 'center', minWidth: 0, flex: '1 1 auto' }}>
-                        Actual Markup %
-                        <ActualMarkupInfoTooltip />
+                        Target Markup %
+                        <MarkupInfoTooltip />
                       </span>
                       <span style={{ ...costSummaryValueStyle, fontWeight: '700' }}>
-                        {actualMarkupPercent != null ? `${actualMarkupPercent.toFixed(1)}%` : '—'}
+                        {Number.isFinite(targetMarkupPercent) ? `${targetMarkupPercent.toFixed(1)}%` : '—'}
                       </span>
                     </div>
                     <div style={costSummaryRowStyle}>

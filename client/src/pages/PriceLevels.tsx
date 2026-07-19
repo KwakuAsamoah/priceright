@@ -2029,8 +2029,8 @@ export default function PriceLevels() {
                         type="button"
                         onClick={() => void approveSelected()}
                         disabled={saving}
-                        className="btn btn-sm"
-                        style={{ backgroundColor: '#ffffff', color: '#0f172a', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        className="btn btn-primary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                       >
                         <CheckCheck size={14} strokeWidth={2} />
                         Approve selected

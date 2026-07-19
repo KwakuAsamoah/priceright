@@ -1552,19 +1552,19 @@ export default function Products() {
             {searchInput.trim() !== '' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
                 Search: {searchInput.trim()}
-                <button type="button" onClick={() => setSearchInput('')} aria-label="Clear search filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+                <button type="button" className="app-filter-chip-dismiss" onClick={() => setSearchInput('')} aria-label="Clear search filter" style={{ color: '#94A3B8', cursor: 'pointer' }}>×</button>
               </span>
             ) : null}
             {selectedApprovalStatus !== 'All' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
                 Status: {selectedApprovalStatus}
-                <button type="button" onClick={() => setSelectedApprovalStatus('All')} aria-label="Clear status filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+                <button type="button" className="app-filter-chip-dismiss" onClick={() => setSelectedApprovalStatus('All')} aria-label="Clear status filter" style={{ color: '#94A3B8', cursor: 'pointer' }}>×</button>
               </span>
             ) : null}
             {activeFilter !== 'active' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
                 Showing: {formatActiveFilterLabel(activeFilter)}
-                <button type="button" onClick={() => setActiveFilter('active')} aria-label="Clear active/inactive filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+                <button type="button" className="app-filter-chip-dismiss" onClick={() => setActiveFilter('active')} aria-label="Clear active/inactive filter" style={{ color: '#94A3B8', cursor: 'pointer' }}>×</button>
               </span>
             ) : null}
             <button type="button" onClick={clearAllProductFilters} style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}>

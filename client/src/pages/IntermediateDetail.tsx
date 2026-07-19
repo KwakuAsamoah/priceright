@@ -19,7 +19,7 @@ import { MarkupInfoTooltip } from '../components/ProfitTooltips';
 import useAppToast from '../hooks/useAppToast';
 import { useBaseCurrency } from '../hooks/useBaseCurrency';
 import { useLowMarkupThreshold } from '../hooks/useLowMarginThreshold';
-import { calculateActualMarkupPercent, getThresholdMarkupColor } from '../utils/margin';
+import { getThresholdMarkupColor } from '../utils/margin';
 import {
   resolveCompletedOutputFromStored,
   resolveDisplayYieldPercent,
@@ -318,12 +318,7 @@ export default function IntermediateDetail() {
   }, [material, bomItems, totalRawInput]);
 
   const configuredMarkupPercent = material ? toNumber(material.marginPercentage) : 0;
-  const actualMarkupPercent = liveCost
-    ? calculateActualMarkupPercent(liveCost.optimalPrice, liveCost.costPerUnit)
-    : null;
-  const markupColor = actualMarkupPercent != null
-    ? getThresholdMarkupColor(actualMarkupPercent, lowMarkupThreshold)
-    : '#64748b';
+  const markupColor = getThresholdMarkupColor(configuredMarkupPercent, lowMarkupThreshold);
 
   const currencySymbol = material?.baseCurrencySymbol || material?.purchaseCurrencySymbol || baseCurrency;
   const formatMoney = (value: number) => `${currencySymbol}${currencySymbol ? ' ' : ''}${value.toFixed(2)}`;
@@ -505,8 +500,9 @@ export default function IntermediateDetail() {
         <div className="app-page-header">
           <button
             type="button"
+            className="app-text-link-button"
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', cursor: 'pointer' }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Intermediate Materials
           </button>
@@ -524,8 +520,9 @@ export default function IntermediateDetail() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <button
             type="button"
+            className="app-text-link-button"
             onClick={() => navigate(backTo)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', background: 'none', border: 'none', cursor: 'pointer', padding: 0, flexShrink: 0 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '15px', color: '#64748b', cursor: 'pointer', flexShrink: 0 }}
           >
             <ArrowLeft size={14} strokeWidth={2} /> Intermediate Materials
           </button>
@@ -819,11 +816,6 @@ export default function IntermediateDetail() {
                 </span>
                 <span style={{ color: markupColor, fontWeight: 700, textAlign: 'right' }}>
                   {formatMoney(liveCost?.markupAmount ?? 0)}
-                  {actualMarkupPercent != null ? (
-                    <span style={{ marginLeft: '8px', fontSize: '13px' }}>
-                      ({actualMarkupPercent.toFixed(1)}%)
-                    </span>
-                  ) : null}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>

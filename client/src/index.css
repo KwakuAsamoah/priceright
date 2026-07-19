@@ -273,6 +273,30 @@ textarea {
   padding: 6px 12px;
 }
 
+.app-text-link-button,
+.app-page .app-text-link-button {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  white-space: normal !important;
+}
+
+.app-filter-chip-dismiss,
+.app-page .app-filter-chip-dismiss {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 2px 4px !important;
+  margin: -2px -4px -2px 0 !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+
 .app-choice-tabs {
   display: inline-flex;
   align-items: stretch;
@@ -1728,7 +1752,7 @@ textarea {
 
 /* ── Base button reset — applied to action buttons, not tabs ── */
 .btn,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab) {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):not(.app-text-link-button):not(.app-filter-chip-dismiss) {
   font-family: inherit;
   border-radius: 8px !important;
   padding: 7px 14px !important;
@@ -1747,19 +1771,19 @@ textarea {
 
 /* Default appearance — buttons without a colour variant (tabs excluded) */
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x),
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab) {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):not(.app-text-link-button):not(.app-filter-chip-dismiss) {
   border: none !important;
   background: #F1F5F9 !important;
   color: #0F2847 !important;
 }
 
 .btn:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):hover,
-.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):hover {
+.app-page button:not(.btn-primary):not(.btn-secondary):not(.btn-outline):not(.btn-ghost):not(.btn-danger):not(.btn-danger-solid):not(.btn-success):not(.btn-warning):not(.btn-info):not(.btn-close-x):not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):not(.app-text-link-button):not(.app-filter-chip-dismiss):hover {
   background: #E2E8F0 !important;
 }
 
 .btn:disabled,
-.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):disabled {
+.app-page button:not(.app-section-tab):not(.app-choice-tab):not(.app-panel-tab):not(.app-pill-tab):not(.app-text-link-button):not(.app-filter-chip-dismiss):disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -1778,6 +1802,14 @@ textarea {
   color: #ffffff !important;
 }
 
+.btn-primary:disabled,
+.app-page .btn-primary:disabled {
+  background: #0F2847 !important;
+  color: #ffffff !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Secondary */
 .btn-secondary,
 .app-page .btn-secondary {
@@ -1789,6 +1821,15 @@ textarea {
 .btn-secondary:hover,
 .app-page .btn-secondary:hover {
   background: #E2E8F0 !important;
+}
+
+.btn-secondary:disabled,
+.app-page .btn-secondary:disabled {
+  background: #F1F5F9 !important;
+  color: #0F2847 !important;
+  border: 1px solid #E2E8F0 !important;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Outline */
@@ -1805,6 +1846,15 @@ textarea {
   background: #F8FAFC !important;
 }
 
+.btn-outline:disabled,
+.app-page .btn-outline:disabled {
+  background: #ffffff !important;
+  color: #0F2847 !important;
+  border: 1.5px solid #E2E8F0 !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Ghost */
 .btn-ghost,
 .app-page .btn-ghost {
@@ -1817,6 +1867,14 @@ textarea {
 .app-page .btn-ghost:hover {
   background: #F1F5F9 !important;
   color: #0F2847 !important;
+}
+
+.btn-ghost:disabled,
+.app-page .btn-ghost:disabled {
+  background: transparent !important;
+  color: #475569 !important;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .app-bulk-bar .btn-ghost,
@@ -1846,6 +1904,15 @@ textarea {
   border-color: #DC2626 !important;
 }
 
+.btn-danger:disabled,
+.app-page .btn-danger:disabled {
+  background: #ffffff !important;
+  color: #DC2626 !important;
+  border: 1.5px solid #FECACA !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Success — intentional green, do not change */
 .btn-success,
 .app-page .btn-success {
@@ -1854,12 +1921,29 @@ textarea {
   border: none !important;
 }
 
+.btn-success:disabled,
+.app-page .btn-success:disabled {
+  background: var(--color-success) !important;
+  color: #ffffff !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Warning — intentional warm, do not change */
 .btn-warning,
 .app-page .btn-warning {
   background: var(--color-warning-soft) !important;
   color: var(--color-warning-text) !important;
   border: 1px solid #fcd34d !important;
+}
+
+.btn-warning:disabled,
+.app-page .btn-warning:disabled {
+  background: var(--color-warning-soft) !important;
+  color: var(--color-warning-text) !important;
+  border: 1px solid #fcd34d !important;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Solid danger — red close / dismiss */
@@ -1876,6 +1960,14 @@ textarea {
   color: #ffffff !important;
 }
 
+.btn-danger-solid:disabled,
+.app-page .btn-danger-solid:disabled {
+  background: #DC2626 !important;
+  color: #ffffff !important;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 /* Info — utility actions (recalculate, refresh) */
 .btn-info,
 .app-page .btn-info {
@@ -1889,6 +1981,15 @@ textarea {
   background: rgba(15, 40, 71, 0.08) !important;
   border-color: #0F2847 !important;
   color: #0F2847 !important;
+}
+
+.btn-info:disabled,
+.app-page .btn-info:disabled {
+  background: rgba(15, 40, 71, 0.05) !important;
+  color: #0F2847 !important;
+  border: 1.5px solid #E2E8F0 !important;
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Sizes */

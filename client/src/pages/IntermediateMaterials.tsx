@@ -1316,13 +1316,13 @@ export default function IntermediateMaterials({ refreshKey = 0, isActive = true 
             {materialSearch.trim() !== '' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
                 Search: {materialSearch.trim()}
-                <button type="button" onClick={() => setMaterialSearch('')} aria-label="Clear search filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+                <button type="button" className="app-filter-chip-dismiss" onClick={() => setMaterialSearch('')} aria-label="Clear search filter" style={{ color: '#94A3B8', cursor: 'pointer' }}>×</button>
               </span>
             ) : null}
             {selectedStatus !== 'active' ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', fontSize: '12px', padding: '3px 8px', borderRadius: '12px' }}>
                 Showing: {formatIntermediateStatusLabel(selectedStatus)}
-                <button type="button" onClick={() => setSelectedStatus('active')} aria-label="Clear status filter" style={{ border: 'none', background: 'transparent', color: '#94A3B8', cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: '2px 4px', margin: '-2px -4px -2px 0' }}>×</button>
+                <button type="button" className="app-filter-chip-dismiss" onClick={() => setSelectedStatus('active')} aria-label="Clear status filter" style={{ color: '#94A3B8', cursor: 'pointer' }}>×</button>
               </span>
             ) : null}
             <button type="button" onClick={clearAllIntermediateFilters} style={{ border: 'none', background: 'transparent', color: '#16A34A', cursor: 'pointer', fontSize: '12px', padding: '3px 0', fontWeight: 600 }}>
