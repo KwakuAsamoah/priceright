@@ -27,6 +27,7 @@ interface NotificationContextValue {
   isUpdateReady: boolean;
   setUpdateAvailable: (info: UpdateInfo) => void;
   setUpdateReady: (info: UpdateInfo) => void;
+  setUpdateDownloadFailed: (info: { currentVersion: string }) => void;
   restartAndUpdate: () => void;
 }
 
@@ -41,6 +42,7 @@ const NotificationContext = createContext<NotificationContextValue>({
   isUpdateReady: false,
   setUpdateAvailable: () => {},
   setUpdateReady: () => {},
+  setUpdateDownloadFailed: () => {},
   restartAndUpdate: () => {},
 });
 
@@ -90,6 +92,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   }, [addNotification]);
 
+  const setUpdateDownloadFailed = useCallback((info: { currentVersion: string }) => {
+    setIsDownloading(false);
+    setIsUpdateReady(false);
+    setUpdateInfo(null);
+    addNotification({
+      type: 'info',
+      title: 'Update not installed yet',
+      message: `Update download didn't complete. You're still running version ${info.currentVersion}. We'll try again next time you open PriceRight.`,
+    });
+  }, [addNotification]);
+
   const restartAndUpdate = useCallback(() => {
     window.electronAPI?.restartAndUpdate?.();
   }, []);
@@ -106,6 +119,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       isUpdateReady,
       setUpdateAvailable,
       setUpdateReady,
+      setUpdateDownloadFailed,
       restartAndUpdate,
     }}>
       {children}

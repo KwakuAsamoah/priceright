@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-available', (_event, info) => callback(info)),
   onUpdateDownloaded: (callback) =>
     ipcRenderer.on('update-downloaded', (_event, info) => callback(info)),
+  onUpdateDownloadFailed: (callback) =>
+    ipcRenderer.on('update-download-failed', (_event, info) => callback(info)),
   restartAndUpdate: () =>
     ipcRenderer.send('restart-and-update'),
   refocusWindow: () =>

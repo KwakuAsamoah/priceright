@@ -196,6 +196,7 @@ export const helpArticles: HelpArticle[] = [
       <ol>
         <li>PriceRight checks for updates 10 seconds after launching</li>
         <li>If an update is available, it downloads silently in the background while you continue working</li>
+        <li>If a download does not complete, the notification bell shows a brief message and PriceRight will try again the next time you open the app</li>
         <li>A blue pulsing dot appears on the notification bell at the bottom of the sidebar while downloading</li>
         <li>When the download is complete, the dot turns green</li>
         <li>Click the bell to open the notification panel</li>

@@ -512,9 +512,30 @@ function createWindow() {
   }
 }
 
+function describeUpdateDownloadFailure(err) {
+  const message = String(err?.message || err || '').toLowerCase();
+  if (message.includes('cancelled') || message.includes('canceled')) {
+    return 'The download was cancelled.';
+  }
+  if (
+    message.includes('network')
+    || message.includes('enotfound')
+    || message.includes('econnreset')
+    || message.includes('timeout')
+    || message.includes('interrupted')
+  ) {
+    return 'The download could not complete due to a network issue.';
+  }
+  if (message.includes('space') || message.includes('disk')) {
+    return 'There was not enough disk space to finish the download.';
+  }
+  return 'The download could not be completed.';
+}
+
 function setupAutoUpdater() {
   // Write updater events to a log file in userData so we can diagnose issues
   const logFile = path.join(app.getPath('userData'), 'updater.log');
+  let pendingUpdateVersion = null;
   function ulog(msg) {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
     devLog(msg);
@@ -543,6 +564,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-available', (info) => {
+    pendingUpdateVersion = info.version || null;
     ulog(`[updater] Update available: ${info.version}`);
     if (mainWindow) {
       const title = 'PriceRight Update Available';
@@ -597,10 +619,21 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
+    const technicalMessage = err && err.message ? err.message : String(err);
     if (!app.isPackaged) {
-      console.log('Auto-updater error:', err && err.message ? err.message : String(err));
+      console.log('Auto-updater error:', technicalMessage);
     }
-    ulog(`[updater] Error: ${err && err.message ? err.message : String(err)}`);
+    ulog(`[updater] Error: ${technicalMessage}`);
+
+    if (pendingUpdateVersion && mainWindow && !mainWindow.isDestroyed()) {
+      const attemptedVersion = pendingUpdateVersion;
+      pendingUpdateVersion = null;
+      mainWindow.webContents.send('update-download-failed', {
+        attemptedVersion,
+        currentVersion: app.getVersion(),
+        reason: describeUpdateDownloadFailure(err),
+      });
+    }
   });
 
   // Check for updates 10 seconds after launch to not slow down startup

@@ -66,6 +66,7 @@ interface Window {
     licenceServerUrl: string;
     onUpdateAvailable: (callback: (info: UpdateInfo) => void) => void;
     onUpdateDownloaded: (callback: (info: UpdateInfo) => void) => void;
+    onUpdateDownloadFailed: (callback: (info: UpdateDownloadFailedInfo) => void) => void;
     restartAndUpdate: () => void;
     refocusWindow: () => Promise<boolean>;
     getAppVersion: () => Promise<string>;
@@ -78,4 +79,10 @@ interface UpdateInfo {
   version: string;
   releaseNotes?: string;
   releaseDate?: string;
+}
+
+interface UpdateDownloadFailedInfo {
+  attemptedVersion: string;
+  currentVersion: string;
+  reason: string;
 }
