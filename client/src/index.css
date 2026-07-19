@@ -2867,3 +2867,116 @@ hr {
     padding: 0 !important;
   }
 }
+
+.products-needs-review-banner {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.products-needs-review-banner:hover,
+.products-needs-review-banner:focus-visible {
+  background-color: #ffe8cc !important;
+  border-color: #fb923c !important;
+  box-shadow: 0 2px 8px rgba(230, 81, 0, 0.12);
+  outline: none;
+}
+
+.pin-screen-backdrop {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(22, 163, 74, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(15, 40, 71, 0.35) 0%, transparent 50%),
+    #0F2847;
+}
+
+.pin-screen-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px 36px 36px;
+  box-shadow: 0 28px 64px rgba(15, 40, 71, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pin-screen-brand {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.pin-screen-brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  background: rgba(15, 40, 71, 0.06);
+  margin-bottom: 14px;
+}
+
+.pin-screen-brand-icon img {
+  width: 52px;
+  height: 52px;
+}
+
+.pin-screen-brand-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0F2847;
+}
+
+.pin-screen-brand-subtitle {
+  margin-top: 6px;
+  font-size: 15px;
+  color: #64748b;
+}
+
+.pin-screen-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 16px 18px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  color: #0F2847;
+  background: #f8fafc;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pin-screen-input:focus {
+  outline: none;
+  border-color: #16A34A;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  background: #ffffff;
+}
+
+.pin-screen-input::placeholder {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: normal;
+  color: #94a3b8;
+}
+
+.pin-screen-btn-primary {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #0F2847;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pin-screen-btn-primary:disabled {
+  cursor: default;
+  opacity: 0.7;
+}

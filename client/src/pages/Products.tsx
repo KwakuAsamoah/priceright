@@ -1203,8 +1203,25 @@ export default function Products() {
 
   function clearAllProductFilters() {
     setSearchInput('');
+    setDebouncedSearch('');
     setSelectedApprovalStatus('All');
     setActiveFilter('active');
+    if (location.search) {
+      navigate('/products', { replace: true });
+    }
+  }
+
+  function handleNeedsReviewBannerClick() {
+    setSearchInput('');
+    setDebouncedSearch('');
+    setSelectedApprovalStatus('Needs Review');
+    setActiveFilter('all');
+    if (location.pathname !== '/products' || location.search) {
+      navigate('/products', { replace: true });
+    }
+    window.requestAnimationFrame(() => {
+      productsTableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   function formatActiveFilterLabel(value: 'active' | 'inactive' | 'all') {
@@ -1575,6 +1592,17 @@ export default function Products() {
 
         {shouldShowNeedsReviewBanner && (
           <div
+            className="products-needs-review-banner"
+            role="button"
+            tabIndex={0}
+            onClick={handleNeedsReviewBannerClick}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleNeedsReviewBannerClick();
+              }
+            }}
+            aria-label={`Show ${statusChipCounts.needsReview} products that need price review`}
             style={{
               position: 'relative',
               backgroundColor: '#fff3e0',
@@ -1582,14 +1610,26 @@ export default function Products() {
               borderRadius: '8px',
               padding: '12px 44px 12px 16px',
               marginBottom: '16px',
+              cursor: 'pointer',
             }}
           >
-            <button className="btn-close-x" onClick={() => setIsNeedsReviewBannerDismissed(true)} aria-label="Dismiss">
+            <button
+              className="btn-close-x"
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsNeedsReviewBannerDismissed(true);
+              }}
+              aria-label="Dismiss"
+            >
               &times;
             </button>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#e65100', fontSize: '15px', fontWeight: 400 }}>
               <AlertTriangle size={16} color="#e65100" />
-              <span>{statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.</span>
+              <span>
+                {statusChipCounts.needsReview} products need price review. Material costs have changed and optimal prices have been updated.
+                {' '}
+                <span style={{ fontWeight: 600, textDecoration: 'underline' }}>Click to show them</span>
+              </span>
             </div>
 
           </div>
