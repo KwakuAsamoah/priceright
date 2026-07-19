@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { Delete } from 'lucide-react';
 import { pinApi } from '../api';
 import PriceRightLogoIcon from './PriceRightLogoIcon';
 
 type PinScreenMode = 'loading' | 'set' | 'enter' | 'forgot';
 type SetPinField = 'pin' | 'confirmPin';
+type PinTarget = 'pin' | 'confirmPin';
 
 const PIN_MIN_LENGTH = 4;
 const PIN_MAX_LENGTH = 6;
@@ -59,6 +60,35 @@ function PinDotRow({
         />
       ))}
     </div>
+  );
+}
+
+function PinCaretInput({
+  inputRef,
+  disabled,
+  ariaLabel,
+  onKeyDown,
+  onChange,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  disabled?: boolean;
+  ariaLabel: string;
+  onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <input
+      ref={inputRef}
+      className="pin-screen-caret-input"
+      type="tel"
+      inputMode="numeric"
+      autoComplete="off"
+      value=""
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onKeyDown={onKeyDown}
+      onChange={onChange}
+    />
   );
 }
 
@@ -119,7 +149,11 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pinEntryError, setPinEntryError] = useState(false);
   const [pinEntryShake, setPinEntryShake] = useState(false);
-  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
+  const pinInputRef = useRef<HTMLInputElement | null>(null);
+
+  const focusPinInput = useCallback(() => {
+    window.setTimeout(() => pinInputRef.current?.focus(), 0);
+  }, []);
 
   const triggerPinEntryError = useCallback(() => {
     setPinEntryError(true);
@@ -154,14 +188,14 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
   useEffect(() => {
     if (mode === 'set' || mode === 'enter') {
       const timer = window.setTimeout(() => {
-        hiddenInputRef.current?.focus();
+        pinInputRef.current?.focus();
       }, 150);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [mode]);
+  }, [mode, activeSetField]);
 
-  const appendDigit = useCallback((target: 'pin' | 'confirmPin', digit: string) => {
+  const appendDigit = useCallback((target: PinTarget, digit: string) => {
     if (isSubmitting) return;
 
     setErrorMessage('');
@@ -175,7 +209,7 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
     setConfirmPin((current) => sanitizePinInput(current + digit));
   }, [isSubmitting]);
 
-  const removeLastDigit = useCallback((target: 'pin' | 'confirmPin') => {
+  const removeLastDigit = useCallback((target: PinTarget) => {
     if (isSubmitting) return;
 
     setErrorMessage('');
@@ -189,7 +223,7 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
     setConfirmPin((current) => current.slice(0, -1));
   }, [isSubmitting]);
 
-  const clearPinField = useCallback((target: 'pin' | 'confirmPin') => {
+  const clearPinField = useCallback((target: PinTarget) => {
     if (isSubmitting) return;
 
     setErrorMessage('');
@@ -203,15 +237,9 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
     setConfirmPin('');
   }, [isSubmitting]);
 
-  useEffect(() => {
-    if (mode !== 'enter' && mode !== 'set') {
-      return undefined;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
+  const createPinInputHandlers = useCallback((target: PinTarget) => ({
+    onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => {
       if (isSubmitting) return;
-
-      const target: 'pin' | 'confirmPin' = mode === 'enter' || activeSetField === 'pin' ? 'pin' : 'confirmPin';
 
       if (event.key >= '0' && event.key <= '9') {
         event.preventDefault();
@@ -229,11 +257,23 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
         event.preventDefault();
         clearPinField(target);
       }
-    }
+    },
+    onChange: (event: ChangeEvent<HTMLInputElement>) => {
+      const digits = sanitizePinInput(event.target.value);
+      event.target.value = '';
+      if (!digits || isSubmitting) return;
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [mode, activeSetField, isSubmitting, appendDigit, removeLastDigit, clearPinField]);
+      setErrorMessage('');
+      setPinEntryError(false);
+
+      if (target === 'pin') {
+        setPin((current) => sanitizePinInput(current + digits));
+        return;
+      }
+
+      setConfirmPin((current) => sanitizePinInput(current + digits));
+    },
+  }), [isSubmitting, appendDigit, removeLastDigit, clearPinField]);
 
   async function handleSetPin(event: FormEvent) {
     event.preventDefault();
@@ -243,6 +283,7 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
       setErrorMessage('PIN must be 4 to 6 digits.');
       setActiveSetField('pin');
       triggerPinEntryError();
+      focusPinInput();
       return;
     }
 
@@ -250,6 +291,7 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
       setErrorMessage('PINs do not match.');
       setActiveSetField('confirmPin');
       triggerPinEntryError();
+      focusPinInput();
       return;
     }
 
@@ -271,6 +313,7 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
     if (!PIN_VALIDATION_REGEX.test(pin)) {
       setErrorMessage('Enter a 4 to 6 digit PIN.');
       triggerPinEntryError();
+      focusPinInput();
       return;
     }
 
@@ -285,19 +328,25 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
       setErrorMessage('Incorrect PIN. Please try again.');
       setPin('');
       triggerPinEntryError();
-      window.setTimeout(() => hiddenInputRef.current?.focus(), 0);
+      focusPinInput();
     } catch {
       setErrorMessage('Incorrect PIN. Please try again.');
       setPin('');
       triggerPinEntryError();
-      window.setTimeout(() => hiddenInputRef.current?.focus(), 0);
+      focusPinInput();
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const enterKeypadTarget: 'pin' = 'pin';
+  const enterPinInputHandlers = createPinInputHandlers('pin');
+  const setPinInputHandlers = createPinInputHandlers(activeSetField);
   const setKeypadTarget: SetPinField = activeSetField;
+
+  function activateSetField(field: SetPinField) {
+    setActiveSetField(field);
+    focusPinInput();
+  }
 
   return (
     <div className="pin-screen-backdrop">
@@ -313,47 +362,59 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
             <div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#0F2847' }}>Create your PIN</div>
               <div style={{ marginTop: '6px', fontSize: '15px', lineHeight: 1.5, color: '#64748b' }}>Choose a 4-6 digit PIN to protect your data</div>
+              <p className="pin-screen-keyboard-hint">Type or tap to enter your PIN</p>
             </div>
-
-            <input
-              ref={hiddenInputRef}
-              type="password"
-              className="pin-screen-hidden-input"
-              tabIndex={-1}
-              aria-hidden="true"
-              autoComplete="off"
-              value=""
-              readOnly
-            />
 
             <div className="pin-screen-entry-block">
               <button
                 type="button"
                 className={`pin-screen-entry-label ${activeSetField === 'pin' ? 'is-active' : ''}`}
-                onClick={() => setActiveSetField('pin')}
+                onClick={() => activateSetField('pin')}
               >
                 New PIN
               </button>
-              <PinDotRow
-                filledCount={pin.length}
-                hasError={pinEntryError && activeSetField === 'pin'}
-                shake={pinEntryShake && activeSetField === 'pin'}
-              />
+              <div className="pin-screen-dots-row">
+                <PinDotRow
+                  filledCount={pin.length}
+                  hasError={pinEntryError && activeSetField === 'pin'}
+                  shake={pinEntryShake && activeSetField === 'pin'}
+                />
+                {activeSetField === 'pin' ? (
+                  <PinCaretInput
+                    inputRef={pinInputRef}
+                    disabled={isSubmitting}
+                    ariaLabel="New PIN entry"
+                    onKeyDown={setPinInputHandlers.onKeyDown}
+                    onChange={setPinInputHandlers.onChange}
+                  />
+                ) : null}
+              </div>
             </div>
 
             <div className="pin-screen-entry-block">
               <button
                 type="button"
                 className={`pin-screen-entry-label ${activeSetField === 'confirmPin' ? 'is-active' : ''}`}
-                onClick={() => setActiveSetField('confirmPin')}
+                onClick={() => activateSetField('confirmPin')}
               >
                 Confirm PIN
               </button>
-              <PinDotRow
-                filledCount={confirmPin.length}
-                hasError={pinEntryError && activeSetField === 'confirmPin'}
-                shake={pinEntryShake && activeSetField === 'confirmPin'}
-              />
+              <div className="pin-screen-dots-row">
+                <PinDotRow
+                  filledCount={confirmPin.length}
+                  hasError={pinEntryError && activeSetField === 'confirmPin'}
+                  shake={pinEntryShake && activeSetField === 'confirmPin'}
+                />
+                {activeSetField === 'confirmPin' ? (
+                  <PinCaretInput
+                    inputRef={pinInputRef}
+                    disabled={isSubmitting}
+                    ariaLabel="Confirm PIN entry"
+                    onKeyDown={setPinInputHandlers.onKeyDown}
+                    onChange={setPinInputHandlers.onChange}
+                  />
+                ) : null}
+              </div>
             </div>
 
             <PinKeypad
@@ -379,31 +440,30 @@ export default function PINScreen({ onUnlock }: { onUnlock: () => void }) {
             <div>
               <div style={{ fontSize: '24px', fontWeight: 700, color: '#0F2847' }}>Welcome back</div>
               <div style={{ marginTop: '6px', fontSize: '15px', lineHeight: 1.5, color: '#64748b' }}>Enter your PIN to continue</div>
+              <p className="pin-screen-keyboard-hint">Type or tap to enter your PIN</p>
             </div>
 
-            <input
-              ref={hiddenInputRef}
-              type="password"
-              className="pin-screen-hidden-input"
-              tabIndex={-1}
-              aria-hidden="true"
-              autoComplete="off"
-              value=""
-              readOnly
-            />
-
             <div className="pin-screen-entry-block pin-screen-entry-block-enter">
-              <PinDotRow
-                filledCount={pin.length}
-                hasError={pinEntryError}
-                shake={pinEntryShake}
-              />
+              <div className="pin-screen-dots-row">
+                <PinDotRow
+                  filledCount={pin.length}
+                  hasError={pinEntryError}
+                  shake={pinEntryShake}
+                />
+                <PinCaretInput
+                  inputRef={pinInputRef}
+                  disabled={isSubmitting}
+                  ariaLabel="PIN entry"
+                  onKeyDown={enterPinInputHandlers.onKeyDown}
+                  onChange={enterPinInputHandlers.onChange}
+                />
+              </div>
             </div>
 
             <PinKeypad
               disabled={isSubmitting}
-              onDigit={(digit) => appendDigit(enterKeypadTarget, digit)}
-              onBackspace={() => removeLastDigit(enterKeypadTarget)}
+              onDigit={(digit) => appendDigit('pin', digit)}
+              onBackspace={() => removeLastDigit('pin')}
             />
 
             {errorMessage && <div style={{ fontSize: '15px', color: '#dc2626', textAlign: 'center' }}>{errorMessage}</div>}
