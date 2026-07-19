@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 17 July 2026
-**Current version:** 1.0.44
+**Last updated:** 19 July 2026
+**Current version:** 1.0.45
 **Active branch:** main
 
 ---
@@ -87,6 +87,31 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.42 | Jul 2026 | Export toolbar consolidation — CSV/Excel/PDF under single Export menu; Print stays standalone |
 | v1.0.43 | Jul 2026 | Backup reminder and Setup Guide onboarding fixes from real-world testing |
 | v1.0.44 | Jul 2026 | Database connection fix after backup restore; inline table editing; wider BOM edit drawers |
+| v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
+
+---
+
+## v1.0.45 — Detailed Changes
+
+**Released:** 19 July 2026
+
+**This release fixes a real crash bug present in v1.0.44 (Dashboard → View Markup Analysis). Any user on v1.0.44 should update.**
+
+### Important fix — please update
+
+**Fixed: app could crash when viewing Markup Analysis from the Dashboard**
+- Clicking 'View Markup Analysis' from the Below Target Markup list on the Dashboard could sometimes cause the app to show an error screen. This was caused by two data requests briefly competing with each other and is now fixed.
+- The same underlying issue could occasionally cause brief flashes of incorrect data on the Materials, Intermediate Materials, Product Detail, Material Detail, and Activity pages — also fixed.
+
+**Fixed: Optimal Markup % showing slightly wrong numbers**
+- The Optimal Markup % and Optimal Gross Margin % columns on the Products table could show tiny rounding differences from what you actually entered (e.g. 19.96% instead of a clean 20%), which also caused inconsistent colour coding on rows that should have matched. Both now show your exact entered value.
+
+**Updated: Help documentation**
+- Help articles now cover the inline table editing feature, the Valid Until quick-edit, and clarify how Optimal Markup % is calculated.
+
+### Process note
+
+Going forward, help article updates are checked and included as part of the same release as any functional change, not as a separate follow-up.
 
 ---
 
