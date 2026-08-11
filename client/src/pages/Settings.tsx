@@ -282,6 +282,7 @@ export default function Settings() {
   const { setHasOpenForm } = useFormState();
   const [defaultProfitMargin, setDefaultProfitMargin] = useState('30');
   const [healthyMarkupThreshold, setHealthyMarkupThreshold] = useState('20');
+  const [needsReviewIncreaseThreshold, setNeedsReviewIncreaseThreshold] = useState('5');
   const [companyName, setCompanyName] = useState('');
   const [companyLogoDataUrl, setCompanyLogoDataUrl] = useState('');
   const [isSavingBranding, setIsSavingBranding] = useState(false);
@@ -433,6 +434,11 @@ export default function Settings() {
       const healthyMarkupSetting = settingsData.find((s: any) => s.settingKey === 'healthyMarkupThreshold');
       if (healthyMarkupSetting) {
         setHealthyMarkupThreshold(healthyMarkupSetting.settingValue);
+      }
+
+      const needsReviewIncreaseSetting = settingsData.find((s: any) => s.settingKey === 'needsReviewIncreaseThreshold');
+      if (needsReviewIncreaseSetting) {
+        setNeedsReviewIncreaseThreshold(needsReviewIncreaseSetting.settingValue);
       }
 
       const companyNameSetting = settingsData.find((s: any) => s.settingKey === 'companyName');
@@ -697,6 +703,19 @@ export default function Settings() {
     } catch (error) {
       console.error('Error saving healthy markup threshold:', error);
       showToastMessage('Failed to save healthy markup threshold', 'error');
+    }
+  }
+
+  async function handleSaveNeedsReviewIncreaseThreshold() {
+    try {
+      await settingsApi.save({
+        settingKey: 'needsReviewIncreaseThreshold',
+        settingValue: needsReviewIncreaseThreshold,
+      });
+      showToastMessage('Price increase review threshold saved successfully!', 'success');
+    } catch (error) {
+      console.error('Error saving price increase review threshold:', error);
+      showToastMessage('Failed to save price increase review threshold', 'error');
     }
   }
 
@@ -1266,6 +1285,43 @@ export default function Settings() {
                 <button
                   className="btn btn-primary"
                   onClick={handleSaveHealthyMarkupThreshold}
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Save
+                </button>
+              </div>
+              <div className="app-settings-row-end" style={{ marginBottom: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="app-settings-label">
+                    Price increase review threshold
+                  </label>
+                  <div className="app-page-subtitle" style={{ marginTop: '6px', fontSize: '14px', marginBottom: '8px' }}>
+                    Products will only be flagged for review when their calculated price increases by more than this percentage. Price decreases are never flagged.
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      className="app-control"
+                      type="number"
+                      min="0"
+                      max="200"
+                      step="0.1"
+                      value={needsReviewIncreaseThreshold}
+                      onChange={(e) => setNeedsReviewIncreaseThreshold(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        paddingRight: '35px',
+                        borderRadius: '8px',
+                        border: '1px solid #e2e8f0',
+                        fontSize: '16px',
+                      }}
+                    />
+                    <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }}>%</span>
+                  </div>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveNeedsReviewIncreaseThreshold}
                   style={{ whiteSpace: 'nowrap' }}
                 >
                   Save

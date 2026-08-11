@@ -952,7 +952,25 @@ app.post('/api/pin/reset', async (_req, res) => {
 /** Default values for settings not yet stored in the database. */
 const SETTING_DEFAULTS: Record<string, string> = {
   healthyMarkupThreshold: '20',
+  needsReviewIncreaseThreshold: '5',
 };
+
+async function getNeedsReviewIncreaseThreshold(): Promise<number> {
+  try {
+    const rows = await getActiveDb()
+      .select({ settingValue: settings.settingValue })
+      .from(settings)
+      .where(eq(settings.settingKey, 'needsReviewIncreaseThreshold'));
+    const raw = rows[0]?.settingValue ?? SETTING_DEFAULTS.needsReviewIncreaseThreshold;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  } catch {
+    // Fall through to default.
+  }
+  return Number(SETTING_DEFAULTS.needsReviewIncreaseThreshold);
+}
 
 app.get('/api/settings', async (req, res) => {
   try {
@@ -2554,9 +2572,16 @@ async function setNeedsReviewIfOutdated(productId: number): Promise<{ reviewed: 
     return { reviewed: true, movedToNeedsReview: false };
   }
 
+  const approvedPrice = Number(product.approvedPrice);
+  if (!Number.isFinite(approvedPrice) || approvedPrice <= 0) {
+    return { reviewed: true, movedToNeedsReview: false };
+  }
+
   const optimalPrice = snapshot.optimalPrice;
-  const diff = Math.abs(optimalPrice - product.approvedPrice);
-  if (diff >= 0.01) {
+  const increaseThreshold = await getNeedsReviewIncreaseThreshold();
+  const percentChange = ((optimalPrice - approvedPrice) / approvedPrice) * 100;
+
+  if (percentChange > increaseThreshold) {
     await getActiveDb().update(products).set({
       approvalStatus: 'needs_review',
       needsReviewReason: 'cost_changed',
@@ -3558,7 +3583,25 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       grossMargin: number;
     }> = [];
 
-    for (const productId of productIds) {
+    type BulkApprovePrepResult =
+      | {
+          kind: 'work';
+          item: {
+            productId: number;
+            current: typeof products.$inferSelect;
+            priceToApprove: number;
+            productionCost: number;
+            markupPercent: number;
+            grossMargin: number;
+          };
+        }
+      | {
+          kind: 'skip';
+          skipSelling?: boolean;
+          productName?: string;
+        };
+
+    const prepResults = await Promise.all(productIds.map(async (productId): Promise<BulkApprovePrepResult> => {
       const bomItems = await db
         .select({ id: billOfMaterials.id })
         .from(billOfMaterials)
@@ -3580,9 +3623,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       if (normalizedMethod === 'selling') {
         const currentSellingPrice = Number(current.currentSellingPrice || 0);
         if (currentSellingPrice <= 0) {
-          skipped += 1;
-          skippedProducts.push(current.name);
-          continue;
+          return { kind: 'skip', skipSelling: true, productName: current.name };
         }
         priceToApprove = currentSellingPrice;
       } else if (normalizedMethod === 'markup') {
@@ -3590,8 +3631,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
       }
 
       if (current.approvalStatus === 'approved' && arePricesEqual(current.approvedPrice, priceToApprove)) {
-        skipped += 1;
-        continue;
+        return { kind: 'skip' };
       }
 
       const productionCost = await calculateProductionCostForProduct(current, productId);
@@ -3603,14 +3643,28 @@ app.post('/api/products/bulk-approve', async (req, res) => {
         ? Math.round(((priceToApprove - totalCost) / priceToApprove) * 100 * 100) / 100
         : 0;
 
-      approvalWork.push({
-        productId,
-        current,
-        priceToApprove,
-        productionCost,
-        markupPercent,
-        grossMargin,
-      });
+      return {
+        kind: 'work',
+        item: {
+          productId,
+          current,
+          priceToApprove,
+          productionCost,
+          markupPercent,
+          grossMargin,
+        },
+      };
+    }));
+
+    for (const result of prepResults) {
+      if (result.kind === 'skip') {
+        skipped += 1;
+        if (result.skipSelling && result.productName) {
+          skippedProducts.push(result.productName);
+        }
+        continue;
+      }
+      approvalWork.push(result.item);
     }
 
     await getActiveDb().transaction(async (tx) => {
