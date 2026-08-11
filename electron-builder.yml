@@ -29,6 +29,9 @@ win:
   target:
     - target: nsis
       arch: x64
+    # appx target disabled for v1.0.48 release — Store icon assets not yet ready
+    # - target: appx
+    #   arch: x64
   icon: electron/icons/icon.ico
   artifactName: "PriceRight-Setup-${version}.exe"
 
@@ -38,6 +41,12 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: PriceRight
+
+appx:
+  identityName: PriceRight.PriceRight
+  applicationId: PriceRight.PriceRight
+  publisher: CN=20D20DC5-BE01-4B08-BA59-F46570DF7AAA
+  publisherDisplayName: PriceRight
 
 beforePack: scripts/electron-before-pack.js
 afterPack: scripts/electron-after-pack.js
