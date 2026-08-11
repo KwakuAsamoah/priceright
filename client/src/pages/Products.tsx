@@ -807,10 +807,15 @@ export default function Products() {
         `Set ${selectedProducts.size} product${selectedProducts.size !== 1 ? 's' : ''} ${isActive ? 'active' : 'inactive'}`,
         'success'
       );
-      await loadData();
     } catch (error: any) {
       console.error('Error bulk updating product status:', error);
       showToastMessage(error?.message || 'Failed to update selected product statuses', 'error');
+    } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk status change:', refreshError);
+      }
     }
   }
 
@@ -845,7 +850,6 @@ export default function Products() {
       await productsApi.bulkDelete(ids);
       setSelectedProducts(new Set());
       setShowBulkDeleteModal(false);
-      await loadData();
       showToastMessage(
         `Deleted ${ids.length} product${ids.length !== 1 ? 's' : ''}`,
         'success'
@@ -853,6 +857,12 @@ export default function Products() {
     } catch (error: any) {
       console.error('Error bulk deleting products:', error);
       showToastMessage(error?.message || 'Failed to delete selected products', 'error');
+    } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk delete:', refreshError);
+      }
     }
   }
 
@@ -878,10 +888,15 @@ export default function Products() {
 
       setShowCategoryModal(false);
       setBulkCategoryValue('');
-      await loadData();
     } catch (error) {
       console.error('Error updating category:', error);
       showToastMessage('Failed to update category', 'error');
+    } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk category change:', refreshError);
+      }
     }
   }
 
@@ -1038,10 +1053,15 @@ export default function Products() {
 
       setShowBulkApproveModal(false);
       setSelectedProducts(new Set());
-      await loadData();
     } catch (error: any) {
       console.error('Bulk approve failed:', error);
       showToastMessage(error?.message || 'Failed to bulk approve products', 'error');
+    } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk approve:', refreshError);
+      }
     }
   }
 
@@ -1059,10 +1079,15 @@ export default function Products() {
       setShowBulkResetModal(false);
       setBulkResetReason('');
       setSelectedProducts(new Set());
-      await loadData();
     } catch (error: any) {
       console.error('Bulk reset to pending failed:', error);
       showToastMessage(error?.message || 'Failed to reset products to pending', 'error');
+    } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk reset:', refreshError);
+      }
     }
   }
 
