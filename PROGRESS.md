@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 19 July 2026
-**Current version:** 1.0.47
+**Last updated:** 11 August 2026
+**Current version:** 1.0.48
 **Active branch:** main
 
 ---
@@ -90,6 +90,25 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.48 — Detailed Changes
+
+**Released:** 11 August 2026
+
+**Fixed: bulk approve could show a failed message even when it actually worked**
+- If you used 'Approve all eligible' and saw an error, the products may have actually been approved successfully behind the scenes, and the app just failed to show you the correct result until you left and returned to the page. This is now fixed — the screen always shows what actually happened, immediately.
+
+**New: control which price changes need your review**
+- Previously, any change to a product's calculated price — even a tiny one, or a decrease — could flag it as needing review.
+- You can now set a threshold in Settings under 'Price increase review threshold' (default 5%). Products are only flagged for review when their price genuinely increases by more than this amount. Price decreases never trigger a review flag.
+
+**Improved: bulk approve now processes faster**
+- The preparation step before approving multiple products at once has been sped up.
+
+**Note:** Microsoft Store MSIX packaging work is in progress separately — appx target added to electron-builder.yml but not yet included in a release build pending Store icon assets being placed in build/appx/.
 
 ---
 
