@@ -1088,16 +1088,24 @@ export default function Products() {
 
     setIsApprovingAll(true);
     try {
-      await productsApi.bulkApprove(approveAllEligibleIds);
-      showToastMessage(`${approveAllEligibleIds.length} product${approveAllEligibleIds.length !== 1 ? 's' : ''} approved`, 'success');
+      const result = await productsApi.bulkApprove(approveAllEligibleIds);
+      const approvedCount = Number(result?.approved ?? 0);
+      showToastMessage(
+        `${approvedCount} product${approvedCount !== 1 ? 's' : ''} approved`,
+        'success',
+      );
       setShowApproveAllEligibleModal(false);
       setApproveAllEligibleIds([]);
       setSelectedProducts(new Set());
-      await loadData();
     } catch (error: any) {
       console.error('Approve all eligible failed:', error);
       showToastMessage(error?.message || 'Failed to approve all eligible products', 'error');
     } finally {
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error('Failed to refresh products after bulk approve:', refreshError);
+      }
       setIsApprovingAll(false);
     }
   }
