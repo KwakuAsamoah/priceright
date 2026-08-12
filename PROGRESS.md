@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 11 August 2026
-**Current version:** 1.0.48
+**Last updated:** 12 August 2026
+**Current version:** 1.0.49
 **Active branch:** main
 
 ---
@@ -90,7 +90,19 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.49 | Aug 2026 | Bulk-action UI reconciliation fix across all Products page bulk handlers |
 | v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.49 — Detailed Changes
+
+**Released:** 12 August 2026
+
+**Fixed: bulk actions could show a failed message even when they actually worked**
+- This affects all bulk actions on the Products page: approving multiple products, resetting to pending, deleting, setting active/inactive, and changing category.
+- Previously, if one of these actions showed an error message, it was sometimes misleading — the action may have actually completed successfully on your data, but the screen wasn't updating to show the correct result until you left the page and came back.
+- The screen now always reflects exactly what happened immediately after any bulk action, whether it succeeded or failed.
 
 ---
 
