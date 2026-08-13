@@ -52,6 +52,10 @@ async function getCurrentUserName() {
         return 'Admin';
     }
 }
+/** better-sqlite3 transactions are synchronous only — never pass an async callback. */
+function runSyncTransaction(work) {
+    getActiveDb().transaction(work);
+}
 async function logActivity(params, tx) {
     const writeLog = async (dbClient) => {
         await dbClient.insert(activityLog).values({
@@ -1465,9 +1469,9 @@ app.delete('/api/materials/bulk', async (req, res) => {
                 });
             }
         }
-        await getActiveDb().transaction(async (tx) => {
+        runSyncTransaction((tx) => {
             for (const materialId of materialIds) {
-                await tx.delete(materials).where(eq(materials.id, materialId));
+                tx.delete(materials).where(eq(materials.id, materialId)).run();
             }
         });
         res.json({ deleted: materialIds.length });
@@ -2049,11 +2053,12 @@ app.delete('/api/intermediate-materials/bulk', async (req, res) => {
                 },
             });
         }
-        await getActiveDb().transaction(async (tx) => {
+        runSyncTransaction((tx) => {
             for (const materialId of materialIds) {
-                await tx
+                tx
                     .delete(materials)
-                    .where(and(eq(materials.id, materialId), eq(materials.materialType, 'intermediate')));
+                    .where(and(eq(materials.id, materialId), eq(materials.materialType, 'intermediate')))
+                    .run();
             }
         });
         return res.json({ deleted: materialIds.length });
@@ -2668,8 +2673,8 @@ app.post('/api/products', async (req, res) => {
         const resolvedProductionMode = productionMode || 'single';
         const normalizedBomItems = normalizeBomItemsPayload(bomItems);
         const activeDb = getActiveDb();
-        const createdProduct = await activeDb.transaction(async (tx) => {
-            const result = await tx.insert(products).values({
+        const createdProduct = activeDb.transaction((tx) => {
+            const result = tx.insert(products).values({
                 name,
                 sku: sku || null,
                 description: description || null,
@@ -2681,14 +2686,14 @@ app.post('/api/products', async (req, res) => {
                 productionMode: resolvedProductionMode,
                 batchYield: resolvedProductionMode === 'batch' ? safeBatchYield(batchYield) : 1,
                 currentSellingPrice: currentSellingPrice || 0,
-            }).returning();
+            }).returning().all();
             const productId = result[0].id;
             if (normalizedBomItems.length > 0) {
-                await tx.insert(billOfMaterials).values(normalizedBomItems.map((item) => ({
+                tx.insert(billOfMaterials).values(normalizedBomItems.map((item) => ({
                     productId,
                     materialId: item.materialId,
                     quantity: item.quantity,
-                })));
+                }))).run();
             }
             return result[0];
         });
@@ -3064,7 +3069,7 @@ app.post('/api/products/bulk-approve', async (req, res) => {
             }
             approvalWork.push(result.item);
         }
-        await getActiveDb().transaction(async (tx) => {
+        runSyncTransaction((tx) => {
             for (const item of approvalWork) {
                 const updatePayload = {
                     approvalStatus: 'approved',
@@ -3079,7 +3084,11 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                     needsReviewReason: null,
                     updatedAt: new Date(),
                 };
-                await tx.update(products).set(updatePayload).where(eq(products.id, item.productId));
+                tx.update(products).set(updatePayload).where(eq(products.id, item.productId)).run();
+            }
+        });
+        for (const item of approvalWork) {
+            try {
                 await logActivity({
                     entityType: 'product',
                     entityId: item.productId,
@@ -3094,9 +3103,12 @@ app.post('/api/products/bulk-approve', async (req, res) => {
                         margin: item.grossMargin,
                     },
                     performedBy,
-                }, tx);
+                });
             }
-        });
+            catch (logErr) {
+                console.error('[bulk-approve] Activity log failed (approval still succeeded):', logErr);
+            }
+        }
         approved = approvalWork.length;
         res.json({
             approved,
@@ -3128,15 +3140,15 @@ app.post('/api/products/bulk-reset-to-pending', async (req, res) => {
             }
             idsToReset.push(productId);
         }
-        await getActiveDb().transaction(async (tx) => {
+        runSyncTransaction((tx) => {
             for (const productId of idsToReset) {
-                await tx.update(products).set({
+                tx.update(products).set({
                     approvalStatus: 'pending',
                     approvedPrice: null,
                     approvedBy: null,
                     approvedAt: null,
                     updatedAt: new Date(),
-                }).where(eq(products.id, productId));
+                }).where(eq(products.id, productId)).run();
             }
         });
         res.json({ reset: idsToReset.length });
@@ -3201,9 +3213,9 @@ app.delete('/api/products/bulk', async (req, res) => {
                 },
             });
         }
-        await getActiveDb().transaction(async (tx) => {
+        runSyncTransaction((tx) => {
             for (const productId of normalizedIds) {
-                await tx.delete(products).where(eq(products.id, productId));
+                tx.delete(products).where(eq(products.id, productId)).run();
             }
         });
         res.json({ deleted: normalizedIds.length });
