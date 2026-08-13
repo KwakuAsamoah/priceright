@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 12 August 2026
-**Current version:** 1.0.49
+**Last updated:** 13 August 2026
+**Current version:** 1.0.50
 **Active branch:** main
 
 ---
@@ -90,8 +90,27 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.50 | Aug 2026 | CRITICAL: synchronous db.transaction() fix across 6 endpoints; bulk-approve false-failure resolved |
 | v1.0.49 | Aug 2026 | Bulk-action UI reconciliation fix across all Products page bulk handlers |
 | v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.50 — Detailed Changes
+
+**Released:** 13 August 2026
+
+### Important reliability update — please install this update promptly
+
+**Fixed: a data-safety issue affecting several operations**
+
+We found and fixed an issue where, if something went wrong partway through certain operations — creating a new product, approving several products at once, resetting products to pending, or deleting multiple materials, intermediate materials, or products at once — the operation might not correctly undo itself if it failed midway. This has been properly fixed and thoroughly re-tested.
+
+**Also fixed: the misleading 'failed' message during bulk approve**
+
+Bulk approving products could sometimes show a failure message even when it worked correctly. This is now resolved as part of the same fix — bulk approve is both correctly safe and correctly reports what actually happened.
+
+**Internal note (not user-facing):** The transaction-safety work believed complete earlier this session had a critical flaw — db.transaction() was called with async callbacks, which better-sqlite3 does not support, meaning rollback protection was not actually functioning despite an earlier test appearing to confirm it. That earlier test had a blind spot (it exited before the async continuation could run). This is now fixed using synchronous transaction callbacks throughout, and verified with a corrected test that forces failure after a real write and waits for settling before checking state. Lesson: any future db.transaction() usage in this codebase MUST use synchronous callbacks only — no await inside a transaction callback, ever.
 
 ---
 
