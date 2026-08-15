@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
 **Last updated:** 15 August 2026
-**Current version:** 1.0.51
+**Current version:** 1.0.52
 **Active branch:** main
 
 ---
@@ -90,10 +90,26 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.52 | Aug 2026 | Fixed Reports sub-view crash (stale data shape); ErrorBoundary resets on route change; production error logging |
 | v1.0.51 | Aug 2026 | Reports & Analysis reorganized into 4 hubs; 5 overlapping reports retired with redirects; Reports.tsx slimmed to hub shell |
 | v1.0.50 | Aug 2026 | CRITICAL: synchronous db.transaction() fix across 6 endpoints; bulk-approve false-failure resolved |
 | v1.0.49 | Aug 2026 | Bulk-action UI reconciliation fix across all Products page bulk handlers |
 | v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.52 — Detailed Changes
+
+**Released:** 15 August 2026
+
+**Fixed: error when switching report sub-views**
+- Switching Pricing Health sub-views (Margin Health ↔ Markup Analysis ↔ Pricing Status) could crash due to stale report data from the previous sub-view having a different shape
+- The app-wide error screen then blocked all navigation until reload
+- Report data now clears immediately when the sub-view changes; shape guards added across all four report hubs (including Cost Changes Material Price History)
+
+**Improved: error recovery**
+- App-level ErrorBoundary now resets when you navigate to a different page, so a crash on one screen no longer bricks the whole app
+- ErrorBoundary logs caught errors to the console in production builds (visible in DevTools)
 
 ---
 
