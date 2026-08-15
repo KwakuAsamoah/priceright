@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 13 August 2026
-**Current version:** 1.0.50
+**Last updated:** 15 August 2026
+**Current version:** 1.0.51
 **Active branch:** main
 
 ---
@@ -90,9 +90,32 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.51 | Aug 2026 | Reports & Analysis reorganized into 4 hubs; 5 overlapping reports retired with redirects; Reports.tsx slimmed to hub shell |
 | v1.0.50 | Aug 2026 | CRITICAL: synchronous db.transaction() fix across 6 endpoints; bulk-approve false-failure resolved |
 | v1.0.49 | Aug 2026 | Bulk-action UI reconciliation fix across all Products page bulk handlers |
 | v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.51 — Detailed Changes
+
+**Released:** 15 August 2026
+
+**Improved: Reports & Analysis reorganized into 4 focused hubs**
+- **Pricing Health** — margin health, markup analysis, pricing status
+- **Cost Changes** — price vs cost drift, price volatility, material price history
+- **Material Costs** — materials cost analysis, top cost drivers
+- **Approvals & Lists** — approval history, price list summary
+- Filters, exports, and report logic preserved; Reports page shell reduced from ~4,132 lines to ~148
+
+**Removed: five overlapping reports retired (old bookmarks redirect automatically)**
+- Product Pricing Overview → Pricing Health / Margin Health
+- Profitability Ranking → Pricing Health / Margin Health
+- Optimal vs Actual Gap → Pricing Health / Pricing Status
+- Currency Exposure → Cost Changes / Price Volatility
+- Inactive in Active BOMs → Material Costs / Materials Cost Analysis
+
+**Also:** Dashboard Markup Analysis link now opens Pricing Health hub directly
 
 ---
 
