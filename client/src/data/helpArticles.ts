@@ -553,19 +553,17 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['materials reports', 'cost analysis', 'top cost drivers', 'price volatility', 'material price history', 'inactive materials'],
     relatedArticleIds: ['currency-exposure', 'reports-navigation', 'material-detail-page'],
     content: `
-      <p>Materials analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Materials</strong> tab at the top, then choose a report from the dropdown. Reports generate automatically — no Generate button needed.</p>
+      <p>Materials analysis is in the <strong>Material Costs</strong> and <strong>Cost Changes</strong> hubs. Open <strong>Reports and Analysis</strong>, pick a hub tab, then click a sub-view pill. Reports generate automatically — no Generate button needed.</p>
 
-      <p><strong>Currency Exposure</strong> — shows how many active materials you buy in each purchase currency. Expand a currency row to see individual materials. Helps you spot exchange-rate risk in your supply chain.</p>
+      <p><strong>Material Costs hub — Materials Cost Analysis</strong> — average unit cost by category, most-used materials in product recipes, and your highest unit-cost items.</p>
 
-      <p><strong>Materials Cost Analysis</strong> — average unit cost by category, most-used materials in product recipes, and your highest unit-cost items. Good for understanding where your material spend is concentrated.</p>
+      <p><strong>Material Costs hub — Top Cost Drivers</strong> — ranks materials by total BOM cost contribution across all products.</p>
 
-      <p><strong>Top Cost Drivers</strong> — ranks materials by total BOM cost contribution across all products. Shows which ingredients have the biggest impact on your overall production costs.</p>
+      <p><strong>Cost Changes hub — Price Volatility</strong> — highlights materials whose unit costs changed most over a selected period.</p>
 
-      <p><strong>Price Volatility</strong> — highlights materials whose unit costs changed most over a selected period. Useful after supplier price increases or exchange-rate moves.</p>
+      <p><strong>Cost Changes hub — Material Price History</strong> — pick a material and see its full price change history (same data as the Price History tab on the material detail page).</p>
 
-      <p><strong>Material Price History</strong> — pick a material and see its full price change history. Same data as the Price History tab on the material detail page.</p>
-
-      <p><strong>Inactive in Active BOMs</strong> — lists inactive materials still referenced in active product recipes. Fix these to keep product costs accurate.</p>`,
+      <p><em>Legacy reports removed:</em> Currency Exposure redirects to Price Volatility; Inactive in Active BOMs redirects to Materials Cost Analysis.</p>`,
   },
 
   // ── PRODUCTS ───────────────────────────────────────────────────────────────
@@ -1026,17 +1024,17 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['products reports', 'margin health', 'profitability ranking', 'price vs cost drift', 'optimal vs actual gap', 'pricing overview'],
     relatedArticleIds: ['product-pricing-overview', 'markup-health-guide', 'reports-navigation'],
     content: `
-      <p>Products analysis is now in <strong>Reports and Analysis</strong>. Open the <strong>Products</strong> tab at the top, then click a report pill. Reports generate automatically when selected.</p>
+      <p>Product pricing analysis is in the <strong>Pricing Health</strong> hub. Open <strong>Reports and Analysis → Pricing Health</strong>, then click a sub-view pill. Reports generate automatically when selected.</p>
 
-      <p><strong>Product Pricing Overview</strong> — combines approval status and markup health in one table. See which products are pending, approved, or need review, and how healthy each markup is at a glance.</p>
+      <p><strong>Margin Health</strong> — summary cards and distribution for Healthy, Low, and Critical markup bands based on your Healthy Markup Threshold in Settings. Click a band to filter the product list. Uses ProductsAnalysisTab on screen; export/print uses a flat five-column product table (same as before).</p>
 
-      <p><strong>Margin Health</strong> — summary cards and distribution for Healthy, Low, and Critical markup bands based on your Healthy Markup Threshold in Settings. Click a band to filter the product list.</p>
+      <p><strong>Markup Analysis</strong> — compare each approved product's Actual Markup % to a target threshold. Filter above/below target or by custom range.</p>
 
-      <p><strong>Profitability Ranking</strong> — all active products ranked by Actual Markup %. Quickly find your best and weakest performers.</p>
+      <p><strong>Pricing Status</strong> — approved base price vs optimal price across all active products, with Above/Below/At Optimal status.</p>
 
-      <p><strong>Price vs Cost Drift</strong> — shows how much each product's actual markup has drifted since approval as material costs change. Negative drift means costs rose faster than your approved price.</p>
+      <p><strong>Price vs Cost Drift</strong> moved to the <strong>Cost Changes</strong> hub — shows markup drift since approval as material costs change.</p>
 
-      <p><strong>Optimal vs Actual Gap</strong> — compares each product's approved base price to today's optimal price. Highlights products priced above or below what the system currently recommends.</p>`,
+      <p><em>Legacy reports removed from navigation:</em> Product Pricing Overview and Profitability Ranking now redirect to Margin Health; Optimal vs Actual Gap redirects to Pricing Status.</p>`,
   },
 
   {
@@ -1046,7 +1044,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['pricing status', 'report', 'above optimal', 'below optimal', 'export report'],
     relatedArticleIds: ['reports-navigation', 'markup-analysis-report', 'product-pricing-overview'],
     content: `
-      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Pricing</strong> tab, and click the <strong>Pricing Status</strong> pill. The report generates automatically — there is no Generate button. Change filters and results update live; active filters appear as chips above the table.</p>
+      <p>Go to <strong>Reports and Analysis → Pricing Health</strong>, and click the <strong>Pricing Status</strong> sub-view pill. The report generates automatically — there is no Generate button. Change filters and results update live; active filters appear as chips above the table.</p>
 
       <p>Summary cards show Total Products, Above Optimal, Below Optimal, and <strong>Avg Markup %</strong> (for products with an approved base price).</p>
 
@@ -1062,7 +1060,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['markup analysis', 'below target', 'markup threshold', 'profitability', 'target gap'],
     relatedArticleIds: ['markup-analysis-report', 'how-priceright-calculates-profit', 'pricing-status-report'],
     content: `
-      <p>The <strong>Markup Analysis</strong> report is in <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The report runs automatically when you open it.</p>
+      <p>The <strong>Markup Analysis</strong> report is in <strong>Reports and Analysis → Pricing Health → Markup Analysis</strong>. The report runs automatically when you open it.</p>
 
       <p>Set a <strong>threshold</strong> at the top — it defaults to your Healthy Markup Threshold from Settings. Filter by All, Above target, Below target, or a Custom markup range. Active filters appear as removable chips above the results.</p>
 
@@ -1078,14 +1076,9 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['currency exposure', 'FX risk', 'exchange rate risk', 'USD exposure', 'foreign currency risk'],
     relatedArticleIds: ['foreign-currencies', 'materials-analysis-tab', 'inline-exchange-rate'],
     content: `
-      <p>The Currency Exposure report shows how your active materials are spread across purchase currencies. This helps you see which currencies your material catalogue depends on.</p>
+      <p><em>This legacy report was retired from navigation.</em> Old links redirect to <strong>Cost Changes → Price Volatility</strong>, which shows materials whose unit costs changed over a selected period.</p>
 
-      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Materials</strong> tab, and select <strong>Currency Exposure</strong> from the dropdown. Reports generate automatically when you select them — no button needed.</p>
-
-      <p>The report shows each currency with a count of materials purchased in that currency.
-      Expand any currency row to see the individual materials.</p>
-
-      <p>Materials purchased in foreign currencies are exposed to exchange rate risk. When rates move, production costs for those materials change. Use this report to understand which currencies matter most to your business.</p>`,
+      <p>The former Currency Exposure report grouped active materials by purchase currency and showed exchange-rate exposure. For a currency-level view of your materials catalogue, review purchase currencies on the Materials page and keep exchange rates current in <strong>Settings → Currencies &amp; Rates</strong>.</p>`,
   },
 
   {
@@ -1097,7 +1090,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>The Price List Summary report shows all your price levels and whether each list is still valid or coming up for renewal.</p>
 
-      <p>Go to <strong>Reports and Analysis</strong>, open the <strong>Pricing</strong> tab, and click the <strong>Price List Summary</strong> pill. The report generates automatically when selected.</p>
+      <p>Go to <strong>Reports and Analysis → Approvals &amp; Lists → Price List Summary</strong>. The report generates automatically when selected.</p>
 
       <p>Summary cards show:</p>
       <ul>
@@ -1502,7 +1495,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Colour coding appears on the Products table, Dashboard, Reports, and Product Detail. Click the <strong>Markup Health</strong> info button (ⓘ) in page toolbars to see your current bands at a glance — it updates automatically when you change the threshold in Settings.</p>
 
-      <p>The <strong>Below Markup Target</strong> widget on the Dashboard links directly to the Markup Analysis report — click <strong>View Markup Analysis →</strong> at the bottom of the widget.</p>`,
+      <p>The <strong>Below Markup Target</strong> widget on the Dashboard links directly to <strong>Reports and Analysis → Pricing Health → Markup Analysis</strong> — click <strong>View Markup Analysis →</strong> at the bottom of the widget.</p>`,
   },
 
   {
@@ -1591,15 +1584,18 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['reports navigation', 'tab bar', 'pills', 'pricing reports', 'products reports', 'materials reports', 'auto generate'],
     relatedArticleIds: ['pricing-status-report', 'materials-analysis-tab', 'pricing-analysis-page'],
     content: `
-      <p><strong>Reports and Analysis</strong> is organised into three groups via tabs at the top: <strong>Pricing</strong>, <strong>Products</strong>, and <strong>Materials</strong>.</p>
+      <p><strong>Reports and Analysis</strong> is organised into four hubs via tabs at the top: <strong>Pricing Health</strong>, <strong>Cost Changes</strong>, <strong>Material Costs</strong>, and <strong>Approvals &amp; Lists</strong>.</p>
 
-      <p>Pricing and Products groups use <strong>pill selectors</strong> to pick a report. Materials uses a <strong>dropdown</strong>. Reports generate automatically when selected — there is no Generate button. Changing filters updates results live.</p>
+      <p>Each hub uses <strong>sub-view pills</strong> to pick a report within that hub. Reports generate automatically when selected — there is no Generate button. Changing filters updates results live.</p>
 
-      <p><strong>Pricing reports:</strong> Pricing Status, Markup Analysis, Approval History, Price List Summary.</p>
-      <p><strong>Products reports:</strong> Product Pricing Overview, Margin Health, Profitability Ranking, Price vs Cost Drift, Optimal vs Actual Gap.</p>
-      <p><strong>Materials reports:</strong> Currency Exposure, Materials Cost Analysis, Top Cost Drivers, Price Volatility, Material Price History, Inactive in Active BOMs.</p>
+      <p><strong>Pricing Health:</strong> Margin Health, Markup Analysis, Pricing Status.</p>
+      <p><strong>Cost Changes:</strong> Price vs Cost Drift, Price Volatility, Material Price History.</p>
+      <p><strong>Material Costs:</strong> Materials Cost Analysis, Top Cost Drivers.</p>
+      <p><strong>Approvals &amp; Lists:</strong> Approval History, Price List Summary.</p>
 
-      <p>Active filters appear as removable chips above results. Use the export buttons (PDF, Excel, Print) in the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
+      <p>Older bookmark URLs (for example <code>?group=pricing&amp;report=...</code>) redirect automatically to the matching hub view. Five legacy reports (Pricing Overview, Profitability Ranking, Optimal vs Actual Gap, Currency Exposure, Inactive in Active BOMs) redirect to the closest equivalent hub view.</p>
+
+      <p>Active filters appear as removable chips above results. Use the export buttons (CSV, Excel, PDF, Print) in the toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -1613,7 +1609,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Click × on a chip to remove that filter alone. Click <strong>Clear all filters</strong> to reset everything at once.</p>
 
-      <p>Filter chips appear on Products, Materials, Intermediate Materials, Reports and Analysis, and Activity. When filters produce no results, the empty state includes a Clear all filters button.</p>`,
+      <p>Filter chips appear on Products, Materials, Intermediate Materials, Reports and Analysis hub views, and Activity. When filters produce no results, the empty state includes a Clear all filters button.</p>`,
   },
 
   {
@@ -1653,7 +1649,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['markup analysis', 'below target', 'above target', 'target gap', 'markup threshold', 'custom range'],
     relatedArticleIds: ['low-margin-report', 'markup-health-guide', 'how-priceright-calculates-profit'],
     content: `
-      <p>Open <strong>Reports and Analysis → Pricing tab → Markup Analysis</strong> pill. The threshold input defaults to your Healthy Markup Threshold from Settings but can be changed for this session.</p>
+      <p>Open <strong>Reports and Analysis → Pricing Health → Markup Analysis</strong>. The threshold input defaults to your Healthy Markup Threshold from Settings but can be changed for this session.</p>
 
       <p>Filter by All products, Above target, Below target, or Custom range (enter min and max %). Stat cards show Total Analysed, Above Target, Below Target, and Average Markup %.</p>
 
@@ -1669,11 +1665,9 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['pricing overview', 'approval status', 'margin health', 'combined report', 'pricing status'],
     relatedArticleIds: ['pricing-analysis-page', 'pricing-status-report', 'markup-health-guide'],
     content: `
-      <p>Find this report at <strong>Reports and Analysis → Products tab → Pricing Overview</strong> pill. It combines approval status and markup health in one view.</p>
+      <p><em>This legacy report was retired from navigation.</em> Old links redirect to <strong>Pricing Health → Margin Health</strong>, which covers markup health bands, approval-aware product lists, and distribution cards.</p>
 
-      <p>Summary stat cards show counts by approval status and markup health band. The table lists all active products with Product Name, Category, Production Cost, Approved Base Price, Optimal Price, Actual Markup %, Approval Status badge, and Pricing Health badge.</p>
-
-      <p>Products sort with Needs Review first, then Pending, then Approved. Filter by category, approval status, or pricing health. Results update automatically when filters change.</p>`,
+      <p>The former Product Pricing Overview combined approval status and markup health in one table. Use Margin Health for band distribution and filtering, plus Pricing Status for approved-price vs optimal comparisons.</p>`,
   },
 
   {
