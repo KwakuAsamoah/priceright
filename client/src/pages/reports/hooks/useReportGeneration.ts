@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import useLatestRequest from '../../../hooks/useLatestRequest';
 
 type ApplyIfLatest = (apply: () => void) => void;
@@ -35,6 +35,12 @@ export function useReportGeneration<TData>({
   subViewIdRef.current = subViewId;
 
   const requestKey = `report:${hubId}:${subViewId}`;
+
+  useLayoutEffect(() => {
+    setReportData(null);
+    setGeneratedAt(null);
+    setError(null);
+  }, [hubId, subViewId]);
 
   const runGeneration = useCallback(async () => {
     if (!enabled) return;

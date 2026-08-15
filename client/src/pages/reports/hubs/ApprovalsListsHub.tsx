@@ -125,7 +125,8 @@ export default function ApprovalsListsHub() {
 
   const generatedRowsCount = useMemo(() => {
     if (!reportData) return 0;
-    return reportData.rows.length;
+    const rows = (reportData as { rows?: unknown }).rows;
+    return Array.isArray(rows) ? rows.length : 0;
   }, [reportData]);
 
   const canExportReport = Boolean(reportData && generatedAt && generatedRowsCount > 0);

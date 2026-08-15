@@ -4,6 +4,8 @@ interface Props {
   children: ReactNode;
   fallback?: ReactNode;
   onError?: (error: Error) => void;
+  /** When any value changes, a caught error is cleared so navigation can recover. */
+  resetKeys?: unknown[];
 }
 
 interface State {
@@ -22,10 +24,29 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    if (import.meta.env.DEV) {
-      console.error('ErrorBoundary caught:', error, info);
-    }
+    console.error('ErrorBoundary caught:', error, info.componentStack);
     this.props.onError?.(error);
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (!this.state.hasError || this.props.resetKeys === undefined) {
+      return;
+    }
+
+    const prevKeys = prevProps.resetKeys;
+    const nextKeys = this.props.resetKeys;
+    if (prevKeys === nextKeys) {
+      return;
+    }
+
+    if (
+      prevKeys == null
+      || nextKeys == null
+      || prevKeys.length !== nextKeys.length
+      || prevKeys.some((key, index) => key !== nextKeys[index])
+    ) {
+      this.setState({ hasError: false, error: null });
+    }
   }
 
   handleReset() {

@@ -112,14 +112,21 @@ export default function CostChangesHub() {
     if (!reportData) return 0;
     if (subViewId === 'material-price-history') {
       const data = reportData as CostChangesReportResultMap['material-price-history'];
-      return data.materialId ? data.rows.length : 0;
+      if (!Array.isArray(data.materialOptions)) return 0;
+      return data.materialId != null && Array.isArray(data.rows) ? data.rows.length : 0;
     }
-    return reportData.rows.length;
+    const rows = (reportData as { rows?: unknown }).rows;
+    return Array.isArray(rows) ? rows.length : 0;
   }, [reportData, subViewId]);
 
   const shouldShowReportBody = useMemo(() => {
     if (!reportData) return false;
-    if (subViewId === 'price-volatility' || subViewId === 'material-price-history') return true;
+    if (subViewId === 'material-price-history') {
+      return Array.isArray((reportData as CostChangesReportResultMap['material-price-history']).materialOptions);
+    }
+    if (subViewId === 'price-volatility') {
+      return Array.isArray((reportData as CostChangesReportResultMap['price-volatility']).rows);
+    }
     return generatedRowsCount > 0;
   }, [generatedRowsCount, reportData, subViewId]);
 
@@ -127,7 +134,10 @@ export default function CostChangesHub() {
     if (!reportData || !generatedAt) return false;
     if (subViewId === 'material-price-history') {
       const data = reportData as CostChangesReportResultMap['material-price-history'];
-      return data.materialId != null && data.rows.length > 0;
+      return Array.isArray(data.materialOptions)
+        && data.materialId != null
+        && Array.isArray(data.rows)
+        && data.rows.length > 0;
     }
     return generatedRowsCount > 0;
   }, [generatedAt, generatedRowsCount, reportData, subViewId]);
@@ -301,9 +311,10 @@ export default function CostChangesHub() {
     }
 
     if (subViewId === 'material-price-history') {
-      const options = reportData && subViewId === 'material-price-history'
+      const rawOptions = reportData
         ? (reportData as CostChangesReportResultMap['material-price-history']).materialOptions
-        : [];
+        : undefined;
+      const options = Array.isArray(rawOptions) ? rawOptions : [];
 
       return (
         <div style={{ ...INLINE_FILTER_FIELD, minWidth: '240px' }}>

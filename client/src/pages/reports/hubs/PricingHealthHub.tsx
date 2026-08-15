@@ -197,14 +197,21 @@ export default function PricingHealthHub() {
   const generatedRowsCount = useMemo(() => {
     if (!reportData) return 0;
     if (subViewId === 'margin-health') {
-      return (reportData as PricingHealthReportResultMap['margin-health']).products.length;
+      const products = (reportData as PricingHealthReportResultMap['margin-health']).products;
+      return Array.isArray(products) ? products.length : 0;
     }
-    return (reportData as PricingHealthReportResultMap['markup-analysis' | 'pricing-status']).rows.length;
+    const rows = (reportData as PricingHealthReportResultMap['markup-analysis' | 'pricing-status']).rows;
+    return Array.isArray(rows) ? rows.length : 0;
   }, [reportData, subViewId]);
 
   const shouldShowReportBody = useMemo(() => {
     if (!reportData) return false;
-    if (subViewId === 'markup-analysis' || subViewId === 'margin-health') return true;
+    if (subViewId === 'margin-health') {
+      return Array.isArray((reportData as PricingHealthReportResultMap['margin-health']).products);
+    }
+    if (subViewId === 'markup-analysis' || subViewId === 'pricing-status') {
+      return Array.isArray((reportData as PricingHealthReportResultMap['markup-analysis' | 'pricing-status']).rows);
+    }
     return generatedRowsCount > 0;
   }, [generatedRowsCount, reportData, subViewId]);
 

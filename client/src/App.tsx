@@ -650,6 +650,61 @@ function HelpArticleRedirect() {
   return <Navigate to={`/help?article=${encodeURIComponent(articleId || '')}`} replace />;
 }
 
+function AppErrorBoundary({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const resetKeys = useMemo(
+    () => [location.pathname, location.search, location.hash],
+    [location.pathname, location.search, location.hash],
+  );
+
+  return (
+    <ErrorBoundary
+      resetKeys={resetKeys}
+      fallback={(
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+          textAlign: 'center',
+          color: '#64748b',
+          backgroundColor: '#f8fafc',
+        }}
+        >
+          <div>
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>⚠️</div>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: '#0F2847', marginBottom: '8px' }}>
+              PriceRight encountered an error
+            </div>
+            <div style={{ fontSize: '15px', marginBottom: '20px' }}>
+              Please reload the application. Your data is safe.
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              style={{
+                backgroundColor: '#16A34A',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '10px 20px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Reload
+            </button>
+          </div>
+        </div>
+      )}
+    >
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 function AuthenticatedApp() {
   const router = createHashRouter([
     {
@@ -657,49 +712,9 @@ function AuthenticatedApp() {
       element: (
         <OnboardingProviderWrapper>
           <AppLayout>
-            <ErrorBoundary
-              fallback={(
-                <div style={{
-                  minHeight: '100vh',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '24px',
-                  textAlign: 'center',
-                  color: '#64748b',
-                  backgroundColor: '#f8fafc',
-                }}
-                >
-                  <div>
-                    <div style={{ fontSize: '40px', marginBottom: '16px' }}>⚠️</div>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#0F2847', marginBottom: '8px' }}>
-                      PriceRight encountered an error
-                    </div>
-                    <div style={{ fontSize: '15px', marginBottom: '20px' }}>
-                      Please reload the application. Your data is safe.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => window.location.reload()}
-                      style={{
-                        backgroundColor: '#16A34A',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '10px 20px',
-                        fontSize: '14px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Reload
-                    </button>
-                  </div>
-                </div>
-              )}
-            >
+            <AppErrorBoundary>
               <Outlet />
-            </ErrorBoundary>
+            </AppErrorBoundary>
           </AppLayout>
         </OnboardingProviderWrapper>
       ),
