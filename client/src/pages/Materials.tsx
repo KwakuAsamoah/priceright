@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowDownToLine, BarChart2, CheckCircle2, Clock3, Copy, 
 import OverflowMenu from '../components/OverflowMenu';
 import { ColumnSelectorDropdown } from '../components/ColumnSelectorDropdown';
 import ActionDropdown from '../components/ActionDropdown';
-import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl } from '../api';
+import { materialsApi, currenciesApi, exchangeRatesApi, settingsApi, templateUrl, getApiErrorMessage } from '../api';
 import { useMaterialCostSync } from '../context/MaterialCostSyncContext';
 import type { ImportMaterialRow, ImportResult } from '../api';
 import AppBadge from '../components/AppBadge';
@@ -635,8 +635,8 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
           : 'Bulk price updated',
         'success',
       );
-    } catch (error: any) {
-      showToastMessage(error?.message || 'Failed to update bulk price', 'error');
+    } catch (error: unknown) {
+      showToastMessage(getApiErrorMessage(error, 'Failed to update bulk price'), 'error');
     } finally {
       setInlineSavingId(null);
     }
@@ -735,9 +735,9 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
       setEditingMaterial(null);
       resetForm();
       loadData(selectedStatus);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving material:', error);
-      showToastMessage(error?.message || 'Failed to save material', 'error');
+      showToastMessage(getApiErrorMessage(error, 'Failed to save material'), 'error');
     }
   }
 
@@ -944,12 +944,18 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
   }
 
   function getMaterialBaseUnitCost(material: Material): number {
-    const rate = exchangeRates.find((entry) => entry.currencyId === material.purchaseCurrencyId)?.rateToBase || 1;
+    const storedUnitPrice = Number(material.unitPrice);
+    if (Number.isFinite(storedUnitPrice)) {
+      return storedUnitPrice;
+    }
+
     const purchaseUnitPrice = Number(material.bulkPrice || 0) / Math.max(1, Number(material.bulkQuantity || 1));
     if ((material.purchaseCurrencyCode || baseCurrency).toUpperCase() === baseCurrency.toUpperCase()) {
-      return Number(material.unitPrice || purchaseUnitPrice);
+      return purchaseUnitPrice;
     }
-    return purchaseUnitPrice / rate;
+
+    const rate = exchangeRates.find((entry) => entry.currencyId === material.purchaseCurrencyId)?.rateToBase || 1;
+    return purchaseUnitPrice * rate;
   }
 
   function handleExportFilteredMaterialsExcel() {
@@ -1136,9 +1142,9 @@ export default function Materials({ materialType = 'primary', onPrimaryCostChang
 
       await loadData();
       showToastMessage(`Duplicated material: ${duplicatedName}`, 'success');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error duplicating material:', error);
-      showToastMessage(error?.message || 'Failed to duplicate material', 'error');
+      showToastMessage(getApiErrorMessage(error, 'Failed to duplicate material'), 'error');
     }
   }
 
