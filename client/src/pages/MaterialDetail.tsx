@@ -14,6 +14,7 @@ import {
 import {
   currenciesApi,
   exchangeRatesApi,
+  getApiErrorMessage,
   materialsApi,
   settingsApi,
 } from '../api';
@@ -549,7 +550,7 @@ export default function MaterialDetail() {
         showToastMessage('Material saved', 'success');
       }
     } catch (err: unknown) {
-      showToastMessage(err instanceof Error ? err.message : 'Failed to save material', 'error');
+      showToastMessage(getApiErrorMessage(err, 'Failed to save material'), 'error');
     } finally {
       setSaving(false);
     }

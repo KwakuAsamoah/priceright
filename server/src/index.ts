@@ -391,6 +391,50 @@ function parsePositiveExchangeRate(rateToBase: unknown): number | null {
   return numericRate;
 }
 
+async function resolveExchangeRateForPurchaseCurrency(
+  purchaseCurrencyId: number,
+  baseCurrency: { id: number },
+): Promise<number> {
+  if (purchaseCurrencyId === baseCurrency.id) {
+    return 1;
+  }
+
+  const rateRows = await getActiveDb()
+    .select()
+    .from(exchangeRates)
+    .where(eq(exchangeRates.currencyId, purchaseCurrencyId))
+    .orderBy(desc(exchangeRates.effectiveDate))
+    .limit(1);
+
+  const currencyRows = await getActiveDb()
+    .select()
+    .from(currencies)
+    .where(eq(currencies.id, purchaseCurrencyId));
+  const currencyCode = currencyRows[0]?.code || String(purchaseCurrencyId);
+
+  if (rateRows.length === 0) {
+    throw new Error(
+      `No exchange rate found for currency ${currencyCode}. Set an exchange rate in Settings before saving materials in this currency.`,
+    );
+  }
+
+  const exchangeRate = parsePositiveExchangeRate(rateRows[0].rateToBase);
+  if (exchangeRate == null) {
+    throw new Error(
+      `Invalid exchange rate for currency ${currencyCode}. Set a valid exchange rate in Settings before saving materials in this currency.`,
+    );
+  }
+
+  return exchangeRate;
+}
+
+function isExchangeRateValidationError(error: unknown): error is Error {
+  return error instanceof Error && (
+    error.message.includes('No exchange rate found for currency')
+    || error.message.includes('Invalid exchange rate for currency')
+  );
+}
+
 async function calculateProductionCostForProduct(selectedProduct: typeof products.$inferSelect, productId: number): Promise<number> {
   const productionCostResponse = await db
     .select({
@@ -1330,18 +1374,14 @@ app.post('/api/materials', async (req, res) => {
     const resolvedMaterialType = materialType === 'intermediate' ? 'intermediate' : 'primary';
     const baseCurrency = await resolveBaseCurrency();
     
-    // Get exchange rate
     const resolvedPurchaseCurrencyId = resolvedMaterialType === 'intermediate'
       ? baseCurrency.id
       : Number(purchaseCurrencyId || baseCurrency.id);
-    let exchangeRate = 1;
-    if (resolvedPurchaseCurrencyId !== baseCurrency.id) {
-      const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
-      if (rate.length > 0) {
-        exchangeRate = parseFloat(rate[0].rateToBase.toString());
-      }
-    }
-    
+
+    const exchangeRate = resolvedMaterialType === 'intermediate'
+      ? 1
+      : await resolveExchangeRateForPurchaseCurrency(resolvedPurchaseCurrencyId, baseCurrency);
+
     // Calculate prices
     const normalizedBulkQuantity = Number(bulkQuantity) > 0 ? Number(bulkQuantity) : 1;
     const normalizedBulkPrice = Number(bulkPrice) >= 0 ? Number(bulkPrice) : 0;
@@ -1411,6 +1451,9 @@ app.post('/api/materials', async (req, res) => {
     if (error instanceof Error && error.message === 'No base currency configured') {
       return res.status(400).json({ error: 'No base currency configured' });
     }
+    if (isExchangeRateValidationError(error)) {
+      return res.status(400).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to create material' });
   }
 });
@@ -1466,29 +1509,27 @@ app.put('/api/materials/:id', async (req, res) => {
       );
     
     const baseCurrency = await resolveBaseCurrency();
-    
-    // Get exchange rate
     const resolvedPurchaseCurrencyId = materialType === 'intermediate' ? baseCurrency.id : purchaseCurrencyId;
-    let exchangeRate = 1;
-    if (resolvedPurchaseCurrencyId !== baseCurrency.id) {
-      const rate = await getActiveDb().select().from(exchangeRates).where(eq(exchangeRates.currencyId, resolvedPurchaseCurrencyId));
-      if (rate.length > 0) {
-        exchangeRate = parseFloat(rate[0].rateToBase.toString());
-      }
-    }
-    
-    // Calculate prices
+
     const normalizedBulkQuantity = bulkQuantity > 0 ? bulkQuantity : 1;
     const normalizedBulkPrice = bulkPrice >= 0 ? bulkPrice : 0;
-    const priceInPurchaseCurrency = materialType === 'intermediate'
-      ? calculatedCostPerUnit * normalizedBulkQuantity
-      : normalizedBulkPrice;
-    const priceInBaseCurrency = materialType === 'intermediate'
-      ? calculatedCostPerUnit * normalizedBulkQuantity
-      : normalizedBulkPrice * exchangeRate;
-    const unitPrice = materialType === 'intermediate'
-      ? calculatedCostPerUnit
-      : priceInBaseCurrency / normalizedBulkQuantity;
+
+    let priceInPurchaseCurrency = Number(existing.priceInPurchaseCurrency);
+    let priceInBaseCurrency = Number(existing.priceInBaseCurrency);
+    let unitPrice = materialType === 'intermediate'
+      ? Number(calculatedCostPerUnit || existing.calculatedCostPerUnit || existing.unitPrice || 0)
+      : Number(existing.unitPrice || 0);
+
+    if (materialType === 'primary' && shouldRecalculatePrice) {
+      const exchangeRate = await resolveExchangeRateForPurchaseCurrency(resolvedPurchaseCurrencyId, baseCurrency);
+      priceInPurchaseCurrency = normalizedBulkPrice;
+      priceInBaseCurrency = normalizedBulkPrice * exchangeRate;
+      unitPrice = priceInBaseCurrency / normalizedBulkQuantity;
+    } else if (materialType === 'intermediate' && shouldRecalculateIntermediateCost) {
+      priceInPurchaseCurrency = calculatedCostPerUnit * normalizedBulkQuantity;
+      priceInBaseCurrency = calculatedCostPerUnit * normalizedBulkQuantity;
+      unitPrice = calculatedCostPerUnit;
+    }
     
     // Update material
     await getActiveDb().update(materials).set({
@@ -1582,6 +1623,9 @@ app.put('/api/materials/:id', async (req, res) => {
     console.error('Error updating material:', error);
     if (error instanceof Error && error.message === 'No base currency configured') {
       return res.status(400).json({ error: 'No base currency configured' });
+    }
+    if (isExchangeRateValidationError(error)) {
+      return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: 'Failed to update material' });
   }
