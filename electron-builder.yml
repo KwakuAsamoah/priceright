@@ -37,6 +37,7 @@ win:
 
 nsis:
   oneClick: false
+  license: electron/installer-license.txt
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true

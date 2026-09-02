@@ -1,0 +1,105 @@
+PriceRight — Terms of Service and Privacy Policy
+
+Last updated: June 2026
+
+================================================================================
+TERMS OF SERVICE
+================================================================================
+
+These terms govern your use of PriceRight software developed by TheRightHub.
+
+Licence
+-------
+PriceRight is sold as a single-user licence. One licence permits use on one
+computer by one person. You may not share, transfer, or resell your licence.
+
+Trial period
+------------
+A 14-day free trial is provided. No payment is required to start a trial. After
+14 days access is locked until a licence is purchased.
+
+Payment
+-------
+Licences are billed annually. All prices are in the currency configured in
+your PriceRight settings. The default currency is GHS (Ghana Cedis). Payments
+are processed securely by Paystack.
+
+Refunds
+-------
+All sales are final. No refunds are provided after a licence key has been
+issued. If you experience technical issues contact hello@therighthub.com and we
+will work to resolve them.
+
+Acceptable use
+--------------
+PriceRight is business software. You may not use it for any illegal purpose or
+in any way that violates applicable laws in your jurisdiction.
+
+Warranty disclaimer
+-------------------
+PriceRight is provided as-is without warranty of any kind. TheRightHub is not
+liable for any loss of data or business losses arising from use of the software.
+
+Data ownership
+--------------
+All business data you enter into PriceRight belongs to you. You can export and
+delete your data at any time.
+
+Governing law
+-------------
+These terms are governed by the laws of Ghana.
+
+Changes to these terms
+----------------------
+We may update these terms from time to time. Continued use of PriceRight after
+changes constitutes acceptance of the new terms.
+
+Contact
+-------
+hello@therighthub.com
+
+================================================================================
+PRIVACY POLICY
+================================================================================
+
+PriceRight is developed by TheRightHub. This policy explains what information
+we collect and how we use it.
+
+Information we collect
+----------------------
+When you activate a trial or purchase a licence we collect your email address.
+This is used to:
+  - Send your trial activation confirmation
+  - Deliver your licence key after purchase
+  - Contact you about your account
+
+Your business data
+------------------
+All your business data — materials, products, prices, and costs — is stored
+locally on your computer in a SQLite database file. This data never leaves your
+computer and is never transmitted to our servers.
+
+Licence verification
+--------------------
+When PriceRight launches it contacts our licence server to verify your licence
+status. This check sends only your machine ID and licence key. No business data
+is transmitted.
+
+Data retention
+--------------
+Your email address and licence information are stored on our secure servers
+hosted on Railway. You may request deletion of your account data at any time
+by emailing hello@therighthub.com.
+
+Third party services
+--------------------
+We use the following services:
+  - Railway — licence server hosting
+  - Resend — email delivery
+  - Paystack — payment processing
+
+Each service has its own privacy policy.
+
+Contact
+-------
+For privacy questions contact: hello@therighthub.com

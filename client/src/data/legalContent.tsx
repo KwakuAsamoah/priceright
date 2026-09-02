@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+/** Bump when Terms/Privacy text changes materially to require re-acceptance. */
+export const CURRENT_TERMS_VERSION = '2026-06';
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: '18px' }}>

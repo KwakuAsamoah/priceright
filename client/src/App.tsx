@@ -22,6 +22,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { UndoActionProvider } from './hooks/useUndoAction';
 import { WelcomeModal } from './components/WelcomeModal';
 import { BaseCurrencyGateModal } from './components/BaseCurrencyGateModal';
+import { TermsAcceptanceGateModal } from './components/TermsAcceptanceGateModal';
 import { OnboardingBar } from './components/OnboardingBar';
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import DemoModeBanner from './components/DemoModeBanner';
@@ -37,6 +38,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { MaterialCostSyncProvider } from './context/MaterialCostSyncContext';
 import { pinApi, materialsApi, productsApi, priceLevelRulesApi, currenciesApi, settingsApi, demoModeApi } from './api';
 import { clearCurrencyCache } from './utils/currency';
+import { CURRENT_TERMS_VERSION } from './data/legalContent';
 
 function isRouteActive(pathname: string, basePath: string): boolean {
   if (basePath === '/') {
@@ -316,6 +318,7 @@ function AppLayout({ children }: { children: ReactNode }) {
   const { resumeOnboarding } = useOnboarding();
   const [navCounts, setNavCounts] = useState({ materials: 0, products: 0, priceLevels: 0 });
   const [baseCurrencyMissing, setBaseCurrencyMissing] = useState(false);
+  const [termsAcceptedMissing, setTermsAcceptedMissing] = useState(false);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -356,7 +359,7 @@ function AppLayout({ children }: { children: ReactNode }) {
             priceLevels: Array.isArray(levels) ? levels.length : 0,
           });
         }
-        // Check base currency — fetch demo mode directly from API to avoid stale context state
+        // Check base currency and terms acceptance — fetch demo mode directly from API to avoid stale context state
         if (!cancelled) {
           const demoStatus = await demoModeApi.get();
           if (!demoStatus?.demoMode && !cancelled) {
@@ -372,8 +375,21 @@ function AppLayout({ children }: { children: ReactNode }) {
               allCurrencies.length === 0 ||
               !baseCurrencySetting?.settingValue
             );
+            if (skipPIN) {
+              setTermsAcceptedMissing(false);
+            } else {
+              const termsSetting = Array.isArray(allSettings)
+                ? allSettings.find(
+                    (s: { settingKey: string; settingValue: string }) => s.settingKey === 'termsAcceptedVersion',
+                  )
+                : undefined;
+              setTermsAcceptedMissing(
+                !termsSetting?.settingValue || termsSetting.settingValue !== CURRENT_TERMS_VERSION,
+              );
+            }
           } else if (!cancelled) {
             setBaseCurrencyMissing(false);
+            setTermsAcceptedMissing(false);
           }
         }
       } catch {
@@ -382,7 +398,7 @@ function AppLayout({ children }: { children: ReactNode }) {
     }
     void fetchCounts();
     return () => { cancelled = true; };
-  }, [location.pathname, isDemoMode]);
+  }, [location.pathname, isDemoMode, skipPIN]);
   const [isUnlocked, setIsUnlocked] = useState(() => {
     if (skipPIN) return true;
     try {
@@ -600,7 +616,7 @@ function AppLayout({ children }: { children: ReactNode }) {
           <UpdateModal />
           <TrialBanner />
           <BackupReminderBanner />
-          {!baseCurrencyMissing && <OnboardingBar />}
+          {!baseCurrencyMissing && !termsAcceptedMissing && <OnboardingBar />}
           {children}
         </main>
           <UndoBanner />
@@ -624,7 +640,12 @@ function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
-      {baseCurrencyMissing && (
+      {termsAcceptedMissing && (
+        <TermsAcceptanceGateModal
+          onComplete={() => setTermsAcceptedMissing(false)}
+        />
+      )}
+      {baseCurrencyMissing && !termsAcceptedMissing && (
         <BaseCurrencyGateModal
           onComplete={() => {
             clearCurrencyCache();
@@ -632,7 +653,7 @@ function AppLayout({ children }: { children: ReactNode }) {
           }}
         />
       )}
-      {showWelcome && welcomeChecked && !baseCurrencyMissing && !location.pathname.startsWith('/help') && (
+      {showWelcome && welcomeChecked && !termsAcceptedMissing && !baseCurrencyMissing && !location.pathname.startsWith('/help') && (
         <WelcomeModal onDismiss={() => setShowWelcome(false)} />
       )}
     </>
