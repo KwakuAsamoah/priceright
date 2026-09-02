@@ -1,7 +1,7 @@
 # PriceRight — Project Progress
 
-**Last updated:** 15 August 2026
-**Current version:** 1.0.52
+**Last updated:** 2 September 2026
+**Current version:** 1.0.53
 **Active branch:** main
 
 ---
@@ -90,11 +90,37 @@ TypeScript, Node.js/Express, SQLite.
 | v1.0.45 | Jul 2026 | Reports crash fix (Dashboard → Markup Analysis); stale-data race guards; Optimal Markup % display fix; help article updates |
 | v1.0.46 | Jul 2026 | Pre-launch hardening: database transaction safety, delete-cascade integrity, Approval History accuracy, connection-failure messaging, auto-update failure recovery, UI consistency fixes |
 | v1.0.47 | Jul 2026 | Clickable needs-review banner (clears filters); PIN lock screen redesign with numeric keypad and keyboard support |
+| v1.0.53 | Sep 2026 | Zoom persistence fix; Terms acceptance gate + NSIS license screen; exchange-rate validation on material save; foreign-currency export unit cost fix; Reports stat card cleanup; 22 help articles corrected + PIN lock article |
 | v1.0.52 | Aug 2026 | Fixed Reports sub-view crash (stale data shape); ErrorBoundary resets on route change; production error logging |
 | v1.0.51 | Aug 2026 | Reports & Analysis reorganized into 4 hubs; 5 overlapping reports retired with redirects; Reports.tsx slimmed to hub shell |
 | v1.0.50 | Aug 2026 | CRITICAL: synchronous db.transaction() fix across 6 endpoints; bulk-approve false-failure resolved |
 | v1.0.49 | Aug 2026 | Bulk-action UI reconciliation fix across all Products page bulk handlers |
 | v1.0.48 | Aug 2026 | Bulk-approve UX fix (always reconcile UI); configurable price-increase review threshold; faster bulk-approve prep |
+
+---
+
+## v1.0.53 — Detailed Changes
+
+**Released:** 2 September 2026
+
+**Fixed: window zoom resetting**
+- Zoom level no longer resets when alt-tabbing away and back, or when navigating between pages in the app
+
+**Fixed: foreign-currency material save without exchange rate**
+- Saving a material in a purchase currency with no exchange rate now returns a clear error instead of silently defaulting to rate 1
+
+**Fixed: Materials export unit cost for foreign currencies**
+- CSV/Excel export no longer divides by the exchange rate; unit costs display correctly in base currency
+
+**New: Terms of Service acceptance gate**
+- First launch requires accepting Terms of Service and Privacy Policy before use
+- NSIS installer also shows the license screen during setup
+
+**Improved: Reports & Analysis**
+- Removed several low-value stat cards to keep reports focused
+
+**Improved: Help centre**
+- Corrected 22 help articles; added new PIN lock screen article
 
 ---
 
