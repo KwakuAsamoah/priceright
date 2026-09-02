@@ -26,8 +26,10 @@ export const helpArticles: HelpArticle[] = [
       Whether you make food products, cosmetics, crafts, or any other manufactured
       goods — if you need to know your true production cost, PriceRight can help.</p>
 
-      <p><strong>Before you begin:</strong> go to <strong>Settings → Currencies &amp; Rates</strong>
-      and set your base currency. This is required before adding materials or products.</p>
+      <p><strong>Before you begin:</strong> on first launch, PriceRight shows an unskippable
+      <strong>Set your base currency</strong> screen before anything else — you must choose
+      (or add) your base currency there; it cannot be skipped. After that, you can also manage
+      currencies under <strong>Settings → Currencies &amp; Rates</strong>.</p>
 
       <p>Before PriceRight, most businesses rely on spreadsheets that get out of date,
       are hard to share, and don't automatically update when costs change. PriceRight
@@ -36,7 +38,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p><strong>Getting started in six steps:</strong></p>
       <ol>
-        <li>Set your base currency in Settings</li>
+        <li>Complete the unskippable base currency screen on first launch (then manage currencies in Settings if needed)</li>
         <li>Add raw materials with bulk purchase prices</li>
         <li>Create products with a bill of materials and markup</li>
         <li>Approve base prices on the product detail page</li>
@@ -80,10 +82,10 @@ export const helpArticles: HelpArticle[] = [
 
       <p>If you want to explore PriceRight before entering your own data, go to <strong>Settings → Data &amp; Backups</strong> and click <strong>Try sample data</strong> for a full demo dataset. You can also download the sample materials file from Settings → Sample data and import it on the Materials (Primary) tab.</p>
       <ol>
-        <li><strong>Set your base currency.</strong> Go to <strong>Settings → Currencies &amp; Rates</strong>.
-        Click <strong>Add currency</strong>, enter your local currency code (for example USD, GBP, NGN, KES, or EUR),
-        and mark it as the base currency. Every cost and price in PriceRight is calculated in this currency.
-        You cannot change it easily later, so set it correctly first.</li>
+        <li><strong>Set your base currency.</strong> On first launch, PriceRight shows an
+        unskippable <strong>Set your base currency</strong> screen — choose an existing currency
+        or add a new one there before you can use the app. You can manage currencies later under
+        <strong>Settings → Currencies &amp; Rates</strong>.</li>
 
         <li><strong>Add your raw materials.</strong> Go to Materials. Select the Primary tab.
         Add every ingredient, packaging item, and component you use. For each material
@@ -162,8 +164,11 @@ export const helpArticles: HelpArticle[] = [
       <p>When you launch PriceRight for the first time, a welcome screen appears
       with an overview of the steps to get started.</p>
 
-      <p>Click <strong>Start with Materials</strong> to begin the guided setup. A green guide bar
+      <p>Click <strong>Start setup →</strong> to begin the guided setup. A green guide bar
       appears at the top of the screen and walks you through each step in order.</p>
+
+      <p>Or click <strong>Explore on my own</strong> to dismiss the welcome screen without
+      starting the guide.</p>
 
       <p>The four steps are:</p>
       <ol>
@@ -234,7 +239,7 @@ export const helpArticles: HelpArticle[] = [
         <li>Click <strong>Restore from backup</strong></li>
         <li>Select your backup file (files end in .db)</li>
         <li>A confirmation dialog appears — read it carefully. Restoring will replace your current data.</li>
-        <li>Click Confirm to proceed</li>
+        <li>Click <strong>Restore Backup</strong> to proceed</li>
         <li>PriceRight restarts automatically with your restored data</li>
       </ol>
 
@@ -364,7 +369,7 @@ export const helpArticles: HelpArticle[] = [
       Materials (Primary tab) and click <strong>+ Add → Import from CSV</strong>.</p>
 
       <p>First, download the Excel template from the import dialog. Open it in
-      Excel, fill in your materials on the Materials Import sheet, and follow
+      Excel, fill in your materials on the <strong>Import Data</strong> sheet, and follow
       the instructions on the Instructions sheet.</p>
 
       <p>Each row is one material. You need the material name, category, unit,
@@ -817,7 +822,8 @@ export const helpArticles: HelpArticle[] = [
       <ul>
         <li>a material unit cost changes,</li>
         <li>an exchange-rate update changes converted material costs,</li>
-        <li>an approved price passes its expiry date, or</li>
+        <li>an approved price passes its expiry date,</li>
+        <li>the calculated optimal price rises by more than your <strong>Price increase review threshold</strong> (Settings → Pricing Engine — price decreases never trigger this automatically), or</li>
         <li>a cost input that affects the optimal price is edited on the product itself — including Direct Labor Cost, Other Direct Costs, Overhead %, or Markup %.</li>
       </ul>
 
@@ -887,7 +893,7 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>Price levels let you set different prices for different customer types — wholesale, retail, export, or a named customer — without entering every price by hand.</p>
 
-      <p>Go to <strong>Price Levels</strong> in the Setup section. To create your first level, click <strong>+ Create your first price level</strong>. The wizard has four steps:</p>
+      <p>Go to <strong>Price Levels</strong> in the Setup section. When the page is empty, click <strong>Create your first price list</strong>. The wizard has four steps:</p>
 
       <ol>
         <li><strong>Step 1 — Name and currency.</strong> Enter a name for the level (for example Wholesale or Retail). Choose the price list currency — your base currency or any other active currency in your settings.</li>
@@ -910,7 +916,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['price level', 'wizard', 'create price level', 'new price level', 'customer pricing', 'setup wizard'],
     relatedArticleIds: ['price-levels', 'price-level-approval', 'generating-price-list'],
     content: `
-      <p>Click <strong>Price Levels</strong> in the sidebar, then <strong>+ Create your first price level</strong> or <strong>+ New price level</strong>. The wizard walks you through four steps.</p>
+      <p>Click <strong>Price Levels</strong> in the sidebar. On an empty page, click <strong>Create your first price list</strong>; once you have levels, use <strong>New price level</strong> in the header. The wizard walks you through four steps.</p>
 
       <p><strong>Step 1 — Name and currency:</strong> Enter a name (Retail, Wholesale, or a customer name) and choose the price list currency.</p>
 
@@ -924,7 +930,7 @@ export const helpArticles: HelpArticle[] = [
         <li><strong>I'll approve later</strong> — creates the level with prices pending; approve from the Price Levels page when ready.</li>
       </ul>
 
-      <p>After creation, add pack sizes using the toolbar <strong>Pack sizes</strong> button and export via <strong>Export PDF</strong>, <strong>Export Excel</strong>, or <strong>Print</strong>. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
+      <p>After creation, add pack sizes using the toolbar <strong>Pack sizes</strong> button. Export via the <strong>Export</strong> dropdown (Excel or PDF) or the separate <strong>Print</strong> button. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
@@ -982,12 +988,12 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>Export price lists from the <strong>Price Levels</strong> page. Select a level in the left panel — only <strong>approved</strong> items can be exported.</p>
 
-      <p>Use the toolbar export buttons directly:</p>
+      <p>Use the toolbar <strong>Export</strong> dropdown for Excel or PDF, plus a separate <strong>Print</strong> button:</p>
       <ul>
-        <li><strong>Export PDF</strong> — downloads a professional PDF price list</li>
-        <li><strong>Export Excel</strong> — spreadsheet format</li>
-        <li><strong>Export Selected to Excel</strong> — exports only the rows you have selected</li>
-        <li><strong>Print</strong> — generates the same PDF as Export PDF for printing</li>
+        <li><strong>Export → Excel</strong> — downloads a spreadsheet price list</li>
+        <li><strong>Export → PDF</strong> — downloads a professional PDF price list</li>
+        <li><strong>Export Selected to Excel</strong> — opens a modal to export specific products only (PDF or Excel from there)</li>
+        <li><strong>Print</strong> — generates the same PDF as Export → PDF for printing</li>
       </ul>
 
       <p>Before exporting, use <strong>Approve all pending</strong> or approve individual rows. Use the <strong>Export selected products</strong> modal if you want a PDF or Excel file of specific products only.</p>
@@ -1012,7 +1018,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>A note on PDF and print exports shows which exchange rate was used. Keep rates up to date in <strong>Settings → Currencies &amp; Rates</strong>.</p>
 
-      <p>The <strong>Currency Exposure</strong> report (Reports and Analysis → Materials tab) shows material purchase currencies — it helps with exchange-rate risk on costs, not customer price list conversion.</p>`,
+      <p><em>The legacy <strong>Currency Exposure</strong> report was retired from navigation.</em> Old links redirect to <strong>Cost Changes → Price Volatility</strong>, which shows materials whose unit costs changed over a selected period. For currency-level views of your materials catalogue, review purchase currencies on the Materials page and keep exchange rates current in <strong>Settings → Currencies &amp; Rates</strong>.</p>`,
   },
 
   // ── REPORTS AND ANALYSIS ───────────────────────────────────────────────────
@@ -1050,11 +1056,11 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Table columns include Product Name, Approval status, Category, Prod. Cost, Optimal Price, Approved base price, Variance, Profit, <strong>Actual Markup %</strong>, and pricing Status (Above/Below/At Optimal).</p>
 
-      <p>Export as PDF or Excel from the report toolbar. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
+      <p>Export as CSV, Excel, or PDF from the report toolbar <strong>Export</strong> dropdown. <strong>Print</strong> generates and downloads a PDF — open the downloaded PDF in your PDF viewer to print from there.</p>`,
   },
 
   {
-    id: 'low-margin-report',
+    id: 'markup-analysis-overview',
     section: 'Reports and Analysis',
     title: 'Markup Analysis Report',
     keywords: ['markup analysis', 'below target', 'markup threshold', 'profitability', 'target gap'],
@@ -1125,7 +1131,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['approval history', 'report', 'price approvals', 'history', 'audit trail'],
     relatedArticleIds: ['activity-log', 'price-history-tab', 'reports-navigation'],
     content: `
-      <p>The Approval History report lists products and their current approval-related figures. Go to <strong>Reports and Analysis → Pricing tab → Approval History</strong> pill. The report auto-generates when selected.</p>
+      <p>The Approval History report lists products and their current approval-related figures. Go to <strong>Reports and Analysis → Approvals &amp; Lists</strong>, then click the <strong>Approval History</strong> sub-view pill. The report auto-generates when selected.</p>
 
       <p>Filter by date range, approval status, or category. Active filters show as removable chips. Summary cards show Total Products, Approved, Pending, and Needs Review counts.</p>
 
@@ -1178,7 +1184,7 @@ export const helpArticles: HelpArticle[] = [
 
   {
     id: 'keep-current-price',
-    section: 'Settings and Data',
+    section: 'Pricing and Approvals',
     title: 'Keeping the current price after a cost change',
     keywords: ['keep current price', 'absorb cost', 'maintain price', 'cost increase', 'same price', 'no change'],
     relatedArticleIds: ['needs-review', 'how-approval-works', 'price-expiry'],
@@ -1196,7 +1202,7 @@ export const helpArticles: HelpArticle[] = [
 
   {
     id: 'stale-custom-price-alerts',
-    section: 'Settings and Data',
+    section: 'Pricing and Approvals',
     title: 'Stale custom price alerts',
     keywords: ['stale', 'custom price', 'outdated', 'alert', 'review', 'price level', 'custom', 'warning'],
     relatedArticleIds: ['special-pricing', 'price-level-approval', 'generating-price-list'],
@@ -1221,7 +1227,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Open <strong>Settings</strong> and go to <strong>Data &amp; Backups</strong> to check backup status. The page shows backup count and latest backup time when available.</p>
 
-      <p>Use <strong>Create backup</strong> before major updates such as broad material price imports, product restructuring, or large approval cycles. Manual backup runs immediately and updates status after completion.</p>
+      <p>Use <strong>Download backup file</strong> before major updates such as broad material price imports, product restructuring, or large approval cycles. Manual backup runs immediately and updates status after completion.</p>
 
       <p>Automatic backups run on a schedule handled by the server. Manual and automatic backups are both part of the same backup status flow shown in Settings.</p>
 
@@ -1230,7 +1236,7 @@ export const helpArticles: HelpArticle[] = [
         <li>Go to <strong>Settings → Data &amp; Backups</strong></li>
         <li>Click <strong>Restore from backup</strong></li>
         <li>Select your backup file (.db)</li>
-        <li>Confirm the restore</li>
+        <li>Click <strong>Restore Backup</strong> to proceed</li>
         <li>The app will restart with your restored data</li>
       </ol>
 
@@ -1296,7 +1302,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>Click <strong>Columns</strong> to show or hide columns with checkboxes. Your choices are saved automatically.</p>
 
-      <p>On the Products table, default visible columns include Product Name, Production Cost, Optimal Price, Optimal Markup %, Approved Base Price, Actual Markup %, and Approval Status. <strong>Valid Until</strong> and <strong>Optimal Gross Margin % (reference)</strong> are available but hidden by default. <strong>Gross Margin %</strong> reference columns are labelled "(reference)" because Markup on Cost is the primary metric.</p>
+      <p>On the Products table, default visible columns include Product, Production Cost, Optimal Price, Optimal Markup %, Approved Base Price, Actual Markup %, and Approval Status. <strong>Valid Until</strong> and <strong>Optimal Gross Margin % (reference)</strong> are available but hidden by default. <strong>Gross Margin %</strong> reference columns are labelled "(reference)" because Markup on Cost is the primary metric.</p>
 
       <p>Several columns can be edited directly in the table by clicking the cell — press Enter or click away to save:</p>
       <ul>
@@ -1319,7 +1325,7 @@ export const helpArticles: HelpArticle[] = [
 
       <p>When any filter is active (including search), small <strong>filter chips</strong> appear below the toolbar showing what is filtered — for example "Showing: Inactive" or "Search: sugar". Click × on a chip to remove that filter, or <strong>Clear all filters</strong> to reset everything.</p>
 
-      <p>Setting an item inactive removes it from day-to-day views without deleting it. Inactive materials still in active product BOMs are flagged in the <strong>Inactive in Active BOMs</strong> report under Reports and Analysis → Materials.</p>`,
+      <p>Setting an item inactive removes it from day-to-day views without deleting it. Inactive materials still used in active product BOMs were previously flagged in the retired <strong>Inactive in Active BOMs</strong> report — old links now redirect to <strong>Material Costs → Materials Cost Analysis</strong>.</p>`,
   },
 
   {
@@ -1409,7 +1415,7 @@ export const helpArticles: HelpArticle[] = [
     section: 'Settings and Data',
     title: 'Adding your company name and logo',
     keywords: ['company name', 'logo', 'branding', 'dashboard', 'settings'],
-    relatedArticleIds: ['master-data', 'welcome', 'generating-price-list'],
+    relatedArticleIds: ['master-data', 'welcome', 'generating-price-list', 'pin-lock-screen'],
     content: `
       <p>Go to <strong>Settings</strong> and open the <strong>General</strong> tab.</p>
 
@@ -1521,7 +1527,7 @@ export const helpArticles: HelpArticle[] = [
     keywords: ['material detail', 'usage', 'price history', 'material page', 'raw material'],
     relatedArticleIds: ['adding-materials', 'prev-next-navigation', 'foreign-currencies'],
     content: `
-      <p>Click any material row on the Materials page to open the full <strong>Material Detail</strong> page at <strong>/materials/:id</strong>.</p>
+      <p>Click any material row on the Materials page to open the full <strong>Material Detail</strong> page (URL format <strong>#/materials/{id}</strong> in the address bar).</p>
 
       <p>The page uses a two-column layout — material info and tabs on the left, pricing summary on the right. Two tabs are available:</p>
       <ul>
@@ -1600,7 +1606,7 @@ export const helpArticles: HelpArticle[] = [
 
   {
     id: 'filter-chips',
-    section: 'Getting Started',
+    section: 'Products and Materials',
     title: 'Using filter chips',
     keywords: ['filter chips', 'active filters', 'clear filters', 'filter indicator'],
     relatedArticleIds: ['active-inactive-filter', 'reports-navigation', 'activity-log'],
@@ -1647,7 +1653,7 @@ export const helpArticles: HelpArticle[] = [
     section: 'Reports and Analysis',
     title: 'Using the Markup Analysis report',
     keywords: ['markup analysis', 'below target', 'above target', 'target gap', 'markup threshold', 'custom range'],
-    relatedArticleIds: ['low-margin-report', 'markup-health-guide', 'how-priceright-calculates-profit'],
+    relatedArticleIds: ['markup-analysis-overview', 'markup-health-guide', 'how-priceright-calculates-profit'],
     content: `
       <p>Open <strong>Reports and Analysis → Pricing Health → Markup Analysis</strong>. The threshold input defaults to your Healthy Markup Threshold from Settings but can be changed for this session.</p>
 
@@ -1691,6 +1697,24 @@ export const helpArticles: HelpArticle[] = [
   },
 
   {
+    id: 'pin-lock-screen',
+    section: 'Settings and Data',
+    title: 'PIN lock screen and security',
+    keywords: ['pin', 'lock', 'security', 'keypad', 'unlock', 'password', 'forgot pin'],
+    relatedArticleIds: ['company-branding', 'master-data', 'data-backup'],
+    content: `
+      <p>PriceRight can require a PIN when the app opens. If a PIN is set, a full-screen lock appears before you can use the app.</p>
+
+      <p><strong>Unlocking:</strong> The lock screen shows <strong>Welcome back</strong> and <strong>Enter your PIN to continue</strong>. Enter your 4–6 digit PIN using the on-screen numeric keypad or your physical keyboard — the hint reads <strong>Type or tap to enter your PIN</strong>. Filled digits appear as dot indicators. Click <strong>Unlock</strong> when ready. If the PIN is wrong, the dots shake, an error message appears, and you can try again — there is no lockout timer or attempt limit.</p>
+
+      <p><strong>First-time setup:</strong> If no PIN exists yet, PriceRight asks you to <strong>Create your PIN</strong>. Enter a <strong>New PIN</strong> and <strong>Confirm PIN</strong> (4–6 digits each), then click <strong>Set PIN</strong>.</p>
+
+      <p><strong>Forgot your PIN?</strong> Click <strong>Forgot your PIN?</strong> on the lock screen. PriceRight shows instructions to contact support with your licence key at <strong>support@priceright.app</strong>. Use <strong>Back to sign in</strong> to return to the PIN entry screen.</p>
+
+      <p><strong>Changing your PIN:</strong> Open <strong>Settings → General</strong>, scroll to the <strong>Security</strong> section, enter your <strong>Current PIN</strong>, <strong>New PIN</strong>, and <strong>Confirm new PIN</strong> (4–6 digits), then click <strong>Change PIN</strong>.</p>`,
+  },
+
+  {
     id: 'error-boundaries',
     section: 'Getting Started',
     title: 'When something goes wrong',
@@ -1699,7 +1723,9 @@ export const helpArticles: HelpArticle[] = [
     content: `
       <p>If a tab encounters an error PriceRight shows a friendly message — <strong>This tab could not load</strong> — with a <strong>Try again</strong> button. Your data is safe. Click Try again to reload the section.</p>
 
-      <p>If the whole page encounters a serious error a <strong>Reload</strong> button appears. Click it to restart. If the problem continues contact <strong>support@therighthub.com</strong>.</p>`,
+      <p>If the whole app encounters a serious error, PriceRight shows <strong>PriceRight encountered an error</strong> with the message <strong>Please reload the application. Your data is safe.</strong> Click <strong>Reload</strong> to restart. As of v1.0.52, navigating to a different page also clears this error automatically — use the sidebar to move to another section without reloading if you prefer.</p>
+
+      <p>If the problem continues contact <strong>support@therighthub.com</strong>.</p>`,
   },
 
   {
