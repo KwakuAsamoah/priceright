@@ -30,9 +30,8 @@ export default function PriceVolatilityView({
 
   return (
     <div id="reporting-centre-print-area">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
         <StatCard label="Materials with Price Changes" value={String(data.materialsWithChanges)} />
-        <StatCard label="Average Change %" value={formatPct(data.averageChangePercent)} />
         <StatCard label="Biggest Increase" value={data.biggestIncreaseName} secondary={formatPct(data.biggestIncreasePercent)} tone="danger" />
         <StatCard label="Biggest Decrease" value={data.biggestDecreaseName} secondary={formatPct(data.biggestDecreasePercent)} tone="success" />
       </div>

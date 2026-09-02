@@ -83,7 +83,6 @@ export async function generateMaterialsCostAnalysisReport(
     .filter((row) => (categoryFilter === 'All' ? true : row.category === categoryFilter))
     .sort((a, b) => b.unitCost - a.unitCost);
 
-  const totalUnitCost = materials.reduce((sum, material) => sum + toNumber(material.unitPrice), 0);
   const mostExpensive = materials.reduce<MaterialRow | null>((best, material) => {
     if (!best) return material;
     return toNumber(material.unitPrice) > toNumber(best.unitPrice) ? material : best;
@@ -94,10 +93,8 @@ export async function generateMaterialsCostAnalysisReport(
     data: {
       rows,
       totalActiveMaterials: materials.length,
-      averageUnitCost: materials.length > 0 ? totalUnitCost / materials.length : 0,
       mostExpensiveName: mostExpensive?.name || '—',
       mostExpensiveCost: mostExpensive ? toNumber(mostExpensive.unitPrice) : 0,
-      categoryCount: categories.length,
     },
   };
 }

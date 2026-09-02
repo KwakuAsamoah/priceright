@@ -2050,10 +2050,6 @@ app.get('/api/reports/price-volatility', async (req, res) => {
 
     volatilityRows.sort((a, b) => b.changePercent - a.changePercent);
 
-    const averageChangePercent = volatilityRows.length > 0
-      ? volatilityRows.reduce((sum, row) => sum + row.changePercent, 0) / volatilityRows.length
-      : 0;
-
     const biggestIncrease = volatilityRows.reduce<typeof volatilityRows[number] | null>((best, row) => {
       if (!best || row.changePercent > best.changePercent) return row;
       return best;
@@ -2067,7 +2063,6 @@ app.get('/api/reports/price-volatility', async (req, res) => {
     res.json({
       rows: volatilityRows,
       materialsWithChanges: volatilityRows.length,
-      averageChangePercent,
       biggestIncreaseName: biggestIncrease?.materialName || '—',
       biggestIncreasePercent: biggestIncrease?.changePercent ?? 0,
       biggestDecreaseName: biggestDecrease?.materialName || '—',

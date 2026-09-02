@@ -20,11 +20,9 @@ export default function MaterialsCostAnalysisView({
 
   return (
     <div id="reporting-centre-print-area">
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(120px, 1fr))', gap: '8px', marginBottom: '14px' }}>
         <StatCard label="Total Active Materials" value={String(data.totalActiveMaterials)} />
-        <StatCard label="Average Unit Cost" value={formatCurrency(data.averageUnitCost)} />
         <StatCard label="Most Expensive Material" value={data.mostExpensiveName} secondary={formatCurrency(data.mostExpensiveCost)} />
-        <StatCard label="Categories" value={String(data.categoryCount)} />
       </div>
 
       <ReportTableShell rowCount={data.rows.length} currentPage={currentPage} onPageChange={onPageChange}>

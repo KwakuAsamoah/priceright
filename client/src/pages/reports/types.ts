@@ -55,10 +55,8 @@ export type MaterialCostsReportResultMap = {
   'materials-cost-analysis': {
     rows: MaterialsCostAnalysisRow[];
     totalActiveMaterials: number;
-    averageUnitCost: number;
     mostExpensiveName: string;
     mostExpensiveCost: number;
-    categoryCount: number;
   };
   'top-cost-drivers': {
     rows: TopCostDriverRow[];
@@ -174,7 +172,6 @@ export type CostChangesReportResultMap = {
   'price-volatility': {
     rows: PriceVolatilityRow[];
     materialsWithChanges: number;
-    averageChangePercent: number;
     biggestIncreaseName: string;
     biggestIncreasePercent: number;
     biggestDecreaseName: string;
