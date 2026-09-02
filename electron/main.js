@@ -118,6 +118,52 @@ function debounce(fn, delay) {
   };
 }
 
+const ZOOM_EPSILON = 0.001;
+
+function getWindowZoomPath() {
+  return path.join(app.getPath('userData'), 'windowZoom.json');
+}
+
+function readSavedZoomFactorFromDisk() {
+  try {
+    const zoomPath = getWindowZoomPath();
+    if (fs.existsSync(zoomPath)) {
+      const data = JSON.parse(fs.readFileSync(zoomPath, 'utf8'));
+      const factor = Number(data.zoomFactor);
+      if (Number.isFinite(factor) && factor > 0) {
+        return factor;
+      }
+    }
+  } catch {}
+  return 1;
+}
+
+function writeSavedZoomFactorToDisk(factor) {
+  try {
+    fs.writeFileSync(getWindowZoomPath(), JSON.stringify({ zoomFactor: factor }), 'utf8');
+  } catch {}
+}
+
+let savedZoomFactor = 1;
+let suppressZoomChangedHandler = false;
+
+function reapplySavedZoomIfNeeded(win) {
+  const targetWindow = win || mainWindow;
+  if (!targetWindow || targetWindow.isDestroyed()) return;
+
+  const { webContents } = targetWindow;
+  if (webContents.isDestroyed()) return;
+
+  const current = webContents.getZoomFactor();
+  if (Math.abs(current - savedZoomFactor) <= ZOOM_EPSILON) return;
+
+  suppressZoomChangedHandler = true;
+  webContents.setZoomFactor(savedZoomFactor);
+  setTimeout(() => {
+    suppressZoomChangedHandler = false;
+  }, 0);
+}
+
 function devLog(...args) {
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     console.log(...args);
@@ -417,18 +463,12 @@ function createWindow() {
   });
   mainWindow.on('close', saveWindowState);
 
-  const savedZoom = (() => {
-    try {
-      const zoomPath = path.join(app.getPath('userData'), 'windowZoom.json');
-      if (fs.existsSync(zoomPath)) {
-        const data = JSON.parse(fs.readFileSync(zoomPath, 'utf8'));
-        return data.zoomFactor ?? 1;
-      }
-    } catch {}
-    return 1;
-  })();
+  savedZoomFactor = readSavedZoomFactorFromDisk();
 
-  mainWindow.webContents.setZoomFactor(savedZoom);
+  function persistUserZoomFactor(factor) {
+    savedZoomFactor = factor;
+    writeSavedZoomFactorToDisk(factor);
+  }
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && input.control && String(input.key).toLowerCase() === 'p') {
@@ -444,15 +484,22 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('zoom-changed', (_event, zoomDirection) => {
+    if (suppressZoomChangedHandler) return;
+
     const current = mainWindow.webContents.getZoomFactor();
     const newZoom = zoomDirection === 'in'
       ? Math.min(current * 1.1, 3)
       : Math.max(current / 1.1, 0.5);
     mainWindow.webContents.setZoomFactor(newZoom);
-    try {
-      const zoomPath = path.join(app.getPath('userData'), 'windowZoom.json');
-      fs.writeFileSync(zoomPath, JSON.stringify({ zoomFactor: newZoom }), 'utf8');
-    } catch {}
+    persistUserZoomFactor(newZoom);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    reapplySavedZoomIfNeeded(mainWindow);
+  });
+
+  mainWindow.webContents.on('did-navigate-in-page', () => {
+    reapplySavedZoomIfNeeded(mainWindow);
   });
 
   const localBuiltIndex = path.join(__dirname, '..', 'client-dist', 'index.html');
@@ -475,6 +522,7 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    reapplySavedZoomIfNeeded(mainWindow);
     mainWindow.show();
     mainWindow.focus();
   });
@@ -490,6 +538,7 @@ function createWindow() {
   mainWindow.on('restore', () => {
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        reapplySavedZoomIfNeeded(mainWindow);
         mainWindow.webContents.focus();
       }
     }, 100);
@@ -498,6 +547,7 @@ function createWindow() {
   mainWindow.on('focus', () => {
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
+        reapplySavedZoomIfNeeded(mainWindow);
         mainWindow.webContents.focus();
       }
     }, 50);
